@@ -1,0 +1,5517 @@
+{
+  "revision": "f044c36",
+  "competitive": [
+    {
+      "seed": 2400,
+      "US": "strategic",
+      "USSR": "greedy",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "defcon_1",
+      "turn": 1,
+      "steps": 59,
+      "vp": 5,
+      "seconds": 0.22,
+      "roundtrips": 2,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 4,
+            "bonus": "asia",
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 5
+        },
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 4,
+            "bonus": "asia",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 5
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Panama",
+            "ops": 4,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 6
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 5
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Independent_Reds"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Independent_Reds",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Cameroon"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Lebanon"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Five_Year_Plan"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Five_Year_Plan",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Five_Year_Plan",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "random_discard",
+          "context": {
+            "owner": "USSR",
+            "purpose": "five_year_plan",
+            "count": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "random_discard",
+            "payload": {
+              "card": "Duck_and_Cover"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 5
+        }
+      ]
+    },
+    {
+      "seed": 2400,
+      "US": "greedy",
+      "USSR": "strategic",
+      "optional": false,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "vp",
+      "turn": 7,
+      "steps": 515,
+      "vp": -20,
+      "seconds": 4.92,
+      "roundtrips": 11,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 4,
+            "bonus": "asia",
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 0,
+            "non_bonus": 0,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Mexico"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 1,
+            "non_bonus": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "France"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 2,
+            "non_bonus": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "France"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 3,
+            "non_bonus": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Cameroon"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Nuclear_Subs"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Nuclear_Subs",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Mexico"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "John_Paul_II_Elected_Pope"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "John_Paul_II_Elected_Pope",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "space_race"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "space_race_roll",
+          "context": {
+            "side": "USSR",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "space_race_roll",
+            "payload": {
+              "value": 1
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": -18
+        }
+      ]
+    },
+    {
+      "seed": 2400,
+      "US": "event_value",
+      "USSR": "strategic",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "vp",
+      "turn": 5,
+      "steps": 320,
+      "vp": 20,
+      "seconds": 5.83,
+      "roundtrips": 7,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Marshall_Plan"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Marshall_Plan",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "space_race"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "space_race_roll",
+          "context": {
+            "side": "USSR",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "space_race_roll",
+            "payload": {
+              "value": 2
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Brezhnev_Doctrine"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Brezhnev_Doctrine",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "US",
+            "card": "Brezhnev_Doctrine",
+            "ops": 3,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 3,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 3,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "South_Africa"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "South_Africa"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "France"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": 17
+        },
+        {
+          "actor": "USSR",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "South_America_Scoring"
+            }
+          },
+          "turn": 5,
+          "defcon": 3,
+          "vp": 17
+        },
+        {
+          "actor": "US",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "Duck_and_Cover"
+            }
+          },
+          "turn": 5,
+          "defcon": 3,
+          "vp": 17
+        }
+      ]
+    },
+    {
+      "seed": 2400,
+      "US": "strategic",
+      "USSR": "event_value",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "defcon_1",
+      "turn": 6,
+      "steps": 417,
+      "vp": 2,
+      "seconds": 8.33,
+      "roundtrips": 9,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 3,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Willy_Brandt"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Willy_Brandt",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "John_Paul_II_Elected_Pope"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "John_Paul_II_Elected_Pope",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Mexico"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "How_I_Learned_to_Stop_Worrying"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "How_I_Learned_to_Stop_Worrying",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_choice",
+          "context": {
+            "event": "How_I_Learned_to_Stop_Worrying",
+            "choose_side": "USSR",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "1"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 2
+        }
+      ]
+    },
+    {
+      "seed": 2401,
+      "US": "strategic",
+      "USSR": "greedy",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "defcon_1",
+      "turn": 6,
+      "steps": 495,
+      "vp": 11,
+      "seconds": 3.72,
+      "roundtrips": 10,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 0,
+            "non_bonus": 0,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "France"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 1,
+            "non_bonus": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "South_Africa"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 2,
+            "non_bonus": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "South_Africa"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "bonus": "asia",
+            "base": 4,
+            "spent": 3,
+            "non_bonus": 3,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Turkey"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Kitchen_Debates"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Kitchen_Debates",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Kitchen_Debates",
+            "ops": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 9
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 1,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 11
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "El_Salvador"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 11
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "We_Will_Bury_You"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 11
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "We_Will_Bury_You",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 11
+        },
+        {
+          "actor": "US",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "US",
+            "card": "We_Will_Bury_You",
+            "ops": 4,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 11
+        }
+      ]
+    },
+    {
+      "seed": 2401,
+      "US": "greedy",
+      "USSR": "strategic",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "vp",
+      "turn": 4,
+      "steps": 299,
+      "vp": -20,
+      "seconds": 1.92,
+      "roundtrips": 6,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Dominican_Republic"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -11
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Central_America_Scoring"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -11
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Central_America_Scoring",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -11
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Shuttle_Diplomacy"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Shuttle_Diplomacy",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Shuttle_Diplomacy",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 3,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Libya"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Libya"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Syria"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "South_America_Scoring"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "South_America_Scoring",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -12
+        }
+      ]
+    },
+    {
+      "seed": 2401,
+      "US": "event_value",
+      "USSR": "strategic",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "vp",
+      "turn": 4,
+      "steps": 244,
+      "vp": -23,
+      "seconds": 3.65,
+      "roundtrips": 5,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Fidel",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "space_race"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "space_race_roll",
+          "context": {
+            "side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "space_race_roll",
+            "payload": {
+              "value": 3
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Defectors"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Defectors",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 2,
+            "bonus": null,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Cameroon"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Cameroon",
+            "ops": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 6
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Middle_East_Scoring"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Middle_East_Scoring",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "USSR",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "South_America_Scoring"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        },
+        {
+          "actor": "US",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "Ask_Not_What_Your_Country_Can_Do_For_You"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Ask_Not_What_Your_Country_Can_Do_For_You",
+            "choose_side": "US",
+            "discarded": 0,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "stop"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        }
+      ]
+    },
+    {
+      "seed": 2401,
+      "US": "strategic",
+      "USSR": "event_value",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "vp",
+      "turn": 4,
+      "steps": 244,
+      "vp": -23,
+      "seconds": 3.95,
+      "roundtrips": 5,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Fidel",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "space_race"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "space_race_roll",
+          "context": {
+            "side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "space_race_roll",
+            "payload": {
+              "value": 3
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Defectors"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Defectors",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -9
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 2,
+            "bonus": null,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Cameroon"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Cameroon",
+            "ops": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 6
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Middle_East_Scoring"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Middle_East_Scoring",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -8
+        },
+        {
+          "actor": "USSR",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "South_America_Scoring"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        },
+        {
+          "actor": "US",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "Ask_Not_What_Your_Country_Can_Do_For_You"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Ask_Not_What_Your_Country_Can_Do_For_You",
+            "choose_side": "US",
+            "discarded": 0,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "stop"
+            }
+          },
+          "turn": 4,
+          "defcon": 3,
+          "vp": -16
+        }
+      ]
+    },
+    {
+      "seed": 2402,
+      "US": "strategic",
+      "USSR": "greedy",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "defcon_1",
+      "turn": 1,
+      "steps": 69,
+      "vp": 0,
+      "seconds": 0.27,
+      "roundtrips": 2,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "event_resume",
+          "context": {
+            "what": "ops",
+            "side": "USSR",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_resume",
+            "payload": {}
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 0
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 3,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 0
+        },
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 3,
+            "bonus": null,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Angola"
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 0
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Angola",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 6
+            }
+          },
+          "turn": 1,
+          "defcon": 3,
+          "vp": 0
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "UN_Intervention"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "UN_Intervention",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 1,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "US",
+          "kind": "coup_target",
+          "context": {
+            "ops": 1,
+            "bonus": null,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Colombia"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "US",
+            "country": "Colombia",
+            "ops": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 3
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Duck_and_Cover"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Duck_and_Cover",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Duck_and_Cover",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 1,
+          "defcon": 2,
+          "vp": 0
+        }
+      ]
+    },
+    {
+      "seed": 2402,
+      "US": "greedy",
+      "USSR": "strategic",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "defcon_1",
+      "turn": 3,
+      "steps": 200,
+      "vp": -5,
+      "seconds": 1.17,
+      "roundtrips": 4,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "realignment_target",
+          "context": {
+            "card_ops": 4,
+            "spent": 3,
+            "bonus": "asia",
+            "non_bonus": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "realignment_target",
+            "payload": {
+              "country": "Colombia"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "realignment_actor_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Colombia",
+            "card_ops": 4,
+            "spent": 3,
+            "bonus": "asia",
+            "non_bonus": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "realignment_actor_roll",
+            "payload": {
+              "value": 4
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "realignment_opponent_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Colombia",
+            "card_ops": 4,
+            "spent": 3,
+            "bonus": "asia",
+            "non_bonus": 3,
+            "phasing_player": "USSR",
+            "actor_roll": 4
+          },
+          "action": {
+            "kind": "realignment_opponent_roll",
+            "payload": {
+              "value": 5
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Nasser"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Nasser",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "US",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "US",
+            "card": "Nasser",
+            "ops": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 1,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Zaire"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Five_Year_Plan"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Five_Year_Plan",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Five_Year_Plan",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "random_discard",
+          "context": {
+            "owner": "USSR",
+            "purpose": "five_year_plan",
+            "count": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "random_discard",
+            "payload": {
+              "card": "Duck_and_Cover"
+            }
+          },
+          "turn": 3,
+          "defcon": 2,
+          "vp": -5
+        }
+      ]
+    },
+    {
+      "seed": 2402,
+      "US": "event_value",
+      "USSR": "strategic",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "vp",
+      "turn": 7,
+      "steps": 485,
+      "vp": 20,
+      "seconds": 9.76,
+      "roundtrips": 10,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 2,
+            "bonus": null,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Zaire"
+            }
+          },
+          "turn": 7,
+          "defcon": 3,
+          "vp": 19
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Zaire",
+            "ops": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 1
+            }
+          },
+          "turn": 7,
+          "defcon": 3,
+          "vp": 19
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Brush_War"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Brush_War",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "US",
+          "kind": "war_target",
+          "context": {
+            "card": "Brush_War",
+            "attacker": "US",
+            "win_from": 3,
+            "vp": 1,
+            "military_ops": 3,
+            "count_target_control": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "war_target",
+            "payload": {
+              "country": "Angola"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "war_roll",
+          "context": {
+            "card": "Brush_War",
+            "attacker": "US",
+            "target": "Angola",
+            "win_from": 3,
+            "vp": 1,
+            "count_target_control": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "war_roll",
+            "payload": {
+              "value": 1
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Africa_Scoring"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Africa_Scoring",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 19
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Indo_Pakistani_War"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Indo_Pakistani_War",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "war_target",
+          "context": {
+            "card": "Indo_Pakistani_War",
+            "attacker": "US",
+            "win_from": 4,
+            "vp": 2,
+            "military_ops": 2,
+            "count_target_control": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "war_target",
+            "payload": {
+              "country": "India"
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "war_roll",
+          "context": {
+            "card": "Indo_Pakistani_War",
+            "attacker": "US",
+            "target": "India",
+            "win_from": 4,
+            "vp": 2,
+            "count_target_control": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "war_roll",
+            "payload": {
+              "value": 5
+            }
+          },
+          "turn": 7,
+          "defcon": 2,
+          "vp": 18
+        }
+      ]
+    },
+    {
+      "seed": 2402,
+      "US": "strategic",
+      "USSR": "event_value",
+      "optional": false,
+      "status": "ok",
+      "winner": "US",
+      "reason": "vp",
+      "turn": 7,
+      "steps": 449,
+      "vp": 24,
+      "seconds": 9.41,
+      "roundtrips": 9,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "coup_target",
+          "context": {
+            "ops": 2,
+            "bonus": null,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Sudan"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 13
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "US",
+            "country": "Sudan",
+            "ops": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 5
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 13
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Central_America_Scoring"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 13
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Central_America_Scoring",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 13
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Portuguese_Empire_Crumbles"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Portuguese_Empire_Crumbles",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "US",
+            "card": "Portuguese_Empire_Crumbles",
+            "ops": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "coup_target",
+          "context": {
+            "ops": 2,
+            "bonus": null,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "SE_African_States"
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "US",
+            "country": "SE_African_States",
+            "ops": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 2
+            }
+          },
+          "turn": 6,
+          "defcon": 2,
+          "vp": 18
+        },
+        {
+          "actor": "USSR",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "Middle_East_Scoring"
+            }
+          },
+          "turn": 7,
+          "defcon": 3,
+          "vp": 18
+        },
+        {
+          "actor": "US",
+          "kind": "headline_play",
+          "context": {},
+          "action": {
+            "kind": "headline_play",
+            "payload": {
+              "card": "Asia_Scoring"
+            }
+          },
+          "turn": 7,
+          "defcon": 3,
+          "vp": 18
+        }
+      ]
+    },
+    {
+      "seed": 2403,
+      "US": "strategic",
+      "USSR": "greedy",
+      "optional": true,
+      "status": "ok",
+      "winner": "US",
+      "reason": "defcon_1",
+      "turn": 2,
+      "steps": 117,
+      "vp": 3,
+      "seconds": 0.6,
+      "roundtrips": 3,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Saharan_States"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "US_Japan_Mutual_Defense_Pact"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "ops": 4,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 4,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "coup"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "coup_target",
+          "context": {
+            "ops": 4,
+            "bonus": null,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_target",
+            "payload": {
+              "country": "Iran"
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "coup_roll",
+          "context": {
+            "side": "USSR",
+            "country": "Iran",
+            "ops": 4,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "coup_roll",
+            "payload": {
+              "value": 3
+            }
+          },
+          "turn": 2,
+          "defcon": 3,
+          "vp": 1
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Captured_Nazi_Scientist"
+            }
+          },
+          "turn": 2,
+          "defcon": 2,
+          "vp": 1
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Captured_Nazi_Scientist",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 2,
+          "defcon": 2,
+          "vp": 1
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Duck_and_Cover"
+            }
+          },
+          "turn": 2,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Duck_and_Cover",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 2,
+          "defcon": 2,
+          "vp": 3
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "USSR",
+            "card": "Duck_and_Cover",
+            "ops": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 2,
+          "defcon": 2,
+          "vp": 3
+        }
+      ]
+    },
+    {
+      "seed": 2403,
+      "US": "greedy",
+      "USSR": "strategic",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "vp",
+      "turn": 4,
+      "steps": 302,
+      "vp": -20,
+      "seconds": 2.18,
+      "roundtrips": 7,
+      "tail": [
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "space_race"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "CHANCE",
+          "kind": "space_race_roll",
+          "context": {
+            "side": "USSR",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "space_race_roll",
+            "payload": {
+              "value": 3
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Liberation_Theology"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "Liberation_Theology",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "event_ops_order",
+          "context": {
+            "side": "US",
+            "card": "Liberation_Theology",
+            "ops": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_ops_order",
+            "payload": {
+              "order": "event_first"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_influence",
+          "context": {
+            "event": "Liberation_Theology",
+            "op": "place",
+            "choose_side": "USSR",
+            "inf_side": "USSR",
+            "remaining": 3,
+            "candidates": [
+              "Mexico",
+              "Guatemala",
+              "El_Salvador",
+              "Honduras",
+              "Costa_Rica",
+              "Panama",
+              "Nicaragua",
+              "Cuba",
+              "Haiti",
+              "Dominican_Republic"
+            ],
+            "cap": 2,
+            "whole": false,
+            "requires_uncontrolled": false,
+            "exclude_controlled_by": null,
+            "amount": 1,
+            "placed": {},
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_influence",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_influence",
+          "context": {
+            "event": "Liberation_Theology",
+            "op": "place",
+            "choose_side": "USSR",
+            "inf_side": "USSR",
+            "remaining": 2,
+            "candidates": [
+              "Mexico",
+              "Guatemala",
+              "El_Salvador",
+              "Honduras",
+              "Costa_Rica",
+              "Panama",
+              "Nicaragua",
+              "Cuba",
+              "Haiti",
+              "Dominican_Republic"
+            ],
+            "cap": 2,
+            "whole": false,
+            "requires_uncontrolled": false,
+            "exclude_controlled_by": null,
+            "amount": 1,
+            "placed": {
+              "Panama": 1
+            },
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_influence",
+            "payload": {
+              "country": "Guatemala"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "USSR",
+          "kind": "event_influence",
+          "context": {
+            "event": "Liberation_Theology",
+            "op": "place",
+            "choose_side": "USSR",
+            "inf_side": "USSR",
+            "remaining": 1,
+            "candidates": [
+              "Mexico",
+              "Guatemala",
+              "El_Salvador",
+              "Honduras",
+              "Costa_Rica",
+              "Panama",
+              "Nicaragua",
+              "Cuba",
+              "Haiti",
+              "Dominican_Republic"
+            ],
+            "cap": 2,
+            "whole": false,
+            "requires_uncontrolled": false,
+            "exclude_controlled_by": null,
+            "amount": 1,
+            "placed": {
+              "Panama": 1,
+              "Guatemala": 1
+            },
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_influence",
+            "payload": {
+              "country": "El_Salvador"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "event_resume",
+          "context": {
+            "what": "ops",
+            "side": "US",
+            "ops": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_resume",
+            "payload": {}
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "ops_type",
+          "context": {
+            "side": "US",
+            "ops": 2,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Panama"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        },
+        {
+          "actor": "US",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Canada"
+            }
+          },
+          "turn": 4,
+          "defcon": 2,
+          "vp": -18
+        }
+      ]
+    },
+    {
+      "seed": 2403,
+      "US": "event_value",
+      "USSR": "strategic",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "defcon_1",
+      "turn": 6,
+      "steps": 434,
+      "vp": 2,
+      "seconds": 9.8,
+      "roundtrips": 9,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Arms_Race"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Arms_Race",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 3,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Argentina"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Argentina"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Nicaragua"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "How_I_Learned_to_Stop_Worrying"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "How_I_Learned_to_Stop_Worrying",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "How_I_Learned_to_Stop_Worrying",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "1"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        }
+      ]
+    },
+    {
+      "seed": 2403,
+      "US": "strategic",
+      "USSR": "event_value",
+      "optional": true,
+      "status": "ok",
+      "winner": "USSR",
+      "reason": "defcon_1",
+      "turn": 6,
+      "steps": 434,
+      "vp": 2,
+      "seconds": 9.73,
+      "roundtrips": 9,
+      "tail": [
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "Our_Man_In_Tehran",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "keep"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "Arms_Race"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "play_mode",
+          "context": {
+            "card": "Arms_Race",
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "ops"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "ops_type",
+          "context": {
+            "side": "USSR",
+            "ops": 3,
+            "bonus": null,
+            "allow_coup": true,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "ops_type",
+            "payload": {
+              "type": "influence"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 3,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Argentina"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 2,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Argentina"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "USSR",
+          "kind": "place_influence",
+          "context": {
+            "ops_remaining": 1,
+            "phasing_player": "USSR"
+          },
+          "action": {
+            "kind": "place_influence",
+            "payload": {
+              "country": "Nicaragua"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "action_round_play",
+          "context": {},
+          "action": {
+            "kind": "action_round_play",
+            "payload": {
+              "card": "How_I_Learned_to_Stop_Worrying"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "play_mode",
+          "context": {
+            "card": "How_I_Learned_to_Stop_Worrying",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "play_mode",
+            "payload": {
+              "mode": "event"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        },
+        {
+          "actor": "US",
+          "kind": "event_choice",
+          "context": {
+            "event": "How_I_Learned_to_Stop_Worrying",
+            "choose_side": "US",
+            "phasing_player": "US"
+          },
+          "action": {
+            "kind": "event_choice",
+            "payload": {
+              "choice": "1"
+            }
+          },
+          "turn": 6,
+          "defcon": 3,
+          "vp": 2
+        }
+      ]
+    }
+  ],
+  "randomized_engine_checks": [
+    {
+      "seed": 2500,
+      "status": "ok",
+      "turn": 10,
+      "steps": 782,
+      "reason": "final_vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 64,
+        "headline_play": 20,
+        "war_roll": 5,
+        "action_round_play": 133,
+        "play_mode": 132,
+        "space_race_roll": 20,
+        "ops_type": 66,
+        "realignment_target": 55,
+        "realignment_actor_roll": 55,
+        "realignment_opponent_roll": 55,
+        "event_influence": 69,
+        "coup_target": 25,
+        "coup_roll": 25,
+        "event_ops_order": 21,
+        "event_resume": 18,
+        "random_discard": 2,
+        "event_choice": 10,
+        "war_target": 2,
+        "quagmire_discard": 2,
+        "quagmire_roll": 2,
+        "contest_roll": 1
+      },
+      "events": [
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Junta",
+        "Liberation_Theology",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "Olympic_Games",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Suez_Crisis",
+        "The_Reformer",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Wargames",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.35
+    },
+    {
+      "seed": 2501,
+      "status": "ok",
+      "turn": 6,
+      "steps": 439,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 39,
+        "headline_play": 12,
+        "event_influence": 45,
+        "war_target": 2,
+        "war_roll": 4,
+        "action_round_play": 75,
+        "play_mode": 76,
+        "ops_type": 34,
+        "coup_target": 14,
+        "coup_roll": 14,
+        "event_choice": 10,
+        "space_race_roll": 10,
+        "realignment_target": 29,
+        "realignment_actor_roll": 29,
+        "realignment_opponent_roll": 29,
+        "event_ops_order": 7,
+        "event_resume": 6,
+        "contest_roll": 1,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1,
+        "random_discard": 1
+      },
+      "events": [
+        "COMECON",
+        "Che",
+        "Colonial_Rear_Guards",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "Independent_Reds",
+        "Junta",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "OAS_Founded",
+        "Our_Man_In_Tehran",
+        "Socialist_Governments",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "The_Cambridge_Five",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.77
+    },
+    {
+      "seed": 2502,
+      "status": "ok",
+      "turn": 4,
+      "steps": 282,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 27,
+        "headline_play": 8,
+        "action_round_play": 50,
+        "play_mode": 50,
+        "ops_type": 22,
+        "realignment_target": 15,
+        "realignment_actor_roll": 15,
+        "realignment_opponent_roll": 15,
+        "coup_target": 10,
+        "coup_roll": 10,
+        "space_race_roll": 7,
+        "event_choice": 3,
+        "event_influence": 34,
+        "event_ops_order": 8,
+        "event_resume": 5,
+        "random_discard": 1,
+        "war_roll": 2
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.48
+    },
+    {
+      "seed": 2503,
+      "status": "ok",
+      "turn": 5,
+      "steps": 325,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 34,
+        "headline_play": 10,
+        "event_influence": 28,
+        "event_choice": 8,
+        "action_round_play": 60,
+        "play_mode": 60,
+        "ops_type": 22,
+        "space_race_roll": 9,
+        "event_ops_order": 6,
+        "war_roll": 4,
+        "event_resume": 6,
+        "coup_target": 5,
+        "coup_roll": 5,
+        "war_target": 1,
+        "realignment_target": 22,
+        "realignment_actor_roll": 22,
+        "realignment_opponent_roll": 22,
+        "contest_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Independent_Reds",
+        "Junta",
+        "Marshall_Plan",
+        "NORAD",
+        "OAS_Founded",
+        "Socialist_Governments",
+        "Summit",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.6
+    },
+    {
+      "seed": 2504,
+      "status": "ok",
+      "turn": 3,
+      "steps": 236,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 24,
+        "headline_play": 6,
+        "event_choice": 8,
+        "event_influence": 19,
+        "war_roll": 2,
+        "action_round_play": 36,
+        "play_mode": 36,
+        "war_target": 1,
+        "space_race_roll": 6,
+        "ops_type": 15,
+        "realignment_target": 21,
+        "realignment_actor_roll": 21,
+        "realignment_opponent_roll": 21,
+        "event_ops_order": 6,
+        "coup_target": 4,
+        "coup_roll": 4,
+        "event_resume": 4,
+        "contest_roll": 1,
+        "random_discard": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Independent_Reds",
+        "Olympic_Games",
+        "Suez_Crisis",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.42
+    },
+    {
+      "seed": 2505,
+      "status": "ok",
+      "turn": 10,
+      "steps": 744,
+      "reason": "final_vp",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 51,
+        "headline_play": 20,
+        "action_round_play": 133,
+        "play_mode": 133,
+        "event_influence": 74,
+        "ops_type": 53,
+        "coup_target": 19,
+        "coup_roll": 21,
+        "realignment_target": 49,
+        "realignment_actor_roll": 49,
+        "realignment_opponent_roll": 49,
+        "space_race_roll": 18,
+        "event_ops_order": 18,
+        "war_target": 6,
+        "war_roll": 9,
+        "event_resume": 13,
+        "event_choice": 23,
+        "random_discard": 2,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1,
+        "contest_roll": 1,
+        "held_card_discard": 1
+      },
+      "events": [
+        "Aldrich_Ames_Remix",
+        "Blockade",
+        "COMECON",
+        "Che",
+        "Chernobyl",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "Independent_Reds",
+        "Junta",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "OAS_Founded",
+        "Ortega_Elected_in_Nicaragua",
+        "Our_Man_In_Tehran",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "Suez_Crisis",
+        "Summit",
+        "Tear_Down_This_Wall",
+        "The_Cambridge_Five",
+        "The_Reformer",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.19
+    },
+    {
+      "seed": 2506,
+      "status": "ok",
+      "turn": 5,
+      "steps": 318,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 34,
+        "headline_play": 10,
+        "war_roll": 3,
+        "event_influence": 24,
+        "action_round_play": 59,
+        "play_mode": 59,
+        "event_choice": 5,
+        "ops_type": 27,
+        "realignment_target": 15,
+        "realignment_actor_roll": 15,
+        "realignment_opponent_roll": 15,
+        "event_ops_order": 8,
+        "event_resume": 7,
+        "coup_target": 11,
+        "coup_roll": 11,
+        "space_race_roll": 9,
+        "contest_roll": 2,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1,
+        "war_target": 1,
+        "random_discard": 1
+      },
+      "events": [
+        "Blockade",
+        "Cuban_Missile_Crisis_defuse",
+        "Decolonization",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon"
+      ],
+      "seconds": 0.51
+    },
+    {
+      "seed": 2507,
+      "status": "ok",
+      "turn": 3,
+      "steps": 142,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 19,
+        "headline_play": 6,
+        "event_choice": 7,
+        "event_influence": 11,
+        "action_round_play": 26,
+        "play_mode": 26,
+        "space_race_roll": 5,
+        "ops_type": 12,
+        "coup_target": 7,
+        "coup_roll": 7,
+        "realignment_target": 3,
+        "realignment_actor_roll": 3,
+        "realignment_opponent_roll": 3,
+        "event_ops_order": 3,
+        "event_resume": 3,
+        "contest_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Olympic_Games",
+        "Special_Relationship",
+        "The_Cambridge_Five",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.22
+    },
+    {
+      "seed": 2508,
+      "status": "ok",
+      "turn": 3,
+      "steps": 154,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 20,
+        "headline_play": 6,
+        "war_roll": 2,
+        "action_round_play": 27,
+        "play_mode": 27,
+        "space_race_roll": 4,
+        "event_ops_order": 3,
+        "ops_type": 10,
+        "realignment_target": 2,
+        "realignment_actor_roll": 2,
+        "realignment_opponent_roll": 2,
+        "event_resume": 3,
+        "coup_target": 7,
+        "coup_roll": 7,
+        "event_choice": 6,
+        "event_influence": 24,
+        "war_target": 1,
+        "random_discard": 1
+      },
+      "events": [
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Socialist_Governments"
+      ],
+      "seconds": 0.24
+    },
+    {
+      "seed": 2509,
+      "status": "ok",
+      "turn": 10,
+      "steps": 780,
+      "reason": "final_vp",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 64,
+        "headline_play": 20,
+        "ops_type": 64,
+        "realignment_target": 56,
+        "realignment_actor_roll": 56,
+        "realignment_opponent_roll": 56,
+        "action_round_play": 131,
+        "play_mode": 131,
+        "space_race_roll": 14,
+        "event_ops_order": 18,
+        "war_roll": 4,
+        "event_resume": 16,
+        "coup_target": 22,
+        "coup_roll": 23,
+        "event_influence": 71,
+        "random_discard": 4,
+        "event_choice": 18,
+        "contest_roll": 2,
+        "quagmire_discard": 4,
+        "quagmire_roll": 4,
+        "war_target": 2
+      },
+      "events": [
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "COMECON",
+        "Che",
+        "Colonial_Rear_Guards",
+        "Cuban_Missile_Crisis_defuse",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Junta",
+        "Latin_American_Debt_Crisis",
+        "Latin_American_Debt_Crisis_double",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Ortega_Elected_in_Nicaragua",
+        "Pershing_II_Deployed",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.25
+    },
+    {
+      "seed": 2510,
+      "status": "ok",
+      "turn": 10,
+      "steps": 776,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 80,
+        "headline_play": 20,
+        "event_influence": 70,
+        "action_round_play": 131,
+        "play_mode": 130,
+        "space_race_roll": 15,
+        "ops_type": 68,
+        "coup_target": 19,
+        "coup_roll": 19,
+        "event_ops_order": 19,
+        "realignment_target": 51,
+        "realignment_actor_roll": 51,
+        "realignment_opponent_roll": 51,
+        "event_choice": 20,
+        "war_target": 2,
+        "war_roll": 4,
+        "event_resume": 14,
+        "random_discard": 3,
+        "quagmire_discard": 3,
+        "quagmire_roll": 3,
+        "contest_roll": 1,
+        "held_card_discard": 2
+      },
+      "events": [
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "Blockade",
+        "COMECON",
+        "Chernobyl",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Latin_American_Debt_Crisis",
+        "Liberation_Theology",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "Ortega_Elected_in_Nicaragua",
+        "Puppet_Governments",
+        "Salt_Negotiations",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "The_Reformer",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.33
+    },
+    {
+      "seed": 2511,
+      "status": "ok",
+      "turn": 2,
+      "steps": 131,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 17,
+        "headline_play": 4,
+        "action_round_play": 24,
+        "play_mode": 24,
+        "ops_type": 10,
+        "space_race_roll": 6,
+        "coup_target": 5,
+        "coup_roll": 5,
+        "event_influence": 15,
+        "event_choice": 4,
+        "event_ops_order": 3,
+        "event_resume": 2,
+        "realignment_target": 4,
+        "realignment_actor_roll": 4,
+        "realignment_opponent_roll": 4
+      },
+      "events": [
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Socialist_Governments"
+      ],
+      "seconds": 0.21
+    },
+    {
+      "seed": 2512,
+      "status": "ok",
+      "turn": 7,
+      "steps": 452,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 36,
+        "headline_play": 14,
+        "war_roll": 4,
+        "action_round_play": 82,
+        "play_mode": 82,
+        "space_race_roll": 11,
+        "event_choice": 8,
+        "event_influence": 39,
+        "ops_type": 35,
+        "coup_target": 10,
+        "coup_roll": 10,
+        "realignment_target": 34,
+        "realignment_actor_roll": 34,
+        "realignment_opponent_roll": 34,
+        "war_target": 2,
+        "event_ops_order": 7,
+        "event_resume": 5,
+        "random_discard": 1,
+        "quagmire_discard": 2,
+        "quagmire_roll": 2
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Junta",
+        "Liberation_Theology",
+        "Muslim_Revolution",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.77
+    },
+    {
+      "seed": 2513,
+      "status": "ok",
+      "turn": 10,
+      "steps": 684,
+      "reason": "final_vp",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 45,
+        "headline_play": 20,
+        "action_round_play": 131,
+        "play_mode": 131,
+        "event_influence": 57,
+        "ops_type": 51,
+        "coup_target": 19,
+        "coup_roll": 19,
+        "space_race_roll": 17,
+        "event_choice": 23,
+        "war_roll": 7,
+        "realignment_target": 41,
+        "realignment_actor_roll": 41,
+        "realignment_opponent_roll": 41,
+        "war_target": 5,
+        "contest_roll": 5,
+        "event_ops_order": 11,
+        "event_resume": 11,
+        "random_discard": 3,
+        "quagmire_discard": 3,
+        "quagmire_roll": 3
+      },
+      "events": [
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Junta",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Our_Man_In_Tehran",
+        "Pershing_II_Deployed",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Special_Relationship",
+        "Star_Wars",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "The_Cambridge_Five",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.21
+    },
+    {
+      "seed": 2514,
+      "status": "ok",
+      "turn": 2,
+      "steps": 90,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 16,
+        "headline_play": 4,
+        "action_round_play": 16,
+        "play_mode": 16,
+        "ops_type": 8,
+        "coup_target": 3,
+        "coup_roll": 3,
+        "event_influence": 8,
+        "space_race_roll": 2,
+        "realignment_target": 4,
+        "realignment_actor_roll": 4,
+        "realignment_opponent_roll": 4,
+        "war_roll": 1,
+        "event_choice": 1
+      },
+      "events": [
+        "Decolonization",
+        "East_European_Unrest",
+        "Olympic_Games",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.14
+    },
+    {
+      "seed": 2515,
+      "status": "ok",
+      "turn": 3,
+      "steps": 148,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 19,
+        "headline_play": 6,
+        "event_influence": 18,
+        "action_round_play": 25,
+        "play_mode": 25,
+        "event_ops_order": 2,
+        "ops_type": 10,
+        "event_choice": 7,
+        "space_race_roll": 4,
+        "coup_target": 5,
+        "coup_roll": 5,
+        "event_resume": 1,
+        "war_roll": 3,
+        "war_target": 1,
+        "random_discard": 2,
+        "realignment_target": 5,
+        "realignment_actor_roll": 5,
+        "realignment_opponent_roll": 5
+      },
+      "events": [
+        "Blockade",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "NORAD",
+        "Olympic_Games",
+        "Socialist_Governments",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.24
+    },
+    {
+      "seed": 2516,
+      "status": "ok",
+      "turn": 2,
+      "steps": 113,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 17,
+        "headline_play": 4,
+        "event_influence": 16,
+        "event_choice": 2,
+        "action_round_play": 19,
+        "play_mode": 19,
+        "space_race_roll": 3,
+        "ops_type": 7,
+        "coup_target": 4,
+        "coup_roll": 4,
+        "contest_roll": 1,
+        "realignment_target": 5,
+        "realignment_actor_roll": 5,
+        "realignment_opponent_roll": 5,
+        "war_roll": 1,
+        "event_ops_order": 1
+      },
+      "events": [
+        "COMECON",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Suez_Crisis",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.18
+    },
+    {
+      "seed": 2517,
+      "status": "ok",
+      "turn": 2,
+      "steps": 132,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 20,
+        "headline_play": 4,
+        "event_influence": 15,
+        "action_round_play": 22,
+        "play_mode": 22,
+        "event_choice": 2,
+        "space_race_roll": 3,
+        "ops_type": 9,
+        "realignment_target": 6,
+        "realignment_actor_roll": 6,
+        "realignment_opponent_roll": 6,
+        "coup_target": 4,
+        "coup_roll": 4,
+        "event_ops_order": 3,
+        "event_resume": 2,
+        "war_target": 1,
+        "war_roll": 2,
+        "random_discard": 1
+      },
+      "events": [
+        "Decolonization",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Suez_Crisis",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.22
+    },
+    {
+      "seed": 2518,
+      "status": "ok",
+      "turn": 3,
+      "steps": 186,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 35,
+        "headline_play": 6,
+        "action_round_play": 33,
+        "play_mode": 33,
+        "event_choice": 3,
+        "event_influence": 21,
+        "space_race_roll": 4,
+        "ops_type": 17,
+        "realignment_target": 3,
+        "realignment_actor_roll": 3,
+        "realignment_opponent_roll": 3,
+        "coup_target": 8,
+        "coup_roll": 8,
+        "random_discard": 1,
+        "event_ops_order": 4,
+        "event_resume": 3,
+        "war_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "Decolonization",
+        "Independent_Reds",
+        "Socialist_Governments",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.34
+    },
+    {
+      "seed": 2519,
+      "status": "ok",
+      "turn": 5,
+      "steps": 342,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 39,
+        "headline_play": 10,
+        "event_choice": 9,
+        "action_round_play": 50,
+        "play_mode": 50,
+        "ops_type": 29,
+        "coup_target": 10,
+        "coup_roll": 10,
+        "event_influence": 30,
+        "space_race_roll": 6,
+        "event_ops_order": 8,
+        "event_resume": 8,
+        "war_roll": 1,
+        "realignment_target": 27,
+        "realignment_actor_roll": 27,
+        "realignment_opponent_roll": 27,
+        "random_discard": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "The_Cambridge_Five",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.55
+    },
+    {
+      "seed": 2520,
+      "status": "ok",
+      "turn": 4,
+      "steps": 288,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 28,
+        "headline_play": 8,
+        "event_influence": 17,
+        "action_round_play": 49,
+        "play_mode": 49,
+        "space_race_roll": 9,
+        "event_ops_order": 8,
+        "event_resume": 6,
+        "ops_type": 25,
+        "realignment_target": 18,
+        "realignment_actor_roll": 18,
+        "realignment_opponent_roll": 18,
+        "coup_target": 11,
+        "coup_roll": 11,
+        "war_roll": 4,
+        "random_discard": 3,
+        "war_target": 2,
+        "event_choice": 4
+      },
+      "events": [
+        "Blockade",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "Junta",
+        "Suez_Crisis",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.47
+    },
+    {
+      "seed": 2521,
+      "status": "ok",
+      "turn": 2,
+      "steps": 133,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 18,
+        "headline_play": 4,
+        "random_discard": 1,
+        "event_influence": 13,
+        "event_choice": 5,
+        "ops_type": 10,
+        "coup_target": 4,
+        "coup_roll": 4,
+        "action_round_play": 19,
+        "play_mode": 19,
+        "space_race_roll": 4,
+        "event_ops_order": 5,
+        "realignment_target": 8,
+        "realignment_actor_roll": 8,
+        "realignment_opponent_roll": 8,
+        "event_resume": 3
+      },
+      "events": [
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Olympic_Games",
+        "Suez_Crisis",
+        "The_Cambridge_Five",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.21
+    },
+    {
+      "seed": 2522,
+      "status": "ok",
+      "turn": 2,
+      "steps": 129,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 25,
+        "headline_play": 4,
+        "event_influence": 12,
+        "event_choice": 3,
+        "action_round_play": 20,
+        "play_mode": 20,
+        "space_race_roll": 3,
+        "event_ops_order": 2,
+        "ops_type": 11,
+        "event_resume": 2,
+        "realignment_target": 5,
+        "realignment_actor_roll": 5,
+        "realignment_opponent_roll": 5,
+        "war_roll": 2,
+        "coup_target": 5,
+        "coup_roll": 5
+      },
+      "events": [
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.21
+    },
+    {
+      "seed": 2523,
+      "status": "ok",
+      "turn": 5,
+      "steps": 323,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 35,
+        "headline_play": 10,
+        "action_round_play": 57,
+        "play_mode": 57,
+        "ops_type": 24,
+        "coup_target": 8,
+        "coup_roll": 9,
+        "event_choice": 8,
+        "contest_roll": 1,
+        "event_ops_order": 8,
+        "event_resume": 7,
+        "space_race_roll": 8,
+        "event_influence": 38,
+        "war_roll": 3,
+        "realignment_target": 16,
+        "realignment_actor_roll": 16,
+        "realignment_opponent_roll": 16,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "Che",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "NORAD",
+        "Olympic_Games",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "The_Voice_Of_America",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.52
+    },
+    {
+      "seed": 2524,
+      "status": "ok",
+      "turn": 5,
+      "steps": 277,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 29,
+        "headline_play": 10,
+        "event_influence": 37,
+        "random_discard": 2,
+        "action_round_play": 45,
+        "play_mode": 45,
+        "event_ops_order": 6,
+        "ops_type": 18,
+        "realignment_target": 15,
+        "realignment_actor_roll": 15,
+        "realignment_opponent_roll": 15,
+        "event_resume": 6,
+        "war_roll": 4,
+        "event_choice": 2,
+        "coup_target": 5,
+        "coup_roll": 5,
+        "space_race_roll": 5,
+        "war_target": 2,
+        "quagmire_discard": 5,
+        "quagmire_roll": 5,
+        "contest_roll": 1
+      },
+      "events": [
+        "COMECON",
+        "Decolonization",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Socialist_Governments",
+        "Summit",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.47
+    },
+    {
+      "seed": 2525,
+      "status": "ok",
+      "turn": 6,
+      "steps": 437,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 56,
+        "headline_play": 12,
+        "action_round_play": 74,
+        "play_mode": 74,
+        "ops_type": 34,
+        "event_influence": 45,
+        "space_race_roll": 12,
+        "event_ops_order": 8,
+        "event_resume": 6,
+        "war_target": 1,
+        "war_roll": 4,
+        "coup_target": 7,
+        "coup_roll": 7,
+        "event_choice": 17,
+        "realignment_target": 25,
+        "realignment_actor_roll": 25,
+        "realignment_opponent_roll": 25,
+        "random_discard": 2,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1,
+        "contest_roll": 1
+      },
+      "events": [
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "Cuban_Missile_Crisis_defuse",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "Independent_Reds",
+        "Junta",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "Our_Man_In_Tehran",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish"
+      ],
+      "seconds": 0.74
+    },
+    {
+      "seed": 2526,
+      "status": "ok",
+      "turn": 8,
+      "steps": 612,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 59,
+        "headline_play": 16,
+        "war_roll": 5,
+        "action_round_play": 104,
+        "play_mode": 103,
+        "event_influence": 52,
+        "event_choice": 11,
+        "event_ops_order": 11,
+        "ops_type": 47,
+        "realignment_target": 52,
+        "realignment_actor_roll": 52,
+        "realignment_opponent_roll": 52,
+        "space_race_roll": 14,
+        "coup_target": 8,
+        "coup_roll": 8,
+        "event_resume": 7,
+        "war_target": 2,
+        "quagmire_discard": 2,
+        "quagmire_roll": 2,
+        "random_discard": 4,
+        "contest_roll": 1
+      },
+      "events": [
+        "Aldrich_Ames_Remix",
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "Blockade",
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "Independent_Reds",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "Missile_Envy_pick",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Puppet_Governments",
+        "Salt_Negotiations",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "Suez_Crisis",
+        "The_Reformer",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.06
+    },
+    {
+      "seed": 2527,
+      "status": "ok",
+      "turn": 10,
+      "steps": 721,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 52,
+        "headline_play": 20,
+        "event_influence": 66,
+        "action_round_play": 120,
+        "play_mode": 120,
+        "ops_type": 56,
+        "realignment_target": 48,
+        "realignment_actor_roll": 48,
+        "realignment_opponent_roll": 48,
+        "event_ops_order": 18,
+        "event_resume": 11,
+        "war_roll": 5,
+        "space_race_roll": 17,
+        "event_choice": 24,
+        "coup_target": 25,
+        "coup_roll": 27,
+        "war_target": 3,
+        "contest_roll": 1,
+        "quagmire_discard": 4,
+        "quagmire_roll": 4,
+        "held_card_discard": 2,
+        "random_discard": 2
+      },
+      "events": [
+        "COMECON",
+        "Che",
+        "Chernobyl",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Junta",
+        "Latin_American_Debt_Crisis",
+        "Latin_American_Debt_Crisis_double",
+        "Liberation_Theology",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Our_Man_In_Tehran",
+        "Pershing_II_Deployed",
+        "Puppet_Governments",
+        "Salt_Negotiations",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Star_Wars",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "Tear_Down_This_Wall",
+        "The_Cambridge_Five",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.19
+    },
+    {
+      "seed": 2528,
+      "status": "ok",
+      "turn": 2,
+      "steps": 155,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 17,
+        "headline_play": 4,
+        "event_influence": 21,
+        "event_choice": 8,
+        "contest_roll": 1,
+        "action_round_play": 24,
+        "play_mode": 24,
+        "space_race_roll": 3,
+        "ops_type": 13,
+        "coup_target": 7,
+        "coup_roll": 7,
+        "event_ops_order": 7,
+        "realignment_target": 4,
+        "realignment_actor_roll": 4,
+        "realignment_opponent_roll": 4,
+        "event_resume": 6,
+        "random_discard": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Independent_Reds",
+        "Olympic_Games",
+        "Suez_Crisis",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.24
+    },
+    {
+      "seed": 2529,
+      "status": "ok",
+      "turn": 9,
+      "steps": 638,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 65,
+        "headline_play": 18,
+        "action_round_play": 112,
+        "play_mode": 112,
+        "ops_type": 50,
+        "coup_target": 16,
+        "coup_roll": 16,
+        "space_race_roll": 16,
+        "event_influence": 60,
+        "event_choice": 12,
+        "realignment_target": 39,
+        "realignment_actor_roll": 39,
+        "realignment_opponent_roll": 39,
+        "event_ops_order": 18,
+        "event_resume": 14,
+        "war_roll": 3,
+        "random_discard": 2,
+        "war_target": 2,
+        "quagmire_discard": 2,
+        "quagmire_roll": 2,
+        "contest_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "Cuban_Missile_Crisis_defuse",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Junta",
+        "Liberation_Theology",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Ortega_Elected_in_Nicaragua",
+        "Pershing_II_Deployed",
+        "Puppet_Governments",
+        "Salt_Negotiations",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Summit",
+        "Summit_defcon",
+        "Tear_Down_This_Wall",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Wargames"
+      ],
+      "seconds": 1.03
+    },
+    {
+      "seed": 2530,
+      "status": "ok",
+      "turn": 6,
+      "steps": 373,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 29,
+        "headline_play": 12,
+        "action_round_play": 67,
+        "play_mode": 66,
+        "event_ops_order": 5,
+        "ops_type": 30,
+        "realignment_target": 26,
+        "realignment_actor_roll": 26,
+        "realignment_opponent_roll": 26,
+        "coup_target": 13,
+        "coup_roll": 13,
+        "event_resume": 3,
+        "war_roll": 3,
+        "event_influence": 34,
+        "space_race_roll": 11,
+        "event_choice": 7,
+        "war_target": 1,
+        "held_card_discard": 1
+      },
+      "events": [
+        "Blockade",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "Suez_Crisis"
+      ],
+      "seconds": 0.58
+    },
+    {
+      "seed": 2531,
+      "status": "ok",
+      "turn": 6,
+      "steps": 423,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 42,
+        "headline_play": 12,
+        "event_choice": 13,
+        "action_round_play": 73,
+        "play_mode": 73,
+        "event_influence": 47,
+        "ops_type": 33,
+        "coup_target": 11,
+        "coup_roll": 11,
+        "realignment_target": 26,
+        "realignment_actor_roll": 26,
+        "realignment_opponent_roll": 26,
+        "space_race_roll": 11,
+        "event_ops_order": 7,
+        "random_discard": 2,
+        "event_resume": 6,
+        "war_roll": 2,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Junta",
+        "Marshall_Plan",
+        "Our_Man_In_Tehran",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "South_African_Unrest_adj",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.67
+    },
+    {
+      "seed": 2532,
+      "status": "ok",
+      "turn": 3,
+      "steps": 239,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 14,
+        "headline_play": 6,
+        "event_choice": 8,
+        "event_influence": 26,
+        "action_round_play": 36,
+        "play_mode": 36,
+        "ops_type": 19,
+        "coup_target": 8,
+        "coup_roll": 8,
+        "space_race_roll": 3,
+        "realignment_target": 21,
+        "realignment_actor_roll": 21,
+        "realignment_opponent_roll": 21,
+        "event_ops_order": 4,
+        "event_resume": 4,
+        "war_roll": 3,
+        "war_target": 1
+      },
+      "events": [
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Olympic_Games",
+        "Socialist_Governments",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.36
+    },
+    {
+      "seed": 2533,
+      "status": "ok",
+      "turn": 7,
+      "steps": 528,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 47,
+        "headline_play": 14,
+        "random_discard": 2,
+        "event_influence": 35,
+        "action_round_play": 91,
+        "play_mode": 90,
+        "space_race_roll": 13,
+        "ops_type": 45,
+        "event_ops_order": 9,
+        "event_choice": 13,
+        "event_resume": 8,
+        "realignment_target": 42,
+        "realignment_actor_roll": 42,
+        "realignment_opponent_roll": 42,
+        "coup_target": 14,
+        "coup_roll": 14,
+        "war_roll": 2,
+        "war_target": 1,
+        "quagmire_discard": 1,
+        "quagmire_roll": 1,
+        "held_card_discard": 2
+      },
+      "events": [
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "Blockade",
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "Decolonization",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Junta",
+        "Marshall_Plan",
+        "Missile_Envy_pick",
+        "OAS_Founded",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.9
+    },
+    {
+      "seed": 2534,
+      "status": "ok",
+      "turn": 4,
+      "steps": 291,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 30,
+        "headline_play": 8,
+        "action_round_play": 49,
+        "play_mode": 49,
+        "space_race_roll": 8,
+        "event_choice": 6,
+        "event_influence": 24,
+        "ops_type": 22,
+        "event_ops_order": 9,
+        "realignment_target": 22,
+        "realignment_actor_roll": 22,
+        "realignment_opponent_roll": 22,
+        "event_resume": 4,
+        "coup_target": 7,
+        "coup_roll": 7,
+        "war_roll": 1,
+        "random_discard": 1
+      },
+      "events": [
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Independent_Reds",
+        "Marshall_Plan",
+        "Suez_Crisis",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.51
+    },
+    {
+      "seed": 2535,
+      "status": "ok",
+      "turn": 2,
+      "steps": 151,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 14,
+        "headline_play": 4,
+        "action_round_play": 17,
+        "play_mode": 17,
+        "event_ops_order": 6,
+        "ops_type": 12,
+        "realignment_target": 15,
+        "realignment_actor_roll": 15,
+        "realignment_opponent_roll": 15,
+        "event_resume": 6,
+        "random_discard": 1,
+        "coup_target": 5,
+        "coup_roll": 5,
+        "event_influence": 15,
+        "space_race_roll": 3,
+        "war_roll": 1
+      },
+      "events": [
+        "COMECON",
+        "Marshall_Plan",
+        "Suez_Crisis"
+      ],
+      "seconds": 0.25
+    },
+    {
+      "seed": 2536,
+      "status": "ok",
+      "turn": 10,
+      "steps": 742,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 49,
+        "headline_play": 20,
+        "event_influence": 66,
+        "action_round_play": 125,
+        "play_mode": 125,
+        "space_race_roll": 12,
+        "ops_type": 58,
+        "event_ops_order": 18,
+        "realignment_target": 55,
+        "realignment_actor_roll": 55,
+        "realignment_opponent_roll": 55,
+        "war_roll": 8,
+        "event_resume": 15,
+        "coup_target": 24,
+        "coup_roll": 24,
+        "event_choice": 21,
+        "war_target": 4,
+        "random_discard": 3,
+        "quagmire_discard": 2,
+        "quagmire_roll": 2,
+        "contest_roll": 1
+      },
+      "events": [
+        "Aldrich_Ames_Remix",
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "Blockade",
+        "COMECON",
+        "Colonial_Rear_Guards",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "East_European_Unrest",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Junta",
+        "Latin_American_Debt_Crisis",
+        "Liberation_Theology",
+        "Marine_Barracks_Bombing",
+        "Marshall_Plan",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Ortega_Elected_in_Nicaragua",
+        "Pershing_II_Deployed",
+        "Puppet_Governments",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Suez_Crisis",
+        "Tear_Down_This_Wall",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Ussuri_River_Skirmish",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 1.25
+    },
+    {
+      "seed": 2537,
+      "status": "ok",
+      "turn": 6,
+      "steps": 387,
+      "reason": "defcon_1",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 34,
+        "headline_play": 12,
+        "event_choice": 11,
+        "event_influence": 32,
+        "action_round_play": 78,
+        "play_mode": 78,
+        "ops_type": 28,
+        "space_race_roll": 11,
+        "coup_target": 9,
+        "coup_roll": 9,
+        "realignment_target": 22,
+        "realignment_actor_roll": 22,
+        "realignment_opponent_roll": 22,
+        "event_ops_order": 6,
+        "war_roll": 3,
+        "event_resume": 5,
+        "contest_roll": 2,
+        "war_target": 1,
+        "random_discard": 1,
+        "held_card_discard": 1
+      },
+      "events": [
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Grain_Sales_to_Soviets",
+        "How_I_Learned_to_Stop_Worrying",
+        "Independent_Reds",
+        "Liberation_Theology",
+        "Marshall_Plan",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Salt_Negotiations",
+        "Socialist_Governments",
+        "South_African_Unrest",
+        "Special_Relationship",
+        "Suez_Crisis",
+        "Summit",
+        "Truman_Doctrine"
+      ],
+      "seconds": 0.65
+    },
+    {
+      "seed": 2538,
+      "status": "ok",
+      "turn": 7,
+      "steps": 476,
+      "reason": "defcon_1",
+      "winner": "US",
+      "decisions": {
+        "place_influence": 47,
+        "headline_play": 14,
+        "event_influence": 41,
+        "action_round_play": 86,
+        "play_mode": 85,
+        "space_race_roll": 11,
+        "ops_type": 38,
+        "event_ops_order": 11,
+        "coup_target": 14,
+        "coup_roll": 14,
+        "event_resume": 9,
+        "random_discard": 2,
+        "realignment_target": 27,
+        "realignment_actor_roll": 27,
+        "realignment_opponent_roll": 27,
+        "event_choice": 14,
+        "war_roll": 2,
+        "contest_roll": 1,
+        "quagmire_discard": 3,
+        "quagmire_roll": 3
+      },
+      "events": [
+        "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "COMECON",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "Decolonization",
+        "Independent_Reds",
+        "Junta",
+        "Marshall_Plan",
+        "Missile_Envy_pick",
+        "Muslim_Revolution",
+        "OAS_Founded",
+        "Olympic_Games",
+        "Puppet_Governments",
+        "Salt_Negotiations",
+        "Summit",
+        "Summit_defcon",
+        "The_Voice_Of_America",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.8
+    },
+    {
+      "seed": 2539,
+      "status": "ok",
+      "turn": 3,
+      "steps": 185,
+      "reason": "vp",
+      "winner": "USSR",
+      "decisions": {
+        "place_influence": 27,
+        "headline_play": 6,
+        "event_influence": 16,
+        "action_round_play": 31,
+        "play_mode": 31,
+        "event_ops_order": 4,
+        "ops_type": 14,
+        "realignment_target": 11,
+        "realignment_actor_roll": 11,
+        "realignment_opponent_roll": 11,
+        "event_resume": 3,
+        "random_discard": 1,
+        "space_race_roll": 5,
+        "event_choice": 5,
+        "coup_target": 4,
+        "coup_roll": 4,
+        "war_roll": 1
+      },
+      "events": [
+        "Blockade",
+        "De_Stalinization",
+        "De_Stalinization_remove",
+        "East_European_Unrest",
+        "Olympic_Games",
+        "Socialist_Governments",
+        "Suez_Crisis",
+        "Truman_Doctrine",
+        "Warsaw_Pact_Formed"
+      ],
+      "seconds": 0.3
+    }
+  ]
+}
