@@ -142,9 +142,11 @@ def _marginal_gain(weights: GreedyWeights, board: Board, side: Side, country: st
 
 
 def _sync_board(board: Board, observation: Observation) -> None:
+    influence = board.influence
     for cid, values in observation.influence.items():
-        board.influence[cid]["US"] = values.get("US", 0)
-        board.influence[cid]["USSR"] = values.get("USSR", 0)
+        target = influence[cid]
+        target["US"] = values.get("US", 0)
+        target["USSR"] = values.get("USSR", 0)
 
 
 # -- shared per-country rule replicas (public game data/rules, not hidden state) --

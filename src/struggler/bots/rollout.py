@@ -139,6 +139,7 @@ class RolloutPolicy(StrategicPlayer):
                                             for c in options):
                 ops += 1
         super().rank_actions(obs)  # sync the board and caches
+        self._base_regions = {}
         board, side = self.board, obs.side
         original = {c: dict(board.influence[c]) for c in options}
         plan = []
@@ -162,7 +163,9 @@ class RolloutPolicy(StrategicPlayer):
                     remaining -= cost
                     board.influence[c][side.value] += 1
                     plan.append(c)
+                self._base_regions = {}  # the committed points moved the board
         finally:
+            self._base_regions = None
             for c, inf in original.items():
                 board.influence[c].update(inf)
         return plan

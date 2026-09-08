@@ -33,6 +33,19 @@ from struggler.bots.greedy import (
 
 CARDS = load_cards()
 LOSS = -1_000_000.0
+
+
+def _copy_state(value):
+    """Copy the plain JSON-like effect state (dicts, lists, tuples of
+    scalars) without deepcopy's generic bookkeeping; sandboxes are built
+    by the thousand per search."""
+    if isinstance(value, dict):
+        return {k: _copy_state(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_copy_state(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_copy_state(v) for v in value)
+    return value
 # Only deterministic, public-board events whose follow-ups are influence
 # decisions. Do not add hand/deck events here without a belief-state model.
 PUBLIC_EVENTS = frozenset('''Duck_and_Cover Fidel Romanian_Abdication Nasser
@@ -110,6 +123,7 @@ class StrategicPlayer:
         self.opponent_model = opponent_model
         self._planner = None
         self._event_basis = None
+        self._base_regions = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -124,6 +138,7 @@ class StrategicPlayer:
         _sync_board(self.board, observation)
         self._events = {}
         self._region_cache = {}
+        self._base_regions = {}
         self._country_cache = {}
         self._access_cache = {}
         self._region_members = {r: self.board.countries_in(r) for r in Region}
@@ -131,8 +146,11 @@ class StrategicPlayer:
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
             self._planner = self.planner_for(observation)
-        return sorted(((self.safety_key(observation, a), a) for a in decision.options),
-                      key=lambda pair: pair[0], reverse=True)
+        try:
+            return sorted(((self.safety_key(observation, a), a) for a in decision.options),
+                          key=lambda pair: pair[0], reverse=True)
+        finally:
+            self._base_regions = None  # callers may move the board after ranking
 
     def _log_choice(self, obs, decision, ranked):
         """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""
@@ -310,7 +328,16 @@ class StrategicPlayer:
             return 0.
         region = board.countries[cid].region
         urgency = self.scoring_urgency(obs, cid)
-        region_before = self.region_score(board, region, side)
+        # While rank_actions runs, every caller enters with the board as it
+        # was synced (each restores its own trial changes first), so the
+        # region's starting score is fixed; anyone committing a change
+        # mid-ranking must clear `_base_regions`.
+        base = self._base_regions
+        region_before = None if base is None else base.get(region)
+        if region_before is None:
+            region_before = self.region_score(board, region, side)
+            if base is not None:
+                base[region] = region_before
         before = self.country_value(board, cid, side) + self.weights.region * urgency * region_before
         controller = board.control(cid)
         original = dict(board.influence[cid])
@@ -354,13 +381,21 @@ class StrategicPlayer:
         for name in ('defcon', 'vp', 'turn', 'action_round'):
             setattr(engine, name, getattr(obs, name))
         for name in ('space_race', 'military_ops', 'space_race_attempts', 'turn_effects', 'game_effects'):
-            setattr(engine, name, copy.deepcopy(dict(getattr(obs, name))))
+            setattr(engine, name, _copy_state(dict(getattr(obs, name))))
         engine.hands[obs.side.value] = list(obs.hand)
         engine.china_card_owner = obs.china_card_owner.value
         engine.china_card_available = obs.china_card_available
         engine.discard_pile = list(obs.discard_pile)
         engine.removed_cards = list(obs.removed_cards)
         return engine
+
+    def _event_helper(self) -> 'StrategicPlayer':
+        # Plays the EVENT_INFLUENCE decisions of a simulated event; one
+        # instance serves every event this player evaluates.
+        helper = self.__dict__.get('_event_policy')
+        if helper is None:
+            helper = self._event_policy = StrategicPlayer(self.weights)
+        return helper
 
     def influence(self, obs: Observation, cid: str, ops: int) -> float:
         # Search the feasible investment into this country; account for the
@@ -433,7 +468,7 @@ class StrategicPlayer:
             self._event_basis = (basis_key, countries, regions, before)
         _, countries, regions, before = self._event_basis
         engine._fire_event(obs.side, cid)
-        policy = StrategicPlayer(self.weights)
+        policy = self._event_helper()
         for _ in range(32):
             if engine.is_terminal or engine.pending_decision is None:
                 break

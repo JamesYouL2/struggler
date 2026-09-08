@@ -131,13 +131,14 @@ class Board:
         6.1.1's own exception exempts).
         """
         inf = influence if influence is not None else self.influence
-        if country_id in self._adjacency[side.value]:
+        key = side.value
+        if country_id in self._adjacency[key]:
             return True
-        if inf[country_id][side.value] > 0:
+        if inf[country_id][key] > 0:
             return True
         return any(
-            inf[n][side.value] > 0
-            for n in self._adjacency.get(country_id, set())
+            inf[n][key] > 0
+            for n in self._adjacency.get(country_id, ())
             if n in inf
         )
 
