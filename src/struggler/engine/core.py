@@ -171,8 +171,22 @@ class Engine:
                 {k: v for k, v in decision.context.items() if k != "phasing_player"},
                 side.value if side else None,
             )
+        narrate = self.log.isEnabledFor(logging.INFO)
+        before = {c: (v["US"], v["USSR"]) for c, v in self.board.influence.items()} if narrate else None
         with self._phasing_scope(side):
             self._dispatch(decision, action)
+        if narrate:
+            # One line per step that moved influence, whatever moved it
+            # (placement, realignment, an event), so a log reads as a game.
+            changed = [(c, before[c], (v["US"], v["USSR"])) for c, v in self.board.influence.items()
+                       if before.get(c) != (v["US"], v["USSR"])]
+            if changed:
+                cause = decision.context.get("card") or decision.context.get("event") or decision.kind.value
+                self.log.info(
+                    "T%d AR%d influence (%s, %s): %s", self.turn, self.action_round,
+                    decision.actor.value, cause,
+                    "; ".join(f"{c} US {a[0]}->{b[0]} USSR {a[1]}->{b[1]}" for c, a, b in changed),
+                )
         self._advance()
 
     @contextmanager

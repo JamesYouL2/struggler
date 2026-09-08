@@ -223,7 +223,10 @@ What each level reports:
   search that hit its state budget.
 - `INFO` — a play-by-play: turn starts (hand sizes, draw pile, China
   Card), each headline and action-round card play with its mode, every
-  event that resolves (with the responsible phasing player), every
+  event that resolves (with the responsible phasing player), every step
+  that moves influence (one line naming the actor, the card or decision
+  that caused it, and each country's before/after for both sides, so
+  placements, realignments and event effects all read as moves), every
   DEFCON change with `caused_by`/`phasing`, coups with roll and margin,
   Space Race rolls, scoring, end-of-turn military-ops deficits, and the
   game-over reason. From `StrategicPlayer`, the hand it saw and the
