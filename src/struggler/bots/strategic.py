@@ -19,7 +19,7 @@ from struggler.engine import Action, DecisionKind as K, Engine, Observation, Reg
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
-from struggler.bots.public_cards import card_state
+from struggler.bots.public_cards import card_state, scoring_cards_for, scoring_schedule
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
 
@@ -90,12 +90,16 @@ class StrategicWeights:
     military: float = 2.0
     event: float = 1.0
     ops: float = 2.0
-    # Regional urgency multipliers by where the region's scoring card is:
-    # in our hand, live (draw pile or the opponent's hand: it can be played
-    # against us any round), or dead (discarded until the reshuffle, removed,
-    # or not yet in the deck), which is the 1.0 baseline.
-    scoring_hand: float = 1.6
-    scoring_live: float = 1.3
+    # A country is worth what its region will still score: the sum over its
+    # scoring cards' expected future plays of scoring_discount ** (turns
+    # away), from the static period schedule and where each card is now
+    # (bots/public_cards.scoring_schedule). Control in a region that scores
+    # this cycle and again after the reshuffle is worth about 1.6; in one
+    # just scored, 0.6; in a Mid War region on turn 1, 0.5. Holding the
+    # card ourselves multiplies this cycle's term by scoring_hand: we pick
+    # the moment.
+    scoring_hand: float = 1.2
+    scoring_discount: float = 0.8
     # Influence value is not linear in principle: control is what scores,
     # uncontrolled influence only has option value, and over-protection
     # matters mostly where a cheap coup can undo it. progress_curve is the
@@ -141,6 +145,8 @@ class StrategicPlayer:
         self._planner = None
         self._event_basis = None
         self._base_regions = None
+        self._obs = None
+        self._scoring_weights = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -160,6 +166,8 @@ class StrategicPlayer:
         self._ops_values = {}
         self._relocation_gain = None
         self._space_card = None
+        self._obs = observation
+        self._scoring_weights = {}
         self._access_cache = {}
         self._region_members = {r: self.board.countries_in(r) for r in Region}
         self._planner = None
@@ -284,6 +292,13 @@ class StrategicPlayer:
             return cache[key]
         margin = own - opp
         importance = self.importance(info)
+        # Control is worth what the region will still score (a battleground
+        # in an unscored Early War region >> one in a region just scored,
+        # or one whose scoring is turns away). Absent an observation (a
+        # bare leaf evaluation) the schedule weight is 1.
+        weights = self._scoring_weights
+        if weights is not None:
+            importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
         value = importance * (1 if margin >= info.stability else -1 if margin <= -info.stability else 0)
         # Progress toward control is convex: control is worth VP, a lone
         # point is not (it can only lead there), so a half-built country is
@@ -327,26 +342,21 @@ class StrategicPlayer:
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)
 
-    def scoring_urgency(self, obs: Observation, cid: str) -> float:
-        """How much scoring around country `cid` matters right now, from where
-        the scoring cards that count it are: its region's card, plus Southeast
-        Asia Scoring for the countries that card actually scores. A live card
-        (unseen: draw pile or opponent's hand) can score at any moment, so the
-        area must be played around; a dead one cannot score before the
-        reshuffle, and a card whose period has not entered the deck is simply
-        not in the game yet -- a static, public schedule."""
-        info = self.board.countries[cid]
-        cards = [c for c, r in SCORING_CARD_REGION.items() if r is info.region]
-        if Subregion.SOUTHEAST_ASIA in info.subregions:
-            cards.append('Southeast_Asia_Scoring')
-        urgency = 1.0
-        for card in cards:
-            state = card_state(obs, card)
-            if state == 'hand':
-                return self.weights.scoring_hand
-            if state == 'unseen':
-                urgency = max(urgency, self.weights.scoring_live)
-        return urgency
+    def scoring_weight(self, obs: Observation, cid: str) -> float:
+        """How much the area around `cid` will still score, discounted by
+        how far off each scoring is (see StrategicWeights.scoring_discount)."""
+        cache = self._scoring_weights
+        if cache is not None and cid in cache:
+            return cache[cid]
+        w = self.weights
+        total = 0.
+        for card in scoring_cards_for(self.board.countries[cid]):
+            held = card in obs.hand
+            for turns in scoring_schedule(obs, card):
+                total += w.scoring_discount ** turns * (w.scoring_hand if held and turns == 0 else 1.)
+        if cache is not None:
+            cache[cid] = total
+        return total
 
     def importance(self, info) -> float:
         """The country's tier: battleground, Southeast Asia non-battleground,
@@ -362,7 +372,7 @@ class StrategicPlayer:
         if own == 0 and opp == 0:
             return 0.
         region = board.countries[cid].region
-        urgency = self.scoring_urgency(obs, cid)
+        urgency = self.scoring_weight(obs, cid)
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
         # region's starting score is fixed; anyone committing a change

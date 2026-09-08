@@ -140,27 +140,34 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     live = engine.observe(Side.US)
     dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
-    urgencies = [bot.scoring_urgency(o, 'Iran') for o in (dead, live, held)]
-    assert urgencies == [1.0, bot.weights.scoring_live, bot.weights.scoring_hand]
+    weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
+    assert weights[0] < weights[1] < weights[2]  # scored < live < held
     from struggler.bots.greedy import _sync_board
     _sync_board(bot.board, live)
     deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
-    # Mid War scoring is not in the deck before turn 4 (static schedule).
-    assert bot.scoring_urgency(dataclasses.replace(live, turn=1), 'Brazil') == 1.0
-    assert bot.scoring_urgency(dataclasses.replace(live, turn=5), 'Brazil') == bot.weights.scoring_live
+    # A live Early War region scores this cycle and after the reshuffle; a
+    # scored one only after the reshuffle; a Mid War region from turn 4.
+    d = bot.weights.scoring_discount
+    assert bot.scoring_weight(live, 'Iran') > 1 > bot.scoring_weight(dead, 'Iran')
+    assert bot.scoring_weight(dataclasses.replace(live, turn=1), 'Brazil') == d ** 3
+    assert bot.scoring_weight(dataclasses.replace(live, turn=5), 'Brazil') > 1
     # Southeast Asia Scoring reaches Thailand but not Japan, even with Asia Scoring dead.
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
-    assert bot.scoring_urgency(asia_dead, 'Thailand') == bot.weights.scoring_live
-    assert bot.scoring_urgency(asia_dead, 'Japan') == 1.0
+    assert bot.scoring_weight(asia_dead, 'Thailand') > bot.scoring_weight(asia_dead, 'Japan')
+    # Battleground control is worth more where more scoring is still to come.
+    bot._obs, bot._scoring_weights = live, {}
+    live_value = bot.delta(live, 'Iran', own=3)
+    bot._obs, bot._scoring_weights = dead, {}
+    assert bot.delta(dead, 'Iran', own=3) < live_value
 
 
 def test_mutation_can_be_restricted_to_named_weights():
     base = StrategicWeights()
     rng = random.Random(5)
-    only = mutate(base, rng, ('scoring_live', 'scoring_hand'))
+    only = mutate(base, rng, ('scoring_discount', 'scoring_hand'))
     changed = {k for k, v in dataclasses.asdict(only).items() if v != getattr(base, k)}
-    assert changed == {'scoring_live', 'scoring_hand'}
+    assert changed == {'scoring_discount', 'scoring_hand'}
     everything = mutate(base, rng)
     assert all(v != getattr(base, k) for k, v in dataclasses.asdict(everything).items())
     with pytest.raises(ValueError, match='unknown weight'):

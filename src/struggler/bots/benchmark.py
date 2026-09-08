@@ -25,21 +25,16 @@ import time
 from multiprocessing import Pool
 
 from struggler.engine import Engine, Region, Side, Subregion
-from struggler.engine.cards import entry_turn
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.replay import HistoryBuilder
-from struggler.bots.public_cards import CARDS, card_state
+from struggler.bots.public_cards import scoring_schedule
 from struggler.bots.strategic import StrategicPlayer
 
 # Checkpoint projection: how many more times each region is expected to
-# score, and how soon. A scoring card still to come this deck cycle counts
-# once now and once more after the reshuffle; one already in the discard
-# only after the reshuffle; a Mid War region's card only from the turn its
-# period enters. Southeast Asia scores once, and is removed. Each turn of
+# score, and how soon (bots.public_cards.scoring_schedule). Each turn of
 # distance discounts the scoring by TURN_DISCOUNT.
 TURN_DISCOUNT = 0.8
 SEA_WEIGHT = 0.8
-CARDS_PER_TURN = 14  # both hands' draws, Early War
 
 
 def region_bg_diff(board, side: Side) -> dict[str, int]:
@@ -58,20 +53,12 @@ def region_bg_diff(board, side: Side) -> dict[str, int]:
 
 
 def scoring_weights(engine, side: Side) -> dict[str, float]:
-    """Expected, turn-discounted number of further scorings per region."""
+    """Expected, turn-discounted number of further scorings per region
+    (the bots' `scoring_schedule`, with SEA_WEIGHT for Southeast Asia)."""
     obs = engine.observe(side)
-    reshuffle_in = max(1, -(-obs.draw_pile_size // CARDS_PER_TURN))  # turns until the deck runs out
-    weights = {}
-    for card, region in SCORING_CARD_REGION.items():
-        state = card_state(obs, card)
-        if state == 'future':
-            weights[region.value] = TURN_DISCOUNT ** (entry_turn(CARDS[card]) - obs.turn)
-        elif state == 'discard':
-            weights[region.value] = TURN_DISCOUNT ** reshuffle_in
-        else:  # in a hand or the draw pile: this cycle and the next one
-            weights[region.value] = 1.0 + TURN_DISCOUNT ** reshuffle_in
-    state = card_state(obs, 'Southeast_Asia_Scoring')
-    weights['SOUTHEAST_ASIA'] = 0.0 if state in ('discard', 'removed') else SEA_WEIGHT
+    weights = {region.value: sum(TURN_DISCOUNT ** t for t in scoring_schedule(obs, card))
+               for card, region in SCORING_CARD_REGION.items()}
+    weights['SOUTHEAST_ASIA'] = SEA_WEIGHT * sum(TURN_DISCOUNT ** t for t in scoring_schedule(obs, 'Southeast_Asia_Scoring'))
     return weights
 
 

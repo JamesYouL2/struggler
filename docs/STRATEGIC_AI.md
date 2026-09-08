@@ -28,33 +28,18 @@ action = bot.choose_action(observation, history)
 
 ## How it plays
 
-- Values battleground control, regional scoring, partial progress toward
-  control, small defensive reserves, and influence that opens nearby
-  battlegrounds. A principle from strong play, recorded here because the
-  evaluator does not yet honour it: influence value is **not linear** in
-  the margin. Control is what scores VP; influence short of control has
-  only option value (it can lead to VP); points beyond control are worth
-  little, and what little they are worth is for low-stability countries
-  where a cheap coup undoes them. Two shape weights exist for this,
-  `progress_curve` (exponent on `margin/stability`) and
-  `reserve_stability` (divides the reserve term by `stability ** that`),
-  but the defaults stay at the linear, flat shape (1 and 0). Measured:
-  `progress_curve=2, reserve_stability=1` scored 0.33 ± 0.09 against the
-  linear shape on seeds 4000-4015, and left turn 1 of
-  `logs/game-check/3003-strategic-event_value.info.log` unchanged (two
-  Africa coups, no Asia). With one action of lookahead the linear progress
-  term is what stands in for option value; making it convex just stops
-  the bot starting countries it cannot finish this round, while coup gains
-  are unchanged. Honouring the principle needs either lookahead across
-  the turn's remaining Ops or a coup evaluator that prices DEFCON and
-  tempo, not a steeper curve. A region's score is weighted by where its scoring card is:
-  `scoring_hand` when we hold it, `scoring_live` when it is still in the
-  draw pile or the opponent's hand (it can be played against us any round,
-  so the region has to be played around), and the 1.0 baseline when it is
-  dead until the reshuffle (discarded, removed, or not yet in the deck;
-  the period schedule is static and public, `engine.cards.ENTRY_TURN`).
-  Southeast Asia Scoring adds urgency only to the countries it scores
-  (the `SOUTHEAST_ASIA` subregion), not to all of Asia.
+- A country is worth what its region will still score. Its importance is
+  multiplied by the sum, over the scoring cards that count it, of
+  `scoring_discount` (0.8) to the power of the turns until each expected
+  scoring, from the static period schedule and where each card is now
+  (`bots/public_cards.scoring_schedule`): a live card scores this cycle
+  and again after the reshuffle (about 1.6), a discarded one only after
+  the reshuffle (0.6), a Mid War card from turn 4 (0.5 on turn 1);
+  Southeast Asia Scoring once. Holding the card multiplies this cycle's
+  term by `scoring_hand` (1.2): we pick the moment. So a battleground in
+  an unscored Early War region is worth about 2.5x one in a region just
+  scored, and Mid War battlegrounds grow in value as turn 4 approaches.
+  The same schedule drives the checkpoint benchmark's projection.
 - The opening setup is a book, not a search (`OPENING_BOOK`): USSR
   East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
   European Unrest; Austria reaches Italy and West Germany); US West
@@ -142,7 +127,7 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1
 
 python -m struggler.bots.train train --seed 200 --pairs 8 \
   --generations 4 --population 4 --workers 8 \
-  --fields scoring_live,scoring_hand --output my-model.json
+  --fields scoring_discount,scoring_hand --output my-model.json
 python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
   --seed 4000 --model my-model.json --workers 8
 ```

@@ -14,7 +14,7 @@ turns, with a limited shortlist of card/target macros.
 | `progress_curve=1`, `reserve_stability=0` | Yes | First configuration simplification: fix these at their default shapes and remove two tuning dimensions. This preserves default behavior, not arbitrary checkpoints. |
 | `event=1` | No | Fix at 1 and remove the extra multiplier. It applies only at play-mode selection, while headline/card selection uses the unmultiplied event estimate. Removing this tuning dimension preserves defaults and removes an inconsistent way to tune event preference. |
 | `coup_discount=.9` | No | First behavioral ablation: set to 1. Actual dice already encode failed/inefficient coups, and search simulates actual outcomes. The discount additionally expresses a placement preference; it is not an engine rule or an algebraically redundant term. |
-| `scoring_hand=1.6`, `scoring_live=1.3` | No | Test neutral multipliers in the search rollout policy. They can compensate for shallow search, particularly for unseen opponent scoring and at the horizon. Keep the standalone strategic defaults until tested. |
+| `scoring_hand=1.2`, `scoring_discount=0.8` (replaced the `scoring_live` urgency multiplier) | No | Test neutral multipliers in the search rollout policy. They can compensate for shallow search, particularly for unseen opponent scoring and at the horizon. Keep the standalone strategic defaults until tested. |
 | `military=2` | No | A candidate for reducing rollout guidance once search reliably values end-of-turn penalties. It is already absent from the MCTS leaf, so removing it cannot eliminate duplicate leaf credit. |
 | `ops=2` | No | Keep for cheap move proposals/rollouts until card/mode alternatives are actually searched. It is a generic estimate of a card's utility, not a value of the resulting position. |
 | `control=1`, `battleground=5`, `southeast_asia=2` | Yes | Investigate replacing direct country tier bonuses with future regional VP in a separate leaf evaluator. These weights also scale progress and reserves; zeroing them is not just removing the control bonus. |
@@ -76,7 +76,7 @@ time changed the chosen action as follows:
 
 | Change | Decisions changed |
 | --- | ---: |
-| Neutral urgency (`scoring_hand=scoring_live=1`) | 6 / 150 |
+| Neutral urgency (`scoring_hand=scoring_live=1`, before the schedule weighting) | 6 / 150 |
 | Neutral coup discount (`coup_discount=1`) | 2 / 150 |
 | No progress (`progress=0`) | 31 / 150 |
 | No reserves (`reserve=0`) | 6 / 150 |
