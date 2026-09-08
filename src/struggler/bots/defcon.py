@@ -3,13 +3,21 @@
 Board/eligibility is frozen, except DEFCON and Space Race. Unknown draws are
 approximated explicitly, never read from an engine's hidden state. This is a
 risk feature and policy guard, not a calibrated prediction of match outcomes.
+
+The search state is (hand, rounds left, DEFCON, space box, space attempts,
+China Card, trapped). "Trapped" is Quagmire/Bear Trap: each of our rounds
+then discards a 2+ Ops card without firing its event and rolls to escape.
+Between our rounds the opponent may lower DEFCON or attack our hand
+(Aldrich Ames, Terrorism, Grain Sales, Missile Envy); both are priors, and
+the hand attack is adversarial: it takes whichever safe card we could least
+afford to lose.
 """
 from dataclasses import dataclass
 from functools import lru_cache
 import logging
 import math
 
-from struggler.engine import Side, Region
+from struggler.engine import DecisionKind as K, Side, Region
 from struggler.engine.cards import load_cards
 from struggler.engine.rules import RULES
 
@@ -21,17 +29,28 @@ ASK = 'Ask_Not_What_Your_Country_Can_Do_For_You'
 RAISERS = {'How_I_Learned_to_Stop_Worrying': 5, 'Salt_Negotiations': 2,
            'Nuclear_Test_Ban': 2, 'ABM_Treaty': 1}
 REDUCERS = {'Duck_and_Cover', 'We_Will_Bury_You', 'Soviets_Shoot_Down_KAL_007'}
+# Events that make the US discard a printed-3+-Ops card or take a board hit.
+# The discard never fires an event, so it is also an exit for a hazardous card.
+US_PAYABLE_DISCARDS = {'Blockade', 'Latin_American_Debt_Crisis'}
+# Card -> the side its event traps (mirrors Engine._TRAP_KEYS).
+TRAPS = {'Bear_Trap': Side.USSR, 'Quagmire': Side.US}
+TRAP_KEYS = {'bear_trap': Side.USSR, 'quagmire': Side.US}
+# Decisions made while our own card play is still resolving: the round is
+# already spent, so the hand that matters is what remains for later rounds.
+PLAY_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE)
 
 
 @dataclass(frozen=True)
 class SurvivalPrior:
     opponent_lowers_defcon: float = .75
+    opponent_hand_attack: float = .10
     unknown_chain_loss: float = .25
     replacement_hazard: float = .15
-    max_states: int = 3000
+    max_states: int = 20000
 
     def __post_init__(self):
-        for p in (self.opponent_lowers_defcon, self.unknown_chain_loss, self.replacement_hazard):
+        for p in (self.opponent_lowers_defcon, self.opponent_hand_attack,
+                  self.unknown_chain_loss, self.replacement_hazard):
             if not math.isfinite(p) or not 0 <= p <= 1:
                 raise ValueError('survival probabilities must be finite and in [0, 1]')
         if self.max_states < 1:
@@ -45,22 +64,42 @@ class DefconPlanner:
         self.side = obs.side
         self.hand = tuple(sorted(obs.hand))
         self.rounds = max(0, (6 if obs.turn <= 3 else 7) - max(1, obs.action_round) + 1)
-        if obs.phase == 'headline':
+        self.mid_play = self._mid_play(obs)
+        if obs.phase == 'headline' and not self.mid_play:
             self.rounds += 1  # headline consumes a card, but no action round
+        if self.mid_play and obs.phase != 'headline':
+            self.rounds = max(0, self.rounds - 1)  # this round's card is already out
         self.china = obs.china_card_owner is obs.side and obs.china_card_available
+        self.trapped = any(obs.game_effects.get(k) and s is self.side for k, s in TRAP_KEYS.items())
         self.nodes = 0
         self.truncated = False
         self.solve = lru_cache(maxsize=None)(self._solve)
         self._hazard = lru_cache(maxsize=None)(self._event_risk)
         log.debug(
-            "planner %s T%d AR%d %s: DEFCON %d, rounds_left=%d, hand=%s, china=%s, space=%d/%d attempts",
+            "planner %s T%d AR%d %s: DEFCON %d, rounds_left=%d, hand=%s, china=%s, trapped=%s, "
+            "mid_play=%s, space=%d/%d attempts",
             self.side.value, obs.turn, obs.action_round, obs.phase, obs.defcon, self.rounds,
-            list(self.hand), self.china, obs.space_race[self.side.value],
-            obs.space_race_attempts[self.side.value],
+            list(self.hand), self.china, self.trapped, self.mid_play,
+            obs.space_race[self.side.value], obs.space_race_attempts[self.side.value],
         )
+
+    def _mid_play(self, obs):
+        decision = obs.pending_decision
+        if decision is None or decision.kind in PLAY_KINDS:
+            return False
+        if decision.kind is K.QUAGMIRE_DISCARD:
+            return decision.actor is self.side
+        responsible = decision.context.get('phasing_player')
+        if responsible is None:
+            responsible = decision.actor.value if decision.actor is not Side.CHANCE else None
+        return responsible == self.side.value
 
     def opponent_event(self, cid):
         return cid in CARDS and CARDS[cid].side.value == self.side.opponent.value
+
+    def hazardous(self, cid, hand=None):
+        """Whether being forced to play `cid` can lose the game at DEFCON 2."""
+        return self.opponent_event(cid) and self.event_risk(cid, 2, hand) > 0
 
     def coup_threat(self, actor, defcon, countries=None, ignore_defcon=False):
         if actor is self.side or defcon > 2:
@@ -147,22 +186,41 @@ class DefconPlanner:
             modes.append('un_intervention')
         return tuple(modes)
 
-    def _next(self, hand, rounds, defcon, pos, attempts, china):
+    # -- chance node: what the opponent may do before our next round --------
+
+    def _next(self, hand, rounds, defcon, pos, attempts, china, trapped=False):
         if rounds <= 0:
             return 0.
         p = self.prior.opponent_lowers_defcon if defcon > 2 else 0.
-        return ((1-p)*self.solve(hand, rounds, defcon, pos, attempts, china) +
-                p*self.solve(hand, rounds, max(2, defcon-1), pos, attempts, china))
+        return ((1-p)*self._after_hand_attack(hand, rounds, defcon, pos, attempts, china, trapped) +
+                p*self._after_hand_attack(hand, rounds, max(2, defcon-1), pos, attempts, china, trapped))
 
-    def transition(self, cid, mode, hand, rounds, defcon, pos, attempts, china):
+    def _after_hand_attack(self, hand, rounds, defcon, pos, attempts, china, trapped):
+        base = self.solve(hand, rounds, defcon, pos, attempts, china, trapped)
+        p = self.prior.opponent_hand_attack
+        if p <= 0 or base >= 1:
+            return base
+        # The attacker (Aldrich Ames, Terrorism, Grain Sales, Missile Envy) is
+        # assumed to remove the safe card whose loss hurts us most; it cannot
+        # take a card that would only have hurt us.
+        safe = [c for c in hand if not self.hazardous(c, hand)]
+        if not safe:
+            return base
+        worst = max(self.solve(tuple(c for c in hand if c != s), rounds, defcon, pos, attempts, china, trapped)
+                    for s in safe)
+        return (1-p)*base + p*worst
+
+    # -- one card play ------------------------------------------------------
+
+    def transition(self, cid, mode, hand, rounds, defcon, pos, attempts, china, trapped=False):
         remaining = list(hand)
         if cid == CHINA:
             china = False
         elif cid in remaining:
             remaining.remove(cid)
         remaining = tuple(remaining)
-        def onward(h=remaining, d=defcon, p=pos, a=attempts):
-            return self._next(h, rounds-1, d, p, a, china)
+        def onward(h=remaining, d=defcon, p=pos, a=attempts, t=trapped):
+            return self._next(h, rounds-1, d, p, a, china, t)
         if mode == 'space_race':
             # Disposal is certain even when the roll fails. Advancement can change eligibility.
             probability = RULES['space_race_boxes'][str(pos+1)]['roll_max']/6
@@ -181,7 +239,7 @@ class DefconPlanner:
                     return min(onward(d=d), onward(tuple(sorted(remaining+(safe,))), d=d))
             return onward(d=d)
         if cid == ASK and self.side is Side.US:
-            dangerous = [c for c in remaining if self.opponent_event(c) and self.event_risk(c, 2, remaining) > 0]
+            dangerous = [c for c in remaining if self.hazardous(c, remaining)]
             replacement = tuple(sorted([c for c in remaining if c not in dangerous]+['@replacement']*len(dangerous)))
             # Replacements are unknown; explicit pessimistic penalty, not a sampled hidden draw.
             risk = 1-(1-self.prior.replacement_hazard)**len(dangerous)
@@ -189,6 +247,14 @@ class DefconPlanner:
         if cid == 'Aldrich_Ames_Remix' and self.side is Side.US and remaining:
             # The opponent chooses the worst continuation for us.
             return max(onward(tuple(c for c in remaining if c != discarded)) for discarded in remaining)
+        if cid in US_PAYABLE_DISCARDS and self.side is Side.US:
+            # Refusing is always allowed (a board hit, never a loss), and a
+            # 3+ Ops discard fires no event: a hazardous card can leave this way.
+            return min([onward()] + [onward(tuple(c for c in remaining if c != paid))
+                                     for paid in self.payable(remaining)])
+        if TRAPS.get(cid) is self.side:
+            # Self-trapping: later rounds discard 2+ Ops cards without events.
+            return onward(t=True)
         if cid == 'Five_Year_Plan' and self.side is Side.USSR and remaining:
             values = []
             for c in remaining:
@@ -200,9 +266,48 @@ class DefconPlanner:
         risk = self.event_risk(cid, defcon, remaining)
         return risk+(1-risk)*onward(d=max(2,defcon-1) if cid in REDUCERS else defcon)
 
-    def _solve(self, hand, rounds, defcon, pos, attempts, china):
+    @staticmethod
+    def payable(hand, minimum=3):
+        """Cards the engine accepts for a printed-Ops discard clause (Blockade: 3, traps: 2)."""
+        return [c for c in hand if c in CARDS and not CARDS[c].scoring and CARDS[c].ops >= minimum]
+
+    def trap_step(self, hand, rounds, defcon, pos, attempts, china):
+        """One trapped round: discard a 2+ Ops card (no event) and roll 1-4 to escape."""
+        payable = self.payable(hand, 2)
+        if not payable:
+            # No roll; scoring cards in hand resolve, the round passes.
+            rest = tuple(c for c in hand if not (c in CARDS and CARDS[c].scoring))
+            return self._next(rest, rounds-1, defcon, pos, attempts, china, True)
+        best = 1.
+        for paid in payable:
+            rest = tuple(c for c in hand if c != paid)
+            value = (4/6)*self._next(rest, rounds-1, defcon, pos, attempts, china, False) + \
+                    (2/6)*self._next(rest, rounds-1, defcon, pos, attempts, china, True)
+            best = min(best, value)
+        return best
+
+    def discard_risk(self, cid, escape_roll=False):
+        """Turn-loss risk after discarding `cid` right now, mid-play (Blockade,
+        Debt Crisis, a trap step). `escape_roll` adds the trap's 1-4 die."""
+        hand = tuple(c for c in self.hand if c != cid) if cid else self.hand
+        state = (self.obs.defcon, self.obs.space_race[self.side.value],
+                 self.obs.space_race_attempts[self.side.value], self.china)
+        if escape_roll and cid:
+            value = (4/6)*self._next(hand, self.rounds, *state, False) + \
+                    (2/6)*self._next(hand, self.rounds, *state, True)
+        else:
+            value = self._next(hand, self.rounds, *state, self.trapped)
+        log.debug("planner %s: discard %s -> turn-loss risk %.3f (rounds_left=%d)",
+                  self.side.value, cid, value, self.rounds)
+        return value
+
+    # -- search -------------------------------------------------------------
+
+    def _solve(self, hand, rounds, defcon, pos, attempts, china, trapped=False):
         if rounds <= 0 or not hand:
             return 0.
+        if not any(self.hazardous(c, hand) for c in hand):
+            return 0.  # only opponent events fire involuntarily; nothing here can
         self.nodes += 1
         if self.nodes > self.prior.max_states:
             if not self.truncated:
@@ -210,8 +315,10 @@ class DefconPlanner:
                             self.side.value, self.prior.max_states)
             self.truncated = True
             # Conservative fallback: any forced hazardous card is treated as loss.
-            safe = sum(not self.opponent_event(c) or self.event_risk(c, 2, hand) == 0 for c in hand)
+            safe = sum(not self.hazardous(c, hand) for c in hand)
             return float(safe + int(china) < min(rounds, len(hand)+int(china)))
+        if trapped:
+            return self.trap_step(hand, rounds, defcon, pos, attempts, china)
         scoring = [c for c in hand if c in CARDS and CARDS[c].scoring]
         candidates = scoring if len(scoring) >= rounds else list(hand)+([CHINA] if china else [])
         # Exact special scoring-discard escape implemented by the engine.
@@ -230,12 +337,14 @@ class DefconPlanner:
 
     def risk(self, cid=None, mode=None):
         state = (self.hand, self.rounds, self.obs.defcon, self.obs.space_race[self.side.value],
-                 self.obs.space_race_attempts[self.side.value], self.china)
+                 self.obs.space_race_attempts[self.side.value], self.china, self.trapped)
         if cid is None:
             value = self.solve(*state)
             log.debug("planner %s: whole-hand turn-loss risk=%.3f (%d states searched)",
                       self.side.value, value, self.nodes)
             return value
+        if self.trapped:
+            return self.solve(*state)  # a trapped side does not choose a card play
         modes = (mode,) if mode else self.modes(cid, self.hand, state[3], state[4])
         per_mode = {m: self.transition(cid, m, *state) for m in modes}
         log.debug("planner %s: %s risk by mode %s", self.side.value, cid,
@@ -244,12 +353,13 @@ class DefconPlanner:
 
     def features(self):
         risk = self.risk()
-        hazards = [c for c in self.hand if self.opponent_event(c) and self.event_risk(c, 2) > 0]
+        hazards = [c for c in self.hand if self.hazardous(c)]
         if hazards:
             log.info("planner %s T%d AR%d: hazardous cards in hand %s (DEFCON %d, turn-loss risk %.3f)",
                      self.side.value, self.obs.turn, self.obs.action_round, hazards, self.obs.defcon, risk)
         return {'turn_loss_risk': risk,
-                'hazardous_cards': sum(self.opponent_event(c) and self.event_risk(c, 2) > 0 for c in self.hand),
+                'hazardous_cards': len(hazards),
                 'space_attempts_left': max(0, self.engine._space_attempts_allowed(self.side)-self.obs.space_race_attempts[self.side.value]),
                 'china_available': int(self.china), 'rounds_left': self.rounds,
+                'trapped': int(self.trapped),
                 'search_truncated': self.truncated}

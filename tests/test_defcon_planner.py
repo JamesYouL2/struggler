@@ -26,6 +26,9 @@ def setup_hand(cards, side=Side.USSR, rounds=2, defcon=2, space_used=0, china=Fa
 
 
 def planner(e, side=Side.USSR, **prior):
+    # Exact-structure tests default the opponent hand-attack prior off; the
+    # tests that exercise it set it explicitly.
+    prior.setdefault('opponent_hand_attack', 0)
     obs = e.observe(side)
     bot = StrategicPlayer()
     return DefconPlanner(obs, bot.public_engine(obs), SurvivalPrior(**prior))
@@ -157,3 +160,82 @@ def test_search_budget_and_features_are_explicit():
     assert f['search_truncated']
     with pytest.raises(ValueError):
         SurvivalPrior(opponent_lowers_defcon=float('nan'))
+
+
+# -- discard events, traps, and opponent hand attacks -------------------------
+
+
+def test_blockade_self_discard_is_refused_when_it_strands_a_suicide_card():
+    # Seed 2401, T9 AR5 (logs/game-check/2401-strategic-strategic.debug.log):
+    # the US paid Socialist Governments to Blockade and was left holding
+    # Lone Gunman for the last round.
+    hand = ['Allende', 'Blockade', 'Lone_Gunman', 'Socialist_Governments']
+    e = setup_hand(hand, Side.US, rounds=3, space_used=1)
+    p = planner(e, Side.US, opponent_hand_attack=0)
+    assert p.risk() == 0 and p.risk('Blockade', 'ops') == 0
+    e.hands['US'].remove('Blockade')
+    e._fire_event(Side.US, 'Blockade')
+    decision = e.observe(Side.US).pending_decision
+    assert decision.kind is K.EVENT_CHOICE and decision.context['event'] == 'Blockade'
+    p = planner(e, Side.US, opponent_hand_attack=0)
+    assert p.mid_play and p.rounds == 2
+    assert p.discard_risk('Socialist_Governments') == 1
+    assert p.discard_risk(None) == 0
+    assert StrategicPlayer().choose_action(e.observe(Side.US), []).payload['choice'] == 'refuse'
+
+
+def test_blockade_discard_is_an_exit_for_a_three_ops_hazard():
+    e = setup_hand(['We_Will_Bury_You', 'Blockade', 'Fidel'], Side.US, rounds=2, space_used=1)
+    p = planner(e, Side.US, opponent_hand_attack=0)
+    assert p.risk('We_Will_Bury_You', 'ops') == 1
+    assert p.risk('Blockade', 'ops') == 0
+    assert p.risk('Fidel', 'ops') == 0  # Blockade can still pay WWBY away next round
+    e.hands['US'].remove('Blockade')
+    e._fire_event(Side.US, 'Blockade')
+    assert StrategicPlayer().choose_action(e.observe(Side.US), []).payload['choice'] == 'We_Will_Bury_You'
+
+
+def test_self_bear_trap_disposes_of_us_events_without_firing_them():
+    hand = ['Bear_Trap', 'Grain_Sales_to_Soviets', 'CIA_Created', 'The_Voice_Of_America']
+    e = setup_hand(hand, rounds=3, space_used=1)
+    p = planner(e, opponent_hand_attack=0)
+    assert p.risk('Grain_Sales_to_Soviets', 'ops') == 1
+    assert p.risk('CIA_Created', 'ops') == 1
+    assert p.risk('Bear_Trap', 'ops') == 0
+    e.game_effects['bear_trap'] = True
+    p = planner(e, opponent_hand_attack=0)
+    assert p.trapped and p.risk() == 0
+    assert p.features()['trapped'] == 1
+
+
+def test_trap_step_pays_the_card_that_keeps_the_hand_safest():
+    # Trapped USSR must pay a 2+ Ops card: paying Voice of America keeps a
+    # safe 2-Ops card (Fidel) for the round after an escape; paying Fidel
+    # leaves Grain Sales as the only later play if the die frees us.
+    e = setup_hand(['Fidel', 'Grain_Sales_to_Soviets', 'CIA_Created'], rounds=2, space_used=1)
+    e.game_effects['bear_trap'] = True
+    e._push_trap_step(Side.USSR, 'bear_trap')
+    p = planner(e, opponent_hand_attack=0)
+    assert p.mid_play and p.rounds == 1
+    assert p.discard_risk('Grain_Sales_to_Soviets', escape_roll=True) == 0
+    assert p.discard_risk('Fidel', escape_roll=True) == pytest.approx(4/6)
+    a = StrategicPlayer().choose_action(e.observe(Side.USSR), [])
+    assert a.payload['card'] == 'Grain_Sales_to_Soviets'
+
+
+def test_opponent_hand_attack_prior_prices_a_missing_spare_card():
+    e = setup_hand(['CIA_Created', 'Fidel', 'Nasser'], rounds=2, space_used=1)
+    assert planner(e, opponent_hand_attack=0).risk() == 0
+    assert planner(e, opponent_hand_attack=.5).risk() == pytest.approx(.5)
+    assert planner(e, opponent_hand_attack=1).risk() == 1
+    # One spare safe card absorbs the single attack between two rounds...
+    e.hands['USSR'].append('Decolonization')
+    assert planner(e, opponent_hand_attack=1).risk() == 0
+    # ...but three rounds leave room for two attacks: three plays plus two
+    # stolen cards need five safe cards alongside the held hazard.
+    e.action_round = 7-3
+    assert planner(e, opponent_hand_attack=1).risk() == 1
+    e.hands['USSR'].append('Warsaw_Pact_Formed')
+    assert planner(e, opponent_hand_attack=1).risk() == 1
+    e.hands['USSR'].append('Arab_Israeli_War')
+    assert planner(e, opponent_hand_attack=1).risk() == 0

@@ -215,8 +215,10 @@ What each level reports:
 
 - `WARNING` (the default) — only nuclear-risk events: DEFCON 1 with who
   was responsible, a `StrategicPlayer` decision where every option is a
-  certain loss, one where it knowingly accepts a non-zero turn-loss risk,
-  or a `DefconPlanner` search that hit its state budget.
+  certain loss, one where it accepts a turn-loss risk at or above
+  `strategic.RISK_WARNING` (0.5; smaller, prior-sized risks such as holding
+  a hazard the opponent might expose are INFO), or a `DefconPlanner`
+  search that hit its state budget.
 - `INFO` — a play-by-play: turn starts (hand sizes, draw pile, China
   Card), each headline and action-round card play with its mode, every
   event that resolves (with the responsible phasing player), every

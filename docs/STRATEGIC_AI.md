@@ -108,6 +108,46 @@ does not demonstrate that learning improved playing strength.
 Validation: 392 tests passed, 3 skipped, including tactical regressions,
 observation non-mutation, deterministic paired games, and model serialization.
 
+## Hand survival
+
+`bots/defcon.py`'s `DefconPlanner` is the tactical guard in front of every
+VP score. `StrategicPlayer.safety_key` ranks each legal option by a tuple:
+certain immediate defeat first, then the planner's turn-loss risk, then the
+trainable score. So a card play, play mode, headline, event choice, or trap
+discard that leaves the hand unable to survive the turn loses to any option
+that can, regardless of country value.
+
+The planner is a memoised search over the observation only, never hidden
+state: the state is (hand, rounds left, DEFCON, Space Race box and
+attempts, China Card, trapped). Each of our rounds tries every card and
+mode the engine would offer (Ops, event, Space Race, UN Intervention),
+firing an opponent card's event on Ops exactly as the engine does. Between
+our rounds a chance node applies `SurvivalPrior`:
+
+- `opponent_lowers_defcon` (0.75) while DEFCON is above 2;
+- `opponent_hand_attack` (0.10) that an Aldrich Ames, Terrorism, Grain
+  Sales, or Missile Envy removes one of our safe cards, chosen
+  adversarially so a plan with no spare safe card is charged for it;
+- `unknown_chain_loss` and `replacement_hazard` for cards the search
+  cannot see (Five Year Plan's random target from the US side, Missile
+  Envy, Ask Not's replacements).
+
+Card-specific transitions cover DEFCON raisers, Ask Not, Aldrich Ames,
+Five Year Plan, Salt Negotiations' retrieval, Blockade and Latin American
+Debt Crisis (pay a 3+ Ops card with no event, or refuse), and self-trapping
+with Quagmire/Bear Trap, after which each round discards a 2+ Ops card
+without an event and rolls 1-4 to escape. `discard_risk` prices a mid-play
+discard (Blockade's choice, a trap step) with the current round already
+spent; `event_risk` prices a single event firing now, including the
+opponent-granted coups of CIA Created, Lone Gunman, Grain Sales, Tear Down
+This Wall, and Ortega. A hand with no hazardous card short-circuits to zero
+risk; a search over `max_states` states falls back to a conservative count
+of safe cards versus rounds and is reported in the diagnostic log.
+
+The strategy behind these rules is [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md);
+`tests/test_defcon_planner.py` pins each transition and the seed 2401
+Blockade regression.
+
 ## Limits
 
 This is a bounded tactical policy, not full-game minimax, MCTS, or deep RL.
@@ -120,8 +160,9 @@ although scoring-card and Wargames decisions use the engine's scoring code.
 
 Events outside the whitelist use rough allegiance/ops-based estimates, and
 unhandled event branches tie-break to the first legal option. Long-term event
-flags are only partially valued. It does not reason about all forced DEFCON
-traps, hidden-hand probabilities, card tracking, or the opponent's future
-responses. Its safety heuristics are not a guarantee against every nuclear
-loss. Strength against the supplied baselines is evidence of an improvement,
+flags are only partially valued. Hand survival is a bounded search with
+fixed priors: it does not track which attack cards the opponent actually
+holds, model the opponent's regional play, or value the board damage a
+refused Blockade costs against the risk it avoids. Its safety heuristics
+are not a guarantee against every nuclear loss. Strength against the supplied baselines is evidence of an improvement,
 not evidence of expert human-level play.

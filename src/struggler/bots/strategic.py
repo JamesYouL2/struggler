@@ -20,9 +20,10 @@ from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
 from struggler.engine.player import Event
-from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK
+from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
+RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARNING
 from struggler.bots.greedy import (
     _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
     _in_bonus_region, _realignment_bonus, _realignment_modifier,
@@ -84,7 +85,8 @@ class StrategicPlayer:
         _sync_board(self.board, observation)
         self._events = {}
         self._planner = None
-        if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE):
+        if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
+                             K.QUAGMIRE_DISCARD):
             self._planner = DefconPlanner(observation, self.public_engine(observation), self.survival_prior)
         ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
                         key=lambda pair: pair[0], reverse=True)
@@ -108,17 +110,19 @@ class StrategicPlayer:
         if forced_loss < 0:
             log.warning('%s: EVERY option is a certain loss; picking %s', prefix, describe(best_key, best))
         elif -neg_risk > 0:
-            log.warning('%s: accepting turn-loss risk %.3f with %s', prefix, -neg_risk, describe(best_key, best))
+            # Prior-sized risk (a held hazard the opponent might steal a spare
+            # from) is routine at DEFCON 2; only a real gamble is a warning.
+            log.log(logging.WARNING if -neg_risk >= RISK_WARNING else logging.INFO,
+                    '%s: accepting turn-loss risk %.3f with %s', prefix, -neg_risk, describe(best_key, best))
         if self._planner is not None and decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
             log.info('%s: hand=%s DEFCON=%d rounds_left=%d china=%s', prefix, list(obs.hand), obs.defcon,
                      self._planner.rounds, self._planner.china)
-        if log.isEnabledFor(logging.DEBUG) or decision.kind in (
-                K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE):
+        narrated = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE, K.QUAGMIRE_DISCARD)
+        if log.isEnabledFor(logging.DEBUG) or decision.kind in narrated:
             shown = ranked if log.isEnabledFor(logging.DEBUG) else ranked[:5]
             log.info('%s: chose %s', prefix, describe(best_key, best))
             for key, action in shown[1:]:
-                log.log(logging.DEBUG if decision.kind not in (
-                    K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE) else logging.INFO,
+                log.log(logging.INFO if decision.kind in narrated else logging.DEBUG,
                         '%s:   also %s', prefix, describe(key, action))
 
     def survival_features(self, observation):
@@ -146,6 +150,14 @@ class StrategicPlayer:
                                           obs.space_race_attempts[obs.side.value], planner.china)
             else:
                 risk = planner.risk(cid)
+        elif planner and kind is K.QUAGMIRE_DISCARD:
+            # A trap step: the discard fires no event, then a 1-4 roll escapes.
+            cid = p['card']
+            risk = planner.discard_risk(None if cid == 'none' else cid, escape_roll=cid != 'none')
+        elif planner and kind is K.EVENT_CHOICE and obs.pending_decision.context.get('event') in US_PAYABLE_DISCARDS:
+            # Blockade / Debt Crisis: pay a 3+ Ops card (no event) or take the board hit.
+            choice = p['choice']
+            risk = planner.discard_risk(None if choice == 'refuse' else choice)
         score = self.score(obs, action)
         return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
 

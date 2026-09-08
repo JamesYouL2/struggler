@@ -9,7 +9,8 @@ The [DEFCON strategy audit](DEFCON_STRATEGY.md#engine-and-bot-discrepancies-to-r
 records the corrected phasing-player, Five Year Plan, Missile Envy, Cuban
 Missile Crisis, and Wargames rules. Earlier bot tournament results used the
 pre-fix engine and are historical, not measurements under the corrected rules.
-Bot hand-survival planning remains incomplete.
+Bot hand-survival planning is a bounded search with explicit priors, not a
+full model of the opponent; see the strategic bot's limits.
 
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
@@ -17,6 +18,14 @@ Bot hand-survival planning remains incomplete.
   Wars could in principle retrieve it slightly earlier than the physical
   game allows, but the effect it would re-apply is idempotent, so this has
   no actual gameplay consequence.
+- **Discard clauses use printed Ops.** Blockade and Latin American Debt
+  Crisis accept any printed-3+-Ops card, and Quagmire/Bear Trap any
+  printed-2+-Ops card, regardless of Red Scare/Purge or Containment/
+  Brezhnev. On the tabletop the modified value arguably applies, which
+  makes Red Scare/Purge plus Blockade or a trap far harsher than this
+  engine plays it. The bots' survival planner follows the engine
+  (`DefconPlanner.payable`); [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md#hand-discard-effects-traps-and-modifiers)
+  records the tabletop reading.
 - **Aldrich Ames Remix**'s "USA reveals their hand face-up until end of
   turn" is modeled as a momentary reveal — the decision options — rather
   than an ongoing visibility grant surfaced through `observe()`. Modeling

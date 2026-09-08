@@ -142,6 +142,45 @@ the chain recursively with the original responsibility preserved.
 These distinctions follow the separate coup, war, discard, and event handlers
 in this repository. They should remain explicit inputs to tactical planning.
 
+## Hand discard effects, traps, and modifiers
+
+Discards are the other half of hand management. Some take a card from you
+without firing its event, which can be an escape or a trap depending on
+which card leaves and how many safe plays remain afterwards.
+
+| Effect | Who discards | What to check |
+| --- | --- | --- |
+| Blockade | US, a printed-3+-Ops card, or lose all West Germany influence. | Paying is optional. Refusing is a board hit, never a nuclear loss. Paying a 3+ Ops opponent card (We Will Bury You, KAL-007, Tear Down This Wall) is a clean exit because the event does not fire. Paying your last spare safe card can leave a 1-Ops suicide card as the only play for the final round: that is exactly how the seed 2401 game was lost. |
+| Latin American Debt Crisis | US, same 3+-Ops clause, or the USSR doubles influence in two South American countries. | Same test as Blockade. The board hit is usually mild, so refusing is cheap when the hand is tight. |
+| Quagmire / Bear Trap | The trapped side (US / USSR) discards a 2+ Ops card each action round and rolls 1-4 to escape. | The discard fires no event, so a trapped player cannot be forced into a suicide card; the cost is tempo and the 2+ Ops cards it eats. Without a payable card no roll happens and the round passes. |
+| Terrorism | Opponent discards one random card (two if the USSR plays it after Iranian Hostage Crisis). | An attack on the hand: it can strip a spare safe card and leave a held hazard with nowhere to hide. |
+| Aldrich Ames Remix | USSR picks the US discard from the revealed hand. | The adversarial case: assume it takes the safe card whose loss hurts most. |
+| Grain Sales to Soviets | A random USSR card is revealed; the US keeps it or returns it. | Removes a USSR card, and the US may play it in full. |
+| Missile Envy | Opponent surrenders its highest-Ops card. | Both a hand attack and a forced event on receipt; see the retrieval table above. |
+
+**Self-trapping as disposal.** Because a trap's discard fires no event, a
+side can play the opponent's trap for Ops on purpose to dump cards it
+could never safely play. The USSR playing Bear Trap for Ops can then shed
+Grain Sales to Soviets, The Voice of America, Colonial Rear Guards, and
+similar 2-Ops US events one round at a time. The US playing Quagmire for
+Ops mainly buys a way to discard Decolonization; few other USSR 2-Ops
+cards are painful enough to justify the tempo. A 1-Ops suicide card
+(CIA Created, Lone Gunman) cannot be paid to a trap, but a trapped side
+never has to play it either.
+
+**Red Scare/Purge and SALT.** Under Red Scare/Purge the affected side's
+cards are worth one Op less. On the tabletop that shrinks the set of cards
+that satisfy a discard clause: a 3-Ops card no longer pays for Blockade,
+and 2-Ops cards no longer pay for a trap. Red Scare/Purge plus Blockade is
+therefore a near-certain loss of West Germany, and Red Scare/Purge plus
+Quagmire or Bear Trap can hold the trapped side for the whole turn with
+no roll at all. This engine tests the clauses against **printed** Ops
+(see [LIMITATIONS.md](LIMITATIONS.md)), so it is more lenient than the
+physical game here; do not train the tabletop instinct out of the bots
+on that basis. SALT Negotiations pulls in the other direction: the DEFCON
+rise opens an escape window, and the retrieved card is one more safe play
+or spare against a hand attack, at the price of -1 on every coup roll.
+
 ## Plan survival for the whole turn
 
 Before spending operations on country value, count remaining action rounds,
@@ -155,7 +194,10 @@ box's minimum. Containment/Brezhnev and Red Scare/Purge can change effective Ops
 Using a discard or UN Intervention can solve one problem while leaving too few
 cards to hold another. DEFCON-raising events can open a safe window, but the
 opponent may close it before the next play. Never assume the opponent chooses
-the harmless branch of your event.
+the harmless branch of your event. Count a spare safe card for each opponent
+action round in which a hand attack (Terrorism, Aldrich Ames, Grain Sales,
+Missile Envy) could remove one; a plan with exactly enough safe plays is one
+discard away from a forced suicide card.
 
 When behind, look for an opponent's **forced** loss: keep DEFCON low, preserve
 eligible targets, deny disposal opportunities, and reduce their safe plays.
@@ -184,12 +226,18 @@ Engine items 1–5 below are now fixed; item 6 remains a bot limitation.
 5. **Wargames — fixed:** ends after the concession without regional scoring;
    a tied VP track is a draw. The strategic bot's Wargames evaluator now uses
    this same event implementation.
-6. **Bot hand planning:** the small match check on seeds 1200/1201 ended in
-   early nuclear losses. The inspected USSR losses against StrategicPlayer
-   played Duck and Cover for Ops at DEFCON 2. A mode-level penalty is too late
-   if earlier choices consumed the last escape and left only losing options.
-   These outcomes are recorded in
+6. **Bot hand planning — addressed:** the small match check on seeds
+   1200/1201 ended in early nuclear losses. The inspected USSR losses
+   against StrategicPlayer played Duck and Cover for Ops at DEFCON 2. A
+   mode-level penalty is too late if earlier choices consumed the last
+   escape and left only losing options. These outcomes are recorded in
    [event-value-match-check.json](../models/event-value-match-check.json).
+   `StrategicPlayer` now ranks every card, mode, event-choice, and discard
+   decision by `bots/defcon.py`'s whole-hand survival search before its VP
+   score (see [STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)). The
+   seed 2401 loss above (Blockade paid away the last spare safe card) no
+   longer reproduces.
 
-Remaining priority: enforce whole-hand survival planning before ranking
-regional VP, then rerun tournaments under the corrected rules. Adding more country features alone will not repair this.
+Remaining priority: rerun tournaments under the corrected rules and read
+the accepted-risk warnings in the diagnostic log for the next failure
+class. Adding more country features alone will not repair tactical losses.
