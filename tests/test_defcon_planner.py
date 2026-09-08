@@ -12,8 +12,9 @@ from struggler.bots.defcon import DefconPlanner, SurvivalPrior
 def setup_hand(cards, side=Side.USSR, rounds=2, defcon=2, space_used=0, china=False):
     e = bare_engine()
     e.turn = 3
-    e.phase = 'action_round'
+    e.phase = 'action_rounds'
     e.action_round = 7-rounds
+    e._ars_played = 2*(e.action_round-1)  # keep the director consistent once a decision drains
     e.defcon = defcon
     e.hands[side.value] = list(cards)
     e.china_card_owner = side.value

@@ -527,6 +527,10 @@ class Engine:
                 self._dispatch_action_round(side)
             return
 
+        # Any other phase would leave the director spinning forever with an
+        # empty decision stack, so fail loudly instead.
+        raise RuntimeError(f"cannot advance from phase {self.phase!r}")
+
     # -- turn boundaries ----------------------------------------------------
 
     def _start_turn(self, *, initial: bool = False) -> None:
