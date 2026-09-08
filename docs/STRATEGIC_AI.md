@@ -55,6 +55,12 @@ action = bot.choose_action(observation, history)
   the period schedule is static and public, `engine.cards.ENTRY_TURN`).
   Southeast Asia Scoring adds urgency only to the countries it scores
   (the `SOUTHEAST_ASIA` subregion), not to all of Asia.
+- Turn 1 is battlegrounds only. Ops into a non-battleground on turn 1
+  (placement or coup) are worth `turn1_non_battleground` (default 0) of
+  their evaluated change, except Lebanon, Laos/Cambodia, Indonesia and
+  Malaysia, and Vietnam while Vietnam Revolts is in effect. A turn-1
+  battleground coup is often right (VP and Military Ops), and DEFCON is
+  not worth much to either side in the Early War, so neither is penalised.
 - Searches affordable multi-point investments into each candidate country,
   accounting for the end of doubled placement costs when enemy control breaks.
 - Enumerates all six coup rolls and all 36 realignment roll pairs. These are

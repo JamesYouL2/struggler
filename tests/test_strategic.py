@@ -181,3 +181,26 @@ def test_influence_value_is_convex_and_reserve_scales_with_stability():
     guard_low = value_at('Angola', 2) - value_at('Angola', 1)      # stability 1
     guard_high = value_at('Pakistan', 3) - value_at('Pakistan', 2)  # stability 2
     assert 0 < guard_high < guard_low
+
+
+def test_turn_one_ops_ignore_non_battlegrounds_except_the_openers():
+    engine = Engine(seed=0)
+    engine.turn = 1
+    bot = StrategicPlayer()
+    from struggler.bots.greedy import _sync_board
+    obs = engine.observe(Side.US)
+    _sync_board(bot.board, obs)
+    assert bot.delta(obs, 'Spain_Portugal', own=2) == 0
+    assert bot.delta(obs, 'Cameroon', own=1) == 0
+    assert bot.delta(obs, 'Italy', own=2) > 0        # battleground
+    assert bot.delta(obs, 'Lebanon', own=1) > 0      # a turn-1 opener
+    assert bot.delta(obs, 'Vietnam', own=1) == 0
+    revolts = dataclasses.replace(obs, turn_effects={'vietnam_revolts': True})
+    assert bot.delta(revolts, 'Vietnam', own=1) > 0
+    later = dataclasses.replace(obs, turn=2)
+    assert bot.delta(later, 'Spain_Portugal', own=2) > 0
+    # Coups inherit it: a turn-1 non-battleground coup is worth nothing.
+    bot.board.influence['Cameroon']['USSR'] = 1
+    assert bot.coup(obs, 'Cameroon', 2) == 0
+    bot.board.influence['Angola']['USSR'] = 1
+    assert bot.coup(obs, 'Angola', 2) > 0

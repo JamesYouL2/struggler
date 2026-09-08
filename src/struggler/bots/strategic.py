@@ -72,6 +72,11 @@ class StrategicWeights:
     # docs/STRATEGIC_AI.md). Option value needs lookahead, not a curve.
     progress_curve: float = 1.0
     reserve_stability: float = 0.0
+    # Turn 1 is battlegrounds only: Ops into a non-battleground are worth
+    # this fraction of their evaluated value (0 = ignored), except the few
+    # countries strong play does open on turn 1 (TURN1_NON_BATTLEGROUNDS,
+    # plus Vietnam under Vietnam Revolts). Applies to placement and coups.
+    turn1_non_battleground: float = 0.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -86,6 +91,11 @@ class StrategicWeights:
 
     def save(self, path: str | Path, **metadata) -> None:
         Path(path).write_text(json.dumps(dict(version=1, weights=asdict(self), metadata=metadata), indent=2) + '\n')
+
+
+# Non-battlegrounds that are legitimate turn-1 Ops targets; Vietnam joins
+# them only while Vietnam Revolts is in effect.
+TURN1_NON_BATTLEGROUNDS = frozenset({'Lebanon', 'Laos_Cambodia', 'Indonesia', 'Malaysia'})
 
 
 class StrategicPlayer:
@@ -262,10 +272,21 @@ class StrategicPlayer:
                 urgency = max(urgency, self.weights.scoring_live)
         return urgency
 
+    def turn1_focus(self, obs: Observation, cid: str) -> float:
+        """Multiplier on a country's evaluated change on turn 1: 1 for
+        battlegrounds and the few non-battlegrounds worth opening then,
+        `turn1_non_battleground` for everything else."""
+        if obs.turn != 1 or self.board.countries[cid].battleground:
+            return 1.0
+        if cid in TURN1_NON_BATTLEGROUNDS or (cid == 'Vietnam' and obs.turn_effects.get('vietnam_revolts')):
+            return 1.0
+        return self.weights.turn1_non_battleground
+
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         board, side = self.board, obs.side
         region = board.countries[cid].region
         urgency = self.scoring_urgency(obs, cid)
+        focus = self.turn1_focus(obs, cid)
         def local():
             return self.country_value(board, cid, side) + self.weights.region * urgency * self.region_score(board, region, side)
         before = local()
@@ -273,7 +294,7 @@ class StrategicPlayer:
         try:
             board.influence[cid][side.value] = max(0, original[side.value] + own)
             board.influence[cid][side.opponent.value] = max(0, original[side.opponent.value] + opp)
-            return local() - before
+            return focus * (local() - before)
         finally:
             board.influence[cid].update(original)
 
@@ -349,7 +370,9 @@ class StrategicPlayer:
             removed = min(enemy, margin)
             gain += self.delta(obs, cid, own=margin-removed, opp=-removed) / 6
         deficit = max(0, obs.defcon - obs.military_ops.get(obs.side.value, 0))
-        gain += self.weights.military * min(ops, deficit)
+        # Military Ops count for a coup anywhere, but a turn-1 coup outside
+        # a battleground is still not a play; the focus covers the whole coup.
+        gain += self.weights.military * min(ops, deficit) * self.turn1_focus(obs, cid)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
             gain -= self.weights.vp
         return gain
