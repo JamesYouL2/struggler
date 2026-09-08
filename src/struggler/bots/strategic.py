@@ -86,7 +86,7 @@ class StrategicPlayer:
         self._events = {}
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
-                             K.QUAGMIRE_DISCARD):
+                             K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
             self._planner = DefconPlanner(observation, self.public_engine(observation), self.survival_prior)
         ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
                         key=lambda pair: pair[0], reverse=True)
@@ -138,7 +138,7 @@ class StrategicPlayer:
             cid = p.get('card', obs.pending_decision.context.get('card'))
             if kind is K.HEADLINE_PLAY:
                 immediate = planner.event_risk(cid)
-                risk = planner.risk(cid, 'event')
+                risk = planner.headline_pick_risk(cid)
             elif kind is K.PLAY_MODE:
                 fires = p['mode'] == 'event' or p['mode'] == 'ops' and planner.opponent_event(cid)
                 immediate = planner.event_risk(cid) if fires else 0.
@@ -150,6 +150,16 @@ class StrategicPlayer:
                                           obs.space_race_attempts[obs.side.value], planner.china)
             else:
                 risk = planner.risk(cid)
+        elif planner and kind is K.COUP_TARGET:
+            risk = self.coup_survival_risk(obs, p['country'])
+        elif planner and kind is K.OPS_TYPE:
+            # Compare Ops types on the same footing: a coup may lower DEFCON
+            # and hand the opponent a target; the other types leave both alone.
+            risk = planner.discard_risk(None)
+            if p['type'] == 'coup':
+                engine = self.public_engine(obs)
+                targets = [c for c in self.board.countries if engine._usable_coup_realign_target(obs.side, c, for_coup=True)]
+                risk = min((self.coup_survival_risk(obs, c) for c in targets), default=risk)
         elif planner and kind is K.QUAGMIRE_DISCARD:
             # A trap step: the discard fires no event, then a 1-4 roll escapes.
             cid = p['card']
@@ -201,6 +211,29 @@ class StrategicPlayer:
             return local() - before
         finally:
             board.influence[cid].update(original)
+
+    def coup_survival_risk(self, obs: Observation, country: str) -> float:
+        """Turn-loss risk of the hand after couping `country` now.
+
+        A battleground coup lowers DEFCON (Nuclear Subs aside) and, if it
+        succeeds, leaves our influence there: a target for any coup the
+        opponent's events grant later. Seed 2402 lost exactly so (a USSR coup
+        into Zaire at DEFCON 3 created the CIA Created target); seed 2400 lost
+        by couping to DEFCON 2 with its own Lone Gunman headline still pending."""
+        info = self.board.countries[country]
+        if not _coup_risks_defcon(obs, obs.side, info):
+            return self._planner.discard_risk(None)
+        if obs.defcon - 1 <= 1:
+            return 1.
+        influence = copy.deepcopy(dict(obs.influence))
+        influence[country] = dict(influence[country])
+        influence[country][obs.side.value] = max(1, influence[country][obs.side.value])
+        after = replace(obs, defcon=obs.defcon-1, influence=influence)
+        planner = DefconPlanner(after, self.public_engine(after), self.survival_prior)
+        risk = planner.discard_risk(None)
+        log.debug('T%d AR%d %s coup %s%s -> DEFCON %d, turn-loss risk %.3f', obs.turn, obs.action_round,
+                  obs.side.value, country, ' [BG]' if info.battleground else '', obs.defcon-1, risk)
+        return risk
 
     def public_engine(self, obs: Observation) -> Engine:
         # A new, idle sandbox, never a clone of the live game's hidden state.

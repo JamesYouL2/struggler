@@ -216,6 +216,9 @@ class Engine:
             # and is never surfaced here.
             turn_effects=copy.deepcopy(self.turn_effects),
             game_effects=copy.deepcopy(self.game_effects),
+            # Revealed headlines still to resolve: public once both are
+            # picked (the resolving one has already been popped).
+            headline_pending=tuple((s, c) for s, c in self._headline_pending),
         )
 
     @property

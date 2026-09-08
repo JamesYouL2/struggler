@@ -159,7 +159,11 @@ class Observation:
     that set it has resolved, so surfacing them here is not a leak. The
     one exception, `Engine._headline` (each side's secret headline pick
     before both are revealed), is deliberately never exposed and stays
-    off this dataclass.
+    off this dataclass. `headline_pending` is the other half of that
+    story: once both picks are revealed they are public, and the ones
+    still waiting to resolve (in resolution order, as `(side, card)`
+    pairs) appear here -- a player acting during the opponent's headline
+    can see its own headline is still to come.
     """
 
     side: Side
@@ -186,3 +190,4 @@ class Observation:
     military_ops: Mapping[str, int]
     turn_effects: Mapping[str, Any]
     game_effects: Mapping[str, Any]
+    headline_pending: tuple[tuple[str, str], ...] = ()

@@ -69,6 +69,11 @@ class DefconPlanner:
             self.rounds += 1  # headline consumes a card, but no action round
         if self.mid_play and obs.phase != 'headline':
             self.rounds = max(0, self.rounds - 1)  # this round's card is already out
+        # Our own revealed headline still waiting to resolve: a forced event
+        # that fires before any of our action rounds.
+        self.pending_headline = next((c for s, c in obs.headline_pending if s == self.side.value), None)
+        if self.pending_headline and obs.phase == 'headline' and not self.mid_play:
+            self.rounds -= 1  # that card already left the hand
         self.china = obs.china_card_owner is obs.side and obs.china_card_available
         self.trapped = any(obs.game_effects.get(k) and s is self.side for k, s in TRAP_KEYS.items())
         self.nodes = 0
@@ -288,7 +293,9 @@ class DefconPlanner:
 
     def discard_risk(self, cid, escape_roll=False):
         """Turn-loss risk after discarding `cid` right now, mid-play (Blockade,
-        Debt Crisis, a trap step). `escape_roll` adds the trap's 1-4 die."""
+        Debt Crisis, a trap step). `escape_roll` adds the trap's 1-4 die.
+        With `cid` None it is simply the risk of the hand as it stands, the
+        current round already spent."""
         hand = tuple(c for c in self.hand if c != cid) if cid else self.hand
         state = (self.obs.defcon, self.obs.space_race[self.side.value],
                  self.obs.space_race_attempts[self.side.value], self.china)
@@ -297,8 +304,35 @@ class DefconPlanner:
                     (2/6)*self._next(hand, self.rounds, *state, True)
         else:
             value = self._next(hand, self.rounds, *state, self.trapped)
+        value = self._with_pending_headline(value, hand)
         log.debug("planner %s: discard %s -> turn-loss risk %.3f (rounds_left=%d)",
                   self.side.value, cid, value, self.rounds)
+        return value
+
+    def _with_pending_headline(self, value, hand=None, defcon=None):
+        """Fold in our own still-pending headline: it fires, at this DEFCON,
+        before the action rounds `value` describes."""
+        if not self.pending_headline:
+            return value
+        r = self.event_risk(self.pending_headline, defcon, self.hand if hand is None else hand)
+        return r + (1-r)*value
+
+    def headline_pick_risk(self, cid):
+        """Risk of headlining `cid`. The opponent's headline resolves first when
+        it has more Ops (ties: US first), and may lower DEFCON before ours fires."""
+        state = (self.hand, self.rounds, self.obs.defcon, self.obs.space_race[self.side.value],
+                 self.obs.space_race_attempts[self.side.value], self.china, self.trapped)
+        now = self.transition(cid, 'event', *state)
+        if self.obs.defcon <= 2 or cid not in CARDS or CARDS[cid].scoring:
+            return now
+        ops = CARDS[cid].ops
+        pool = [c for c in CARDS.values() if not c.scoring and c.id != CHINA]
+        later = sum(c.ops > ops or (c.ops == ops and self.side is Side.USSR) for c in pool)/len(pool)
+        q = later*self.prior.opponent_lowers_defcon
+        lowered = self.transition(cid, 'event', self.hand, self.rounds, max(2, self.obs.defcon-1), *state[3:])
+        value = (1-q)*now + q*lowered
+        log.debug("planner %s: headline %s risk now=%.3f after-drop=%.3f p(drop first)=%.2f -> %.3f",
+                  self.side.value, cid, now, lowered, q, value)
         return value
 
     # -- search -------------------------------------------------------------
@@ -339,14 +373,14 @@ class DefconPlanner:
         state = (self.hand, self.rounds, self.obs.defcon, self.obs.space_race[self.side.value],
                  self.obs.space_race_attempts[self.side.value], self.china, self.trapped)
         if cid is None:
-            value = self.solve(*state)
+            value = self._with_pending_headline(self.solve(*state))
             log.debug("planner %s: whole-hand turn-loss risk=%.3f (%d states searched)",
                       self.side.value, value, self.nodes)
             return value
         if self.trapped:
-            return self.solve(*state)  # a trapped side does not choose a card play
+            return self._with_pending_headline(self.solve(*state))  # a trapped side does not choose a card play
         modes = (mode,) if mode else self.modes(cid, self.hand, state[3], state[4])
-        per_mode = {m: self.transition(cid, m, *state) for m in modes}
+        per_mode = {m: self._with_pending_headline(self.transition(cid, m, *state)) for m in modes}
         log.debug("planner %s: %s risk by mode %s", self.side.value, cid,
                   {m: round(v, 3) for m, v in per_mode.items()})
         return min(per_mode.values())

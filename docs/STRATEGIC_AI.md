@@ -132,6 +132,18 @@ our rounds a chance node applies `SurvivalPrior`:
   cannot see (Five Year Plan's random target from the US side, Missile
   Envy, Ask Not's replacements).
 
+Two decisions outside the card play itself are also priced. A
+battleground coup (`coup_survival_risk`, used for the Ops-type choice and
+the coup target) is evaluated by the hand's survival at the lowered DEFCON
+with our influence added to the target, because a won coup hands the
+opponent's CIA Created or Lone Gunman a place to coup back; a non-
+battleground coup costs nothing. A headline pick (`headline_pick_risk`)
+weighs the chance the opponent's higher-Ops headline resolves first and
+lowers DEFCON before ours fires, so a 1-Ops suicide card is not a "safe"
+headline at DEFCON 3. Our own revealed, still-pending headline
+(`Observation.headline_pending`) is a forced event ahead of the action
+rounds in every evaluation made during the opponent's headline.
+
 Card-specific transitions cover DEFCON raisers, Ask Not, Aldrich Ames,
 Five Year Plan, Salt Negotiations' retrieval, Blockade and Latin American
 Debt Crisis (pay a 3+ Ops card with no event, or refuse), and self-trapping
@@ -145,8 +157,10 @@ risk; a search over `max_states` states falls back to a conservative count
 of safe cards versus rounds and is reported in the diagnostic log.
 
 The strategy behind these rules is [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md);
-`tests/test_defcon_planner.py` pins each transition and the seed 2401
-Blockade regression.
+`tests/test_defcon_planner.py` pins each transition and the seed 2400
+(headline), 2401 (Blockade), and 2402 (coup target) regressions from
+`logs/game-check`; all four of the 2400-2403 strategic-vs-strategic games
+that ended in nuclear war now end on VP or final scoring.
 
 ## Limits
 

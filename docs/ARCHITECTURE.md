@@ -77,6 +77,14 @@ must never leak:
 `observe(Side.USSR)` are different objects, not the same object with a
 "redact" flag.
 
+The headline phase is the worked example. Each side's secret pick
+(`Engine._headline`) is never exposed while the other side is still
+choosing. Once both are chosen the cards are revealed simultaneously and
+become public, so the ones still waiting to resolve appear in
+`Observation.headline_pending` as `(side, card)` pairs in resolution
+order; a player acting during the opponent's headline can therefore see
+that its own headline is still to come.
+
 ### 5. Flat, serializable state
 
 `GameState` is representable as a flat dict of JSON primitives (int, str,

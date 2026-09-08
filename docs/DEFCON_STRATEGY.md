@@ -199,6 +199,16 @@ action round in which a hand attack (Terrorism, Aldrich Ames, Grain Sales,
 Missile Envy) could remove one; a plan with exactly enough safe plays is one
 discard away from a forced suicide card.
 
+Two of your own actions can spring the trap without any card leaving your
+hand. A battleground coup from DEFCON 3 both lowers DEFCON to 2 and, if it
+wins, places your influence where the opponent's granted coup (CIA Created,
+Lone Gunman) can now reach it: check the hand at DEFCON 2 *with* that new
+target before couping. And a low-Ops headline resolves after the opponent's
+higher-Ops one (ties go to the US), so a card that is harmless at DEFCON 3
+at pick time can fire at DEFCON 2 if their headline coups first; when your
+headline is still pending, treat it as a forced event before you lower
+DEFCON during theirs.
+
 When behind, look for an opponent's **forced** loss: keep DEFCON low, preserve
 eligible targets, deny disposal opportunities, and reduce their safe plays.
 Keep uncertain hand identity as a belief, not a fact. Use expected win

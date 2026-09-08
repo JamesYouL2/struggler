@@ -162,6 +162,68 @@ def test_search_budget_and_features_are_explicit():
         SurvivalPrior(opponent_lowers_defcon=float('nan'))
 
 
+# -- coups that create targets, and headlines that resolve second -------------
+
+
+def test_battleground_coup_is_priced_by_the_hand_at_the_lower_defcon():
+    # Seed 2402, T2 AR4: USSR couped Zaire from DEFCON 3 holding CIA Created
+    # and Five Year Plan with no spare play; its new Zaire influence became
+    # the CIA coup target and the turn was lost.
+    e = setup_hand(['CIA_Created', 'Five_Year_Plan', 'US_Japan_Mutual_Defense_Pact'], rounds=3,
+                   defcon=3, space_used=1)
+    e.board.influence['Cuba']['USSR'] = 0  # no DEFCON-2-legal target for the US yet
+    e.board.influence['Zaire']['US'] = 2
+    e.board.influence['Kenya']['US'] = 1
+    e._push(Side.USSR, K.OPS_TYPE, (Action(K.OPS_TYPE, {'type': 'coup'}), Action(K.OPS_TYPE, {'type': 'influence'})),
+            {'side': 'USSR', 'ops': 3, 'bonus': None, 'allow_coup': True})
+    bot = StrategicPlayer(survival_prior=SurvivalPrior(opponent_hand_attack=0))
+    obs = e.observe(Side.USSR)
+    bot.choose_action(obs, [])
+    assert bot.coup_survival_risk(obs, 'Kenya') == 0
+    assert bot.coup_survival_risk(obs, 'Zaire') == pytest.approx(1.0)
+    e._decision_stack.pop()
+    e._push(Side.USSR, K.COUP_TARGET, tuple(Action(K.COUP_TARGET, {'country': c}) for c in ('Zaire', 'Kenya')),
+            {'ops': 3, 'bonus': None})
+    assert bot.choose_action(e.observe(Side.USSR), []).payload['country'] == 'Kenya'
+
+
+def test_headline_pick_prices_the_opponent_headline_resolving_first():
+    # Seed 2400, T10: the US headlined Lone Gunman at DEFCON 3; the USSR's
+    # higher-Ops headline resolved first and DEFCON was 2 when it fired.
+    hand = ['Lone_Gunman', 'Decolonization', 'Socialist_Governments', 'Nasser', 'Fidel',
+            'Independent_Reds', 'Korean_War', 'The_Voice_Of_America', 'An_Evil_Empire']
+    e = setup_hand(hand, Side.US, rounds=7, defcon=3)
+    e.board.influence['Nigeria']['US'] = 2
+    e.phase = 'headline'
+    e._push_headline(Side.US)
+    p = planner(e, Side.US, opponent_lowers_defcon=1)
+    assert p.risk('Lone_Gunman', 'event') == 0  # naive: fires at DEFCON 3
+    assert p.headline_pick_risk('Lone_Gunman') > 0.8  # a 1-Ops card almost always resolves second
+    assert p.headline_pick_risk('Socialist_Governments') == 0
+    assert StrategicPlayer().choose_action(e.observe(Side.US), []).payload['card'] != 'Lone_Gunman'
+
+
+def test_pending_own_headline_is_a_forced_event_before_the_action_rounds():
+    e = setup_hand(['Decolonization', 'Socialist_Governments'], Side.US, rounds=7, defcon=3)
+    e.board.influence['Nigeria']['US'] = 2
+    e.phase = 'headline'
+    e._headline_pending = [['US', 'Lone_Gunman']]
+    obs = e.observe(Side.US)
+    assert obs.headline_pending == (('US', 'Lone_Gunman'),)
+    p = planner(e, Side.US)
+    assert p.pending_headline == 'Lone_Gunman' and p.rounds == 6  # turn 3: six rounds, no headline card to count
+    assert p.risk() == 0
+    e.defcon = 2
+    assert planner(e, Side.US).risk() == 1
+    # Couping a battleground to DEFCON 2 with that headline still to come is fatal.
+    e.defcon = 3
+    e.board.influence['Zaire']['USSR'] = 2
+    e._push(Side.US, K.COUP_TARGET, (Action(K.COUP_TARGET, {'country': 'Zaire'}),), {'ops': 2, 'bonus': None})
+    bot = StrategicPlayer()
+    bot.choose_action(e.observe(Side.US), [])
+    assert bot.coup_survival_risk(e.observe(Side.US), 'Zaire') == 1
+
+
 # -- discard events, traps, and opponent hand attacks -------------------------
 
 
