@@ -62,3 +62,15 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 16 --seed 4
 `logs/game-check/` holds the evidence games (gitignored): `*-after-fix`,
 `*-learned-priors`, `3003-*`, and the A/B reports. The baseline that every
 change is measured against is seeds 4000-4015, both seatings.
+
+## MCTS prototype follow-up
+
+An opt-in `mcts` bot now searches own scoring-card turns with UCT over card
+plays and targeted BG investments. Rollout returns include banked VP plus
+board potential, with terminal results overriding both. Tests cover the
+same-final-board/different-scoring-order case, public-only hidden sampling,
+safety, and actually investing before scoring. See `docs/STRATEGIC_AI.md`
+"Experimental MCTS prototype" for usage and limits. The strategic bot's
+urgency-only behavior remains unchanged. Next: measure paired-seat strength
+and search cost before promoting this prototype or expanding its scope.
+

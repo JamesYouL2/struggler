@@ -526,3 +526,13 @@ See [STRATEGIC_AI.md](STRATEGIC_AI.md) for usage and measured results.
 The experimental [`event_value`](../src/struggler/bots/event_value/README.md)
 package adds a small neural regional-VP correction, trained cheaply from engine
 event scenarios with explicit card-availability and scoring-timing priors.
+
+## Experimental search player
+
+`build_player("mcts")` constructs `bots.mcts.MCTSPlayer`. It implements the
+same observation-only `Player` interface and searches only ordinary card
+picks with scoring in hand. `STRUGGLER_MCTS_SIMULATIONS` (default 24) and
+optional `STRUGGLER_MCTS_SECONDS` set the search budget. Strategic weight and
+opponent-model environment settings also apply. See
+[STRATEGIC_AI.md](STRATEGIC_AI.md#experimental-mcts-prototype) for its macro
+continuations, VP-inclusive returns, sampling assumptions, and limitations.

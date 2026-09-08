@@ -111,6 +111,12 @@ class StrategicPlayer:
         self._planner = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
+        ranked = self.rank_actions(observation)
+        self._log_choice(observation, observation.pending_decision, ranked)
+        return ranked[0][1]
+
+    def rank_actions(self, observation: Observation):
+        """Prepare this observation and rank legal actions, without choice logging."""
         decision = observation.pending_decision
         if decision is None or not decision.options:
             raise ValueError('StrategicPlayer requires a pending decision with legal options')
@@ -123,9 +129,7 @@ class StrategicPlayer:
             self._planner = self.planner_for(observation)
         ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
                         key=lambda pair: pair[0], reverse=True)
-        best_key, best = ranked[0]
-        self._log_choice(observation, decision, ranked)
-        return best
+        return ranked
 
     def _log_choice(self, obs, decision, ranked):
         """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""

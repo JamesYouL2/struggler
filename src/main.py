@@ -92,6 +92,14 @@ def build_player(
         model = os.environ.get("STRUGGLER_STRATEGIC_MODEL")
         return StrategicPlayer(StrategicWeights.load(model) if model else None,
                                opponent_model=load_opponent_model())
+    if kind == "mcts":
+        from struggler.bots.mcts import MCTSPlayer
+        model = os.environ.get("STRUGGLER_STRATEGIC_MODEL")
+        seconds = os.environ.get("STRUGGLER_MCTS_SECONDS")
+        return MCTSPlayer(StrategicWeights.load(model) if model else None, seed=seed,
+                          simulations=int(os.environ.get("STRUGGLER_MCTS_SIMULATIONS", "24")),
+                          time_limit=float(seconds) if seconds else None,
+                          opponent_model=load_opponent_model())
     if kind == "llm":
         client = build_llm_client()
         plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
@@ -114,7 +122,7 @@ def build_player(
             log_path=log_path,
             resume=resume,
         )
-    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/event-value/llm)")
+    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/mcts/event-value/llm)")
 
 
 def configure_logging(level: str, path: str | None = None) -> None:

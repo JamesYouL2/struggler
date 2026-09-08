@@ -54,6 +54,7 @@ The options for the players are:
 - random
 - greedy
 - strategic (local tactical AI, with optional trained weights)
+- mcts (experimental turn search when holding a scoring card)
 - event-value (experimental neural event-aware evaluator; requires a checkpoint)
 - llm
 

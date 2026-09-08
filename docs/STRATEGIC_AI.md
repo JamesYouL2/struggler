@@ -272,3 +272,71 @@ holds, model the opponent's regional play, or value the board damage a
 refused Blockade costs against the risk it avoids. Its safety heuristics
 are not a guarantee against every nuclear loss. Strength against the supplied baselines is evidence of an improvement,
 not evidence of expert human-level play.
+
+## Experimental MCTS prototype
+
+`mcts` searches at an ordinary action-round card pick when its own hand
+contains a scoring card; other decisions use the strategic policy. It is
+opt-in and does not change the `strategic` default.
+
+```sh
+STRUGGLER_MCTS_SIMULATIONS=24 \
+  python src/main.py --us mcts --ussr strategic --seed 3003 --no-game-log \
+  --log-level INFO --log-file mcts.log
+# Optional soft wall-time limit, checked between complete simulations:
+STRUGGLER_MCTS_SIMULATIONS=100 STRUGGLER_MCTS_SECONDS=1 \
+  python src/main.py --us mcts --ussr strategic --seed 3003
+```
+
+`MCTSPlayer(seed=0, simulations=24, max_steps=256, time_limit=None)` runs
+UCT over our card-play macros, with strategic opponent responses. A macro
+is a card with either strategic continuation or an instruction to invest
+in one reachable, uncontrolled BG in a region we hold scoring for. It
+considers the top three survival-safe cards, additional safe scoring cards,
+and up to two BG targets per non-scoring card. Targeted continuations prefer
+Ops, influence, then that country until controlled; every atomic action
+must still be legal and tie the best strategic survival ranking. The same
+continuation is used when executing a selected macro in the real game.
+Events and the opponent's moves resolve through the strategic policy.
+
+Each simulation samples the unknown hand and deck from public inventory
+counts, with its own RNG, and advances to turn end (including military-Ops
+penalties), terminal game state, or the atomic-step cap. The engine is
+constructed from `Observation` at a card boundary, never cloned from the
+live game. Tree nodes are keyed by our observation, excluding decision IDs;
+no opponent-hand or deck identities enter that key. Each actor's rollout
+policy receives only its own observation. This is a small information-set
+UCT prototype against a fixed opponent policy, not full adversarial ISMCTS.
+Hidden-card sampling is uniform and does not condition on behavioral history.
+
+The leaf return is explicitly **banked VP plus remaining board potential**:
+`weights.vp * signed_engine_vp + strategic.value(board, side)`, transformed
+with `tanh(value / 100)` and clipped to ±0.99. Actual terminal wins/losses
+return ±1, draws 0. Regional board potential is a heuristic for future
+scoring, not a replacement for points already scored. A regression holds
+the final board identical while changing scoring order and checks that the
+banked-VP difference changes the search return.
+
+`last_search` and INFO logs report simulations, node count, elapsed seconds,
+truncated simulations, and each root macro's visits and mean return. Fixed
+simulation counts are reproducible for a given bot seed and observation;
+time-limited results depend on machine speed. Very small budgets can leave
+some root macros unexplored. The time limit is soft: one simulation can
+overrun it. Search trees are discarded after each card decision.
+
+Scope: standard events-enabled games, including optional cards when their
+presence can be inferred from the inventory. Unsupported/inconsistent
+inventories or ambiguous extra-round cursors fall back to strategic with an
+INFO message. Mid-event and headline search, Ops-only simulations, learned
+rollout policies, opponent search, and general multi-country allocation are
+not implemented. A bounded rollout can stop before scoring; the diagnostic
+`truncated` count exposes this. Passing tactical regressions establishes
+correct plumbing, not an improvement in tournament strength.
+
+Initial validation: 465 tests passed, 3 skipped. A seed-3003 game with US
+`mcts` at 24 simulations against USSR `strategic` completed with a USSR win.
+The 12 searched card decisions took a median 5.00 seconds and maximum 11.43
+seconds on this workspace (other validation work ran concurrently); none
+of the rollouts hit the step cap. The US selected Pakistan investment
+macros on turn 1 AR3 and AR4 and scored Asia at -5 on AR5. This is a smoke
+measurement, not a paired comparison or evidence of a strength gain.
