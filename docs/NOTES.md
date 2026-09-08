@@ -42,6 +42,11 @@ previous strategic: 0.84, +11 VP mean, on seeds 4000-4015 both seatings
 (`logs/game-check/strategic-new-vs-old-4000-4015.json`;
 `python -m struggler.bots.benchmark --bot strategic --opponent strategic@<old strategic.py>`).
 
+The VP weight against the new Ops scale: 3 / 6 / 10 score 0.81 / 0.88 /
+0.88 against the previous strategic bot, and 6 and 10 score 0.45 and 0.50
+against the current default (3) in mirror matches on the same seeds
+(`logs/game-check/vp-*`). No signal at 32 games; the default stays 3.
+
 Still wrong on that board, by human judgement: Marshall Plan at 13.6 (one
 Op) is far too low, COMECON at 5.4 slightly high. Both are the same gap:
 a stake is valued by its fraction of the way to control, not by its odds
