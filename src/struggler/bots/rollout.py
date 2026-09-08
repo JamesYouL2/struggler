@@ -67,7 +67,7 @@ class RolloutPolicy(StrategicPlayer):
         self._rankings = {}
         self._plan = None
         self._placements = None
-        self.hits = self.misses = 0
+        self.hits = self.misses = self.served = 0
 
     def planner_for(self, obs):
         return ImmediatePlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
@@ -91,9 +91,11 @@ class RolloutPolicy(StrategicPlayer):
             self.hits += 1
             ranked, self._plan, self._placements = cached
             return ranked
-        self.misses += 1
         ranked = self._served(obs)
-        if ranked is None:
+        if ranked is not None:
+            self.served += 1
+        else:
+            self.misses += 1
             self._targets = {}
             ranked = super().rank_actions(obs)
             if d.kind is K.OPS_TYPE:
@@ -109,7 +111,7 @@ class RolloutPolicy(StrategicPlayer):
         if d.kind in (K.COUP_TARGET, K.REALIGNMENT_TARGET):
             plan = self._plan
             self._plan = None
-            if plan and plan[:3] == stamp and plan[3] == ('coup' if d.kind is K.COUP_TARGET else 'realign'):
+            if plan and plan[:3] == stamp and plan[3] == ('coup' if d.kind is K.COUP_TARGET else 'realignment'):
                 action = next((a for a in d.options if a.payload['country'] == plan[4]), None)
                 if action is not None:
                     return [((0, 0., 0.), action)]
@@ -123,7 +125,7 @@ class RolloutPolicy(StrategicPlayer):
             if not queue:
                 self._placements = None
                 return None
-            country = queue.pop(0)
+            country, queue = queue[0], queue[1:]  # cached entries keep their own list
             self._placements = (stamp, queue)
             return [((0, 0., 0.), options[country])]
         return None

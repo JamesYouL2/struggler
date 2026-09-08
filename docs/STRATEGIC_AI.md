@@ -317,6 +317,47 @@ scoring, not a replacement for points already scored. A regression holds
 the final board identical while changing scoring order and checks that the
 banked-VP difference changes the search return.
 
+### Rollout policy
+
+Below the root every decision -- our own micro-decisions after a card
+pick, and the whole of the opponent's play -- is answered by
+`bots.rollout.RolloutPolicy`, a `StrategicPlayer` subclass that trades
+foresight it does not need for speed. The sampled sandbox holds every
+card, so a suicide inside a rollout costs that simulation the loss the
+tree can see; what the full policy spends most of its time on buys little
+there. Profiling a 24-simulation search at seed 3003 T1 AR1 put 91% of
+the time in the rollout policy's rankings: Ops-type 43%, card picks 29%,
+coup targets 12%, influence points 8%. The cheap policy keeps the parent's
+scores and changes four things:
+
+- **Immediate-only survival guard.** `ImmediatePlanner` is the DEFCON
+  planner with no lookahead: a card is refused when firing it *now* loses
+  (an opponent DEFCON reducer at DEFCON 2 with no space escape), and coup
+  risk is the certain loss only. The probabilistic whole-hand search runs
+  only at the root, where the real decision is made.
+- **One plan per card play.** Scoring an Ops-type option already finds the
+  best country for it; the winning type's target is remembered and served
+  at the following coup or realignment decision without re-ranking. The
+  first influence-point decision plans the whole spend (each country's
+  best point count committed at once, then re-planned for the remainder)
+  and later points are served from that plan while they stay legal.
+- **Rankings cached by information key** for the life of one search, so
+  the root moves' own micro-decisions, repeated by every simulation, are
+  ranked once. Hit counts (`hits`, `misses`, `served`) are on the policy.
+- **Cheaper plumbing**, shared by the full policy: boards share the static
+  adjacency map, enum members hash by identity, region starting scores are
+  memoised per ranking, sandboxes copy effect state without `deepcopy`,
+  and one helper policy plays every simulated event's placements.
+
+The root still uses the full `StrategicPlayer`, and the macro chosen by the
+search is executed in the real game through the same cheap continuation
+that the rollouts used, so the executed play is the one that was searched.
+
+Measured on the same position (CPU seconds, 24 simulations): 1.9 s before,
+1.13 s with the rollout policy, 0.8 s with the plumbing changes. Root move
+values changed with the policy switch (the rollouts play differently), and
+were identical across the plumbing changes.
+
 `last_search` and INFO logs report simulations, node count, elapsed seconds,
 truncated simulations, and each root macro's visits and mean return. Fixed
 simulation counts are reproducible for a given bot seed and observation;

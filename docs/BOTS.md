@@ -536,3 +536,6 @@ optional `STRUGGLER_MCTS_SECONDS` set the search budget. Strategic weight and
 opponent-model environment settings also apply. See
 [STRATEGIC_AI.md](STRATEGIC_AI.md#experimental-mcts-prototype) for its macro
 continuations, VP-inclusive returns, sampling assumptions, and limitations.
+Rollouts below the root use `bots.rollout.RolloutPolicy`, a cheaper
+`StrategicPlayer` (immediate-only survival guard, one Ops plan per card
+play, cached rankings); the root decision uses the full policy.
