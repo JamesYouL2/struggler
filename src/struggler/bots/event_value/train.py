@@ -12,7 +12,8 @@ from pathlib import Path
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine import Engine, Region, Side
 from struggler.engine.core import SCORING_CARD_REGION
-from .features import CARDS, ENTRY_TURN, EVENTS, FEATURE_NAMES, encode, score
+from struggler.engine.cards import entry_turn
+from .features import CARDS, EVENTS, FEATURE_NAMES, encode, score
 from .network import ValueNetwork
 from .scenarios import expected_score
 
@@ -47,7 +48,7 @@ def examples(count, seed, prior):
         scoring = next(c for c, r in SCORING_CARD_REGION.items() if r is region)
         for card in (*EVENTS, scoring):
             # Do not create impossible early hands containing mid-war cards.
-            if engine.turn < ENTRY_TURN[CARDS[card].period]:
+            if engine.turn < entry_turn(CARDS[card]):
                 continue
             location = rng.randrange(4)
             if location == 0:

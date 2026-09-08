@@ -37,30 +37,18 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from struggler.engine import DecisionKind as K, Observation, Period, Side
+from struggler.engine import DecisionKind as K, Observation, Side
 from struggler.engine.cards import action_rounds, load_cards
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine.replay import decode_action, make_engine
 
+from struggler.bots.public_cards import STATES, card_state
+
 CARDS = load_cards()
 ATTACK_CARDS = ('Aldrich_Ames_Remix', 'Terrorism', 'Grain_Sales_to_Soviets', 'Missile_Envy')
-STATES = ('hand', 'unseen', 'discard', 'removed', 'future')
-ENTRY_TURN = {Period.EARLY_WAR: 1, Period.MID_WAR: 4, Period.LATE_WAR: 8}
 TRAP_KEYS = {'bear_trap': Side.USSR, 'quagmire': Side.US}
 PICK_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY)
 HEADS = ('hand_attack', 'defcon_drop')
-
-
-def card_state(obs: Observation, card: str) -> str:
-    if card in obs.removed_cards:
-        return 'removed'
-    if card in obs.hand:
-        return 'hand'
-    if card in obs.discard_pile:
-        return 'discard'
-    if obs.turn < ENTRY_TURN[CARDS[card].period]:
-        return 'future'
-    return 'unseen'
 
 
 def rounds_left(obs: Observation) -> int:

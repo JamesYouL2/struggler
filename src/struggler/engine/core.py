@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 
 from struggler.engine.board import Board
-from struggler.engine.cards import action_rounds, cards_entering, hand_limit, load_cards
+from struggler.engine.cards import ENTRY_TURN, action_rounds, cards_entering, hand_limit, load_cards
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.engine.types import (
@@ -575,12 +575,9 @@ class Engine:
         # action rounds are actually left and can wrongly mark most of the
         # hand 'hold'.
         self.action_round = 1
-        if self.turn == 1:
-            self._add_period_to_deck(Period.EARLY_WAR)
-        elif self.turn == 4:
-            self._add_period_to_deck(Period.MID_WAR)
-        elif self.turn == 8:
-            self._add_period_to_deck(Period.LATE_WAR)
+        for period, turn in ENTRY_TURN.items():
+            if self.turn == turn:
+                self._add_period_to_deck(period)
         self._deal_to_limit()
         self.phase = "predeal" if initial else "headline"
         self.log.info(

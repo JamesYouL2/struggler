@@ -6,7 +6,8 @@ import copy
 from struggler.bots.strategic import CARDS, StrategicPlayer
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine import Engine
-from struggler.engine import Observation, Period, Region, Side
+from struggler.engine import Observation, Region, Side
+from struggler.bots.public_cards import STATES, card_state
 from struggler.engine.board import Board
 from struggler.engine.core import SCORING_CARD_REGION
 
@@ -21,20 +22,6 @@ EVENT_COUNTRIES = {
 }
 EVENTS = tuple(EVENT_COUNTRIES)
 REGIONS = tuple(Region)
-STATES = ('hand', 'unseen', 'discard', 'removed', 'future')
-ENTRY_TURN = {Period.EARLY_WAR: 1, Period.MID_WAR: 4, Period.LATE_WAR: 8}
-
-
-def card_state(obs: Observation, card: str) -> str:
-    if card in obs.removed_cards:
-        return 'removed'
-    if card in obs.hand:
-        return 'hand'
-    if card in obs.discard_pile:
-        return 'discard'
-    if obs.turn < ENTRY_TURN[CARDS[card].period]:
-        return 'future'
-    return 'unseen'
 
 
 @dataclass(frozen=True)

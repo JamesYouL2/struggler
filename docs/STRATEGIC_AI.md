@@ -34,8 +34,10 @@ action = bot.choose_action(observation, history)
   `scoring_hand` when we hold it, `scoring_live` when it is still in the
   draw pile or the opponent's hand (it can be played against us any round,
   so the region has to be played around), and the 1.0 baseline when it is
-  dead until the reshuffle (discarded, removed, or not yet in the deck).
-  Southeast Asia Scoring counts as a live Asia card.
+  dead until the reshuffle (discarded, removed, or not yet in the deck;
+  the period schedule is static and public, `engine.cards.ENTRY_TURN`).
+  Southeast Asia Scoring adds urgency only to the countries it scores
+  (the `SOUTHEAST_ASIA` subregion), not to all of Asia.
 - Searches affordable multi-point investments into each candidate country,
   accounting for the end of doubled placement costs when enemy control breaks.
 - Enumerates all six coup rolls and all 36 realignment roll pairs. These are

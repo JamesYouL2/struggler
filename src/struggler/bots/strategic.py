@@ -15,10 +15,11 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
-from struggler.engine import Action, DecisionKind as K, Engine, Observation, Period, Region, Side
+from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side, Subregion
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
+from struggler.bots.public_cards import card_state
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
 
@@ -210,29 +211,31 @@ class StrategicPlayer:
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)
 
-    def scoring_urgency(self, obs: Observation, region: Region) -> float:
-        """How much this region's score matters right now, from where its
-        scoring card is. A live card (unseen: draw pile or opponent's hand) can
-        score the region at any moment, so the region must be played around;
-        a dead one cannot score before the reshuffle."""
-        cards = [c for c, r in SCORING_CARD_REGION.items() if r is region]
-        if region is Region.ASIA:
+    def scoring_urgency(self, obs: Observation, cid: str) -> float:
+        """How much scoring around country `cid` matters right now, from where
+        the scoring cards that count it are: its region's card, plus Southeast
+        Asia Scoring for the countries that card actually scores. A live card
+        (unseen: draw pile or opponent's hand) can score at any moment, so the
+        area must be played around; a dead one cannot score before the
+        reshuffle, and a card whose period has not entered the deck is simply
+        not in the game yet -- a static, public schedule."""
+        info = self.board.countries[cid]
+        cards = [c for c, r in SCORING_CARD_REGION.items() if r is info.region]
+        if Subregion.SOUTHEAST_ASIA in info.subregions:
             cards.append('Southeast_Asia_Scoring')
         urgency = 1.0
         for card in cards:
-            if card in obs.hand:
+            state = card_state(obs, card)
+            if state == 'hand':
                 return self.weights.scoring_hand
-            if card in obs.discard_pile or card in obs.removed_cards:
-                continue
-            if obs.turn < {Period.EARLY_WAR: 1, Period.MID_WAR: 4, Period.LATE_WAR: 8}[CARDS[card].period]:
-                continue
-            urgency = max(urgency, self.weights.scoring_live)
+            if state == 'unseen':
+                urgency = max(urgency, self.weights.scoring_live)
         return urgency
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         board, side = self.board, obs.side
         region = board.countries[cid].region
-        urgency = self.scoring_urgency(obs, region)
+        urgency = self.scoring_urgency(obs, cid)
         def local():
             return self.country_value(board, cid, side) + self.weights.region * urgency * self.region_score(board, region, side)
         before = local()

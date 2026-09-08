@@ -126,14 +126,16 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     live = engine.observe(Side.US)
     dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
-    urgencies = [bot.scoring_urgency(o, engine.board.countries['Iran'].region) for o in (dead, live, held)]
+    urgencies = [bot.scoring_urgency(o, 'Iran') for o in (dead, live, held)]
     assert urgencies == [1.0, bot.weights.scoring_live, bot.weights.scoring_hand]
     from struggler.bots.greedy import _sync_board
     _sync_board(bot.board, live)
     deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
-    # Mid War scoring is not live before turn 4; an unrelated region is unaffected.
-    early = dataclasses.replace(live, turn=1)
-    from struggler.engine import Region
-    assert bot.scoring_urgency(early, Region.SOUTH_AMERICA) == 1.0
-    assert bot.scoring_urgency(dataclasses.replace(live, turn=5), Region.SOUTH_AMERICA) == bot.weights.scoring_live
+    # Mid War scoring is not in the deck before turn 4 (static schedule).
+    assert bot.scoring_urgency(dataclasses.replace(live, turn=1), 'Brazil') == 1.0
+    assert bot.scoring_urgency(dataclasses.replace(live, turn=5), 'Brazil') == bot.weights.scoring_live
+    # Southeast Asia Scoring reaches Thailand but not Japan, even with Asia Scoring dead.
+    asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
+    assert bot.scoring_urgency(asia_dead, 'Thailand') == bot.weights.scoring_live
+    assert bot.scoring_urgency(asia_dead, 'Japan') == 1.0

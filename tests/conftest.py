@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import Counter
 
 from struggler.engine import Engine, Period
-from struggler.engine.cards import cards_entering
+from struggler.engine.cards import ENTRY_TURN, cards_entering
 from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.rules import RULES
 
@@ -66,11 +66,10 @@ def cards_in_play(engine: Engine) -> Counter:
 
 
 def expected_in_play(engine: Engine) -> set[str]:
-    ids = set(cards_entering(engine.cards, Period.EARLY_WAR, engine.include_optional))
-    if engine.turn >= 4:
-        ids |= set(cards_entering(engine.cards, Period.MID_WAR, engine.include_optional))
-    if engine.turn >= 8:
-        ids |= set(cards_entering(engine.cards, Period.LATE_WAR, engine.include_optional))
+    ids: set[str] = set()
+    for period, turn in ENTRY_TURN.items():
+        if engine.turn >= turn:
+            ids |= set(cards_entering(engine.cards, period, engine.include_optional))
     return ids
 
 

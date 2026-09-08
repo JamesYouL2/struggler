@@ -44,6 +44,17 @@ def load_cards() -> dict[str, Card]:
     return cards
 
 
+# The deck schedule is static: each period's cards are shuffled in at the
+# start of a fixed turn, so which cards are "not in the game yet" is public
+# knowledge, never a hidden fact.
+ENTRY_TURN: dict[Period, int] = {Period.EARLY_WAR: 1, Period.MID_WAR: 4, Period.LATE_WAR: 8}
+
+
+def entry_turn(card: Card) -> int:
+    """The turn at which `card`'s period enters the draw pile."""
+    return ENTRY_TURN[card.period]
+
+
 def cards_entering(
     cards: dict[str, Card], period: Period, include_optional: bool
 ) -> tuple[str, ...]:
