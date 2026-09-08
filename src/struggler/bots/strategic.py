@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import math
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -17,9 +18,11 @@ from typing import Sequence
 from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK
+
+log = logging.getLogger('struggler.bots.strategic')
 from struggler.bots.greedy import (
     _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
     _in_bonus_region, _realignment_bonus, _realignment_modifier,
@@ -83,7 +86,40 @@ class StrategicPlayer:
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE):
             self._planner = DefconPlanner(observation, self.public_engine(observation), self.survival_prior)
-        return max(decision.options, key=lambda a: self.safety_key(observation, a))
+        ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
+                        key=lambda pair: pair[0], reverse=True)
+        best_key, best = ranked[0]
+        self._log_choice(observation, decision, ranked)
+        return best
+
+    def _log_choice(self, obs, decision, ranked):
+        """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""
+        if not log.isEnabledFor(logging.INFO):
+            return
+        prefix = 'T%d AR%d %s %s' % (obs.turn, obs.action_round, obs.side.value, decision.kind.value)
+        card = decision.context.get('card') or decision.context.get('event')
+        if card:
+            prefix += ' [%s]' % card
+        def describe(key, action):
+            lost, neg_risk, score = key
+            return '%s lost=%d risk=%.3f score=%.2f' % (action.payload, -lost, -neg_risk, score)
+        best_key, best = ranked[0]
+        forced_loss, neg_risk, _ = best_key
+        if forced_loss < 0:
+            log.warning('%s: EVERY option is a certain loss; picking %s', prefix, describe(best_key, best))
+        elif -neg_risk > 0:
+            log.warning('%s: accepting turn-loss risk %.3f with %s', prefix, -neg_risk, describe(best_key, best))
+        if self._planner is not None and decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
+            log.info('%s: hand=%s DEFCON=%d rounds_left=%d china=%s', prefix, list(obs.hand), obs.defcon,
+                     self._planner.rounds, self._planner.china)
+        if log.isEnabledFor(logging.DEBUG) or decision.kind in (
+                K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE):
+            shown = ranked if log.isEnabledFor(logging.DEBUG) else ranked[:5]
+            log.info('%s: chose %s', prefix, describe(best_key, best))
+            for key, action in shown[1:]:
+                log.log(logging.DEBUG if decision.kind not in (
+                    K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE) else logging.INFO,
+                        '%s:   also %s', prefix, describe(key, action))
 
     def survival_features(self, observation):
         """Named features usable by a future win-probability model, without retraining VP weights."""
@@ -157,6 +193,7 @@ class StrategicPlayer:
     def public_engine(self, obs: Observation) -> Engine:
         # A new, idle sandbox, never a clone of the live game's hidden state.
         engine = Engine(seed=0)
+        engine.log = SANDBOX_LOG
         _sync_board(engine.board, obs)
         for name in ('defcon', 'vp', 'turn', 'action_round'):
             setattr(engine, name, getattr(obs, name))

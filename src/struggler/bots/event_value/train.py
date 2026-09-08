@@ -9,6 +9,7 @@ import random
 import time
 from pathlib import Path
 
+from struggler.engine.core import SANDBOX_LOG
 from struggler.engine import Engine, Region, Side
 from struggler.engine.core import SCORING_CARD_REGION
 from .features import CARDS, ENTRY_TURN, EVENTS, FEATURE_NAMES, encode, score
@@ -28,6 +29,7 @@ def examples(count, seed, prior):
     regions = (Region.MIDDLE_EAST, Region.ASIA, Region.AFRICA, Region.CENTRAL_AMERICA)
     for _ in range(count):
         engine = Engine(seed=0)
+        engine.log = SANDBOX_LOG
         engine.turn = rng.choice((1, 3, 4, 6, 8, 10))
         engine.action_round = rng.randint(1, 6)
         engine.defcon = rng.randint(2, 5)

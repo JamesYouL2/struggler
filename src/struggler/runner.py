@@ -7,11 +7,16 @@ distinguished only by which `Player` is registered for which `Side`.
 
 from __future__ import annotations
 
+import logging
+import time
+
 from typing import Any, Mapping, Sequence
 
 from struggler.engine import Engine, Side
 from struggler.engine.player import Player
 from struggler.engine.replay import GameLogWriter, HistoryBuilder
+
+log = logging.getLogger("struggler.runner")
 
 
 def play_game(
@@ -41,6 +46,8 @@ def play_game(
     log_writer = (
         GameLogWriter(log_path, engine, initial_actions=initial_actions) if log_path is not None else None
     )
+    steps = 0
+    started_game = time.perf_counter()
     while not engine.is_terminal:
         decision = engine.pending_decision
         if decision.actor is Side.CHANCE and Side.CHANCE not in players:
@@ -59,8 +66,13 @@ def play_game(
             obs_side = decision.actor if decision.actor in (Side.US, Side.USSR) else engine.physical_side
             observation = engine.observe(obs_side)
             responder = decision.actor if decision.actor in players else Side.CHANCE
+            started = time.perf_counter()
             action = players[responder].choose_action(observation, builder.history)
+            elapsed = time.perf_counter() - started
+            if elapsed > 1.0:
+                log.info("%s took %.1fs on %s", responder.value, elapsed, decision.kind.value)
         engine.step(action)
+        steps += 1
 
         # Headline cards are picked secretly (USSR then US) and only revealed
         # once both are chosen; `HistoryBuilder` buffers both HEADLINE_PLAY
@@ -77,4 +89,7 @@ def play_game(
     builder.finalize()
     if log_writer is not None:
         log_writer.finalize(engine.winner)
+    log.info("game finished: winner=%s reason=%s turn=%d defcon=%d vp=%+d steps=%d elapsed=%.1fs",
+             engine.winner.value if engine.winner else None, engine.game_over_reason,
+             engine.turn, engine.defcon, engine.vp, steps, time.perf_counter() - started_game)
     return engine.winner

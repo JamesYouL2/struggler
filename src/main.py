@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 from datetime import datetime
 
@@ -105,11 +106,41 @@ def build_player(
     raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/event-value/llm)")
 
 
+def configure_logging(level: str, path: str | None = None) -> None:
+    """Route the `struggler.*` loggers to stderr (or `path`) at `level`.
+
+    Only the project's loggers are touched, so a caller embedding the engine
+    keeps its own root-logger configuration."""
+    handler = logging.FileHandler(path, mode="w", encoding="utf-8") if path else logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    logger = logging.getLogger("struggler")
+    logger.handlers[:] = [handler]
+    logger.setLevel(getattr(logging, level))
+    logger.propagate = False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Play a Twilight Struggle game.")
     parser.add_argument("--us", default="human")
     parser.add_argument("--ussr", default="human")
     parser.add_argument("--seed", type=int, default=12345)
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help=(
+            "Diagnostic logging threshold for the 'struggler' loggers (engine "
+            "state changes, DEFCON moves, bot decision ranking). INFO narrates "
+            "the game; DEBUG adds every applied action and the planner's "
+            "per-card risk numbers. Default WARNING only reports forced or "
+            "accepted nuclear risk."
+        ),
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Write diagnostic logging to this file instead of stderr.",
+    )
     parser.add_argument(
         "--physical",
         choices=["us", "ussr"],
@@ -176,6 +207,7 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    configure_logging(args.log_level, args.log_file)
 
     if args.resume_game_log:
         with open(args.resume_game_log, encoding="utf-8") as f:

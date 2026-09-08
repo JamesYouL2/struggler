@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import copy
 
 from struggler.bots.strategic import CARDS, StrategicPlayer
+from struggler.engine.core import SANDBOX_LOG
 from struggler.engine import Engine
 from struggler.engine import Observation, Period, Region, Side
 from struggler.engine.board import Board
@@ -75,6 +76,7 @@ def score(board: Board, obs: Observation, region: Region) -> float:
     Terminal action handling remains the tactical policy's responsibility.
     """
     engine = Engine(seed=0, board=board)
+    engine.log = SANDBOX_LOG
     engine.game_effects = copy.deepcopy(dict(obs.game_effects))
     result = engine._score_region_net(region)
     if engine.is_terminal:

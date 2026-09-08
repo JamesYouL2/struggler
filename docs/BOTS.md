@@ -205,6 +205,38 @@ log, or stay external to it"): they stay external — the game log is the
 engine-level action record, the LLM conversation log is a separate,
 player-private artifact, and the two are never merged.
 
+**Diagnostic logging** is a third, human-readable channel, separate from
+both the replay log and any LLM conversation log: standard-library
+`logging` under the `struggler.*` namespace, silent unless a handler is
+attached. `src/main.py --log-level {DEBUG,INFO,WARNING,ERROR}` (and
+`--log-file <path>` to write it somewhere other than stderr) configures
+only that namespace, so embedding callers keep their own root logger.
+What each level reports:
+
+- `WARNING` (the default) — only nuclear-risk events: DEFCON 1 with who
+  was responsible, a `StrategicPlayer` decision where every option is a
+  certain loss, one where it knowingly accepts a non-zero turn-loss risk,
+  or a `DefconPlanner` search that hit its state budget.
+- `INFO` — a play-by-play: turn starts (hand sizes, draw pile, China
+  Card), each headline and action-round card play with its mode, every
+  event that resolves (with the responsible phasing player), every
+  DEFCON change with `caused_by`/`phasing`, coups with roll and margin,
+  Space Race rolls, scoring, end-of-turn military-ops deficits, and the
+  game-over reason. From `StrategicPlayer`, the hand it saw and the
+  top-ranked options for card/mode/event-choice decisions as
+  `lost=`/`risk=`/`score=` triples matching `safety_key`'s tuple order.
+- `DEBUG` — additionally every applied action with its decision context,
+  full hands at turn start, VP deltas, `DefconPlanner`'s per-card-per-mode
+  risk numbers and whole-hand search size, and every ranked option of
+  every decision.
+
+Engines the bots build to evaluate what-ifs (`StrategicPlayer.public_engine`,
+the event-value feature encoder and trainer) attach
+`engine.core.SANDBOX_LOG` (`struggler.engine.sandbox`, pinned to
+`CRITICAL`) instead of the live `struggler.engine` logger, so a simulated
+event never reads as a real one. Lower that logger's level explicitly if
+you need to trace a simulation.
+
 **Resuming a live game** (`--resume-game-log <path>`, `src/main.py`) is the
 other direction: `engine.replay.replay_history(log)` replays a game log's
 `actions` (same mechanism as `run_replay`) and, alongside it, rebuilds the

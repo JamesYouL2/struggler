@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import random
 from contextlib import contextmanager
 from dataclasses import replace
@@ -22,6 +23,12 @@ from struggler.engine.types import (
     Side,
     Subregion,
 )
+
+log = logging.getLogger("struggler.engine")
+# Bots build throwaway engines to evaluate what-ifs; those attach this logger
+# instead so their simulated events never masquerade as the live game's.
+SANDBOX_LOG = logging.getLogger("struggler.engine.sandbox")
+SANDBOX_LOG.setLevel(logging.CRITICAL)
 
 _DEFAULT_MIN_DEFCON = 1
 
@@ -64,6 +71,8 @@ class Engine:
         self._next_decision_id = 0
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
+        # Swap for SANDBOX_LOG on a simulation engine (see bots.strategic.public_engine).
+        self.log = log
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
         self.include_optional = False
@@ -154,6 +163,14 @@ class Engine:
         side = Side(responsible) if responsible else (
             decision.actor if decision.actor is not Side.CHANCE else None
         )
+        if self.log.isEnabledFor(logging.DEBUG):
+            self.log.debug(
+                "T%d AR%d DEFCON%d VP%+d | %s %s %s | ctx=%s | phasing=%s",
+                self.turn, self.action_round, self.defcon, self.vp,
+                decision.actor.value, decision.kind.value, action.payload,
+                {k: v for k, v in decision.context.items() if k != "phasing_player"},
+                side.value if side else None,
+            )
         with self._phasing_scope(side):
             self._dispatch(decision, action)
         self._advance()
@@ -210,6 +227,11 @@ class Engine:
     @property
     def winner(self) -> Side | None:
         return self._winner
+
+    @property
+    def game_over_reason(self) -> str | None:
+        """Why the game ended ('defcon_1', 'vp', 'final_vp', 'wargames', ...), or None while it runs."""
+        return self._game_over_reason
 
     def serialize(self) -> dict:
         return {
@@ -558,13 +580,23 @@ class Engine:
             self._add_period_to_deck(Period.LATE_WAR)
         self._deal_to_limit()
         self.phase = "predeal" if initial else "headline"
+        self.log.info(
+            "TURN %d begins: DEFCON %d, VP %+d, hands US=%d USSR=%d, deck=%d, discard=%d, china=%s%s",
+            self.turn, self.defcon, self.vp, len(self.hands["US"]), len(self.hands["USSR"]),
+            len(self.draw_pile), len(self.discard_pile), self.china_card_owner,
+            "" if self.china_card_available else " (face down)",
+        )
+        self.log.debug("TURN %d hands: US=%s USSR=%s", self.turn, self.hands["US"], self.hands["USSR"])
 
     def _end_of_turn(self) -> None:
         # Required military operations: a side that spent fewer military Ops
         # (coups) than the current DEFCON hands the deficit to its opponent.
+        self.log.info("TURN %d ends: DEFCON %d, VP %+d, mil-ops US=%d USSR=%d", self.turn, self.defcon,
+                 self.vp, self.military_ops["US"], self.military_ops["USSR"])
         for side in (Side.US, Side.USSR):
             deficit = self.defcon - self.military_ops[side.value]
             if deficit > 0:
+                self.log.info("TURN %d: %s missed required military ops by %d", self.turn, side.value, deficit)
                 self._award_vp(side.opponent, deficit)
                 if self.is_terminal:
                     return
@@ -937,6 +969,7 @@ class Engine:
         """Resolve one headlined card for its owner. A scoring card scores; with
         events on, a card with an implemented event fires it (and may enqueue
         sub-decisions); otherwise it is a no-op discard."""
+        self.log.info("T%d headline: %s plays %s (DEFCON %d)", self.turn, side.value, cid, self.defcon)
         self._maybe_flower_power(side, cid)
         if self.is_terminal:
             return
@@ -1137,6 +1170,11 @@ class Engine:
         cid = decision.context["card"]
         card = self.cards[cid]
         mode = action.payload["mode"]
+        self.log.info(
+            "T%d AR%d play: %s uses %s (%s, %d ops) as %s | DEFCON %d, hand left=%d",
+            self.turn, self.action_round, side.value, cid, card.side.value, card.ops, mode,
+            self.defcon, len(self.hands[side.value]),
+        )
 
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
@@ -1295,7 +1333,10 @@ class Engine:
         side = Side(decision.context["side"])
         roll = action.payload["value"]
         next_box = self.space_race[side.value] + 1
-        if roll <= RULES["space_race_boxes"][str(next_box)]["roll_max"]:
+        success = roll <= RULES["space_race_boxes"][str(next_box)]["roll_max"]
+        self.log.info("T%d AR%d space race: %s rolls %d for box %d -> %s", self.turn, self.action_round,
+                 side.value, roll, next_box, "success" if success else "failure")
+        if success:
             self.advance_space_race_box(side)
 
     def advance_space_race_box(self, side: Side, award_vp: bool = True) -> None:
@@ -1364,8 +1405,16 @@ class Engine:
         Marshall Plan/Warsaw Pact) also does nothing."""
         ev = EVENTS.get(cid)
         if ev is not None and ev.eligible(self, side):
+            self.log.info(
+                "T%d AR%d event %s resolves for %s (phasing=%s, DEFCON %d)",
+                self.turn, self.action_round, cid, side.value,
+                self._phasing_player.value if self._phasing_player else side.value, self.defcon,
+            )
             with self._phasing_scope(side):
                 ev.resolve(self, side)
+        else:
+            self.log.debug("T%d AR%d event %s for %s does not resolve (%s)", self.turn, self.action_round,
+                      cid, side.value, "unimplemented" if ev is None else "precondition unmet")
 
     def _usable_coup_realign_target(
         self, attacker: Side, cid: str, for_coup: bool = True,
@@ -1883,6 +1932,8 @@ class Engine:
             net = self._score_southeast_asia()
         else:
             net = self._score_region_net(SCORING_CARD_REGION[cid])
+        self.log.info("T%d AR%d scoring %s: net %+d (VP %+d -> %+d)", self.turn, self.action_round,
+                 cid, net, self.vp, self.vp + net)
         self._change_vp_by(net)
 
     def _scoring_overrides(self, region: Region) -> tuple[frozenset[str], frozenset[str]]:
@@ -1972,6 +2023,8 @@ class Engine:
         self._change_vp_by(amount if side is Side.US else -amount)
 
     def _change_vp_by(self, net: int) -> None:
+        if net:
+            self.log.debug("T%d AR%d VP %+d -> %+d", self.turn, self.action_round, self.vp, self.vp + net)
         self.vp += net
         if self.vp >= RULES["vp_to_win"]:
             self._win(Side.US, "vp")
@@ -1980,6 +2033,10 @@ class Engine:
 
     def _win(self, side: Side, reason: str) -> None:
         if not self.is_terminal:
+            self.log.info(
+                "GAME OVER T%d AR%d: %s wins by %s (DEFCON %d, VP %+d)",
+                self.turn, self.action_round, side.value, reason, self.defcon, self.vp,
+            )
             self._winner = side
             self._game_over_reason = reason
             self.phase = "complete"
@@ -2311,6 +2368,12 @@ class Engine:
             self.board.influence[country][opponent.value] -= opp_removed
             leftover = margin - opp_removed
             self.board.influence[country][side.value] += leftover
+        self.log.info(
+            "T%d AR%d coup: %s -> %s%s ops=%d roll=%d margin=%+d removed=%d now=%s DEFCON=%d",
+            self.turn, self.action_round, side.value, country,
+            " [BG]" if info.battleground else "", ops, roll, margin, opp_removed,
+            dict(self.board.influence[country]), self.defcon,
+        )
 
         # A coup attempt against a Battleground country degrades DEFCON by 1
         # — except a US coup there while Nuclear Subs is in effect this turn.
@@ -2743,8 +2806,18 @@ class Engine:
     def _change_defcon(self, delta: int, caused_by: Side) -> None:
         before = self.defcon
         self.defcon = max(1, min(5, self.defcon + delta))
+        self.log.info(
+            "T%d AR%d DEFCON %d -> %d (delta %+d, caused_by=%s, phasing=%s)",
+            self.turn, self.action_round, before, self.defcon, delta, caused_by.value,
+            self._phasing_player.value if self._phasing_player else None,
+        )
         if self.defcon == 1:
             responsible = self._phasing_player or caused_by
+            self.log.warning(
+                "T%d AR%d NUCLEAR WAR: %s is responsible (phasing=%s, caused_by=%s) and loses",
+                self.turn, self.action_round, responsible.value,
+                self._phasing_player.value if self._phasing_player else None, caused_by.value,
+            )
             self._win(responsible.opponent, "defcon_1")
             return
         # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level

@@ -6,11 +6,14 @@ risk feature and policy guard, not a calibrated prediction of match outcomes.
 """
 from dataclasses import dataclass
 from functools import lru_cache
+import logging
 import math
 
 from struggler.engine import Side, Region
 from struggler.engine.cards import load_cards
 from struggler.engine.rules import RULES
+
+log = logging.getLogger('struggler.bots.defcon')
 
 CARDS = load_cards()
 CHINA = 'The_China_Card'
@@ -49,6 +52,12 @@ class DefconPlanner:
         self.truncated = False
         self.solve = lru_cache(maxsize=None)(self._solve)
         self._hazard = lru_cache(maxsize=None)(self._event_risk)
+        log.debug(
+            "planner %s T%d AR%d %s: DEFCON %d, rounds_left=%d, hand=%s, china=%s, space=%d/%d attempts",
+            self.side.value, obs.turn, obs.action_round, obs.phase, obs.defcon, self.rounds,
+            list(self.hand), self.china, obs.space_race[self.side.value],
+            obs.space_race_attempts[self.side.value],
+        )
 
     def opponent_event(self, cid):
         return cid in CARDS and CARDS[cid].side.value == self.side.opponent.value
@@ -196,6 +205,9 @@ class DefconPlanner:
             return 0.
         self.nodes += 1
         if self.nodes > self.prior.max_states:
+            if not self.truncated:
+                log.warning("planner %s: search budget of %d states exhausted; using conservative fallback",
+                            self.side.value, self.prior.max_states)
             self.truncated = True
             # Conservative fallback: any forced hazardous card is treated as loss.
             safe = sum(not self.opponent_event(c) or self.event_risk(c, 2, hand) == 0 for c in hand)
@@ -220,12 +232,22 @@ class DefconPlanner:
         state = (self.hand, self.rounds, self.obs.defcon, self.obs.space_race[self.side.value],
                  self.obs.space_race_attempts[self.side.value], self.china)
         if cid is None:
-            return self.solve(*state)
+            value = self.solve(*state)
+            log.debug("planner %s: whole-hand turn-loss risk=%.3f (%d states searched)",
+                      self.side.value, value, self.nodes)
+            return value
         modes = (mode,) if mode else self.modes(cid, self.hand, state[3], state[4])
-        return min(self.transition(cid, m, *state) for m in modes)
+        per_mode = {m: self.transition(cid, m, *state) for m in modes}
+        log.debug("planner %s: %s risk by mode %s", self.side.value, cid,
+                  {m: round(v, 3) for m, v in per_mode.items()})
+        return min(per_mode.values())
 
     def features(self):
         risk = self.risk()
+        hazards = [c for c in self.hand if self.opponent_event(c) and self.event_risk(c, 2) > 0]
+        if hazards:
+            log.info("planner %s T%d AR%d: hazardous cards in hand %s (DEFCON %d, turn-loss risk %.3f)",
+                     self.side.value, self.obs.turn, self.obs.action_round, hazards, self.obs.defcon, risk)
         return {'turn_loss_risk': risk,
                 'hazardous_cards': sum(self.opponent_event(c) and self.event_risk(c, 2) > 0 for c in self.hand),
                 'space_attempts_left': max(0, self.engine._space_attempts_allowed(self.side)-self.obs.space_race_attempts[self.side.value]),
