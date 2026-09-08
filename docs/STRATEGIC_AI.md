@@ -30,7 +30,24 @@ action = bot.choose_action(observation, history)
 
 - Values battleground control, regional scoring, partial progress toward
   control, small defensive reserves, and influence that opens nearby
-  battlegrounds. A region's score is weighted by where its scoring card is:
+  battlegrounds. A principle from strong play, recorded here because the
+  evaluator does not yet honour it: influence value is **not linear** in
+  the margin. Control is what scores VP; influence short of control has
+  only option value (it can lead to VP); points beyond control are worth
+  little, and what little they are worth is for low-stability countries
+  where a cheap coup undoes them. Two shape weights exist for this,
+  `progress_curve` (exponent on `margin/stability`) and
+  `reserve_stability` (divides the reserve term by `stability ** that`),
+  but the defaults stay at the linear, flat shape (1 and 0). Measured:
+  `progress_curve=2, reserve_stability=1` scored 0.33 ± 0.09 against the
+  linear shape on seeds 4000-4015, and left turn 1 of
+  `logs/game-check/3003-strategic-event_value.info.log` unchanged (two
+  Africa coups, no Asia). With one action of lookahead the linear progress
+  term is what stands in for option value; making it convex just stops
+  the bot starting countries it cannot finish this round, while coup gains
+  are unchanged. Honouring the principle needs either lookahead across
+  the turn's remaining Ops or a coup evaluator that prices DEFCON and
+  tempo, not a steeper curve. A region's score is weighted by where its scoring card is:
   `scoring_hand` when we hold it, `scoring_live` when it is still in the
   draw pile or the opponent's hand (it can be played against us any round,
   so the region has to be played around), and the 1.0 baseline when it is

@@ -68,8 +68,12 @@ def mutate(weights: StrategicWeights, rng: random.Random, fields: tuple[str, ...
     unknown = set(names) - set(values)
     if unknown:
         raise ValueError(f'unknown weight fields: {sorted(unknown)}')
-    return StrategicWeights(**{k: v * math.exp(rng.gauss(0, scale)) if k in names else v
-                               for k, v in values.items()})
+    def perturb(v: float) -> float:
+        # Log-normal keeps positive weights positive; a zero weight would be
+        # stuck forever under a multiplicative step, so it takes a small
+        # absolute one instead.
+        return v * math.exp(rng.gauss(0, scale)) if v else abs(rng.gauss(0, scale))
+    return StrategicWeights(**{k: perturb(v) if k in names else v for k, v in values.items()})
 
 
 def train(initial: StrategicWeights, *, seed: int, pairs: int, generations: int, population: int, output: str,

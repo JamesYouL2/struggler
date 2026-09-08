@@ -61,6 +61,17 @@ class StrategicWeights:
     # or not yet in the deck), which is the 1.0 baseline.
     scoring_hand: float = 1.6
     scoring_live: float = 1.3
+    # Influence value is not linear in principle: control is what scores,
+    # uncontrolled influence only has option value, and over-protection
+    # matters mostly where a cheap coup can undo it. progress_curve is the
+    # exponent on (margin/stability); reserve_stability divides the reserve
+    # term by stability ** that. The defaults stay at the linear/flat shape
+    # because a one-action-lookahead evaluator needs the linear term to
+    # stand in for option value: progress_curve=2 with reserve_stability=1
+    # scored 0.33 +/- 0.09 against this shape on seeds 4000-4015 (see
+    # docs/STRATEGIC_AI.md). Option value needs lookahead, not a curve.
+    progress_curve: float = 1.0
+    reserve_stability: float = 0.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -212,9 +223,15 @@ class StrategicPlayer:
         margin = own - opp
         importance = w.battleground if info.battleground else w.control
         value = importance * (1 if margin >= info.stability else -1 if margin <= -info.stability else 0)
-        # Smooth progress prevents indifference among all multi-point captures.
-        value += w.progress * importance * max(-1, min(1, margin / info.stability))
-        value += w.reserve * importance * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
+        # Progress toward control is convex: control is worth VP, a lone
+        # point is not (it can only lead there), so a half-built country is
+        # worth well under half of a controlled one.
+        fraction = max(-1.0, min(1.0, margin / info.stability))
+        value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
+        # Over-protection is worth little, and least where stability already
+        # makes a coup expensive.
+        guard = w.reserve * importance / info.stability ** w.reserve_stability
+        value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         # First footholds open nearby battlegrounds on a later action round.
         access = sum(1 / board.countries[n].stability for n in board.neighbors(cid)
                      if n in board.countries and board.countries[n].battleground)

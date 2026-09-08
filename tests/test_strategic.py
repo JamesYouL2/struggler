@@ -152,3 +152,32 @@ def test_mutation_can_be_restricted_to_named_weights():
     assert all(v != getattr(base, k) for k, v in dataclasses.asdict(everything).items())
     with pytest.raises(ValueError, match='unknown weight'):
         mutate(base, rng, ('not_a_weight',))
+
+
+def test_influence_value_is_convex_and_reserve_scales_with_stability():
+    engine = Engine(seed=0)
+    bot = StrategicPlayer()
+    board = bot.board
+    board.load_influence(engine.board.serialize())
+    def value_at(cid, own):
+        board.influence[cid]['US'] = own
+        board.influence[cid]['USSR'] = 0
+        try:
+            return bot.country_value(board, cid, Side.US)
+        finally:
+            board.influence[cid]['US'] = 0
+    # Default (linear, flat) shape: the first point in stability-2 Iran is
+    # priced above control's own term -- the option-value stand-in.
+    empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
+    assert one - empty > bot.weights.battleground
+    assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2)
+    # Convex shape: well under half of control for a lone point, and a
+    # reserve that is worth more where a coup is cheap.
+    bot = StrategicPlayer(StrategicWeights(progress_curve=2.0, reserve_stability=1.0))
+    board = bot.board
+    board.load_influence(engine.board.serialize())
+    empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
+    assert one - empty < 0.5 * (control - empty)
+    guard_low = value_at('Angola', 2) - value_at('Angola', 1)      # stability 1
+    guard_high = value_at('Pakistan', 3) - value_at('Pakistan', 2)  # stability 2
+    assert 0 < guard_high < guard_low
