@@ -71,23 +71,34 @@ python -m struggler.bots.train evaluate --pairs 20 --seed 1000 \
 python -m struggler.bots.train evaluate --opponent random --pairs 20 --seed 1000
 python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1000
 
-python -m struggler.bots.train train --seed 200 --pairs 10 \
-  --generations 5 --population 5 --output my-model.json
+python -m struggler.bots.train train --seed 200 --pairs 8 \
+  --generations 4 --population 4 --workers 8 \
+  --fields scoring_live,scoring_hand --output my-model.json
+python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
+  --seed 4000 --model my-model.json --workers 8
 ```
 
-Training mutates the positive evaluation weights using seeded log-normal noise
-and selects by terminal game score. It alternates a fixed greedy opponent with
-a frozen copy of the incumbent, evaluating the incumbent and each mutation on
-the same paired seeds. Ties retain the incumbent. Each generation saves its
-checkpoint and selection trace. `--model` can initialize a new training run
-from an existing checkpoint; it does not restore an earlier optimizer RNG.
+Training mutates the positive evaluation weights using seeded log-normal
+noise and selects by terminal game score, evaluating the incumbent and each
+mutation on the same paired seeds. The opponent is a frozen **anchor**: by
+default the initial weights playing as the strategic bot, so every
+generation's score means the same thing and the search cannot drift toward
+a moving target. `--anchor greedy` keeps the older, weaker opponent; since
+the DEFCON survival planner the strategic bot scores 1.00 against greedy on
+a 16-seed baseline, so greedy no longer discriminates between candidates.
+`--fields` restricts mutation to named weights (for example the two
+scoring-card urgencies). Ties retain the incumbent. Each generation saves
+its checkpoint and a trace with the selected weights. `--model` can
+initialize a new run from an existing checkpoint; it does not restore an
+earlier optimizer RNG.
 
-Cost is `2 * pairs * population * generations` complete games. Start small;
-this implementation runs serially. Use evaluation seeds outside the entire
-training range (`seed` through `seed + pairs * generations - 1`). Increasing
-training volume does not guarantee improved performance against people or
-unseen policies. Compare checkpoints against several opponents before adopting
-them. The `strategic` evaluation opponent always uses handcrafted defaults.
+Cost is `2 * pairs * population * generations` complete games, spread over
+`--workers` processes. Use evaluation seeds outside the entire training
+range (`seed` through `seed + pairs * generations - 1`). Increasing training
+volume does not guarantee improved performance against people or unseen
+policies. Compare checkpoints against several opponents before adopting
+them. The `strategic` evaluation opponent uses handcrafted defaults unless
+`--rival` names a checkpoint.
 
 ## Measured results
 

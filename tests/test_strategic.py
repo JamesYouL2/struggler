@@ -5,7 +5,8 @@ import pytest
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
-from struggler.bots.train import evaluate
+from struggler.bots.train import evaluate, mutate
+import random
 
 
 def test_invests_in_uncontrolled_battleground_without_mutating_observation():
@@ -139,3 +140,15 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
     assert bot.scoring_urgency(asia_dead, 'Thailand') == bot.weights.scoring_live
     assert bot.scoring_urgency(asia_dead, 'Japan') == 1.0
+
+
+def test_mutation_can_be_restricted_to_named_weights():
+    base = StrategicWeights()
+    rng = random.Random(5)
+    only = mutate(base, rng, ('scoring_live', 'scoring_hand'))
+    changed = {k for k, v in dataclasses.asdict(only).items() if v != getattr(base, k)}
+    assert changed == {'scoring_live', 'scoring_hand'}
+    everything = mutate(base, rng)
+    assert all(v != getattr(base, k) for k, v in dataclasses.asdict(everything).items())
+    with pytest.raises(ValueError, match='unknown weight'):
+        mutate(base, rng, ('not_a_weight',))
