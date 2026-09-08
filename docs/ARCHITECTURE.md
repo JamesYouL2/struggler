@@ -98,6 +98,10 @@ replay logs diffable, hashable, and greppable, and what makes
 ```python
 class Engine:
     def __init__(self, seed: int, ...): ...
+    # new_game(seed, ..., setup_bonus=False): opening setup runs as
+    # PLACE_INFLUENCE decisions (context {"setup": True, "subregion": ...});
+    # with setup_bonus the US then places rules.json "setup_bonus" anywhere
+    # it has influence ("subregion": None). See docs/LIMITATIONS.md.
 
     @property
     def pending_decision(self) -> Decision | None:

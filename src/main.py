@@ -143,6 +143,8 @@ def main() -> None:
     parser.add_argument("--us", default="human")
     parser.add_argument("--ussr", default="human")
     parser.add_argument("--seed", type=int, default=12345)
+    parser.add_argument("--no-setup-bonus", action="store_true",
+                        help="play without the US +2 setup handicap (rules.json setup_bonus)")
     parser.add_argument(
         "--log-level",
         default="WARNING",
@@ -273,7 +275,8 @@ def main() -> None:
         physical_side = Side.US if args.physical == "us" else Side.USSR
         bot_side = physical_side.opponent
         bot_kind = args.us if bot_side is Side.US else args.ussr
-        engine = Engine.new_game(seed=args.seed, physical_mode=True, physical_side=physical_side)
+        engine = Engine.new_game(seed=args.seed, physical_mode=True, physical_side=physical_side,
+                                 setup_bonus=not args.no_setup_bonus)
         operator = OperatorConsolePlayer()
         bot_log_path = args.us_log_path if bot_side is Side.US else args.ussr_log_path
         players: dict[Side, Player] = {
@@ -286,7 +289,7 @@ def main() -> None:
             )),
         }
     else:
-        engine = Engine.new_game(seed=args.seed)
+        engine = Engine.new_game(seed=args.seed, setup_bonus=not args.no_setup_bonus)
         players = {
             Side.US: build_player(
                 args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path,

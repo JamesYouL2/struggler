@@ -88,7 +88,9 @@ def build(kind: str, seed: int, simulations: int):
         return StrategicPlayer()
     if kind == 'mcts':
         from struggler.bots.mcts import MCTSPlayer
-        return MCTSPlayer(seed=seed, simulations=simulations)
+        # STRUGGLER_ROLLOUT_OPTIONS='{"full_planner": true}' switches RolloutPolicy ablations.
+        options = json.loads(os.environ.get('STRUGGLER_ROLLOUT_OPTIONS', '{}'))
+        return MCTSPlayer(seed=seed, simulations=simulations, rollout_options=options)
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()
@@ -109,7 +111,7 @@ def play(job: tuple) -> dict:
         logging.disable(logging.CRITICAL)
     side = Side(side_value)
     players = {side: build(bot, seed, simulations), side.opponent: build(opponent, seed, simulations)}
-    engine = Engine.new_game(seed=seed)
+    engine = Engine.new_game(seed=seed, setup_bonus=True)
     history = HistoryBuilder()
     start = time.time()
     searches = search_seconds = 0.

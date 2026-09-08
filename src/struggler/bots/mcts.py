@@ -40,14 +40,14 @@ class Edge:
 
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
-                 time_limit=None, opponent_model=None):
+                 time_limit=None, opponent_model=None, rollout_options=None):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
             raise ValueError('time_limit must be finite and positive')
         self.policy = StrategicPlayer(weights, opponent_model=opponent_model)
         # Below the root every decision is answered by the cheap policy.
-        self.rollout_policy = RolloutPolicy(weights, opponent_model=opponent_model)
+        self.rollout_policy = RolloutPolicy(weights, opponent_model=opponent_model, **(rollout_options or {}))
         self.seed = seed
         self.simulations = simulations
         self.max_steps = max_steps

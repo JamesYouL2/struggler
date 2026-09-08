@@ -55,6 +55,13 @@ action = bot.choose_action(observation, history)
   the period schedule is static and public, `engine.cards.ENTRY_TURN`).
   Southeast Asia Scoring adds urgency only to the countries it scores
   (the `SOUTHEAST_ASIA` subregion), not to all of Asia.
+- The opening setup is a book, not a search (`OPENING_BOOK`): USSR
+  East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
+  European Unrest; Austria reaches Italy and West Germany); US West
+  Germany 4, Italy 3, then the +2 handicap to Iran and West Germany
+  (5 holds against Socialist Governments). The influence search decides
+  only if the book's country is somehow unavailable. Before the book the
+  value function put 3 in Czechoslovakia, a non-battleground.
 - Country importance is tiered: battlegrounds (`battleground`) >>
   Southeast Asia non-battlegrounds (`southeast_asia`) >> other
   non-battlegrounds (`control`). Battleground Ops are what score

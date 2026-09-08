@@ -12,6 +12,13 @@ pre-fix engine and are historical, not measurements under the corrected rules.
 Bot hand-survival planning is a bounded search with explicit priors, not a
 full model of the opponent; see the strategic bot's limits.
 
+- **The US +2 setup handicap** (`rules.json` "setup_bonus", `Engine.new_game(...,
+  setup_bonus=True)`) is the tournament balancing rule, not the printed
+  rules: after the Western Europe placement the US adds 2 points anywhere
+  it already has influence, as two more setup decisions. `main.py`, the
+  trainer and the benchmark play with it (`--no-setup-bonus` turns it off);
+  `Engine.new_game` defaults to the printed setup so the recorded golden
+  replays are unchanged, and `serialize()` carries the flag only when set.
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
   effect flag matters mechanically. A card-manipulation event such as Star

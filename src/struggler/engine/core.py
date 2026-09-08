@@ -76,6 +76,7 @@ class Engine:
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
         self.include_optional = False
+        self.setup_bonus = False  # US handicap placement after the Western Europe setup
         self.draw_pile: list[str] = []
         self.discard_pile: list[str] = []
         self.removed_cards: list[str] = []
@@ -269,6 +270,8 @@ class Engine:
             # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
+            # Only when granted, so earlier recorded states compare equal.
+            **({"setup_bonus": True} if self.setup_bonus else {}),
             "draw_pile": list(self.draw_pile),
             "discard_pile": list(self.discard_pile),
             "removed_cards": list(self.removed_cards),
@@ -313,6 +316,7 @@ class Engine:
         # -- full-game state (absent in board-only logs: fall back to the sandbox) --
         engine.phase = data.get("phase", "idle")
         engine.include_optional = data.get("include_optional", False)
+        engine.setup_bonus = data.get("setup_bonus", False)
         engine.draw_pile = list(data.get("draw_pile", []))
         engine.discard_pile = list(data.get("discard_pile", []))
         engine.removed_cards = list(data.get("removed_cards", []))
@@ -373,6 +377,7 @@ class Engine:
         events: bool = True,
         physical_mode: bool = False,
         physical_side: Side | None = None,
+        setup_bonus: bool = False,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -380,7 +385,9 @@ class Engine:
         Opening setup runs first: printed at-start influence is applied, then
         the USSR places 6 additional Influence in Eastern Europe and the US 7
         in Western Europe (as ordinary placement decisions), before the turn-1
-        headline.
+        headline. With `setup_bonus` the US then places the tournament
+        handicap (`rules.json` "setup_bonus": 2 more points, anywhere it
+        already has influence) as further setup decisions.
 
         `physical_mode`/`physical_side`: `physical_side` is a real human
         playing the physical board game (see the "Physical-mode state"
@@ -395,6 +402,7 @@ class Engine:
         engine.events_enabled = events
         engine.physical_mode = physical_mode
         engine.physical_side = physical_side
+        engine.setup_bonus = setup_bonus
         engine.china_card_owner = "USSR"
         engine.china_card_available = True
         engine.turn = 1
@@ -741,20 +749,24 @@ class Engine:
         self._push_setup_influence_remaining(side, subregion, remaining)
 
     def _push_setup_influence_remaining(
-        self, side: Side, subregion: Subregion, remaining: int
+        self, side: Side, subregion: Subregion | None, remaining: int
     ) -> None:
         # Setup placement is free within the region (reachability does not
-        # apply), so every country in the subregion is a legal target.
+        # apply), so every country in the subregion is a legal target. The
+        # bonus stage (`subregion` None) is anywhere the side already has
+        # influence.
         options = tuple(
             Action(DecisionKind.PLACE_INFLUENCE, {"country": cid})
             for cid, info in self.board.countries.items()
-            if subregion in info.subregions
+            if (subregion in info.subregions if subregion is not None
+                else self.board.influence[cid][side.value] > 0)
         )
         self._push(
             side,
             DecisionKind.PLACE_INFLUENCE,
             options,
-            {"setup": True, "side": side.value, "subregion": subregion.value,
+            {"setup": True, "side": side.value,
+             "subregion": subregion.value if subregion is not None else None,
              "remaining": remaining},
         )
 
@@ -2332,12 +2344,17 @@ class Engine:
         # Setup placement always costs one point flat (no opponent doubling).
         self.board.influence[action.payload["country"]][side.value] += 1
         remaining = decision.context["remaining"] - 1
-        subregion = Subregion(decision.context["subregion"])
+        subregion = decision.context["subregion"]
+        subregion = Subregion(subregion) if subregion is not None else None
+        bonus = RULES.get("setup_bonus")
         if remaining > 0:
             self._push_setup_influence_remaining(side, subregion, remaining)
         elif side is Side.USSR:
             # USSR's Eastern Europe done -> US places in Western Europe.
             self._push_setup_influence(Side.US, Subregion.WESTERN_EUROPE)
+        elif subregion is not None and self.setup_bonus and bonus and bonus["amount"] > 0:
+            # Western Europe done -> the US handicap, anywhere it has influence.
+            self._push_setup_influence_remaining(Side(bonus["side"]), None, bonus["amount"])
         else:
             self.phase = "headline"  # setup complete; _advance pushes headline
 

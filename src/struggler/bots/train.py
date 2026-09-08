@@ -26,7 +26,7 @@ def _play(job: tuple) -> dict:
     side = Side(side_value)
     other = (StrategicPlayer(rival) if opponent == 'strategic' else
              RandomPlayer(seed=seed + 100000) if opponent == 'random' else GreedyPlayer())
-    engine = Engine.new_game(seed=seed)
+    engine = Engine.new_game(seed=seed, setup_bonus=True)
     winner = play_game(engine, {side: StrategicPlayer(weights), side.opponent: other})
     return dict(seed=seed, side=side.value, winner=winner.value if winner else None,
                 score=0.5 if winner is None else float(winner is side),

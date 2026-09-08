@@ -221,3 +221,23 @@ def test_country_tiers_and_coup_discount():
     full.board.influence['Angola']['USSR'] = 1
     assert 0 < bot.coup(obs, 'Angola', 2) < full.coup(obs, 'Angola', 2)
     assert bot.realign(obs, 'Angola') == pytest.approx(0.9 * full.realign(obs, 'Angola'))
+
+
+def test_opening_book_plays_the_standard_setup_and_the_handicap():
+    from struggler.engine import Engine, Side
+    engine = Engine.new_game(seed=9, setup_bonus=True)
+    bot = StrategicPlayer()
+    placed = []
+    while engine.pending_decision.context.get('setup'):
+        d = engine.pending_decision
+        action = bot.choose_action(engine.observe(d.actor), [])
+        placed.append((d.actor.value, action.payload['country']))
+        engine.step(action)
+    ussr = [c for s, c in placed if s == 'USSR']
+    us = [c for s, c in placed if s == 'US']
+    assert sorted(ussr) == sorted(['East_Germany'] + ['Poland'] * 4 + ['Austria'])
+    assert us[:7].count('West_Germany') == 4 and us[:7].count('Italy') == 3
+    assert us[7:] == ['Iran', 'West_Germany']
+    assert engine.board.influence['Poland']['USSR'] == 4
+    assert engine.board.influence['East_Germany']['USSR'] == 4
+    assert engine.board.influence['West_Germany']['US'] == 5

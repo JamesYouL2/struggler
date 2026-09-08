@@ -24,6 +24,8 @@ committing DEFCON suicide. Everything below is an instance of that.
 | Battlegrounds >> cheap Southeast Asia countries >> other non-battlegrounds. Battleground Ops score domination/control or deny them; SEA countries non-dominate Asia and score later. | Done: `battleground` / `southeast_asia` / `control` tiers in `StrategicWeights`. A turn-1-only rule was tried first and removed as hacky. Tiers + coup discount vs the old flat tiers: 0.55 ± 0.06 on seeds 4000-4015 (0.72 as USSR, 0.38 as US). | `logs/game-check/3003-*` is the testing ground; `logs/game-check/tiers-ab-4000-4015.json`. |
 | Coups/realignments should be valued like placement, generally preferring placement (Ops efficiency: a coup on a 2-stability country is -1 Op). | Done: same `delta` pricing, `coup_discount` 0.9. | |
 | 1- and 2-stability countries are more VP per Op while their scoring is live. | Already what the influence search maximises (gain per Op); noted, nothing extra encoded. | |
+| The opening is known: USSR 4 East Germany / 4 Poland / 1 Austria (or Yugoslavia); US 4 West Germany / 3 Italy, then the +2 handicap to Iran and West Germany. | Done: `OPENING_BOOK` in `bots/strategic.py`; the +2 is `rules.json` "setup_bonus", on in `main.py`, the trainer and the benchmark. The US 4/3 split is an assumption to confirm. | `docs/STRATEGIC_AI.md` "How it plays". |
+| Judge a bot at checkpoints, not only by wins: VP scored plus the battleground control difference per region, weighted by how many more times and how soon each region scores (live card: this cycle and after the reshuffle; discarded: after it; Mid War: from turn 4; Southeast Asia once), each turn away discounted. | Done: `python -m struggler.bots.benchmark --stop-turn 1|3|7` (`projection`, `scoring_weights`). Turn 1 MCTS vs strategic is flat: -0.23 total, 8 wins / 9 losses on the 17 seats that searched. | `logs/game-check/*-4000-4015.t1*.json`; per-game logs with `--log-dir`. |
 
 ## What is still open, roughly in order
 
@@ -64,6 +66,25 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 16 --seed 4
 change is measured against is seeds 4000-4015, both seatings.
 
 ## MCTS prototype follow-up
+
+Speed and strength, seeds 4000-4015 both seatings, 24 simulations, vs
+strategic (`logs/game-check/mcts-vs-strategic-4000-4015.*.json`):
+
+| Rollout policy | Score | Nuclear losses | Search (s, 6-8 concurrent) |
+| --- | ---: | ---: | ---: |
+| Full strategic policy in rollouts (before `bots/rollout.py`) | 0.656 | 0 | 11.3 |
+| Immediate-only survival guard | 0.422 | 2 | 6.0 |
+| Hybrid: full search when DEFCON <= 3 and a hazardous card is held | 0.469 | 0 | 4.6 |
+
+The cheap rollouts cost strength: the search is 2.4x faster but the
+rollouts are a worse model of play. Ablations (`STRUGGLER_ROLLOUT_OPTIONS`
+`full_planner` / `serve_plans`) are the next measurement. The seed 4004
+USSR turn-1 review shows the other weakness: 11 root macros over 24
+simulations is 2-3 visits each, values within noise, and a targeted macro
+forces a card (De-Stalinization, Duck and Cover) to be played for Ops.
+Candidates: drop targets we are chasing (opponent present, we absent, no
+adjacent control), no Ops macro when the event is worth more than the Ops,
+cap macros at ~6 or raise simulations to 48.
 
 An opt-in `mcts` bot now searches own scoring-card turns with UCT over card
 plays and targeted BG investments. Rollout returns include banked VP plus

@@ -58,8 +58,12 @@ class ImmediatePlanner(DefconPlanner):
 
 
 class RolloutPolicy(StrategicPlayer):
-    def __init__(self, weights=None, *, opponent_model=None):
+    def __init__(self, weights=None, *, opponent_model=None, full_planner=False, serve_plans=True):
         super().__init__(weights, opponent_model=opponent_model)
+        # Ablation switches: the parent's survival search everywhere, and
+        # re-ranking every Ops decision instead of serving the plan.
+        self.full_planner = full_planner
+        self.serve_plans = serve_plans
         self.reset()
 
     def reset(self):
@@ -74,7 +78,7 @@ class RolloutPolicy(StrategicPlayer):
         # in a rollout, or every simulation from it suicides and the root
         # learns nothing. Elsewhere the immediate guard suffices.
         planner = DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
-        if obs.defcon <= 3 and any(planner.hazardous(c) for c in planner.hand):
+        if self.full_planner or obs.defcon <= 3 and any(planner.hazardous(c) for c in planner.hand):
             return planner
         planner.__class__ = ImmediatePlanner
         return planner
@@ -98,7 +102,7 @@ class RolloutPolicy(StrategicPlayer):
             self.hits += 1
             ranked, self._plan, self._placements = cached
             return ranked
-        ranked = self._served(obs)
+        ranked = self._served(obs) if self.serve_plans else None
         if ranked is not None:
             self.served += 1
         else:

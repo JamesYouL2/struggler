@@ -34,6 +34,16 @@ from struggler.bots.greedy import (
 CARDS = load_cards()
 LOSS = -1_000_000.0
 
+# Opening book: the setup placements in order, per stage. The USSR's 6 in
+# Eastern Europe and the US's 7 in Western Europe keep control through
+# East European Unrest / Socialist Governments and take the access points
+# strong players take; the US +2 handicap goes to Iran, then West Germany.
+OPENING_BOOK = {
+    ('USSR', 'EASTERN_EUROPE'): ('East_Germany', 'Poland', 'Poland', 'Poland', 'Poland', 'Austria'),
+    ('US', 'WESTERN_EUROPE'): ('West_Germany',) * 4 + ('Italy',) * 3,
+    ('US', None): ('Iran', 'West_Germany'),
+}
+
 
 def _copy_state(value):
     """Copy the plain JSON-like effect state (dicts, lists, tuples of
@@ -510,6 +520,16 @@ class StrategicPlayer:
     def score(self, obs: Observation, action: Action) -> float:
         kind, p = action.kind, action.payload
         ctx = obs.pending_decision.context
+        if kind is K.PLACE_INFLUENCE and ctx.get('setup'):
+            # The opening is a book, not a search: the standard openings
+            # keep control through East European Unrest / Socialist
+            # Governments and take the access points strong players take.
+            book = OPENING_BOOK.get((obs.side.value, ctx.get('subregion')), ())
+            index = len(book) - int(ctx['remaining'])
+            wanted = book[index] if 0 <= index < len(book) else None
+            if wanted is not None and any(a.payload['country'] == wanted for a in obs.pending_decision.options):
+                return float(p['country'] == wanted)
+            return self.influence(obs, p['country'], 1)
         if kind is K.PLACE_INFLUENCE:
             ops = int(ctx.get('ops_remaining', ctx.get('remaining', ctx.get('ops', 1))))
             if ctx.get('bonus'):

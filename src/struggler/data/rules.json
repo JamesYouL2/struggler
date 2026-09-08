@@ -26,6 +26,7 @@
     "EASTERN_EUROPE": { "side": "USSR", "amount": 6 },
     "WESTERN_EUROPE": { "side": "US", "amount": 7 }
   },
+  "setup_bonus": { "side": "US", "amount": 2 },
   "space_race_boxes": {
     "1": { "ops": 2, "roll_max": 3, "vp_first": 2, "vp_second": 1 },
     "2": { "ops": 2, "roll_max": 4, "vp_first": 0, "vp_second": 0 },
