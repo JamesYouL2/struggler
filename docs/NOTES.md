@@ -47,12 +47,20 @@ The VP weight against the new Ops scale: 3 / 6 / 10 score 0.81 / 0.88 /
 against the current default (3) in mirror matches on the same seeds
 (`logs/game-check/vp-*`). No signal at 32 games; the default stays 3.
 
-Still wrong on that board, by human judgement: Marshall Plan at 13.6 (one
-Op) is far too low, COMECON at 5.4 slightly high. Both are the same gap:
-a stake is valued by its fraction of the way to control, not by its odds
-of converting to control by scoring time and what that control would do
-to domination. Flag events value 0. The VP weight (3) has not been
-recalibrated to the new Ops scale.
+The value function is now in VP units (`docs/STRATEGIC_AI.md` "How it
+plays"): tier VP per scoring x expected remaining scorings, stakes by
+conversion odds, reach by the option it opens. On the opening board that
+gives Nasser 8.5 (two USSR Ops, as a strong player would say),
+De-Stalinization 17.8, Decolonization 14.1, Vietnam Revolts 9.4 (Thailand
+reach), Red Scare/Purge 15-17, Containment 15-26, COMECON 0.9, Warsaw
+Pact 0, Nuclear Test Ban 3 against a 4-Ops card's 12-16.
+
+Still wrong on that board, by human judgement: Marshall Plan at 2.3 VP is
+far too low. Its seven stakes are priced by conversion odds into the
+non-battleground tier (0.3 VP a scoring), but their real worth is the
+Europe domination count they convert into; pricing a stake by the region
+score change its control would cause (P(convert) x delta region score)
+is the fix, at roughly twice the evaluation cost. Flag events value 0.
 
 ## What is still open, roughly in order
 

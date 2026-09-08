@@ -173,7 +173,7 @@ class MCTSPlayer:
         sign = 1 if side is Side.US else -1
         value = self.policy.weights.vp * sign * engine.vp + self.policy.value(engine.board, side)
         # Bounded heuristic leaves remain strictly below a certain win/loss.
-        return max(-.99, min(.99, math.tanh(value / 100.)))
+        return max(-.99, min(.99, math.tanh(value / 30.)))  # value is in VP
 
     def choose_action(self, obs, history):
         d = obs.pending_decision

@@ -67,6 +67,8 @@ Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
 Our_Man_in_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
 # Duration effects priced by the Ops they add or take away.
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
+# Events that simply hand their side Operations (with a reveal we do not price).
+OPS_GRANTS = {'CIA_Created': 1, 'Lone_Gunman': 1}
 # For the docs and tests: what the sandbox is asked to simulate.
 PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
                           if not c.scoring and c.id not in HIDDEN_INFO_EVENTS
@@ -75,42 +77,40 @@ PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
 
 @dataclass(frozen=True)
 class StrategicWeights:
-    # Country importance tiers: battlegrounds >> Southeast Asia
-    # non-battlegrounds >> other non-battlegrounds. Battleground Ops score
-    # domination and control (or deny them); the cheap SEA countries keep
-    # Asia from being dominated and score later; the rest are worth little.
-    control: float = 1.0
-    battleground: float = 5.0
-    southeast_asia: float = 2.0
-    progress: float = 2.8
-    reserve: float = 0.35
-    access: float = 0.65
-    region: float = 1.3
-    vp: float = 3.0
-    military: float = 2.0
+    """Every weight is in VP. A country is worth its tier's VP per scoring
+    of its region, times the region's expected remaining scorings from the
+    static card schedule (bots/public_cards.scoring_schedule, discounted
+    per turn away), so the exchange rate between a battleground and a VP
+    depends on the turn and on where the scoring cards are. The exact
+    region score, scaled the same way, carries the domination/control
+    swings; the tiers add what a single country contributes beyond it."""
+    # VP per scoring: battlegrounds >> Southeast Asia non-battlegrounds >>
+    # other non-battlegrounds (which only count toward domination).
+    control: float = 0.3
+    battleground: float = 1.0
+    southeast_asia: float = 0.6
+    # A stake (presence without control) is the control value times the
+    # odds of converting it: conversion ** (Ops still needed). Reach into a
+    # battleground we could not otherwise place in is worth `access` of
+    # that same option.
+    conversion: float = 0.65
+    progress: float = 1.0
+    access: float = 0.5
+    # Over-protection: a point beyond control, worth little, and least
+    # where stability already makes a coup expensive (reserve_stability
+    # divides by stability ** that).
+    reserve: float = 0.1
+    reserve_stability: float = 0.0
+    region: float = 1.0
+    vp: float = 1.0
+    military: float = 1.0  # a Military Ops shortfall is paid in VP
     event: float = 1.0
-    ops: float = 2.0
-    # A country is worth what its region will still score: the sum over its
-    # scoring cards' expected future plays of scoring_discount ** (turns
-    # away), from the static period schedule and where each card is now
-    # (bots/public_cards.scoring_schedule). Control in a region that scores
-    # this cycle and again after the reshuffle is worth about 1.6; in one
-    # just scored, 0.6; in a Mid War region on turn 1, 0.5. Holding the
-    # card ourselves multiplies this cycle's term by scoring_hand: we pick
-    # the moment.
+    ops: float = 1.5  # fallback VP per Op where the board cannot price them
+    # Expected future scorings: scoring_discount ** (turns away), summed
+    # over the region's scoring cards' expected plays. Holding the card
+    # multiplies this cycle's term by scoring_hand: we pick the moment.
     scoring_hand: float = 1.2
     scoring_discount: float = 0.8
-    # Influence value is not linear in principle: control is what scores,
-    # uncontrolled influence only has option value, and over-protection
-    # matters mostly where a cheap coup can undo it. progress_curve is the
-    # exponent on (margin/stability); reserve_stability divides the reserve
-    # term by stability ** that. The defaults stay at the linear/flat shape
-    # because a one-action-lookahead evaluator needs the linear term to
-    # stand in for option value: progress_curve=2 with reserve_stability=1
-    # scored 0.33 +/- 0.09 against this shape on seeds 4000-4015 (see
-    # docs/STRATEGIC_AI.md). Option value needs lookahead, not a curve.
-    progress_curve: float = 1.0
-    reserve_stability: float = 0.0
     # A coup or realignment is priced on the same board change as placing
     # influence, then discounted: it is the less Ops-efficient route to the
     # same result (a coup on a 2-stability country loses a point of margin
@@ -291,33 +291,40 @@ class StrategicPlayer:
         if cache is not None and key in cache:
             return cache[key]
         margin = own - opp
-        importance = self.importance(info)
-        # Control is worth what the region will still score (a battleground
-        # in an unscored Early War region >> one in a region just scored,
-        # or one whose scoring is turns away). Absent an observation (a
-        # bare leaf evaluation) the schedule weight is 1.
-        weights = self._scoring_weights
-        if weights is not None:
-            importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
-        value = importance * (1 if margin >= info.stability else -1 if margin <= -info.stability else 0)
-        # Progress toward control is convex: control is worth VP, a lone
-        # point is not (it can only lead there), so a half-built country is
-        # worth well under half of a controlled one.
-        fraction = max(-1.0, min(1.0, margin / info.stability))
-        value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
-        # Over-protection is worth little, and least where stability already
-        # makes a coup expensive.
-        guard = w.reserve * importance / info.stability ** w.reserve_stability
-        value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
+        # Worth per scoring, times what the region will still score (a
+        # battleground in an unscored Early War region >> one in a region
+        # just scored, or one whose scoring is turns away). Absent an
+        # observation (a bare leaf evaluation) the schedule weight is 1.
+        importance = self.importance(info) * self._schedule(cid)
+        stability = info.stability
+        if margin >= stability:
+            value = importance
+        elif margin <= -stability:
+            value = -importance
+        elif margin > 0:
+            value = w.progress * importance * w.conversion ** (stability - margin)
+        elif margin < 0:
+            value = -w.progress * importance * w.conversion ** (stability + margin)
+        else:
+            value = 0.
+        guard = w.reserve * importance / stability ** w.reserve_stability
+        value += guard * (min(2, max(0, margin-stability)) - min(2, max(0, -margin-stability)))
         # First footholds open nearby battlegrounds on a later action round:
-        # a stake is worth the uncontrolled battlegrounds it alone lets us
-        # reach. Nothing for ground we already reach (a fourth point in
-        # Eastern Europe opens nothing), and nothing for ground we hold.
+        # a stake is worth a share of the option on each uncontrolled
+        # battleground it alone lets us reach. Nothing for ground we already
+        # reach (a fourth point in Eastern Europe opens nothing).
         value += w.access * (self._access(board, cid, side) * (own > 0)
                              - self._access(board, cid, side.opponent) * (opp > 0))
         if cache is not None:
             cache[key] = value
         return value
+
+    def _schedule(self, cid: str) -> float:
+        weights = self._scoring_weights
+        if weights is None:
+            return 1.
+        cached = weights.get(cid)
+        return cached if cached is not None else self.scoring_weight(self._obs, cid)
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
         cache = getattr(self, '_access_cache', None)
@@ -325,6 +332,7 @@ class StrategicPlayer:
         if cache is not None and key in cache:
             return cache[key]
         inf, key_side = board.influence, side.value
+        w = self.weights
         total = 0.
         for n in board.neighbors(cid):
             info = board.countries.get(n)
@@ -334,13 +342,27 @@ class StrategicPlayer:
                 continue  # reachable anyway
             if any(inf[m][key_side] > 0 for m in board.neighbors(n) if m != cid and m in inf):
                 continue  # reachable through another holding
-            total += 1 / info.stability
+            own, opp = inf[n][key_side], inf[n][side.opponent.value]
+            cost = info.stability + opp - own
+            if board.control(n) is side.opponent:
+                cost += opp - own - info.stability + 1  # doubled until control breaks
+            total += self.importance(info) * self._schedule(n) * w.conversion ** max(1, cost)
         if cache is not None:
             cache[key] = total
         return total
 
     def value(self, board: Board, side: Side) -> float:
-        return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)
+        return (sum(self.country_value(board, c, side) for c in board.countries)
+                + self.weights.region * sum(self.region_weight(r) * self.region_score(board, r, side) for r in Region))
+
+    def region_weight(self, region: Region) -> float:
+        """The region's expected remaining scorings (1 without an observation)."""
+        if self._obs is None:
+            return 1.
+        card = next(c for c, r in SCORING_CARD_REGION.items() if r is region)
+        w = self.weights
+        return sum(w.scoring_discount ** t * (w.scoring_hand if t == 0 and card in self._obs.hand else 1.)
+                   for t in scoring_schedule(self._obs, card))
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score, discounted by
@@ -442,7 +464,7 @@ class StrategicPlayer:
         turn 1 outranks 3 VP and a late 1-Op card does not."""
         if ops <= 0:
             return 0.
-        cached = self._ops_values.get(ops)
+        cached = self._ops_values.get((obs.side, ops))
         if cached is not None:
             return cached
         side, board = obs.side, self.board
@@ -478,8 +500,23 @@ class StrategicPlayer:
         best_coup = max((self.coup(obs, c, ops) for c in board.countries
                          if engine._usable_coup_realign_target(side, c, for_coup=True)), default=LOSS)
         value = max(total, best_coup, 0.)
-        self._ops_values[ops] = value
+        self._ops_values[(obs.side, ops)] = value
         return value
+
+    def opponent_ops_value(self, obs: Observation, ops: int) -> float:
+        """What `ops` Operations are worth to the opponent on this board."""
+        other = replace(obs, side=obs.side.opponent, hand=())
+        base = self._base_regions
+        self._base_regions = {} if base is not None else None
+        try:
+            return self.ops_value(other, ops)
+        finally:
+            self._base_regions = {} if base is not None else None
+
+    def marginal_op(self, obs: Observation, side: Side) -> float:
+        """The value of one more Op on a typical card for `side`."""
+        f = self.ops_value if side is obs.side else self.opponent_ops_value
+        return max(0., (f(obs, 4) - f(obs, 1)) / 3)  # smoothed over a card's range
 
     def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:
         """Best value per Op of investing in `cid`, and the points that earn it."""
@@ -574,7 +611,7 @@ class StrategicPlayer:
                                                  for c, v in obs.influence.items()))
         if self._event_basis is None or self._event_basis[0] != basis_key:
             countries = {c: self.country_value(engine.board, c, obs.side) for c in engine.board.countries}
-            regions = {r: self.region_score(engine.board, r, obs.side) for r in Region}
+            regions = {r: self.region_weight(r) * self.region_score(engine.board, r, obs.side) for r in Region}
             before = sum(countries.values()) + self.weights.region * sum(regions.values())
             self._event_basis = (basis_key, countries, regions, before)
         _, countries, regions, before = self._event_basis
@@ -596,7 +633,7 @@ class StrategicPlayer:
         changed_regions = {engine.board.countries[c].region for c in changed}
         after = sum(self.country_value(engine.board, c, obs.side) if c in changed else v
                     for c, v in countries.items())
-        after += self.weights.region * sum(self.region_score(engine.board, r, obs.side)
+        after += self.weights.region * sum(self.region_weight(r) * self.region_score(engine.board, r, obs.side)
                                             if r in changed_regions else v for r, v in regions.items())
         result = after - before
         return result + self.weights.vp * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
@@ -608,8 +645,20 @@ class StrategicPlayer:
         sign = -1 if card.side.value == obs.side.opponent.value else 1
         result = None
         if cid in OPS_MODIFIER_EVENTS:
+            # A point of Ops on every card for the rest of the turn, for
+            # the side it helps (Containment: US; Brezhnev: USSR; Red
+            # Scare/Purge: the opponent loses one), at this board's
+            # marginal Op value for that side.
             rounds = max(1, (6 if obs.turn <= 3 else 7) - obs.action_round)
-            result = sign * rounds * self.weights.ops
+            helped = {'Containment': Side.US, 'Brezhnev_Doctrine': Side.USSR}.get(cid, obs.side)
+            result = rounds * self.marginal_op(obs, helped) * (1 if helped is obs.side else -1)
+        elif cid in OPS_GRANTS:
+            # The event hands its side that many Ops (CIA Created, Lone
+            # Gunman): worth what they buy on this board.
+            granted = CARDS[cid].side.value
+            mine = granted == obs.side.value
+            value = self.ops_value(obs, OPS_GRANTS[cid]) if mine else self.opponent_ops_value(obs, OPS_GRANTS[cid])
+            result = value if mine else -value
         elif cid in PUBLIC_EVENTS:
             try:
                 result = self._public_event_value(obs, cid)
@@ -704,7 +753,11 @@ class StrategicPlayer:
             event = self.event_value(obs, cid)
             ops = _effective_ops_estimate(card, obs, obs.side)
             if kind is K.HEADLINE_PLAY:
-                return event - 0.5 * self.ops_value(obs, ops)
+                # Headlining a card fires its event now instead of using
+                # the card in an action round; the card it displaces gets
+                # that action round instead. So a candidate is worth its
+                # event minus its own action-round use.
+                return event - self.card_play_value(obs, cid, ops, event)
             value = self.card_play_value(obs, cid, ops, event)
             if cid == 'The_China_Card':
                 value -= 4
