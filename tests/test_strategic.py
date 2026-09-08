@@ -45,7 +45,7 @@ def test_coup_expectation_accounts_for_each_die_and_clamps_removal():
     bot.choose_action(obs, [])
     # Mexico stability 2: margins are 0,1,2,3,4,5 for a 3-op coup.
     expected = sum(bot.delta(obs, 'Mexico', own=max(0,m-2), opp=-min(2,m)) for m in range(6))/6
-    assert bot.coup(obs, 'Mexico', 3) == pytest.approx(expected)
+    assert bot.coup(obs, 'Mexico', 3) == pytest.approx(expected * bot.weights.coup_discount)
 
 
 def test_event_removes_enemy_battleground_influence():
@@ -183,24 +183,28 @@ def test_influence_value_is_convex_and_reserve_scales_with_stability():
     assert 0 < guard_high < guard_low
 
 
-def test_turn_one_ops_ignore_non_battlegrounds_except_the_openers():
+def test_country_tiers_and_coup_discount():
     engine = Engine(seed=0)
-    engine.turn = 1
     bot = StrategicPlayer()
-    from struggler.bots.greedy import _sync_board
+    board = bot.board
+    board.load_influence(engine.board.serialize())
+    def control_value(cid):
+        info = board.countries[cid]
+        board.influence[cid]['US'] = info.stability
+        try:
+            return bot.country_value(board, cid, Side.US)
+        finally:
+            board.influence[cid]['US'] = 0
+    # Battleground >> Southeast Asia non-battleground >> other non-battleground.
+    assert control_value('Thailand') > control_value('Malaysia') > control_value('Spain_Portugal')
+    assert bot.importance(board.countries['Malaysia']) == bot.weights.southeast_asia
+    # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)
+    from struggler.bots.greedy import _sync_board
     _sync_board(bot.board, obs)
-    assert bot.delta(obs, 'Spain_Portugal', own=2) == 0
-    assert bot.delta(obs, 'Cameroon', own=1) == 0
-    assert bot.delta(obs, 'Italy', own=2) > 0        # battleground
-    assert bot.delta(obs, 'Lebanon', own=1) > 0      # a turn-1 opener
-    assert bot.delta(obs, 'Vietnam', own=1) == 0
-    revolts = dataclasses.replace(obs, turn_effects={'vietnam_revolts': True})
-    assert bot.delta(revolts, 'Vietnam', own=1) > 0
-    later = dataclasses.replace(obs, turn=2)
-    assert bot.delta(later, 'Spain_Portugal', own=2) > 0
-    # Coups inherit it: a turn-1 non-battleground coup is worth nothing.
-    bot.board.influence['Cameroon']['USSR'] = 1
-    assert bot.coup(obs, 'Cameroon', 2) == 0
     bot.board.influence['Angola']['USSR'] = 1
-    assert bot.coup(obs, 'Angola', 2) > 0
+    full = StrategicPlayer(StrategicWeights(coup_discount=1.0))
+    _sync_board(full.board, obs)
+    full.board.influence['Angola']['USSR'] = 1
+    assert 0 < bot.coup(obs, 'Angola', 2) < full.coup(obs, 'Angola', 2)
+    assert bot.realign(obs, 'Angola') == pytest.approx(0.9 * full.realign(obs, 'Angola'))

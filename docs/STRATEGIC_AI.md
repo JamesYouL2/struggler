@@ -55,12 +55,27 @@ action = bot.choose_action(observation, history)
   the period schedule is static and public, `engine.cards.ENTRY_TURN`).
   Southeast Asia Scoring adds urgency only to the countries it scores
   (the `SOUTHEAST_ASIA` subregion), not to all of Asia.
-- Turn 1 is battlegrounds only. Ops into a non-battleground on turn 1
-  (placement or coup) are worth `turn1_non_battleground` (default 0) of
-  their evaluated change, except Lebanon, Laos/Cambodia, Indonesia and
-  Malaysia, and Vietnam while Vietnam Revolts is in effect. A turn-1
-  battleground coup is often right (VP and Military Ops), and DEFCON is
-  not worth much to either side in the Early War, so neither is penalised.
+- Country importance is tiered: battlegrounds (`battleground`) >>
+  Southeast Asia non-battlegrounds (`southeast_asia`) >> other
+  non-battlegrounds (`control`). Battleground Ops are what score
+  domination and control, or deny them to the opponent; the cheap
+  Southeast Asia countries keep Asia from being dominated and score
+  later; everything else is worth little. There is no turn-specific rule:
+  a turn-1 rule that zeroed non-battleground Ops was tried, flipped
+  `logs/game-check/3003-strategic-event_value.turn1-rule.info.log` to a
+  US win, and measured 0.47 ± 0.09 on the 16-seed A/B; the tiering is
+  meant to produce the same opening from the value function itself.
+- Coups and realignments are priced on the same board change as placing
+  influence (`delta`), then multiplied by `coup_discount` (0.9): they are
+  the less Ops-efficient route to the same result (a coup on a
+  2-stability country gives up a point of margin to the roll) and random
+  where placement is certain, so placement is generally preferred.
+  Military Ops are still credited to a coup.
+- VP per Op is the quantity the influence search maximises (`influence`
+  returns gain per Op spent, including the doubled cost under enemy
+  control), so 1- and 2-stability countries, which reach control for the
+  fewest Ops, are automatically the best value while their scoring card
+  is live; nothing extra encodes that.
 - Searches affordable multi-point investments into each candidate country,
   accounting for the end of doubled placement costs when enemy control breaks.
 - Enumerates all six coup rolls and all 36 realignment roll pairs. These are

@@ -12,6 +12,7 @@ commit.
 | [docs/BOTS.md](docs/BOTS.md) | `bots/`, the `Player` protocol, physical mode |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
+| [docs/NOTES.md](docs/NOTES.md) | Bot strategy work: the stated principles, their status, and what is open |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
 non-negotiable. Code referring to "mandate #3" means that list. An
