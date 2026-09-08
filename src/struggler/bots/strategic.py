@@ -58,12 +58,19 @@ def _copy_state(value):
     return value
 # Only deterministic, public-board events whose follow-ups are influence
 # decisions. Do not add hand/deck events here without a belief-state model.
-PUBLIC_EVENTS = frozenset('''Duck_and_Cover Fidel Romanian_Abdication Nasser
-De_Gaulle_Leads_France Captured_Nazi_Scientist Nuclear_Test_Ban COMECON
-Marshall_Plan Decolonization Suez_Crisis Truman_Doctrine Socialist_Governments
-Muslim_Revolution Colonial_Rear_Guards Liberation_Theology OAS_Founded
-Pershing_II_Deployed The_Reformer Solidarity Marine_Barracks_Bombing
-Vietnam_Revolts US_Japan_Mutual_Defense_Pact East_European_Unrest'''.split())
+# Events whose resolution depends on hidden cards (hands, the draw pile):
+# the idle sandbox has none, so they keep an explicit estimate. Every
+# other event is simulated in the sandbox, with the helper policy playing
+# every choice it raises and chance taking its middle outcome.
+HIDDEN_INFO_EVENTS = frozenset('''Five_Year_Plan Grain_Sales_to_Soviets Missile_Envy
+Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
+Our_Man_in_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
+# Duration effects priced by the Ops they add or take away.
+OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
+# For the docs and tests: what the sandbox is asked to simulate.
+PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
+                          if not c.scoring and c.id not in HIDDEN_INFO_EVENTS
+                          and c.id not in OPS_MODIFIER_EVENTS)
 
 
 @dataclass(frozen=True)
@@ -150,6 +157,9 @@ class StrategicPlayer:
         self._region_cache = {}
         self._base_regions = {}
         self._country_cache = {}
+        self._ops_values = {}
+        self._relocation_gain = None
+        self._space_card = None
         self._access_cache = {}
         self._region_members = {r: self.board.countries_in(r) for r in Region}
         self._planner = None
@@ -284,20 +294,35 @@ class StrategicPlayer:
         # makes a coup expensive.
         guard = w.reserve * importance / info.stability ** w.reserve_stability
         value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
-        # First footholds open nearby battlegrounds on a later action round.
-        access_cache = getattr(self, '_access_cache', None)
-        access_key = (board, cid)
-        if access_cache is not None and access_key in access_cache:
-            access = access_cache[access_key]
-        else:
-            access = sum(1 / board.countries[n].stability for n in board.neighbors(cid)
-                         if n in board.countries and board.countries[n].battleground)
-            if access_cache is not None:
-                access_cache[access_key] = access
-        value += w.access * access * ((own > 0) - (opp > 0))
+        # First footholds open nearby battlegrounds on a later action round:
+        # a stake is worth the uncontrolled battlegrounds it alone lets us
+        # reach. Nothing for ground we already reach (a fourth point in
+        # Eastern Europe opens nothing), and nothing for ground we hold.
+        value += w.access * (self._access(board, cid, side) * (own > 0)
+                             - self._access(board, cid, side.opponent) * (opp > 0))
         if cache is not None:
             cache[key] = value
         return value
+
+    def _access(self, board: Board, cid: str, side: Side) -> float:
+        cache = getattr(self, '_access_cache', None)
+        key = (board, cid, side)
+        if cache is not None and key in cache:
+            return cache[key]
+        inf, key_side = board.influence, side.value
+        total = 0.
+        for n in board.neighbors(cid):
+            info = board.countries.get(n)
+            if info is None or not info.battleground or board.control(n) is side:
+                continue
+            if n in board._adjacency.get(key_side, ()) or inf[n][key_side] > 0:
+                continue  # reachable anyway
+            if any(inf[m][key_side] > 0 for m in board.neighbors(n) if m != cid and m in inf):
+                continue  # reachable through another holding
+            total += 1 / info.stability
+        if cache is not None:
+            cache[key] = total
+        return total
 
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)
@@ -399,6 +424,72 @@ class StrategicPlayer:
         engine.removed_cards = list(obs.removed_cards)
         return engine
 
+    def ops_value(self, obs: Observation, ops: int) -> float:
+        """What `ops` Operations are worth here: the best influence spend
+        (a greedy plan, so the value is concave in Ops: the fourth point
+        buys less than the first) or the best coup on this board, not a
+        flat rate. Puts Ops, events and VP on one scale, so a 4-Ops card on
+        turn 1 outranks 3 VP and a late 1-Op card does not."""
+        if ops <= 0:
+            return 0.
+        cached = self._ops_values.get(ops)
+        if cached is not None:
+            return cached
+        side, board = obs.side, self.board
+        reachable = [c for c in board.countries if board.is_reachable(side, c)
+                     and not (side is Side.USSR and obs.turn_effects.get('chernobyl') == board.countries[c].region.value)]
+        original = {c: dict(board.influence[c]) for c in reachable}
+        total, remaining = 0., ops
+        try:
+            while remaining > 0:
+                best = None
+                for c in reachable:
+                    if board.influence_cost(side, c) > remaining:
+                        continue
+                    gain, points = self._investment(obs, c, remaining)
+                    if best is None or gain > best[0]:
+                        best = (gain, c, points)
+                if best is None or best[0] <= 0:
+                    break
+                gain, c, points = best
+                for _ in range(points):
+                    cost = board.influence_cost(side, c)
+                    if cost > remaining:
+                        break
+                    remaining -= cost
+                    total += gain * cost
+                    board.influence[c][side.value] += 1
+                self._base_regions = {} if self._base_regions is not None else None
+        finally:
+            for c, inf in original.items():
+                board.influence[c].update(inf)
+            self._base_regions = {} if self._base_regions is not None else None
+        engine = self.public_engine(obs)
+        best_coup = max((self.coup(obs, c, ops) for c in board.countries
+                         if engine._usable_coup_realign_target(side, c, for_coup=True)), default=LOSS)
+        value = max(total, best_coup, 0.)
+        self._ops_values[ops] = value
+        return value
+
+    def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:
+        """Best value per Op of investing in `cid`, and the points that earn it."""
+        original = dict(self.board.influence[cid])
+        spent = 0
+        best = (LOSS, 1)
+        try:
+            for points in range(1, ops + 1):
+                spent += self.board.influence_cost(obs.side, cid)
+                if spent > ops:
+                    break
+                self.board.influence[cid].update(original)
+                gain = self.delta(obs, cid, own=points) / spent
+                if gain > best[0]:
+                    best = (gain, points)
+                self.board.influence[cid][obs.side.value] += points
+        finally:
+            self.board.influence[cid].update(original)
+        return best
+
     def _event_helper(self) -> 'StrategicPlayer':
         # Plays the EVENT_INFLUENCE decisions of a simulated event; one
         # instance serves every event this player evaluates.
@@ -479,13 +570,16 @@ class StrategicPlayer:
         _, countries, regions, before = self._event_basis
         engine._fire_event(obs.side, cid)
         policy = self._event_helper()
-        for _ in range(32):
+        for _ in range(64):
             if engine.is_terminal or engine.pending_decision is None:
                 break
             d = engine.pending_decision
-            if d.kind is not K.EVENT_INFLUENCE:
-                break
-            engine.step(policy.choose_action(engine.observe(d.actor), []))
+            if d.actor is Side.CHANCE:
+                engine.step(d.options[len(d.options) // 2])  # the middle roll
+            else:
+                engine.step(policy.choose_action(engine.observe(d.actor), []))
+        else:
+            raise RuntimeError('event %s did not resolve in the sandbox' % cid)
         if engine.is_terminal:
             return -LOSS if engine.winner is obs.side else LOSS
         changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
@@ -502,12 +596,16 @@ class StrategicPlayer:
             return self._events[cid]
         card = CARDS[cid]
         sign = -1 if card.side.value == obs.side.opponent.value else 1
-        if cid in PUBLIC_EVENTS:
-            result = self._public_event_value(obs, cid)
-        elif cid in ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge'):
+        result = None
+        if cid in OPS_MODIFIER_EVENTS:
             rounds = max(1, (6 if obs.turn <= 3 else 7) - obs.action_round)
             result = sign * rounds * self.weights.ops
-        else:
+        elif cid in PUBLIC_EVENTS:
+            try:
+                result = self._public_event_value(obs, cid)
+            except Exception as exc:  # a branch the sandbox cannot drive from public state
+                log.debug('event %s not simulated (%s); using the estimate', cid, exc)
+        if result is None:
             # Explicit approximation for events beyond the public simulator.
             result = sign * card.ops * self.weights.ops * 0.8
         # Opponent-granted operations may coup a battleground at DEFCON 2.
@@ -516,6 +614,33 @@ class StrategicPlayer:
         result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
         return result
+
+    def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
+        """A card played from hand: its Ops (the opponent's event fires too)
+        or, for our own and neutral cards, its event if that is better."""
+        opponents = CARDS[cid].side.value == obs.side.opponent.value
+        value = self.ops_value(obs, ops) + (min(0, event) if opponents else 0)
+        return value if opponents else max(value, event)
+
+    def space_value(self, obs: Observation, ops: int) -> float:
+        return self.weights.vp * _space_race_expected_vp(obs, obs.side) - 0.4 * self.ops_value(obs, ops)
+
+    def space_card(self, obs: Observation) -> str | None:
+        """The card this turn's space slot is for: the opponent's card whose
+        Ops-plus-event is worst, among those the Space Race accepts now."""
+        if self._space_card is None:
+            engine = self.public_engine(obs)
+            worst = None
+            for cid in obs.hand:
+                card = CARDS[cid]
+                if card.side.value != obs.side.opponent.value or not engine._can_space_race(obs.side, card):
+                    continue
+                value = self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side),
+                                             self.event_value(obs, cid))
+                if worst is None or value < worst[0]:
+                    worst = (value, cid)
+            self._space_card = worst[1] if worst else ''
+        return self._space_card or None
 
     def score(self, obs: Observation, action: Action) -> float:
         kind, p = action.kind, action.payload
@@ -567,22 +692,19 @@ class StrategicPlayer:
                 net = (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
                 return net * self.weights.vp + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
             event = self.event_value(obs, cid)
-            if kind is K.HEADLINE_PLAY:
-                return event - 0.5 * card.ops
             ops = _effective_ops_estimate(card, obs, obs.side)
-            value = self.weights.ops * ops + (min(0, event) if card.side.value == obs.side.opponent.value else 0)
-            if card.side.value != obs.side.opponent.value:
-                value = max(value, event)
+            if kind is K.HEADLINE_PLAY:
+                return event - 0.5 * self.ops_value(obs, ops)
+            value = self.card_play_value(obs, cid, ops, event)
             if cid == 'The_China_Card':
                 value -= 4
             if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
                 # Prefer the controlled late-hand use when survival risks tie.
                 value -= max(0, len(obs.hand)-3)
-            # A dangerous card can be disposed of by space, but should not be
-            # selected here unless that escape is currently available.
-            engine = self.public_engine(obs)
-            if engine._can_space_race(obs.side, card):
-                value = max(value, self.weights.vp * _space_race_expected_vp(obs, obs.side) - 0.4 * ops)
+            # One space slot a turn: it goes to the worst card in hand, and
+            # only that card is valued as a space play here.
+            if cid == self.space_card(obs):
+                value = max(value, self.space_value(obs, ops))
             return value
         if kind is K.PLAY_MODE:
             cid = ctx['card']
@@ -591,8 +713,8 @@ class StrategicPlayer:
             if p['mode'] == 'event':
                 return event * self.weights.event
             if p['mode'] == 'space_race':
-                return self.weights.vp * _space_race_expected_vp(obs, obs.side) + 1 - 0.4 * ops
-            return self.weights.ops * ops + (min(0, event) if p['mode'] != 'un_intervention' and CARDS[cid].side.value == obs.side.opponent.value else 0)
+                return self.space_value(obs, ops) + 1
+            return self.ops_value(obs, ops) + (min(0, event) if p['mode'] != 'un_intervention' and CARDS[cid].side.value == obs.side.opponent.value else 0)
         if kind is K.WAR_TARGET:
             cid = p['country']
             penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
@@ -638,6 +760,19 @@ class StrategicPlayer:
                     return LOSS
                 engine.step(Action(K.EVENT_CHOICE, {'choice': 'end_game'}))
                 return -LOSS if engine.winner is obs.side else LOSS
+            if event == 'De_Stalinization_remove':
+                # Keep relocating while the cheapest point to lift is worth
+                # less than the best place it can go (max 2 per country,
+                # never into US control).
+                if choice == 'done':
+                    return 0.
+                gains = self.__dict__.get('_relocation_gain')
+                if gains is None:
+                    gains = self._relocation_gain = max(
+                        (self.delta(obs, c, own=1) for c in self.board.countries
+                         if self.board.control(c) is not Side.US and self.board.influence[c]['USSR'] < 2),
+                        default=0.)
+                return self.delta(obs, choice, own=-1) + gains
             if event == 'Blockade' and choice == 'refuse':
                 return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])
             if event == 'Independent_Reds' and choice in self.board.countries:

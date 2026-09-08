@@ -183,25 +183,6 @@ class RolloutPolicy(StrategicPlayer):
                 board.influence[c].update(inf)
         return plan
 
-    def _investment(self, obs, cid, ops):
-        """Best value per Op of investing in `cid`, and the points that earn it."""
-        original = dict(self.board.influence[cid])
-        spent = 0
-        best = (LOSS, 1)
-        try:
-            for points in range(1, ops + 1):
-                spent += self.board.influence_cost(obs.side, cid)
-                if spent > ops:
-                    break
-                self.board.influence[cid].update(original)
-                gain = self.delta(obs, cid, own=points) / spent
-                if gain > best[0]:
-                    best = (gain, points)
-                self.board.influence[cid][obs.side.value] += points
-        finally:
-            self.board.influence[cid].update(original)
-        return best
-
     def score(self, obs, action):
         if action.kind is not K.OPS_TYPE:
             return super().score(obs, action)

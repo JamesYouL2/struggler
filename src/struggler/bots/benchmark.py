@@ -83,14 +83,33 @@ def projection(engine, side: Side) -> dict:
                 projected_vp=round(projected, 2))
 
 
-def build(kind: str, seed: int, simulations: int):
+def load_module(path: str):
+    """Import a bot module from a file: `strategic@/path/to/old_strategic.py`
+    plays an earlier version of the policy against the current one."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('struggler_benchmark_' + str(abs(hash(path))), path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+def build(kind: str, seed: int, simulations: int, model: str | None = None):
+    """`kind` is mcts | strategic | greedy, optionally `strategic@<file.py>` to
+    load that version of the policy; `model` is a strategic weights JSON."""
+    kind, _, path = kind.partition('@')
+    weights = None
+    if model:
+        from struggler.bots.strategic import StrategicWeights
+        weights = StrategicWeights.load(model)
     if kind == 'strategic':
-        return StrategicPlayer()
+        cls = load_module(path).StrategicPlayer if path else StrategicPlayer
+        return cls(weights)
     if kind == 'mcts':
         from struggler.bots.mcts import MCTSPlayer
         # STRUGGLER_ROLLOUT_OPTIONS='{"full_planner": true}' switches RolloutPolicy ablations.
         options = json.loads(os.environ.get('STRUGGLER_ROLLOUT_OPTIONS', '{}'))
-        return MCTSPlayer(seed=seed, simulations=simulations, rollout_options=options)
+        return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options)
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()
@@ -98,7 +117,7 @@ def build(kind: str, seed: int, simulations: int):
 
 
 def play(job: tuple) -> dict:
-    bot, opponent, seed, side_value, simulations, stop_turn, log_dir = job
+    bot, opponent, seed, side_value, simulations, stop_turn, log_dir, model = job
     if log_dir:
         # One INFO log per game so any benchmark game can be reviewed as played.
         root = logging.getLogger('struggler')
@@ -110,7 +129,7 @@ def play(job: tuple) -> dict:
     else:
         logging.disable(logging.CRITICAL)
     side = Side(side_value)
-    players = {side: build(bot, seed, simulations), side.opponent: build(opponent, seed, simulations)}
+    players = {side: build(bot, seed, simulations, model), side.opponent: build(opponent, seed, simulations)}
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     history = HistoryBuilder()
     start = time.time()
@@ -175,19 +194,20 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--bot', default='mcts', choices=['mcts', 'strategic', 'greedy'])
-    parser.add_argument('--opponent', default='strategic', choices=['mcts', 'strategic', 'greedy'])
+    parser.add_argument('--bot', default='mcts', help='mcts | strategic | greedy; strategic@<file.py> loads that version')
+    parser.add_argument('--opponent', default='strategic', help='as --bot')
     parser.add_argument('--seeds', default='4000-4015', help='e.g. 4000-4015 or 1,2,3')
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
     parser.add_argument('--simulations', type=int, default=24)
     parser.add_argument('--stop-turn', type=int, default=0, help='0 plays the whole game')
     parser.add_argument('--report', help='write per-game records and the summary here')
     parser.add_argument('--log-dir', help='write each game\'s INFO log here as <seed>-<side>.info.log')
+    parser.add_argument('--bot-weights', help='strategic weights JSON for --bot only (the opponent keeps defaults)')
     args = parser.parse_args(argv)
     seeds = parse_seeds(args.seeds)
     if args.log_dir:
         os.makedirs(args.log_dir, exist_ok=True)
-    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn, args.log_dir)
+    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn, args.log_dir, args.bot_weights)
             for seed in seeds for side in ('US', 'USSR')]
     start = time.time()
     games = []
@@ -201,6 +221,7 @@ def main(argv=None):
     summary = summarize(games, args.stop_turn)
     summary['wall_seconds'] = round(time.time() - start, 1)
     summary['bot'], summary['opponent'], summary['simulations'] = args.bot, args.opponent, args.simulations
+    summary['bot_weights'] = args.bot_weights
     print(json.dumps(summary))
     if args.report:
         with open(args.report, 'w') as f:

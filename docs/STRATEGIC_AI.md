@@ -62,6 +62,30 @@ action = bot.choose_action(observation, history)
   (5 holds against Socialist Governments). The influence search decides
   only if the book's country is somehow unavailable. Before the book the
   value function put 3 in Czechoslovakia, a non-battleground.
+- Ops are priced by their best use on this board (`ops_value`): a greedy
+  influence plan (so the value is concave in Ops: the fourth point buys
+  less than the first) or the best coup, whichever is larger. Events,
+  Ops and VP are then on one scale, where a battleground control is 19
+  and a VP is `vp` (3). A flat 2 per Op had made Nuclear Test Ban's 3 VP
+  (9) beat its 4 Ops (8) on turn 1; now 4 Ops on the opening board are
+  worth 44-58, and the VP weight is the knob to calibrate against that.
+- Every event the idle sandbox can run is simulated (`PUBLIC_EVENTS` is
+  everything but the `HIDDEN_INFO_EVENTS`, which need hands or the deck,
+  and the Ops-modifier cards): the helper policy plays each choice the
+  event raises, chance takes its middle roll, and an event the sandbox
+  cannot drive falls back to the 0.8 x Ops estimate. Before this only 23
+  events were simulated, and De-Stalinization was priced at 4.8, below its
+  Ops. Flag-only events (NATO, Warsaw Pact, Formosan Resolution, NORAD)
+  move no influence and so value 0; that is a known gap.
+- Access is the uncontrolled battlegrounds a stake alone lets its side
+  reach (`_access`): nothing for ground already reachable, nothing for
+  ground held. A fourth point in Eastern Europe opens nothing; a first
+  point in Venezuela opens South America.
+- One space slot a turn (`space_card`): among the opponent's cards the
+  Space Race accepts, the one whose Ops-plus-event is worst is the space
+  candidate, and only it is valued as a space play when choosing a card.
+  Decolonization (-75) is spaced ahead of Fidel (-23); before, both
+  collapsed to the same space value and the tie broke on hand order.
 - Country importance is tiered: battlegrounds (`battleground`) >>
   Southeast Asia non-battlegrounds (`southeast_asia`) >> other
   non-battlegrounds (`control`). Battleground Ops are what score
@@ -98,8 +122,8 @@ action = bot.choose_action(observation, history)
 
 All decisions use only `Observation`; history is currently ignored. The event
 sandbox is constructed from public fields with an independent fixed RNG and
-empty unknown hands/deck. Only an explicit whitelist of deterministic
-public-board events is simulated. The live engine, its private decision stack,
+empty unknown hands/deck. Every event that does not depend on hidden cards
+is simulated there (`PUBLIC_EVENTS`). The live engine, its private decision stack,
 its RNG state, and the opponent's hidden cards are never copied or inspected.
 The actual action always comes from the offered legal options.
 
@@ -271,8 +295,9 @@ reachability; the engine's offered actions remain authoritative for each
 actual placement. Its regional evaluator approximates special scoring modifiers,
 although scoring-card and Wargames decisions use the engine's scoring code.
 
-Events outside the whitelist use rough allegiance/ops-based estimates, and
-unhandled event branches tie-break to the first legal option. Long-term event
+Events that need hidden cards (`HIDDEN_INFO_EVENTS`) use rough
+allegiance/ops-based estimates, events whose only effect is a flag value 0,
+and unhandled event branches tie-break to the first legal option. Long-term event
 flags are only partially valued. Hand survival is a bounded search with
 fixed priors: it does not track which attack cards the opponent actually
 holds, model the opponent's regional play, or value the board damage a

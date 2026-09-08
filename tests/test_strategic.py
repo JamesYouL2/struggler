@@ -241,3 +241,66 @@ def test_opening_book_plays_the_standard_setup_and_the_handicap():
     assert engine.board.influence['Poland']['USSR'] == 4
     assert engine.board.influence['East_Germany']['USSR'] == 4
     assert engine.board.influence['West_Germany']['US'] == 5
+
+
+def _opening_board():
+    from struggler.engine import Engine
+    engine = Engine.new_game(seed=4004, setup_bonus=True)
+    bot = StrategicPlayer()
+    while engine.pending_decision.context.get('setup'):
+        d = engine.pending_decision
+        engine.step(bot.choose_action(engine.observe(d.actor), []))
+    return engine
+
+
+def test_ops_are_priced_by_their_best_use_and_concavely():
+    from struggler.engine import Side
+    engine = _opening_board()
+    obs = engine.observe(Side.USSR)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    one, two, four = (bot.ops_value(obs, n) for n in (1, 2, 4))
+    assert one > bot.weights.ops  # a real turn-1 play is worth more than the flat rate
+    assert two > one and four > two
+    assert four - two <= two  # the later points buy less than the first ones
+
+
+def test_de_stalinization_is_simulated_and_beats_its_ops():
+    from struggler.engine import Side
+    engine = _opening_board()
+    obs = engine.observe(Side.USSR)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    event = bot.event_value(obs, 'De_Stalinization')
+    assert event > bot.ops_value(obs, 3)
+    # The value is board movement: points leave overprotected Europe for reach.
+    assert event > 3 * bot.weights.ops * 0.8  # not the estimate
+
+
+def test_space_slot_goes_to_the_worst_opponent_card():
+    from struggler.engine import Side
+    engine = _opening_board()
+    engine.phase = 'action_rounds'
+    engine.hands['US'] = ['Decolonization', 'Fidel', 'NATO', 'Truman_Doctrine']
+    engine._push_action_round_play(Side.US)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    assert bot.space_card(obs) == 'Decolonization'
+    assert bot.event_value(obs, 'Decolonization') < bot.event_value(obs, 'Fidel') < 0
+
+
+def test_access_counts_only_newly_reachable_battlegrounds():
+    from struggler.engine import Side
+    engine = _opening_board()
+    bot = StrategicPlayer()
+    board = bot.board
+    board.load_influence(engine.board.serialize())
+    # Hungary borders Austria, Czechoslovakia, Romania, Yugoslavia: the USSR
+    # already reaches all of Eastern Europe, so a point there opens nothing.
+    assert bot._access(board, 'Hungary', Side.USSR) == 0
+    # Venezuela opens South American battlegrounds the USSR reaches no other way.
+    assert bot._access(board, 'Venezuela', Side.USSR) > 0
+    # Once the USSR holds Brazil itself, Venezuela opens nothing more there.
+    board.influence['Brazil']['USSR'] = 1
+    assert bot._access(board, 'Venezuela', Side.USSR) == 0

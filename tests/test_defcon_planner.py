@@ -301,3 +301,17 @@ def test_opponent_hand_attack_prior_prices_a_missing_spare_card():
     assert planner(e, opponent_hand_attack=1).risk() == 1
     e.hands['USSR'].append('Arab_Israeli_War')
     assert planner(e, opponent_hand_attack=1).risk() == 0
+
+
+def test_five_year_plan_and_missile_envy_chains_only_matter_at_defcon_2():
+    from struggler.engine import Side
+    for defcon, expected in ((5, 0.), (2, SurvivalPrior().unknown_chain_loss)):
+        e = bare_engine()
+        e.phase = 'action_rounds'
+        e.defcon = defcon
+        e.hands['US'] = ['Five_Year_Plan', 'Missile_Envy']
+        e.hands['USSR'] = ['Nasser']
+        e._push_action_round_play(Side.US)
+        planner = DefconPlanner(e.observe(Side.US), e, SurvivalPrior(opponent_hand_attack=0))
+        assert planner.event_risk('Five_Year_Plan') == expected
+        assert planner.event_risk('Missile_Envy') == expected

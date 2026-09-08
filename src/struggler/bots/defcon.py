@@ -168,7 +168,9 @@ class DefconPlanner:
             return risk
         if cid == 'Five_Year_Plan':
             if self.side is Side.US:
-                return self.prior.unknown_chain_loss if self.obs.opponent_hand_size else 0.
+                # A random USSR discard may fire a US event; only a DEFCON
+                # reducer at 2 can hurt.
+                return self.prior.unknown_chain_loss if defcon <= 2 and self.obs.opponent_hand_size else 0.
             remaining = tuple(c for c in hand if c != cid)
             return sum(self._hazard(c, defcon, tuple(x for x in remaining if x != c), depth+1)
                        for c in remaining if CARDS.get(c) and CARDS[c].side.value == 'US'
@@ -177,7 +179,7 @@ class DefconPlanner:
             return max((1. if c == 'How_I_Learned_to_Stop_Worrying' else
                         self._hazard(c, defcon, hand, depth+1)
                         for c in self.obs.discard_pile if not CARDS[c].scoring and c != cid), default=0.)
-        if cid == 'Missile_Envy' and self.obs.opponent_hand_size:
+        if cid == 'Missile_Envy' and defcon <= 2 and self.obs.opponent_hand_size:
             return self.prior.unknown_chain_loss
         return 0.
 

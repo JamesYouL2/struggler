@@ -27,6 +27,27 @@ committing DEFCON suicide. Everything below is an instance of that.
 | The opening is known: USSR 4 East Germany / 4 Poland / 1 Austria (or Yugoslavia); US 4 West Germany / 3 Italy, then the +2 handicap to Iran and West Germany. | Done: `OPENING_BOOK` in `bots/strategic.py`; the +2 is `rules.json` "setup_bonus", on in `main.py`, the trainer and the benchmark. The US 4/3 split is an assumption to confirm. | `docs/STRATEGIC_AI.md` "How it plays". |
 | Judge a bot at checkpoints, not only by wins: VP scored plus the battleground control difference per region, weighted by how many more times and how soon each region scores (live card: this cycle and after the reshuffle; discarded: after it; Mid War: from turn 4; Southeast Asia once), each turn away discounted. | Done: `python -m struggler.bots.benchmark --stop-turn 1|3|7` (`projection`, `scoring_weights`). Turn 1 MCTS vs strategic is flat: -0.23 total, 8 wins / 9 losses on the 17 seats that searched. | `logs/game-check/*-4000-4015.t1*.json`; per-game logs with `--log-dir`. |
 
+## Turn-1 review (seed 4004, and the opening board)
+
+`logs/game-check/*.t1*.json` and the scratch table of every Early War
+event's value on the opening board found, and fixed, in
+`bots/strategic.py`: De-Stalinization played for Ops (not simulated: 23 of
+101 events were), Nuclear Test Ban's 3 VP over 4 Ops (Ops priced flat at
+2), Fidel spaced ahead of Decolonization (both collapsed to the space
+value; one space slot now goes to the worst card), Five Year Plan carrying
+a 25% "loss" at DEFCON 5 (chain risk now gated on DEFCON 2), and stakes in
+already-reachable Eastern Europe earning access. New strategic vs the
+previous strategic: 0.84, +11 VP mean, on seeds 4000-4015 both seatings
+(`logs/game-check/strategic-new-vs-old-4000-4015.json`;
+`python -m struggler.bots.benchmark --bot strategic --opponent strategic@<old strategic.py>`).
+
+Still wrong on that board, by human judgement: Marshall Plan at 13.6 (one
+Op) is far too low, COMECON at 5.4 slightly high. Both are the same gap:
+a stake is valued by its fraction of the way to control, not by its odds
+of converting to control by scoring time and what that control would do
+to domination. Flag events value 0. The VP weight (3) has not been
+recalibrated to the new Ops scale.
+
 ## What is still open, roughly in order
 
 1. Event Grain Sales, Aldrich Ames, Terrorism (with the Hostage doubling)
