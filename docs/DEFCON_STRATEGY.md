@@ -152,6 +152,20 @@ which card leaves and how many safe plays remain afterwards.
 | --- | --- | --- |
 | Blockade | US, a printed-3+-Ops card, or lose all West Germany influence. | Paying is optional. Refusing is a board hit, never a nuclear loss. Paying a 3+ Ops opponent card (We Will Bury You, KAL-007, Tear Down This Wall) is a clean exit because the event does not fire. Paying your last spare safe card can leave a 1-Ops suicide card as the only play for the final round: that is exactly how the seed 2401 game was lost. |
 | Latin American Debt Crisis | US, same 3+-Ops clause, or the USSR doubles influence in two South American countries. | Same test as Blockade. The board hit is usually mild, so refusing is cheap when the hand is tight. |
+
+What Blockade costs the US depends entirely on which card pays. Discarding
+a US or neutral 3-Ops card is a real loss (those Ops were the US's), and
+that is the Blockade the USSR wants. Discarding a USSR 3-Ops card such as
+De Gaulle, Socialist Governments or Suez Crisis is good for the US: the
+event never fires and the card only comes back at the reshuffle. That
+return matters the other way too: a strong USSR card (Decolonization,
+De-Stalinization) sent to the discard by any route is back in the next
+cycle, so dumping it delays rather than removes it. The bots do not price
+this yet: the pay choice is scored as a flat minus printed Ops, and from
+the USSR's seat the sandbox assumes the US cannot pay. The right price is
+the smaller of "lose West Germany" and the paying card's cost, where the
+cost of a US/neutral card is its Ops value and the cost of a USSR card is
+negative (the harm avoided), less a discounted return at the reshuffle.
 | Quagmire / Bear Trap | The trapped side (US / USSR) discards a 2+ Ops card each action round and rolls 1-4 to escape. | The discard fires no event, so a trapped player cannot be forced into a suicide card; the cost is tempo and the 2+ Ops cards it eats. Without a payable card no roll happens and the round passes. |
 | Terrorism | Opponent discards one random card (two if the USSR plays it after Iranian Hostage Crisis). | An attack on the hand: it can strip a spare safe card and leave a held hazard with nowhere to hide. |
 | Aldrich Ames Remix | USSR picks the US discard from the revealed hand. | The adversarial case: assume it takes the safe card whose loss hurts most. |
