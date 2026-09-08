@@ -96,8 +96,17 @@ def build(kind: str, seed: int, simulations: int):
 
 
 def play(job: tuple) -> dict:
-    bot, opponent, seed, side_value, simulations, stop_turn = job
-    logging.disable(logging.CRITICAL)
+    bot, opponent, seed, side_value, simulations, stop_turn, log_dir = job
+    if log_dir:
+        # One INFO log per game so any benchmark game can be reviewed as played.
+        root = logging.getLogger('struggler')
+        root.handlers.clear()
+        handler = logging.FileHandler(os.path.join(log_dir, f'{seed}-{side_value}.info.log'), mode='w')
+        handler.setFormatter(logging.Formatter('%(levelname)s %(name)s: %(message)s'))
+        root.addHandler(handler)
+        root.setLevel(logging.INFO)
+    else:
+        logging.disable(logging.CRITICAL)
     side = Side(side_value)
     players = {side: build(bot, seed, simulations), side.opponent: build(opponent, seed, simulations)}
     engine = Engine.new_game(seed=seed)
@@ -171,9 +180,12 @@ def main(argv=None):
     parser.add_argument('--simulations', type=int, default=24)
     parser.add_argument('--stop-turn', type=int, default=0, help='0 plays the whole game')
     parser.add_argument('--report', help='write per-game records and the summary here')
+    parser.add_argument('--log-dir', help='write each game\'s INFO log here as <seed>-<side>.info.log')
     args = parser.parse_args(argv)
     seeds = parse_seeds(args.seeds)
-    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn)
+    if args.log_dir:
+        os.makedirs(args.log_dir, exist_ok=True)
+    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn, args.log_dir)
             for seed in seeds for side in ('US', 'USSR')]
     start = time.time()
     games = []
