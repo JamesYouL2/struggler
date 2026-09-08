@@ -10,7 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -19,6 +19,7 @@ from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.player import Event
+from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK
 from struggler.bots.greedy import (
     _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
     _in_bonus_region, _realignment_bonus, _realignment_modifier,
@@ -66,10 +67,12 @@ class StrategicWeights:
 
 
 class StrategicPlayer:
-    def __init__(self, weights: StrategicWeights | None = None):
+    def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None):
         self.weights = weights or StrategicWeights()
         self.board = Board()
         self._events: dict[str, float] = {}
+        self.survival_prior = survival_prior or SurvivalPrior()
+        self._planner = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         decision = observation.pending_decision
@@ -77,7 +80,38 @@ class StrategicPlayer:
             raise ValueError('StrategicPlayer requires a pending decision with legal options')
         _sync_board(self.board, observation)
         self._events = {}
-        return max(decision.options, key=lambda a: self.score(observation, a))
+        self._planner = None
+        if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE):
+            self._planner = DefconPlanner(observation, self.public_engine(observation), self.survival_prior)
+        return max(decision.options, key=lambda a: self.safety_key(observation, a))
+
+    def survival_features(self, observation):
+        """Named features usable by a future win-probability model, without retraining VP weights."""
+        return DefconPlanner(observation, self.public_engine(observation), self.survival_prior).features()
+
+    def safety_key(self, obs, action):
+        """Certain immediate defeat and conditional turn risk precede trainable VP scores."""
+        kind, p = action.kind, action.payload
+        planner = self._planner
+        immediate = risk = 0.
+        if planner and kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE):
+            cid = p.get('card', obs.pending_decision.context.get('card'))
+            if kind is K.HEADLINE_PLAY:
+                immediate = planner.event_risk(cid)
+                risk = planner.risk(cid, 'event')
+            elif kind is K.PLAY_MODE:
+                fires = p['mode'] == 'event' or p['mode'] == 'ops' and planner.opponent_event(cid)
+                immediate = planner.event_risk(cid) if fires else 0.
+                risk = planner.risk(cid, p['mode'])
+            elif cid == 'Missile_Envy' and obs.game_effects.get('missile_envy_forced') == obs.side.value:
+                # This forced play explicitly suppresses the event.
+                risk = planner.transition(cid, 'un_intervention', planner.hand, planner.rounds,
+                                          obs.defcon, obs.space_race[obs.side.value],
+                                          obs.space_race_attempts[obs.side.value], planner.china)
+            else:
+                risk = planner.risk(cid)
+        score = self.score(obs, action)
+        return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
 
     def region_score(self, board: Board, region: Region, side: Side) -> float:
         try:
@@ -131,6 +165,8 @@ class StrategicPlayer:
         engine.hands[obs.side.value] = list(obs.hand)
         engine.china_card_owner = obs.china_card_owner.value
         engine.china_card_available = obs.china_card_available
+        engine.discard_pile = list(obs.discard_pile)
+        engine.removed_cards = list(obs.removed_cards)
         return engine
 
     def influence(self, obs: Observation, cid: str, ops: int) -> float:
@@ -157,7 +193,7 @@ class StrategicPlayer:
         if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
             return LOSS
         if obs.defcon <= 2 and _coup_risks_defcon(obs, obs.side, info):
-            return LOSS
+            return LOSS if obs.pending_decision.context.get('phasing_player', obs.side.value) == obs.side.value else -LOSS
         enemy = self.board.influence[cid][obs.side.opponent.value]
         mod = _coup_roll_modifier_estimate(obs, obs.side, info)
         gain = 0.0
@@ -210,8 +246,9 @@ class StrategicPlayer:
             # Explicit approximation for events beyond the public simulator.
             result = sign * card.ops * self.weights.ops * 0.8
         # Opponent-granted operations may coup a battleground at DEFCON 2.
-        if obs.defcon <= 2 and ((cid == 'CIA_Created' and obs.side is Side.USSR) or (cid == 'Lone_Gunman' and obs.side is Side.US) or cid == 'Olympic_Games'):
-            result = LOSS
+        planner = self._planner or DefconPlanner(obs, self.public_engine(obs), self.survival_prior)
+        risk = planner.event_risk(cid)
+        result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
         return result
 
@@ -263,6 +300,9 @@ class StrategicPlayer:
                 value = max(value, event)
             if cid == 'The_China_Card':
                 value -= 4
+            if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
+                # Prefer the controlled late-hand use when survival risks tie.
+                value -= max(0, len(obs.hand)-3)
             # A dangerous card can be disposed of by space, but should not be
             # selected here unless that escape is currently available.
             engine = self.public_engine(obs)
@@ -294,6 +334,26 @@ class StrategicPlayer:
         if kind is K.EVENT_CHOICE:
             choice = p['choice']
             event = ctx.get('event')
+            responsible = ctx.get('phasing_player', obs.side.value) == obs.side.value
+            if event == 'How_I_Learned_to_Stop_Worrying':
+                if choice == '1':
+                    return LOSS if responsible else -LOSS
+                return float(choice)  # a larger buffer permits later dangerous events
+            if event == ASK:
+                if choice == 'stop':
+                    return 0
+                risk = self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0
+                return 100*risk - CARDS[choice].ops
+            if event == 'Salt_Negotiations':
+                if choice == 'none':
+                    return -1
+                return CARDS[choice].ops - 100*(self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0)
+            if event == 'Aldrich_Ames_Remix':
+                # These options are the legitimately revealed US hand.
+                hand = tuple(a.payload['choice'] for a in obs.pending_decision.options)
+                target = replace(obs, side=Side.US, hand=tuple(c for c in hand if c != choice))
+                planner = DefconPlanner(target, self.public_engine(target), self.survival_prior)
+                return 1000*planner.risk() + CARDS[choice].ops
             if event == 'Wargames':
                 if choice != 'end_game':
                     return 0
@@ -309,9 +369,11 @@ class StrategicPlayer:
                 inf = self.board.influence[choice]
                 return self.delta(obs, choice, own=max(0, inf['USSR']-inf['US']))
             if event == 'Summit_defcon':
-                return LOSS if choice == 'lower' and obs.defcon <= 2 else 0
+                if choice == 'lower' and obs.defcon <= 2:
+                    return LOSS if responsible else -LOSS
+                return float(choice == 'raise')
             if choice in CARDS:
                 return CARDS[choice].ops if event == 'Aldrich_Ames_Remix' else -CARDS[choice].ops
             if choice == 'boycott':
-                return LOSS
+                return (LOSS if responsible else -LOSS) if obs.defcon <= 2 else 0
         return 0.0
