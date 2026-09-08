@@ -166,6 +166,7 @@ class StrategicPlayer:
         self._ops_values = {}
         self._relocation_gain = None
         self._space_card = None
+        self._un_card = None
         self._obs = observation
         self._scoring_weights = {}
         self._access_cache = {}
@@ -626,11 +627,26 @@ class StrategicPlayer:
         return result
 
     def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
-        """A card played from hand: its Ops (the opponent's event fires too)
-        or, for our own and neutral cards, its event if that is better."""
+        """A card played from hand: its Ops (the opponent's event fires too,
+        unless this is the card UN Intervention is kept for) or, for our own
+        and neutral cards, its event if that is better."""
         opponents = CARDS[cid].side.value == obs.side.opponent.value
-        value = self.ops_value(obs, ops) + (min(0, event) if opponents else 0)
+        harm = min(0, event) if opponents and cid != self.un_card(obs) else 0
+        value = self.ops_value(obs, ops) + harm
         return value if opponents else max(value, event)
+
+    def un_card(self, obs: Observation) -> str | None:
+        """The opponent's card UN Intervention in hand is kept for: the one
+        whose event hurts most. Its Ops then come clean, which is what
+        makes UN plus Marshall Plan (or Decolonization) so strong."""
+        if 'UN_Intervention' not in obs.hand:
+            return None
+        if self._un_card is None:
+            worst = min(((self.event_value(obs, c), c) for c in obs.hand
+                         if c != 'UN_Intervention' and CARDS[c].side.value == obs.side.opponent.value
+                         and not CARDS[c].scoring), default=(0., ''))
+            self._un_card = worst[1] if worst[0] < 0 else ''
+        return self._un_card or None
 
     def space_value(self, obs: Observation, ops: int) -> float:
         return self.weights.vp * _space_race_expected_vp(obs, obs.side) - 0.4 * self.ops_value(obs, ops)
@@ -645,6 +661,8 @@ class StrategicPlayer:
                 card = CARDS[cid]
                 if card.side.value != obs.side.opponent.value or not engine._can_space_race(obs.side, card):
                     continue
+                if cid == self.un_card(obs):
+                    continue  # UN Intervention already neutralises it
                 value = self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side),
                                              self.event_value(obs, cid))
                 if worst is None or value < worst[0]:
@@ -708,6 +726,10 @@ class StrategicPlayer:
             value = self.card_play_value(obs, cid, ops, event)
             if cid == 'The_China_Card':
                 value -= 4
+            if cid == 'UN_Intervention' and self.un_card(obs):
+                # Played alone it is a 1-Op card; it is worth keeping for
+                # the card it neutralises.
+                value = min(value, self.ops_value(obs, 1) + min(0, self.event_value(obs, self.un_card(obs))))
             if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
                 # Prefer the controlled late-hand use when survival risks tie.
                 value -= max(0, len(obs.hand)-3)
@@ -773,7 +795,11 @@ class StrategicPlayer:
             if event == 'De_Stalinization_remove':
                 # Keep relocating while the cheapest point to lift is worth
                 # less than the best place it can go (max 2 per country,
-                # never into US control).
+                # never into US control). A whole-relocation plan (four
+                # best destinations against four cheapest lifts) measured
+                # 0.44 against this on seeds 4000-4015: it lifts Austria and
+                # Laos first because the value function prices those single
+                # points below an over-protection point on Poland.
                 if choice == 'done':
                     return 0.
                 gains = self.__dict__.get('_relocation_gain')

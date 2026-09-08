@@ -3,7 +3,7 @@ import dataclasses
 
 import pytest
 
-from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import CARDS, StrategicPlayer, StrategicWeights
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
 from struggler.bots.train import evaluate, mutate
 import random
@@ -311,3 +311,25 @@ def test_access_counts_only_newly_reachable_battlegrounds():
     # Once the USSR holds Brazil itself, Venezuela opens nothing more there.
     board.influence['Brazil']['USSR'] = 1
     assert bot._access(board, 'Venezuela', Side.USSR) == 0
+
+
+def test_un_intervention_is_kept_for_the_worst_opponent_card():
+    from struggler.engine import Side
+    engine = _opening_board()
+    engine.phase = 'action_rounds'
+    engine.hands['USSR'] = ['UN_Intervention', 'Marshall_Plan', 'Truman_Doctrine', 'Nasser']
+    engine._push_action_round_play(Side.USSR)
+    obs = engine.observe(Side.USSR)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    assert bot.un_card(obs) == 'Marshall_Plan'
+    ops = CARDS['Marshall_Plan'].ops
+    event = bot.event_value(obs, 'Marshall_Plan')
+    assert event < 0
+    # Paired with UN Intervention the card's Ops come clean.
+    assert bot.card_play_value(obs, 'Marshall_Plan', ops, event) == bot.ops_value(obs, ops)
+    # Without UN Intervention in hand the event's harm counts.
+    plain = StrategicPlayer()
+    without = dataclasses.replace(obs, hand=tuple(c for c in obs.hand if c != 'UN_Intervention'))
+    plain.rank_actions(without)
+    assert plain.card_play_value(without, 'Marshall_Plan', ops, plain.event_value(without, 'Marshall_Plan')) < plain.ops_value(without, ops)

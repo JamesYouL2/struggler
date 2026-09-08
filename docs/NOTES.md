@@ -69,6 +69,13 @@ form (conversion odds vs the linear fraction), the reserve (0.16 VP vs
 `logs/game-check/vpunits*`. The form is right; the calibration needs the
 checkpoint benchmark one structural change at a time, not all at once.
 
+UN Intervention is kept for the opponent's card in hand whose event hurts
+most (`un_card`): that card's Ops are valued clean, the space slot skips
+it, and UN alone is worth the harm it cancels. Measured neutral against
+its parent (0.41 with a De-Stalinization relocation plan, 0.44 for the
+plan alone, so the pairing itself is within noise); kept because it is
+the stated principle (UN + Marshall Plan is four clean Ops).
+
 Still wrong on that board, by human judgement: Marshall Plan at 13.6 (one
 Op) is far too low, COMECON at 5.4 slightly high. Both are the same gap:
 a stake is valued by its fraction of the way to control, not by its odds
