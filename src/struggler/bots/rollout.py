@@ -70,7 +70,14 @@ class RolloutPolicy(StrategicPlayer):
         self.hits = self.misses = self.served = 0
 
     def planner_for(self, obs):
-        return ImmediatePlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
+        # A hand that can be forced into a loss needs the real search even
+        # in a rollout, or every simulation from it suicides and the root
+        # learns nothing. Elsewhere the immediate guard suffices.
+        planner = DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
+        if obs.defcon <= 3 and any(planner.hazardous(c) for c in planner.hand):
+            return planner
+        planner.__class__ = ImmediatePlanner
+        return planner
 
     def coup_survival_risk(self, obs, country):
         # The full policy re-plans the whole hand at DEFCON-1 for every

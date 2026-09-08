@@ -33,18 +33,33 @@ def run_ops(engine, policy):
     return taken
 
 
-def test_immediate_guard_still_refuses_a_certain_loss():
+def hazard_position(defcon):
     engine = bare_engine()
     engine.phase = 'action_rounds'
-    engine.defcon = 2
+    engine.defcon = defcon
     engine.hands['USSR'] = ['Duck_and_Cover', 'Nasser']
     engine.space_race_attempts['USSR'] = 1  # no space escape this turn
     engine._push_action_round_play(Side.USSR)
-    ranked = RolloutPolicy().rank_actions(engine.observe(Side.USSR))
-    by_card = {a.payload['card']: key for key, a in ranked}
-    assert by_card['Duck_and_Cover'][1] == -1.0  # firing it now ends the game
-    assert by_card['Nasser'][1] == 0.0
-    assert ranked[0][1].payload['card'] == 'Nasser'
+    return engine.observe(Side.USSR)
+
+
+def risks(policy, obs):
+    return {a.payload['card']: -key[1] for key, a in policy.rank_actions(obs)}
+
+
+def test_hazardous_hand_near_defcon_2_keeps_the_full_survival_search():
+    obs = hazard_position(2)
+    assert risks(RolloutPolicy(), obs) == risks(StrategicPlayer(), obs)
+    assert risks(RolloutPolicy(), obs)['Duck_and_Cover'] == 1.0
+
+
+def test_immediate_guard_ignores_later_rounds_when_defcon_is_high():
+    obs = hazard_position(4)
+    cheap = risks(RolloutPolicy(), obs)
+    assert (cheap['Duck_and_Cover'], cheap['Nasser']) == (0.0, 0.0)
+    # At DEFCON 3 the same hand is one opponent drop from a forced loss.
+    obs = hazard_position(3)
+    assert risks(RolloutPolicy(), obs) == risks(StrategicPlayer(), obs)
 
 
 def test_ops_plan_serves_the_same_coup_target_as_the_full_policy():
