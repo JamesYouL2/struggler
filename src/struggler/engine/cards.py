@@ -17,13 +17,23 @@ order; the engine shuffles the result.
 
 from __future__ import annotations
 
+import functools
+
 from struggler.engine.data_loader import load_json
 from struggler.engine.rules import RULES
 from struggler.engine.types import Card, CardSide, Period
 
 
 def load_cards() -> dict[str, Card]:
-    """Load every card from the data file into immutable `Card` objects."""
+    """Load every card from the data file into immutable `Card` objects.
+
+    Built once and shared: `Card` is frozen, and callers get their own dict
+    so adding or dropping entries never leaks between engines."""
+    return dict(_build_cards())
+
+
+@functools.lru_cache(maxsize=None)
+def _build_cards() -> dict[str, Card]:
     raw = load_json("cards.json")
 
     cards: dict[str, Card] = {}

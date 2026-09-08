@@ -95,6 +95,7 @@ class StrategicPlayer:
             raise ValueError('StrategicPlayer requires a pending decision with legal options')
         _sync_board(self.board, observation)
         self._events = {}
+        self._region_cache = {}
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
@@ -186,10 +187,22 @@ class StrategicPlayer:
         return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
 
     def region_score(self, board: Board, region: Region, side: Side) -> float:
+        # Scoring a region is the hottest call in a decision; the same
+        # regional position recurs across every candidate country, so
+        # memoise on the region's influence for the life of this decision.
+        cache = getattr(self, '_region_cache', None)
+        key = None
+        if cache is not None and board is self.board:
+            key = (region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, board.countries_in(region))))
+            if key in cache:
+                net = cache[key]
+                return net if side is Side.US else -net
         try:
             net = board.score_region(region)
         except RuntimeError:  # Europe control has no numeric scoring value.
             net = 100 if board.region_tier(Side.US, region).value == 'control' else -100
+        if key is not None:
+            cache[key] = net
         return net if side is Side.US else -net
 
     def country_value(self, board: Board, cid: str, side: Side) -> float:

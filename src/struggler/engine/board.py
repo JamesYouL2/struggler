@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
+import functools
+
 from struggler.engine.data_loader import load_json
 from struggler.engine.rules import RULES
 from struggler.engine.types import Region, ScoringTier, Side, Subregion
@@ -33,6 +35,35 @@ def _load_subregions(raw: str | list[str] | None) -> frozenset[Subregion]:
     return frozenset(Subregion[name] for name in names)
 
 
+@functools.lru_cache(maxsize=None)
+def _static_map() -> tuple[dict[str, CountryInfo], dict[str, frozenset[str]], dict[str, dict[str, int]]]:
+    """Parse countries.json once: country records, symmetric adjacency, and
+    the printed setup influence. Validated here, so every Board is valid."""
+    raw = load_json("countries.json")
+    countries: dict[str, CountryInfo] = {}
+    adjacency: dict[str, set[str]] = {"US": set(), "USSR": set()}
+    for cid, entry in raw["countries"].items():
+        countries[cid] = CountryInfo(
+            id=cid,
+            name=entry["name"],
+            region=Region[entry["region"]],
+            subregions=_load_subregions(entry.get("subregion")),
+            stability=entry["stability"],
+            battleground=entry["battleground"],
+        )
+        adjacency.setdefault(cid, set())
+    for cid, entry in raw["countries"].items():
+        adjacency[cid].update(entry["adjacent_to"])
+    for side_id, entry in raw["superpowers"].items():
+        adjacency[side_id].update(entry["adjacent_to"])
+    broken = [(node, neighbor) for node, neighbors in adjacency.items()
+              for neighbor in neighbors if node not in adjacency.get(neighbor, set())]
+    if broken:
+        pairs = ", ".join(f"{a}->{b}" for a, b in broken)
+        raise ValueError(f"Asymmetric adjacency in board data: {pairs}")
+    return countries, {k: frozenset(v) for k, v in adjacency.items()}, raw.get("setup_influence", {})
+
+
 class Board:
     """Owns country metadata, the adjacency graph, and influence markers.
 
@@ -43,30 +74,13 @@ class Board:
     """
 
     def __init__(self) -> None:
-        raw = load_json("countries.json")
-
-        self.countries: dict[str, CountryInfo] = {}
-        self._adjacency: dict[str, set[str]] = {"US": set(), "USSR": set()}
-
-        for cid, entry in raw["countries"].items():
-            self.countries[cid] = CountryInfo(
-                id=cid,
-                name=entry["name"],
-                region=Region[entry["region"]],
-                subregions=_load_subregions(entry.get("subregion")),
-                stability=entry["stability"],
-                battleground=entry["battleground"],
-            )
-            self._adjacency.setdefault(cid, set())
-
-        for cid, entry in raw["countries"].items():
-            for neighbor in entry["adjacent_to"]:
-                self._adjacency[cid].add(neighbor)
-        for side_id, entry in raw["superpowers"].items():
-            for neighbor in entry["adjacent_to"]:
-                self._adjacency[side_id].add(neighbor)
-
-        self._validate_symmetric()
+        # The map is static and `CountryInfo` is frozen, so the parsed
+        # countries, adjacency, and printed setup influence are built once
+        # (`_static_map`) and shared; only `influence` is per board. Bots
+        # construct sandbox boards by the hundred per decision.
+        countries, adjacency, setup = _static_map()
+        self.countries: dict[str, CountryInfo] = dict(countries)
+        self._adjacency: dict[str, set[str]] = {node: set(ids) for node, ids in adjacency.items()}
 
         self.influence: dict[str, dict[str, int]] = {
             cid: {"US": 0, "USSR": 0} for cid in self.countries
@@ -75,7 +89,7 @@ class Board:
         # Printed at-start influence for the standard game (the additional
         # player-chosen Eastern/Western Europe points are placed by the engine
         # as decisions, not here). Absent in minimal test data -> empty.
-        self.setup_influence: dict[str, dict[str, int]] = raw.get("setup_influence", {})
+        self.setup_influence: dict[str, dict[str, int]] = {cid: dict(v) for cid, v in setup.items()}
 
     def _validate_symmetric(self) -> None:
         broken = []
@@ -154,7 +168,15 @@ class Board:
         return None
 
     def countries_in(self, region: Region) -> tuple[str, ...]:
-        return tuple(cid for cid, info in self.countries.items() if info.region == region)
+        # The map is static, so the grouping is computed once per board.
+        cache = self.__dict__.get("_by_region")
+        if cache is None:
+            cache = self.__dict__["_by_region"] = {}
+            for cid, info in self.countries.items():
+                cache.setdefault(info.region, []).append(cid)
+            cache = {r: tuple(ids) for r, ids in cache.items()}
+            self.__dict__["_by_region"] = cache
+        return cache.get(region, ())
 
     def controls_all_of_europe(self) -> Side | None:
         """Whether one side currently controls every country in Europe.
@@ -246,9 +268,34 @@ class Board:
             ScoringTier.PRESENCE: presence_vp,
             ScoringTier.DOMINATION: domination_vp,
         }
+        # One control lookup per country, shared by both sides' tier and
+        # bonus tallies (this is the bots' hottest path).
+        country_ids = self.countries_in(region)
+        controllers = {cid: self.control(cid) for cid in country_ids}
+        counts = {Side.US: [0, 0, 0], Side.USSR: [0, 0, 0]}  # controlled, bg, bonus
+        total_bg = 0
+        for cid in country_ids:
+            info = self.countries[cid]
+            total_bg += info.battleground
+            holder = controllers[cid]
+            if holder is None:
+                continue
+            tally = counts[holder]
+            tally[0] += 1
+            tally[1] += info.battleground
+            tally[2] += info.battleground + self.is_adjacent(holder.opponent.value, cid)
 
         def value_for(side: Side) -> int:
-            tier = self.region_tier(side, region)
+            side_count, side_bg, bonus = counts[side]
+            opp_count, opp_bg, _ = counts[side.opponent]
+            if total_bg > 0 and side_bg == total_bg and side_count > opp_count:
+                tier = ScoringTier.CONTROL
+            elif side_count > opp_count and side_bg > opp_bg and side_count > side_bg:
+                tier = ScoringTier.DOMINATION
+            elif side_count > 0:
+                tier = ScoringTier.PRESENCE
+            else:
+                tier = ScoringTier.NONE
             if tier is ScoringTier.CONTROL:
                 if control_vp is None:
                     raise RuntimeError(
@@ -259,7 +306,7 @@ class Board:
                 base = control_vp
             else:
                 base = tier_value[tier]
-            return base + self.region_bonus_vp(side, region)
+            return base + bonus
 
         return value_for(Side.US) - value_for(Side.USSR)
 
