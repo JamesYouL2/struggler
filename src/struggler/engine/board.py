@@ -80,7 +80,8 @@ class Board:
         # construct sandbox boards by the hundred per decision.
         countries, adjacency, setup = _static_map()
         self.countries: dict[str, CountryInfo] = dict(countries)
-        self._adjacency: dict[str, set[str]] = {node: set(ids) for node, ids in adjacency.items()}
+        # Never mutated after loading, so every board shares the one map.
+        self._adjacency: dict[str, frozenset[str]] = adjacency
 
         self.influence: dict[str, dict[str, int]] = {
             cid: {"US": 0, "USSR": 0} for cid in self.countries
@@ -107,7 +108,7 @@ class Board:
         return b in self._adjacency.get(a, set())
 
     def neighbors(self, country_id: str) -> frozenset[str]:
-        return frozenset(self._adjacency.get(country_id, set()))
+        return self._adjacency.get(country_id, frozenset())
 
     def is_reachable(
         self,

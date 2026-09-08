@@ -237,7 +237,9 @@ class StrategicPlayer:
     def country_value(self, board: Board, cid: str, side: Side) -> float:
         w = self.weights
         info = board.countries[cid]
-        own, opp = (board.influence[cid][s.value] for s in (side, side.opponent))
+        inf = board.influence[cid]
+        us, ussr = inf['US'], inf['USSR']
+        own, opp = (us, ussr) if side is Side.US else (ussr, us)
         cache = getattr(self, '_country_cache', None)
         key = (board, cid, side, own, opp)
         if cache is not None and key in cache:

@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 
 class Side(Enum):
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     US = "US"
     USSR = "USSR"
     CHANCE = "CHANCE"
@@ -27,6 +28,7 @@ class Side(Enum):
 
 
 class Region(Enum):
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     EUROPE = "EUROPE"
     ASIA = "ASIA"
     MIDDLE_EAST = "MIDDLE_EAST"
@@ -36,6 +38,7 @@ class Region(Enum):
 
 
 class Subregion(Enum):
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     WESTERN_EUROPE = "WESTERN_EUROPE"
     EASTERN_EUROPE = "EASTERN_EUROPE"
     SOUTHEAST_ASIA = "SOUTHEAST_ASIA"
@@ -49,6 +52,7 @@ class CardSide(Enum):
     NOT `Side.CHANCE` — conflating "no owning superpower" with "the dice"
     would be a category error.
     """
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
 
     US = "US"
     USSR = "USSR"
@@ -57,6 +61,7 @@ class CardSide(Enum):
 
 class Period(Enum):
     """When a card enters the draw deck over the course of a game."""
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
 
     EARLY_WAR = "EARLY_WAR"
     MID_WAR = "MID_WAR"
@@ -64,6 +69,7 @@ class Period(Enum):
 
 
 class DecisionKind(Enum):
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     PLACE_INFLUENCE = "place_influence"
     COUP_TARGET = "coup_target"
     COUP_ROLL = "coup_roll"
@@ -93,6 +99,7 @@ class DecisionKind(Enum):
 
 
 class ScoringTier(Enum):
+    __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     NONE = "none"
     PRESENCE = "presence"
     DOMINATION = "domination"

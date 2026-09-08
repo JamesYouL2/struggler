@@ -11,11 +11,12 @@ import logging
 import math
 import random
 import time
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 
 from struggler.engine import DecisionKind as K, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.bots.public_cards import card_state
+from struggler.bots.rollout import RolloutPolicy, information_key
 from struggler.bots.strategic import CARDS, StrategicPlayer
 
 log = logging.getLogger('struggler.bots.mcts')
@@ -37,20 +38,6 @@ class Edge:
         return self.total / self.visits if self.visits else 0.
 
 
-def information_key(obs):
-    """Only information available to this seat; decision IDs are bookkeeping."""
-    def freeze(value):
-        if isinstance(value, dict):
-            return tuple((k, freeze(v)) for k, v in sorted(value.items()))
-        if isinstance(value, (tuple, list)):
-            return tuple(map(freeze, value))
-        return value
-    d = obs.pending_decision
-    decision = (d.actor, d.kind, tuple((a.kind, freeze(a.payload)) for a in d.options), freeze(d.context))
-    return tuple(decision if f.name == 'pending_decision' else freeze(getattr(obs, f.name))
-                 for f in fields(obs))
-
-
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
                  time_limit=None, opponent_model=None):
@@ -59,6 +46,8 @@ class MCTSPlayer:
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
             raise ValueError('time_limit must be finite and positive')
         self.policy = StrategicPlayer(weights, opponent_model=opponent_model)
+        # Below the root every decision is answered by the cheap policy.
+        self.rollout_policy = RolloutPolicy(weights, opponent_model=opponent_model)
         self.seed = seed
         self.simulations = simulations
         self.max_steps = max_steps
@@ -135,9 +124,11 @@ class MCTSPlayer:
         return result
 
     def continuation(self, obs, target=None):
-        safe = self.ranked(obs)
+        ranked = self.rollout_policy.rank_actions(obs)
+        safety = ranked[0][0][:2]
+        safe = [a for key, a in ranked if key[:2] == safety]
         chosen = safe[0]
-        if target is not None and self.policy.board.control(target) is not obs.side:
+        if target is not None and self.rollout_policy.board.control(target) is not obs.side:
             d = obs.pending_decision
             for action in safe:
                 if (d.kind is K.PLAY_MODE and action.payload.get('mode') == 'ops'
@@ -203,6 +194,7 @@ class MCTSPlayer:
             log.info('MCTS strategic fallback: %s', exc)
             return self.policy.choose_action(obs, history)
         tree = {}
+        self.rollout_policy.reset()
         root_key = information_key(obs)
         completed = 0
         truncated = 0
