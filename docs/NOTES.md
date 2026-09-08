@@ -79,3 +79,9 @@ control-aware regional rescoring, deduplicated realignment evaluation, and
 cheaper isolated observations/information keys. Three alternating local
 runs measured 1.44x strategic and 1.61x MCTS speedups with identical rankings
 and root values. See `docs/STRATEGIC_AI.md` for workloads and evidence.
+
+The simplification audit is in `docs/STRATEGIC_SIMPLIFICATION.md`: all 16
+weights are used; ten feed the MCTS leaf and six only its strategic policy.
+First candidates are fixing the three default-neutral knobs, then testing
+neutral coup discount and urgency. The audit includes a 150-position
+sensitivity check and a separate-leaf ablation plan. No weights changed.

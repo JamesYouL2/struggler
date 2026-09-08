@@ -364,3 +364,6 @@ All legal-action rankings and root MCTS move values matched exactly across
 these comparisons. These are local microbenchmarks, not a full-game timing
 or playing-strength claim. Measurements are saved in
 `logs/game-check/mcts-speed-comparison.json` (gitignored evidence).
+
+For the weight-by-weight removal candidates, policy/leaf distinction, and
+proposed ablations, see [Strategic simplification audit](STRATEGIC_SIMPLIFICATION.md).
