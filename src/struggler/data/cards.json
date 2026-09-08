@@ -71,7 +71,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "USSR randomly discards a card; if it's a USSR event, that event fires too."
+      "event_summary": "USSR randomly discards a card; if it's a US event, that event fires too."
     },
     "The_China_Card": {
       "number": 6,
@@ -599,7 +599,7 @@
       "remove_after_event": false,
       "optional": false,
       "in_deck": true,
-      "event_summary": "Exchange for the opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; the taker uses the taken card for Ops, or its Event if eligible."
+      "event_summary": "Exchange for the opponent's highest-Ops card (opponent breaks ties); Missile Envy passes to them and they must play it for Ops on their next action round; the taken own or neutral event fires immediately; an opponent event is used for Ops without firing."
     },
     "We_Will_Bury_You": {
       "number": 50,

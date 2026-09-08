@@ -2198,7 +2198,8 @@
                 "Sweden": 1,
                 "Canada": 1,
                 "West_Germany": 1
-              }
+              },
+              "phasing_player": "USSR"
             }
           }
         ],
@@ -4451,7 +4452,8 @@
               "card_ops": 3,
               "spent": 2,
               "bonus": null,
-              "non_bonus": 0
+              "non_bonus": 0,
+              "phasing_player": "USSR"
             }
           }
         ],

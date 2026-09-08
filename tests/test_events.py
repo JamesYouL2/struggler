@@ -629,7 +629,7 @@ def test_puppet_governments_only_targets_empty_countries():
 # -- forced random discard subsystem (CHANCE) -------------------------------
 
 
-def test_five_year_plan_fires_a_discarded_ussr_event():
+def test_five_year_plan_discards_a_ussr_event_without_firing():
     engine = _bare(seed=2)
     engine.hands["USSR"] = ["Fidel"]  # single card -> deterministic draw
     engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
@@ -638,17 +638,17 @@ def test_five_year_plan_fires_a_discarded_ussr_event():
     assert d.kind is DecisionKind.RANDOM_DISCARD and d.actor is Side.CHANCE
     assert len(d.options) == 1  # only the drawn card, never the rest of the hand
     engine.step(d.options[0])
-    assert engine.board.control("Cuba") is Side.USSR  # Fidel fired
-    assert "Fidel" in engine.removed_cards
+    assert engine.board.control("Cuba") is None  # Fidel did not fire
+    assert "Fidel" in engine.discard_pile
 
 
-def test_five_year_plan_just_discards_a_non_ussr_card():
+def test_five_year_plan_fires_a_discarded_us_event():
     engine = _bare(seed=2)
-    engine.hands["USSR"] = ["Duck_and_Cover"]  # a US event: discarded, not fired
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # a US event: must fire
     engine.defcon = 5
     engine._fire_event(Side.US, "Five_Year_Plan")
     engine.step(engine.pending_decision.options[0])
-    assert engine.defcon == 5  # Duck and Cover did NOT fire
+    assert engine.defcon == 4  # Duck and Cover fired
     assert "Duck_and_Cover" in engine.discard_pile
 
 
@@ -1072,7 +1072,7 @@ def test_wargames_only_playable_at_defcon_two_and_can_end_the_game():
         "end_game", "decline"
     }
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "end_game"}))
-    assert engine.is_terminal  # the US gave the USSR 6 VP and the game was scored
+    assert engine.is_terminal  # the US conceded 6 VP; no regional scoring follows
 
 
 # -- revealing / taking cards from the opponent's hand -----------------------
@@ -1361,15 +1361,12 @@ def test_missile_envy_passes_to_opponent_and_takes_top_ops_card():
     assert d.context["ops"] == engine.cards["Fidel"].ops
 
 
-def test_missile_envy_neutral_card_offers_ops_or_event():
+def test_missile_envy_neutral_card_fires_without_a_choice():
     engine = _bare()
     engine.hands["US"] = []
-    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # NEUTRAL -> taker may choose
+    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # NEUTRAL -> mandatory event
     engine._fire_event(Side.US, "Missile_Envy")
-    d = engine.pending_decision
-    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.US
-    assert {a.payload["choice"] for a in d.options} == {"ops", "event"}
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "event"}))
+    assert engine.pending_decision is None
     assert engine.space_race["US"] == 1  # the taken event fired for the US
 
 
@@ -1510,9 +1507,8 @@ def test_cuban_missile_crisis_sets_defcon_and_flags_the_opponent():
     engine._fire_event(Side.US, "Cuban_Missile_Crisis")  # US plays it -> USSR at risk
     assert engine.defcon == 2
     assert engine.turn_effects.get("cuban_missile_crisis") == "USSR"
-    # No immediate decision: the defuse is offered at the start of the
-    # trapped side's own action rounds, "at any point in the turn" -- not
-    # forced on them the instant the card resolves.
+    # This bare event has no pending action to interrupt. The director
+    # offers cancellation at the next atomic decision boundary.
     assert engine.pending_decision is None
 
 

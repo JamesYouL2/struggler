@@ -19,7 +19,7 @@
     },
     "Five_Year_Plan": {
       "US": "Good event, best right after they draw a fresh hand.",
-      "USSR": "Ops when your hand is short on US cards. Never at DEFCON 2. Space it if your hand is dangerous."
+      "USSR": "Preserve it to discard an unwanted scoring card when that is the only other card left. Ops still trigger the discard. At DEFCON 2, inspect remaining US events for direct reducers or nested coup traps; Five Year Plan is not automatically unsafe."
     },
     "Socialist_Governments": {
       "USSR": "Strong event early. Dead if Iron Lady is in effect.",

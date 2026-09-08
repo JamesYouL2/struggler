@@ -6,10 +6,10 @@ way.
 ## Rules fidelity
 
 The [DEFCON strategy audit](DEFCON_STRATEGY.md#engine-and-bot-discrepancies-to-resolve-before-training-on-these-outcomes)
-identifies additional unresolved issues: phasing-player responsibility,
-Five Year Plan event allegiance, Missile Envy forced resolution, Cuban Missile
-Crisis cancellation timing, and Wargames termination. These affect terminal
-training outcomes and must not be treated as intended rules.
+records the corrected phasing-player, Five Year Plan, Missile Envy, Cuban
+Missile Crisis, and Wargames rules. Earlier bot tournament results used the
+pre-fix engine and are historical, not measurements under the corrected rules.
+Bot hand-survival planning remains incomplete.
 
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the

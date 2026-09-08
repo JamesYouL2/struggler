@@ -692,7 +692,7 @@ def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context:
 
 @event("Five_Year_Plan")
 def _five_year_plan(engine: "Engine", side: Side) -> None:
-    # The USSR randomly discards a card; if it is a USSR event, that event fires.
+    # The USSR randomly discards a card; only a US-associated event fires.
     engine.push_random_discard(Side.USSR, "five_year_plan")
 
 
@@ -884,7 +884,7 @@ def _summit_defcon_choice(engine: "Engine", side: Side, choice: str, context: di
 @event("Wargames", eligible=lambda engine, side: engine.defcon <= 2)
 def _wargames(engine: "Engine", side: Side) -> None:
     # Only at DEFCON 2: the player may give the opponent 6 VP and end the game
-    # (final scoring), or decline.
+    # (without final scoring), or decline.
     engine.push_event_choice("Wargames", side, ("end_game", "decline"))
 
 
@@ -892,7 +892,13 @@ def _wargames_choice(engine: "Engine", side: Side, choice: str, context: dict) -
     if choice == "end_game":
         engine._award_vp(side.opponent, 6)
         if not engine.is_terminal:
-            engine._finish_game()
+            # Wargames skips regional final scoring. A tied track is a draw.
+            if engine.vp:
+                engine._win(Side.US if engine.vp > 0 else Side.USSR, "wargames")
+            else:
+                engine.phase = "complete"
+                engine._game_over_reason = "wargames"
+                engine._decision_stack.clear()
 
 
 # Per-event follow-ups after a dice contest resolves (see push_dice_contest).
@@ -1240,9 +1246,8 @@ def _cuban_missile_crisis(engine: "Engine", side: Side) -> None:
     # Set DEFCON to 2. For the rest of the turn any Coup attempt by the
     # opponent loses them the game (checked in _handle_coup_roll). The
     # opponent may defuse by removing 2 Influence from Cuba (USSR) or West
-    # Germany *or Turkey* (US, its choice) -- offered fresh at the start of
-    # every one of their action rounds this turn (see
-    # Engine._push_cmc_defuse_offer), not just once immediately.
+    # Germany *or Turkey* (US, its choice). Cancellation interrupts are
+    # offered at atomic decision boundaries on either player's turn.
     engine.set_defcon(2, caused_by=side)
     if engine.is_terminal:
         return
@@ -1255,7 +1260,11 @@ def _cuban_missile_crisis_defuse_choice(
     if choice != "skip":
         engine.remove_influence(choice, side, 2)
         engine.turn_effects.pop("cuban_missile_crisis", None)
-    engine._dispatch_action_round(side)
+    if context.get("resume_pending"):
+        if choice != "skip":
+            engine._refresh_after_cmc()
+    else:
+        engine._dispatch_action_round(side)
 
 
 # -- We Will Bury You: end-of-turn VP unless UN Intervention defuses it -------

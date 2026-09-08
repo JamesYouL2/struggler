@@ -298,9 +298,10 @@ class StrategicPlayer:
                 if choice != 'end_game':
                     return 0
                 engine = self.public_engine(obs)
-                engine._award_vp(obs.side.opponent, 6)
-                if not engine.is_terminal:
-                    engine._finish_game()
+                engine._fire_event(obs.side, 'Wargames')
+                if engine.pending_decision is None:
+                    return LOSS
+                engine.step(Action(K.EVENT_CHOICE, {'choice': 'end_game'}))
                 return -LOSS if engine.winner is obs.side else LOSS
             if event == 'Blockade' and choice == 'refuse':
                 return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])

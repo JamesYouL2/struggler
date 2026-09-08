@@ -1060,7 +1060,8 @@
               }
             ],
             "context": {
-              "ops_remaining": 2
+              "ops_remaining": 2,
+              "phasing_player": "USSR"
             }
           }
         ],

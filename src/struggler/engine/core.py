@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import random
+from contextlib import contextmanager
+from dataclasses import replace
 
 from struggler.engine.board import Board
 from struggler.engine.cards import action_rounds, cards_entering, hand_limit, load_cards
@@ -10,6 +12,7 @@ from struggler.engine.rules import RULES
 from struggler.engine.types import (
     Action,
     Card,
+    CardSide,
     Decision,
     DecisionKind,
     Observation,
@@ -50,6 +53,7 @@ class Engine:
     def __init__(self, seed: int, board: Board | None = None) -> None:
         self.board = board if board is not None else Board()
         self.defcon = 5
+        self._phasing_player: Side | None = None  # dynamic scope; persisted on decision frames
         self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
         self.turn = 1
         self.action_round = 1
@@ -146,8 +150,24 @@ class Engine:
         if action not in decision.options:
             raise ValueError(f"illegal action {action!r} for decision {decision!r}")
         self._decision_stack.pop()
-        self._dispatch(decision, action)
+        responsible = decision.context.get("phasing_player")
+        side = Side(responsible) if responsible else (
+            decision.actor if decision.actor is not Side.CHANCE else None
+        )
+        with self._phasing_scope(side):
+            self._dispatch(decision, action)
         self._advance()
+
+    @contextmanager
+    def _phasing_scope(self, side: Side | None):
+        """Nested events retain the responsibility of the original card play."""
+        previous = self._phasing_player
+        if previous is None:
+            self._phasing_player = side
+        try:
+            yield
+        finally:
+            self._phasing_player = previous
 
     def observe(self, player: Side) -> Observation:
         if player not in (Side.US, Side.USSR):
@@ -343,6 +363,63 @@ class Engine:
     # -- turn director ------------------------------------------------------
 
     def _advance(self) -> None:
+        self._advance_director()
+        self._offer_cmc_interrupt()
+
+    def _offer_cmc_interrupt(self) -> None:
+        """Offer cancellation at each atomic decision boundary, on either turn.
+
+        The offer hides the interrupted decision (including any pre-rolled
+        chance result). A skip applies only to that frame, not its successors.
+        """
+        d = self.pending_decision
+        affected = self.turn_effects.get("cuban_missile_crisis")
+        if (self.is_terminal or d is None or not affected
+                or d.context.get("event") == "Cuban_Missile_Crisis_defuse"
+                or d.context.get("cmc_offered_for") == d.id):
+            return
+        side = Side(affected)
+        countries = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
+        eligible = [c for c in countries if self.board.influence[c][side.value] >= 2]
+        if not eligible:
+            return
+        self._decision_stack[-1] = replace(d, context={**d.context, "cmc_offered_for": d.id})
+        self.push_event_choice("Cuban_Missile_Crisis_defuse", side,
+                               tuple(eligible) + ("skip",), extra={"resume_pending": True})
+
+    def _refresh_after_cmc(self) -> None:
+        """Cancellation changes control/coup targets: refresh suspended options."""
+        for index in range(len(self._decision_stack)-1, -1, -1):
+            d = self._decision_stack[index]
+            ctx, side, options = d.context, d.actor, None
+            if d.kind is DecisionKind.OPS_TYPE:
+                options = self._ops_type_options(side, ctx["ops"], ctx.get("allow_coup", True))
+            elif d.kind is DecisionKind.PLACE_INFLUENCE and not ctx.get("setup"):
+                if ctx.get("bonus"):
+                    options = self._bonus_influence_options(side, ctx["base"], ctx["spent"],
+                                                            ctx["non_bonus"], ctx["bonus"])
+                else:
+                    options = self._place_influence_options(side, ctx["ops_remaining"])
+            elif d.kind is DecisionKind.EVENT_INFLUENCE:
+                options = self._event_influence_options(ctx)
+            elif d.kind in (DecisionKind.COUP_TARGET, DecisionKind.REALIGNMENT_TARGET):
+                coup = d.kind is DecisionKind.COUP_TARGET
+                countries = ctx.get("countries", self.board.countries)
+                options = tuple(Action(d.kind, {"country": c}) for c in countries
+                                if self._usable_coup_realign_target(side, c, for_coup=coup,
+                                                                   ignore_defcon=ctx.get("ignore_defcon", False)))
+            elif d.kind is DecisionKind.WAR_TARGET and ctx.get("card") == "Brush_War":
+                options = tuple(Action(d.kind, {"country": c}) for c, info in self.board.countries.items()
+                                if info.stability <= 2 and not (side is Side.USSR and self._nato_protects(c)))
+            if options is not None:
+                if options:
+                    self._decision_stack[index] = replace(d, options=options)
+                else:
+                    self._decision_stack.pop(index)
+                    if d.kind is DecisionKind.PLACE_INFLUENCE:
+                        self._ops_round_snapshot = None
+
+    def _advance_director(self) -> None:
         """Push the next top-level decision whenever the stack drains.
 
         The decision stack holds only genuine pending choices; between them
@@ -443,9 +520,8 @@ class Engine:
             self.action_round = idx // 2 + 1
             self._ars_played += 1
             if self.turn_effects.get("cuban_missile_crisis") == side.value:
-                # "May defuse at any point in the turn": offered fresh at the
-                # start of every one of this side's action rounds until they
-                # take it or the turn ends -- a free choice, not a spent round.
+                # Cancellation is free and also offered at mid-action
+                # boundaries by _advance().
                 self._push_cmc_defuse_offer(side)
             else:
                 self._dispatch_action_round(side)
@@ -886,14 +962,19 @@ class Engine:
         (USSR) or West Germany/Turkey (US, its choice) to lift the
         Coup-attempt ban for the rest of the turn. Offered as a free choice
         -- it never costs the action round that follows it."""
-        candidates = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
-        eligible = [c for c in candidates if self.board.influence[c][side.value] >= 2]
-        if not eligible:
-            self._dispatch_action_round(side)
-            return
-        self.push_event_choice(
-            "Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",)
-        )
+        self._dispatch_action_round(side)
+        if self.pending_decision is not None:
+            self._offer_cmc_interrupt()
+        else:
+            countries = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
+            eligible = [c for c in countries if self.board.influence[c][side.value] >= 2]
+            if eligible:
+                self.push_event_choice("Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",))
+
+    def _five_year_plan_scoring_escape(self, side: Side) -> bool:
+        hand = self.hands[side.value]
+        return (self.events_enabled and side is Side.USSR and "Five_Year_Plan" in hand
+                and len(hand) > 1 and all(c == "Five_Year_Plan" or self.cards[c].scoring for c in hand))
 
     def _push_action_round_play(self, side: Side) -> None:
         if self.physical_mode and side is self.physical_side:
@@ -935,7 +1016,10 @@ class Engine:
         if forced_missile_envy:
             playable = ["Missile_Envy"]
         else:
-            playable = scoring_in_hand if must_play_scoring else list(hand)
+            playable = list(scoring_in_hand) if must_play_scoring else list(hand)
+            if (must_play_scoring and self._five_year_plan_scoring_escape(side)
+                    and len(scoring_in_hand) <= self._remaining_action_rounds(side)):
+                playable.append("Five_Year_Plan")
         options = [
             Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
@@ -987,6 +1071,9 @@ class Engine:
 
     def _play_modes(self, side: Side, cid: str) -> tuple[str, ...]:
         card = self.cards[cid]
+        if (cid == "Five_Year_Plan" and self._five_year_plan_scoring_escape(side)
+                and len(self.hands[side.value])-1 >= self._remaining_action_rounds(side)):
+            return ("ops", "event")  # suppressing the discard would violate the scoring deadline
         if card.scoring:
             return ("event",)  # a scoring card can only be played as its event
         modes = ["ops"]
@@ -1124,7 +1211,8 @@ class Engine:
     ) -> None:
         self._push(
             side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops, allow_coup),
-            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_region(side, china)},
+            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_region(side, china),
+             "allow_coup": allow_coup},
         )
 
     def _ops_bonus_region(self, side: Side, china: bool) -> str | None:
@@ -1272,7 +1360,8 @@ class Engine:
         Marshall Plan/Warsaw Pact) also does nothing."""
         ev = EVENTS.get(cid)
         if ev is not None and ev.eligible(self, side):
-            ev.resolve(self, side)
+            with self._phasing_scope(side):
+                ev.resolve(self, side)
 
     def _usable_coup_realign_target(
         self, attacker: Side, cid: str, for_coup: bool = True,
@@ -1579,10 +1668,9 @@ class Engine:
         owner = Side(ctx["owner"])
         card = action.payload["card"]
         if ctx["purpose"] == "five_year_plan":
-            # A discarded USSR-associated event fires (even against the USSR's
-            # own interest); anything else is just discarded.
+            # Five Year Plan fires discarded US events; other cards are discarded.
             info = self.cards[card]
-            if not info.scoring and info.side.value == owner.value and self._has_event(card):
+            if not info.scoring and info.side is CardSide.US and self._has_event(card):
                 self._file_card(owner, card, fired=True)
                 self._fire_event(owner, card)
             else:
@@ -1955,6 +2043,9 @@ class Engine:
     def _new_decision(
         self, actor: Side, kind: DecisionKind, options: tuple[Action, ...], context: dict
     ) -> Decision:
+        context = dict(context)
+        if self._phasing_player is not None:
+            context["phasing_player"] = self._phasing_player.value
         self._next_decision_id += 1
         return Decision(
             id=self._next_decision_id, actor=actor, kind=kind, options=options, context=context
@@ -2177,6 +2268,9 @@ class Engine:
 
     def _handle_coup_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
+        if self.turn_effects.get("cuban_missile_crisis") == side.value:
+            self._win(side.opponent, "cuban_missile_crisis")
+            return
         country = action.payload["country"]
         ops = decision.context["ops"]
         # Region-bonus play: +1 Op (and +1 military Op) when the coup target is
@@ -2305,7 +2399,8 @@ class Engine:
                 if self._usable_coup_realign_target(side, cid, ignore_defcon=True)
             )
             if options:
-                self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
+                self._push(side, DecisionKind.COUP_TARGET, options,
+                           {"ops": ops, "bonus": None, "countries": list(countries), "ignore_defcon": True})
         elif choice == "realign":
             options = tuple(
                 Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
@@ -2315,7 +2410,8 @@ class Engine:
             if options:
                 self._push(
                     side, DecisionKind.REALIGNMENT_TARGET, options,
-                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0},
+                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0,
+                     "countries": list(countries), "ignore_defcon": True},
                 )
 
     # -- reclaim a card from the (public) discard pile ----------------------
@@ -2382,6 +2478,9 @@ class Engine:
         move the Military Ops track. A logged CHANCE roll decides it; the
         COUP_ROLL context carries the `che` state so _handle_coup_roll can
         offer the second attempt if this one removes US Influence."""
+        if self.turn_effects.get("cuban_missile_crisis") == side.value:
+            self._win(side.opponent, "cuban_missile_crisis")
+            return
         used = list(used) + [country]
         self._push(
             Side.CHANCE,
@@ -2397,7 +2496,7 @@ class Engine:
 
     def missile_envy_take(self, taker: Side, cid: str) -> None:
         """`taker` takes `cid` from the giver and either uses it (a neutral card
-        or one of the taker's own events → Ops-or-Event choice) or is forced to
+        or one of the taker's own events → mandatory event) or is forced to
         Ops only (a scoring card or the giver's own event).
 
         The card is left in the giver's hand until `missile_envy_use` actually
@@ -2408,9 +2507,7 @@ class Engine:
         if ops_only:
             self.missile_envy_use(taker, cid, "ops")
         else:
-            self.push_event_choice(
-                "Missile_Envy_use", taker, ("ops", "event"), extra={"card": cid}
-            )
+            self.missile_envy_use(taker, cid, "event")
 
     def missile_envy_use(self, taker: Side, cid: str, mode: str) -> None:
         """Resolve the taken card as `mode` for `taker`: fire its event, or
@@ -2643,7 +2740,8 @@ class Engine:
         before = self.defcon
         self.defcon = max(1, min(5, self.defcon + delta))
         if self.defcon == 1:
-            self._win(caused_by.opponent, "defcon_1")
+            responsible = self._phasing_player or caused_by
+            self._win(responsible.opponent, "defcon_1")
             return
         # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
         # 2 the US adds 1 Influence to a country where it already has some.

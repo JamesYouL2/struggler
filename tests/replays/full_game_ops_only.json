@@ -5897,7 +5897,8 @@
               "card_ops": 3,
               "spent": 1,
               "bonus": null,
-              "non_bonus": 0
+              "non_bonus": 0,
+              "phasing_player": "USSR"
             }
           }
         ],
@@ -7041,7 +7042,9 @@
             "context": {
               "side": "USSR",
               "ops": 2,
-              "bonus": null
+              "bonus": null,
+              "allow_coup": true,
+              "phasing_player": "USSR"
             }
           }
         ],

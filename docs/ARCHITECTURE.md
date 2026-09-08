@@ -194,3 +194,27 @@ through the public API alone, with no event mechanics involved" is a
 property worth being able to test in isolation. `serialize()` carries
 `events_enabled` alongside `turn_effects` and `game_effects`, so a saved
 game round-trips its event state either way (mandate #5).
+
+## DEFCON responsibility and cancellation interrupts
+
+The phasing player is distinct from the actor of a borrowed operation or
+nested event. `_phasing_scope` establishes responsibility during dispatch;
+`_new_decision` writes it into continuation frames as `context.phasing_player`.
+`step` restores that scope before resolving the next frame. The transient
+scope is cleared before advancing to the next headline/action round; all
+suspended responsibility is JSON-native decision context and survives saves.
+Direct board-only actions fall back to their acting side.
+
+Cuban Missile Crisis cancellation is offered at atomic decision boundaries,
+including the opponent's turn. An `EVENT_CHOICE` interrupt hides the suspended
+frame (including pre-rolled chance outcomes), and `cmc_offered_for` remembers a
+skip for that frame only. Cancellation refreshes influence, operations, and
+combat target options after removing markers. Regional free-coup restrictions
+are retained in context. Selecting a coup target while still affected loses
+before drawing dice; Che's direct coup choice has the same check.
+
+Golden snapshots now include this context metadata. Historical logs that used
+incorrect Five Year Plan, Missile Envy, or DEFCON behavior can diverge or become
+illegal under the corrected rules. Old bare snapshots without phasing context
+cannot reliably reconstruct responsibility for nested decisions; replay from
+the original action history where that history remains legal.

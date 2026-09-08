@@ -1,7 +1,7 @@
 # DEFCON strategy and suicide-card checklist
 
 This is a strategy and implementation specification for the bots. It describes
-intended play and flags places where the current engine differs. Card behavior
+intended play and records the engine audit and its fixes. Card behavior
 was checked against `engine/events.py` and `engine/core.py`; those implementations
 are not authoritative where discrepancies are identified below.
 
@@ -109,7 +109,7 @@ Missile Envy's forced-reducer danger is illustrated in the
 [official FAQ, Missile Envy / We Will Bury You](https://www.gmtgames.com/nnts/FAQv5.pdf).
 The retrieval distinctions above also have separate handlers in
 [core.py](../src/struggler/engine/core.py) and
-[events.py](../src/struggler/engine/events.py); see the mismatch list below.
+[events.py](../src/struggler/engine/events.py); see the audit status below.
 
 Do not implement a finite blacklist as the whole safety system. Any future
 card that invokes an existing unsafe event inherits that event's risk. Evaluate
@@ -165,27 +165,25 @@ terminal outcomes.
 
 ## Engine and bot discrepancies to resolve before training on these outcomes
 
-These are observations of the current source, not implemented fixes:
+Engine items 1–5 below are now fixed; item 6 remains a bot limitation.
 
-1. **DEFCON responsibility:** `_change_defcon(delta, caused_by)` awards the win
-   to `caused_by.opponent`. Coup resolution passes the coup actor, so an
-   opponent-granted battleground coup can punish the wrong player. Summit and
-   nested event calls likewise need a persistent phasing-player context.
-2. **Five Year Plan allegiance:** `_handle_random_discard` currently fires a
-   USSR-associated event (`info.side.value == owner.value` with owner USSR).
-   Intended behavior fires a US-associated event. The existing comment/test
-   behavior follows the reversed implementation. Do not learn its discard risk
-   as a rule of the game.
-3. **Missile Envy:** `missile_envy_take` offers an Ops-or-Event choice for a
-   received own/neutral event. Intended behavior forces that event, so the
-   implementation currently supplies an escape from some suicide draws.
-4. **Cuban Missile Crisis cancellation:** the engine offers cancellation at
-   the affected side's action-round start. Intended at-any-time cancellation
-   matters during an opponent-granted operations chain.
-5. **Wargames:** `_wargames_choice` calls `_finish_game`, adding regional final
-   scoring. Intended Wargames ends after its VP concession, without that extra
-   regional scoring. It cannot be used as a trustworthy win-probability label
-   until reconciled.
+1. **DEFCON responsibility — fixed:** continuation frames carry the original
+   `phasing_player`; coups, Summit and retrieved events retain it through
+   nested decisions and save/resume. Each headline gets its own responsibility.
+2. **Five Year Plan allegiance — fixed:** only discarded US events fire.
+   Scoring cards are discarded without scoring. The scoring-deadline filter
+   also permits USSR's guaranteed Five Year Plan discard when all other cards
+   in hand are scoring and the remaining-round count allows it.
+3. **Missile Envy — fixed:** received own/neutral events resolve immediately;
+   the recipient cannot choose Ops to evade a reducer. Physical-hand transfers
+   follow the same rule and preserve unrelated hidden cards.
+4. **Cuban Missile Crisis cancellation — fixed:** a free interrupt is offered
+   at atomic decision boundaries on either player's turn. The suspended action
+   resumes with refreshed legal options; cancellation cannot wait until after
+   committing a coup target while affected.
+5. **Wargames — fixed:** ends after the concession without regional scoring;
+   a tied VP track is a draw. The strategic bot's Wargames evaluator now uses
+   this same event implementation.
 6. **Bot hand planning:** the small match check on seeds 1200/1201 ended in
    early nuclear losses. The inspected USSR losses against StrategicPlayer
    played Duck and Cover for Ops at DEFCON 2. A mode-level penalty is too late
@@ -193,6 +191,5 @@ These are observations of the current source, not implemented fixes:
    These outcomes are recorded in
    [event-value-match-check.json](../models/event-value-match-check.json).
 
-Implementation priority: correct responsibility and event mechanics; add
-regressions for the scenarios above; then enforce survival planning before
-ranking regional VP. Adding more country features alone will not repair this.
+Remaining priority: enforce whole-hand survival planning before ranking
+regional VP, then rerun tournaments under the corrected rules. Adding more country features alone will not repair this.

@@ -313,3 +313,17 @@ When the *bot* holds it instead, `_headline_pick_order` overrides that
 default the other way: the operator is asked first — and must genuinely
 place their real card on the board before the app asks for the bot's pick —
 so the bot's choice can actually depend on it.
+
+## Corrected DEFCON-related event behavior
+
+Five Year Plan fires only a discarded US-associated event. Scoring cards are
+discarded without scoring; USSR may select Five Year Plan at the scoring
+deadline when every other held card is scoring and there are enough remaining
+rounds. That guaranteed escape offers only modes that trigger the discard.
+Missile Envy immediately resolves a received own/neutral event; an opponent
+event is used for Ops without firing. Wargames applies its six-VP concession
+and ends from the VP track, without regional final scoring (zero is a draw).
+Cuban Missile Crisis cancellation is an interrupt on either player's turn;
+see [ARCHITECTURE.md](ARCHITECTURE.md#defcon-responsibility-and-cancellation-interrupts).
+The DEFCON regressions cover nested events, headline ownership, physical-hand
+transfers, cancellation, and save/resume. Card summaries match these rules.
