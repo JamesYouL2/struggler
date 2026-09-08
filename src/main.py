@@ -55,6 +55,16 @@ def build_llm_client(provider: str | None = None, model: str | None = None):
     return client
 
 
+def load_opponent_model():
+    """STRUGGLER_OPPONENT_MODEL=<checkpoint.json> swaps the survival planner's
+    flat hand-attack / DEFCON-drop priors for learned ones (bots/opponent_model.py)."""
+    path = os.environ.get("STRUGGLER_OPPONENT_MODEL")
+    if not path:
+        return None
+    from struggler.bots.opponent_model import OpponentModel
+    return OpponentModel.load(path)
+
+
 def build_player(
     kind: str,
     *,
@@ -77,10 +87,11 @@ def build_player(
         path = os.environ.get("STRUGGLER_EVENT_VALUE_MODEL")
         if not path:
             raise ValueError("event-value requires STRUGGLER_EVENT_VALUE_MODEL=<checkpoint.json>")
-        return EventValuePlayer(ValueNetwork.load(path))
+        return EventValuePlayer(ValueNetwork.load(path), opponent_model=load_opponent_model())
     if kind == "strategic":
         model = os.environ.get("STRUGGLER_STRATEGIC_MODEL")
-        return StrategicPlayer(StrategicWeights.load(model) if model else None)
+        return StrategicPlayer(StrategicWeights.load(model) if model else None,
+                               opponent_model=load_opponent_model())
     if kind == "llm":
         client = build_llm_client()
         plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)

@@ -71,11 +71,15 @@ class StrategicWeights:
 
 
 class StrategicPlayer:
-    def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None):
+    def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None,
+                 opponent_model=None):
         self.weights = weights or StrategicWeights()
         self.board = Board()
         self._events: dict[str, float] = {}
         self.survival_prior = survival_prior or SurvivalPrior()
+        # Optional bots.opponent_model.OpponentModel: learned hand-attack and
+        # DEFCON-drop probabilities replace the flat survival_prior values.
+        self.opponent_model = opponent_model
         self._planner = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
@@ -87,7 +91,7 @@ class StrategicPlayer:
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
-            self._planner = DefconPlanner(observation, self.public_engine(observation), self.survival_prior)
+            self._planner = self.planner_for(observation)
         ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
                         key=lambda pair: pair[0], reverse=True)
         best_key, best = ranked[0]
@@ -127,7 +131,10 @@ class StrategicPlayer:
 
     def survival_features(self, observation):
         """Named features usable by a future win-probability model, without retraining VP weights."""
-        return DefconPlanner(observation, self.public_engine(observation), self.survival_prior).features()
+        return self.planner_for(observation).features()
+
+    def planner_for(self, obs: Observation) -> DefconPlanner:
+        return DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
 
     def safety_key(self, obs, action):
         """Certain immediate defeat and conditional turn risk precede trainable VP scores."""
@@ -229,7 +236,7 @@ class StrategicPlayer:
         influence[country] = dict(influence[country])
         influence[country][obs.side.value] = max(1, influence[country][obs.side.value])
         after = replace(obs, defcon=obs.defcon-1, influence=influence)
-        planner = DefconPlanner(after, self.public_engine(after), self.survival_prior)
+        planner = self.planner_for(after)
         risk = planner.discard_risk(None)
         log.debug('T%d AR%d %s coup %s%s -> DEFCON %d, turn-loss risk %.3f', obs.turn, obs.action_round,
                   obs.side.value, country, ' [BG]' if info.battleground else '', obs.defcon-1, risk)
@@ -328,7 +335,7 @@ class StrategicPlayer:
             # Explicit approximation for events beyond the public simulator.
             result = sign * card.ops * self.weights.ops * 0.8
         # Opponent-granted operations may coup a battleground at DEFCON 2.
-        planner = self._planner or DefconPlanner(obs, self.public_engine(obs), self.survival_prior)
+        planner = self._planner or self.planner_for(obs)
         risk = planner.event_risk(cid)
         result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
@@ -434,7 +441,7 @@ class StrategicPlayer:
                 # These options are the legitimately revealed US hand.
                 hand = tuple(a.payload['choice'] for a in obs.pending_decision.options)
                 target = replace(obs, side=Side.US, hand=tuple(c for c in hand if c != choice))
-                planner = DefconPlanner(target, self.public_engine(target), self.survival_prior)
+                planner = self.planner_for(target)
                 return 1000*planner.risk() + CARDS[choice].ops
             if event == 'Wargames':
                 if choice != 'end_game':

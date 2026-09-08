@@ -52,7 +52,9 @@ directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `bots/naive.py`, `GreedyPlayer` from `bots/greedy.py`, `LLMPlayer` from
 `bots/llm/player.py` — the `"llm"` branch also picks a provider client via
 `STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`, and passes through
-`plan_turns` from `--no-turn-plan`). Adding a new bot means
+`plan_turns` from `--no-turn-plan`; the `"strategic"` and `"event-value"`
+branches read `STRUGGLER_OPPONENT_MODEL` for the learned survival priors
+described in [STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)). Adding a new bot means
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.

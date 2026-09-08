@@ -124,13 +124,43 @@ mode the engine would offer (Ops, event, Space Race, UN Intervention),
 firing an opponent card's event on Ops exactly as the engine does. Between
 our rounds a chance node applies `SurvivalPrior`:
 
-- `opponent_lowers_defcon` (0.75) while DEFCON is above 2;
-- `opponent_hand_attack` (0.10) that an Aldrich Ames, Terrorism, Grain
-  Sales, or Missile Envy removes one of our safe cards, chosen
-  adversarially so a plan with no spare safe card is charged for it;
+- `opponent_lowers_defcon` (flat default 0.75) while DEFCON is above 2;
+- `opponent_hand_attack` (flat default 0.10) that an Aldrich Ames,
+  Terrorism, Grain Sales, or Missile Envy removes one of our safe cards,
+  chosen adversarially so a plan with no spare safe card is charged for it;
 - `unknown_chain_loss` and `replacement_hazard` for cards the search
   cannot see (Five Year Plan's random target from the US side, Missile
   Envy, Ask Not's replacements).
+
+Those two probabilities are learned, not hand-set, when a checkpoint is
+configured. `bots/opponent_model.py`'s `OpponentModel` is a two-head
+network (one tanh hidden layer, sigmoid outputs, standard library only)
+over public `Observation` features: turn, round, rounds left, DEFCON, hand
+sizes, the unseen-card share, each side's military-ops deficit, whether
+the opponent is trapped or Red-Scared, Iranian Hostage Crisis, and the
+public status (hand / unseen / discard / removed / not yet in the deck) of
+each attack card. Its labels are real: replaying a recorded game, each
+headline or action-round pick becomes a row labelled with whether a card
+held then was gone from the hand at that side's next pick (removals by the
+side's own decisions do not count) and whether DEFCON fell on an
+opponent-attributed step in between. Whole games stay in one of the
+train/validation/test splits. Train it from the checked-in logs and use
+it with `STRUGGLER_OPPONENT_MODEL`:
+
+```sh
+python -m struggler.bots.opponent_model --logs 'logs/game-check/*.json' \
+  --output models/opponent-model-v1.json
+STRUGGLER_OPPONENT_MODEL=models/opponent-model-v1.json \
+  python src/main.py --us strategic --ussr strategic --seed 1
+```
+
+`DefconPlanner` swaps the two flat prior values for the model's
+predictions per observation (`StrategicPlayer(opponent_model=...)`, also
+accepted by `EventValuePlayer`); the report next to the checkpoint gives
+log-loss and Brier score per head against the base-rate predictor and a
+calibration table on held-out games. The flat defaults remain the
+fallback without a checkpoint. A model trained on bot-vs-bot logs learns
+those bots' habits, so retrain it when the bots change.
 
 Two decisions outside the card play itself are also priced. A
 battleground coup (`coup_survival_risk`, used for the Ops-type choice and

@@ -1,0 +1,131 @@
+{
+  "seed": 7,
+  "games": 61,
+  "train_games": 36,
+  "validation_games": 12,
+  "test_games": 13,
+  "samples": 2995,
+  "validation_samples": 697,
+  "test_samples": 973,
+  "epochs": 600,
+  "rate": 0.3,
+  "selected_epoch": 54,
+  "parameters": 346,
+  "validation": {
+    "hand_attack": {
+      "positives": 2,
+      "rate": 0.0028694404591104736,
+      "log_loss": 0.020304279713219364,
+      "brier": 0.002918770556330425,
+      "base_rate_log_loss": 0.019661986042230652,
+      "base_rate_brier": 0.002861206770562093
+    },
+    "defcon_drop": {
+      "positives": 75,
+      "rate": 0.10760401721664276,
+      "log_loss": 0.3400373116629342,
+      "brier": 0.09645209451169472,
+      "base_rate_log_loss": 0.341476449212471,
+      "base_rate_brier": 0.0960253926954832
+    }
+  },
+  "test": {
+    "hand_attack": {
+      "positives": 6,
+      "rate": 0.006166495375128468,
+      "log_loss": 0.03782205081469181,
+      "brier": 0.006179599230033868,
+      "base_rate_log_loss": 0.037526423482301126,
+      "base_rate_brier": 0.006128469709916987
+    },
+    "defcon_drop": {
+      "positives": 95,
+      "rate": 0.09763617677286741,
+      "log_loss": 0.29693466004064106,
+      "brier": 0.0849616094774248,
+      "base_rate_log_loss": 0.3198578602808829,
+      "base_rate_brier": 0.0881033537580448
+    }
+  },
+  "test_calibration": {
+    "hand_attack": [
+      {
+        "bucket": 0,
+        "count": 973,
+        "predicted": 0.006656265315228886,
+        "observed": 0.006166495375128468
+      }
+    ],
+    "defcon_drop": [
+      {
+        "bucket": 0,
+        "count": 876,
+        "predicted": 0.0931933056358943,
+        "observed": 0.09018264840182648
+      },
+      {
+        "bucket": 1,
+        "count": 97,
+        "predicted": 0.2513864351632369,
+        "observed": 0.16494845360824742
+      }
+    ]
+  },
+  "test_by_defcon": {
+    "hand_attack": [
+      {
+        "defcon": 2,
+        "count": 346,
+        "predicted": 0.004626460152113703,
+        "observed": 0.008670520231213872
+      },
+      {
+        "defcon": 3,
+        "count": 229,
+        "predicted": 0.008935013385063084,
+        "observed": 0.0
+      },
+      {
+        "defcon": 4,
+        "count": 208,
+        "predicted": 0.007170898215983629,
+        "observed": 0.004807692307692308
+      },
+      {
+        "defcon": 5,
+        "count": 190,
+        "predicted": 0.007042768657801704,
+        "observed": 0.010526315789473684
+      }
+    ],
+    "defcon_drop": [
+      {
+        "defcon": 2,
+        "count": 346,
+        "predicted": 0.05498730406265701,
+        "observed": 0.008670520231213872
+      },
+      {
+        "defcon": 3,
+        "count": 229,
+        "predicted": 0.12612527755379044,
+        "observed": 0.1572052401746725
+      },
+      {
+        "defcon": 4,
+        "count": 208,
+        "predicted": 0.14660257199134433,
+        "observed": 0.15865384615384615
+      },
+      {
+        "defcon": 5,
+        "count": 190,
+        "predicted": 0.14536941688516017,
+        "observed": 0.12105263157894737
+      }
+    ]
+  },
+  "seconds": 136.33119816899853,
+  "logs": "logs/game-check/*.json",
+  "target": "per card pick: opponent removed a held card / lowered DEFCON before our next pick"
+}

@@ -12,7 +12,7 @@ Between our rounds the opponent may lower DEFCON or attack our hand
 the hand attack is adversarial: it takes whichever safe card we could least
 afford to lose.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 import logging
 import math
@@ -58,9 +58,15 @@ class SurvivalPrior:
 
 
 class DefconPlanner:
-    def __init__(self, obs, engine, prior=None):
+    def __init__(self, obs, engine, prior=None, opponent_model=None):
         self.obs, self.engine = obs, engine
         self.prior = prior or SurvivalPrior()
+        if opponent_model is not None:
+            # Learned from recorded games (bots/opponent_model.py); the flat
+            # defaults remain the fallback when no checkpoint is configured.
+            learned = opponent_model.priors(obs)
+            self.prior = replace(self.prior, opponent_hand_attack=learned['hand_attack'],
+                                 opponent_lowers_defcon=learned['defcon_drop'])
         self.side = obs.side
         self.hand = tuple(sorted(obs.hand))
         self.rounds = max(0, (6 if obs.turn <= 3 else 7) - max(1, obs.action_round) + 1)
@@ -87,6 +93,9 @@ class DefconPlanner:
             list(self.hand), self.china, self.trapped, self.mid_play,
             obs.space_race[self.side.value], obs.space_race_attempts[self.side.value],
         )
+        log.debug("planner %s priors: hand_attack=%.3f defcon_drop=%.3f%s", self.side.value,
+                  self.prior.opponent_hand_attack, self.prior.opponent_lowers_defcon,
+                  " (learned)" if opponent_model is not None else "")
 
     def _mid_play(self, obs):
         decision = obs.pending_decision

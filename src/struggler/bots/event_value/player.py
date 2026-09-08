@@ -5,8 +5,8 @@ from .network import ValueNetwork
 
 
 class EventValuePlayer(StrategicPlayer):
-    def __init__(self, model: ValueNetwork):
-        super().__init__()
+    def __init__(self, model: ValueNetwork, **kwargs):
+        super().__init__(**kwargs)
         self.model = model
         self._corrections = {}
 
