@@ -89,3 +89,14 @@ def test_greedy_aldrich_ames_remix_discards_the_opponents_highest_ops_card():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action.payload["choice"] == "Duck_and_Cover"
+
+
+def test_greedy_can_evaluate_europe_scoring_under_control():
+    from struggler.bots.greedy import _scoring_card_favorability
+    from struggler.engine import Region
+
+    board = Board()
+    for cid in board.countries_in(Region.EUROPE):
+        board.influence[cid]['USSR'] = board.countries[cid].stability
+    assert _scoring_card_favorability(board, Side.USSR, 'Europe_Scoring') > 100
+    assert _scoring_card_favorability(board, Side.US, 'Europe_Scoring') < -100

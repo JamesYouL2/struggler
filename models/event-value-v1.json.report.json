@@ -1,0 +1,22 @@
+{
+  "seed": 7,
+  "samples": 512,
+  "validation_samples": 128,
+  "test_samples": 128,
+  "epochs": 40,
+  "selected_epoch": 40,
+  "parameters": 1665,
+  "validation": {
+    "mse": 0.4931650937860247,
+    "mae": 0.31248214783897627,
+    "zero_residual_mse": 0.5391656183602731
+  },
+  "test": {
+    "mse": 0.3811388323208579,
+    "mae": 0.2950719451138521,
+    "zero_residual_mse": 0.45707613247365186
+  },
+  "seconds": 8.75384841199957,
+  "target": "event-scenario regional VP residual; includes both Nasser/Sadat orders",
+  "data_source": "synthetic positions"
+}

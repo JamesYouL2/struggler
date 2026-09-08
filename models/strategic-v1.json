@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "weights": {
+    "control": 2.0,
+    "battleground": 5.0,
+    "progress": 2.8,
+    "reserve": 0.35,
+    "access": 0.65,
+    "region": 1.3,
+    "vp": 3.0,
+    "military": 2.0,
+    "event": 1.0,
+    "ops": 2.0
+  },
+  "metadata": {
+    "training_seed": 200,
+    "trace": [
+      {
+        "generation": 0,
+        "opponent": "greedy",
+        "seeds": [
+          200,
+          201,
+          202,
+          203
+        ],
+        "scores": [
+          1.0,
+          1.0,
+          0.75
+        ],
+        "selected": 0
+      },
+      {
+        "generation": 1,
+        "opponent": "strategic",
+        "seeds": [
+          204,
+          205,
+          206,
+          207
+        ],
+        "scores": [
+          0.5,
+          0.5,
+          0.375
+        ],
+        "selected": 0
+      }
+    ]
+  }
+}

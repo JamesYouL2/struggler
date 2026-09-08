@@ -253,6 +253,13 @@ def _scoring_card_favorability(board: Board, side: Side, cid: str) -> float:
     region = SCORING_CARD_REGION.get(cid)
     if region is None:
         return 0.0
+    # Europe control is a win, not a numeric VP award. Board.score_region
+    # intentionally rejects that case; value it without calling that method.
+    if region is Region.EUROPE:
+        if board.region_tier(side, region) is ScoringTier.CONTROL:
+            return 1_000.0
+        if board.region_tier(side.opponent, region) is ScoringTier.CONTROL:
+            return -1_000.0
     net = board.score_region(region)  # positive favors US
     return net if side is Side.US else -net
 

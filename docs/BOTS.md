@@ -474,3 +474,16 @@ behavior, and a win-rate sanity check (`GreedyPlayer` vs. `RandomPlayer`
 over many seeds, both seat assignments) — a regression net for "the
 heuristics still actually help," not a claim of strategic strength.
 
+
+## Strategic tactical policy and evolutionary training
+
+`StrategicPlayer` in `bots/strategic.py` adds local influence search, dice
+expectations, and selected public-event simulations. `bots/train.py` trains
+its linear evaluation weights through evolutionary policy optimization.
+This implements a lightweight self-play training path alongside the existing
+roadmap; full-game search and deep reinforcement learning remain future work.
+See [STRATEGIC_AI.md](STRATEGIC_AI.md) for usage and measured results.
+
+The experimental [`event_value`](../src/struggler/bots/event_value/README.md)
+package adds a small neural regional-VP correction, trained cheaply from engine
+event scenarios with explicit card-availability and scoring-timing priors.

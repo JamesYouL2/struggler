@@ -15,6 +15,7 @@ import os
 from datetime import datetime
 
 from struggler.bots.greedy import GreedyPlayer
+from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.bots.llm.client import LLMClient
 from struggler.bots.llm.player import LLMPlayer
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
@@ -70,6 +71,15 @@ def build_player(
         return RandomPlayer(seed=seed)
     if kind == "greedy":
         return GreedyPlayer()
+    if kind == "event-value":
+        from struggler.bots.event_value import EventValuePlayer, ValueNetwork
+        path = os.environ.get("STRUGGLER_EVENT_VALUE_MODEL")
+        if not path:
+            raise ValueError("event-value requires STRUGGLER_EVENT_VALUE_MODEL=<checkpoint.json>")
+        return EventValuePlayer(ValueNetwork.load(path))
+    if kind == "strategic":
+        model = os.environ.get("STRUGGLER_STRATEGIC_MODEL")
+        return StrategicPlayer(StrategicWeights.load(model) if model else None)
     if kind == "llm":
         client = build_llm_client()
         plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
@@ -92,7 +102,7 @@ def build_player(
             log_path=log_path,
             resume=resume,
         )
-    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm)")
+    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/event-value/llm)")
 
 
 def main() -> None:

@@ -1,0 +1,335 @@
+{
+  "opponent": "greedy",
+  "pairs": 20,
+  "games": 40,
+  "score_rate": 0.85,
+  "wins": 34,
+  "draws": 0,
+  "by_side": {
+    "US": 0.7,
+    "USSR": 1.0
+  },
+  "paired_standard_error": 0.05256574830378469,
+  "records": [
+    {
+      "seed": 1000,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 2,
+      "vp": 6
+    },
+    {
+      "seed": 1000,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 6,
+      "vp": -21
+    },
+    {
+      "seed": 1001,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 5,
+      "vp": 23
+    },
+    {
+      "seed": 1001,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 3,
+      "vp": -22
+    },
+    {
+      "seed": 1002,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 4,
+      "vp": 24
+    },
+    {
+      "seed": 1002,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -21
+    },
+    {
+      "seed": 1003,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 7,
+      "vp": -12
+    },
+    {
+      "seed": 1003,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -26
+    },
+    {
+      "seed": 1004,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 3,
+      "vp": 2
+    },
+    {
+      "seed": 1004,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -20
+    },
+    {
+      "seed": 1005,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 5,
+      "vp": 21
+    },
+    {
+      "seed": 1005,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 6,
+      "vp": -13
+    },
+    {
+      "seed": 1006,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 8,
+      "vp": 20
+    },
+    {
+      "seed": 1006,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -22
+    },
+    {
+      "seed": 1007,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 5,
+      "vp": -14
+    },
+    {
+      "seed": 1007,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 6,
+      "vp": -24
+    },
+    {
+      "seed": 1008,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 5,
+      "vp": 9
+    },
+    {
+      "seed": 1008,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -24
+    },
+    {
+      "seed": 1009,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 4,
+      "vp": -9
+    },
+    {
+      "seed": 1009,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -23
+    },
+    {
+      "seed": 1010,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 1,
+      "vp": 0
+    },
+    {
+      "seed": 1010,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 3,
+      "vp": -20
+    },
+    {
+      "seed": 1011,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 3,
+      "vp": 7
+    },
+    {
+      "seed": 1011,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 3,
+      "vp": -20
+    },
+    {
+      "seed": 1012,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 6,
+      "vp": 8
+    },
+    {
+      "seed": 1012,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 4,
+      "vp": -20
+    },
+    {
+      "seed": 1013,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 7,
+      "vp": 24
+    },
+    {
+      "seed": 1013,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 4,
+      "vp": -26
+    },
+    {
+      "seed": 1014,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 4,
+      "vp": 15
+    },
+    {
+      "seed": 1014,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 4,
+      "vp": -21
+    },
+    {
+      "seed": 1015,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 2,
+      "vp": -4
+    },
+    {
+      "seed": 1015,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -20
+    },
+    {
+      "seed": 1016,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 2,
+      "vp": 8
+    },
+    {
+      "seed": 1016,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 4,
+      "vp": -21
+    },
+    {
+      "seed": 1017,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 3,
+      "vp": -1
+    },
+    {
+      "seed": 1017,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -22
+    },
+    {
+      "seed": 1018,
+      "side": "US",
+      "winner": "US",
+      "score": 1.0,
+      "turn": 4,
+      "vp": 20
+    },
+    {
+      "seed": 1018,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 5,
+      "vp": -21
+    },
+    {
+      "seed": 1019,
+      "side": "US",
+      "winner": "USSR",
+      "score": 0.0,
+      "turn": 7,
+      "vp": 14
+    },
+    {
+      "seed": 1019,
+      "side": "USSR",
+      "winner": "USSR",
+      "score": 1.0,
+      "turn": 2,
+      "vp": -22
+    }
+  ]
+}

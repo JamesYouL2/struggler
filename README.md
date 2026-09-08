@@ -53,6 +53,8 @@ The options for the players are:
 - first
 - random
 - greedy
+- strategic (local tactical AI, with optional trained weights)
+- event-value (experimental neural event-aware evaluator; requires a checkpoint)
 - llm
 
 But you can create your own implementation using the engine like this:
@@ -85,6 +87,25 @@ python src/main.py --resume-game-log logs/2026-08-18_10-58_game.json \
 from its log see [docs/BOTS.md](docs/BOTS.md) for the resumption
 contract, including keeping that memory in sync if you trim the game log.
 
+## Local strategic AI
+
+Play against the new local AI without API keys:
+
+```sh
+python src/main.py --ussr strategic
+python src/main.py --us strategic --ussr greedy --seed 1 --no-game-log
+```
+
+It evaluates multi-point influence investments, combat probabilities, regional
+scoring, and selected card events. An evolutionary trainer can optimize its
+weights through paired-seat games against greedy and self-play opponents.
+See [docs/STRATEGIC_AI.md](docs/STRATEGIC_AI.md) for trained weights,
+benchmark results, training commands, and limitations.
+
+A small neural model that learns event exposure and regional VP is now in
+[`bots/event_value`](src/struggler/bots/event_value/README.md). It includes
+CPU-only training, reusable datasets, and an optional `event-value` player.
+
 ## Add a new bot
 
 Every player, human or bot, uses the same `Player` interface:
@@ -107,6 +128,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for any known limitations.
 | [docs/CARDS.md](docs/CARDS.md) | Card data policy, the event layer, per-card coverage |
 | [docs/BOTS.md](docs/BOTS.md) | The `Player` interface, physical mode, bot roadmap |
 | [docs/TESTING.md](docs/TESTING.md) | Replay logs, property tests, test-writing policy |
+| [docs/DEFCON_STRATEGY.md](docs/DEFCON_STRATEGY.md) | Suicide cards, Five Year Plan, survival planning, and rules audit |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | What the engine does not model |
 
 ## Tests
