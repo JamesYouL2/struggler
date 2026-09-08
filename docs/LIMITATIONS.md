@@ -5,6 +5,12 @@ way.
 
 ## Rules fidelity
 
+The [DEFCON strategy audit](DEFCON_STRATEGY.md#engine-and-bot-discrepancies-to-resolve-before-training-on-these-outcomes)
+identifies additional unresolved issues: phasing-player responsibility,
+Five Year Plan event allegiance, Missile Envy forced resolution, Cuban Missile
+Crisis cancellation timing, and Wargames termination. These affect terminal
+training outcomes and must not be treated as intended rules.
+
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
   effect flag matters mechanically. A card-manipulation event such as Star
