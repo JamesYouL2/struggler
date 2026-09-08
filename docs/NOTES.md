@@ -106,6 +106,14 @@ recalibrated to the new Ops scale.
 
 ## How to look at things
 
+The gate for any value-function change is `scripts/gate.sh [base-ref]`:
+the turn-1 event-value table (`python -m struggler.bots.benchmark
+--table`, read it by eye against your own judgement), the turn-3
+checkpoint against the base commit, and full games against the base
+commit and the pre-session bot (b2e8572). One structural change per
+branch; it lands only when the table's disagreements shrink and neither
+game check drops. When a check fails, bisect, do not tune.
+
 ```sh
 # narrate a game: plays, events, influence moves, coups, DEFCON, scoring
 STRUGGLER_OPPONENT_MODEL=models/opponent-model-v1.json \

@@ -179,6 +179,46 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
     return summary
 
 
+def opening_board(seed: int, book=None):
+    """The board after the opening book, before the headline."""
+    from struggler.bots.strategic import StrategicPlayer
+    engine = Engine.new_game(seed=seed, setup_bonus=True)
+    bot = book or StrategicPlayer()
+    placed = []
+    while engine.pending_decision.context.get('setup'):
+        d = engine.pending_decision
+        action = bot.choose_action(engine.observe(d.actor), [])
+        placed.append((d.actor.value, action.payload['country']))
+        engine.step(action)
+    return engine, placed
+
+
+def event_table(seed: int, weights=None, out=sys.stdout) -> None:
+    """Every Early War event's value on the opening board, from each seat,
+    with the Ops scale beside it: the review table. Read it against your
+    own judgement; every row that disagrees is a value-function gap."""
+    from struggler.engine.cards import entry_turn
+    from struggler.bots.public_cards import CARDS
+    from struggler.bots.strategic import (HIDDEN_INFO_EVENTS, OPS_MODIFIER_EVENTS, StrategicPlayer)
+    engine, placed = opening_board(seed)
+    print(f'seed {seed} opening: ' + ', '.join(f'{s} {c}' for s, c in placed), file=out)
+    views, ops = {}, {}
+    for side in (Side.US, Side.USSR):
+        obs = engine.observe(side)
+        bot = StrategicPlayer(weights)
+        bot.rank_actions(obs)
+        views[side] = {c.id: bot.event_value(obs, c.id) for c in CARDS.values()
+                       if not c.scoring and entry_turn(c) <= 1 and c.id != 'The_China_Card'}
+        ops[side] = {n: bot.ops_value(obs, n) for n in (1, 2, 3, 4)}
+    print(f"{'card':<34}{'side':>8}{'ops':>4}{'US view':>10}{'USSR view':>11}  how", file=out)
+    for cid in sorted(views[Side.US], key=lambda c: -abs(views[Side.US][c])):
+        card = CARDS[cid]
+        how = ('modifier' if cid in OPS_MODIFIER_EVENTS else 'estimate' if cid in HIDDEN_INFO_EVENTS else 'sandbox')
+        print(f"{cid:<34}{card.side.value:>8}{card.ops:>4}{views[Side.US][cid]:>10.1f}{views[Side.USSR][cid]:>11.1f}  {how}", file=out)
+    for side in (Side.US, Side.USSR):
+        print(f"{side.value} Ops worth: " + ', '.join(f'{n} Ops = {v:.1f}' for n, v in ops[side].items()), file=out)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--bot', default='mcts', help='mcts | strategic | greedy; strategic@<file.py> loads that version')
@@ -190,7 +230,16 @@ def main(argv=None):
     parser.add_argument('--report', help='write per-game records and the summary here')
     parser.add_argument('--log-dir', help='write each game\'s INFO log here as <seed>-<side>.info.log')
     parser.add_argument('--bot-weights', help='strategic weights JSON for --bot only (the opponent keeps defaults)')
+    parser.add_argument('--table', action='store_true',
+                        help='print the turn-1 event-value review table for the first seed and exit')
     args = parser.parse_args(argv)
+    if args.table:
+        weights = None
+        if args.bot_weights:
+            from struggler.bots.strategic import StrategicWeights
+            weights = StrategicWeights.load(args.bot_weights)
+        event_table(parse_seeds(args.seeds)[0], weights)
+        return
     seeds = parse_seeds(args.seeds)
     if args.log_dir:
         os.makedirs(args.log_dir, exist_ok=True)
