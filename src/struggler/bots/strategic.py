@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
-from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side
+from struggler.engine import Action, DecisionKind as K, Engine, Observation, Period, Region, Side
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
@@ -54,6 +54,12 @@ class StrategicWeights:
     military: float = 2.0
     event: float = 1.0
     ops: float = 2.0
+    # Regional urgency multipliers by where the region's scoring card is:
+    # in our hand, live (draw pile or the opponent's hand: it can be played
+    # against us any round), or dead (discarded until the reshuffle, removed,
+    # or not yet in the deck), which is the 1.0 baseline.
+    scoring_hand: float = 1.6
+    scoring_live: float = 1.3
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -204,10 +210,29 @@ class StrategicPlayer:
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)
 
+    def scoring_urgency(self, obs: Observation, region: Region) -> float:
+        """How much this region's score matters right now, from where its
+        scoring card is. A live card (unseen: draw pile or opponent's hand) can
+        score the region at any moment, so the region must be played around;
+        a dead one cannot score before the reshuffle."""
+        cards = [c for c, r in SCORING_CARD_REGION.items() if r is region]
+        if region is Region.ASIA:
+            cards.append('Southeast_Asia_Scoring')
+        urgency = 1.0
+        for card in cards:
+            if card in obs.hand:
+                return self.weights.scoring_hand
+            if card in obs.discard_pile or card in obs.removed_cards:
+                continue
+            if obs.turn < {Period.EARLY_WAR: 1, Period.MID_WAR: 4, Period.LATE_WAR: 8}[CARDS[card].period]:
+                continue
+            urgency = max(urgency, self.weights.scoring_live)
+        return urgency
+
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         board, side = self.board, obs.side
         region = board.countries[cid].region
-        urgency = 1.6 if any(SCORING_CARD_REGION.get(c) is region for c in obs.hand) else 1.0
+        urgency = self.scoring_urgency(obs, region)
         def local():
             return self.country_value(board, cid, side) + self.weights.region * urgency * self.region_score(board, region, side)
         before = local()

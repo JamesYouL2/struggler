@@ -115,3 +115,25 @@ def test_influence_search_prices_breaking_enemy_control():
 def test_evaluation_rejects_empty_seed_set():
     with pytest.raises(ValueError, match='at least one seed'):
         evaluate(StrategicWeights(), [])
+
+
+def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
+    engine = Engine(seed=0)
+    engine.turn = 2
+    engine.board.influence['Iran']['USSR'] = 1
+    engine.hands['US'] = ['Nasser']
+    bot = StrategicPlayer()
+    live = engine.observe(Side.US)
+    dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
+    held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
+    urgencies = [bot.scoring_urgency(o, engine.board.countries['Iran'].region) for o in (dead, live, held)]
+    assert urgencies == [1.0, bot.weights.scoring_live, bot.weights.scoring_hand]
+    from struggler.bots.greedy import _sync_board
+    _sync_board(bot.board, live)
+    deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
+    assert deltas[0] < deltas[1] < deltas[2]
+    # Mid War scoring is not live before turn 4; an unrelated region is unaffected.
+    early = dataclasses.replace(live, turn=1)
+    from struggler.engine import Region
+    assert bot.scoring_urgency(early, Region.SOUTH_AMERICA) == 1.0
+    assert bot.scoring_urgency(dataclasses.replace(live, turn=5), Region.SOUTH_AMERICA) == bot.weights.scoring_live
