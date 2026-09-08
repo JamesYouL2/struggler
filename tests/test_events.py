@@ -2162,3 +2162,15 @@ def test_golden_events_replay_actually_fires_events():
         for a in log["actions"]
     )
     assert fired
+
+
+def test_event_that_ends_the_game_mid_resolution_leaves_no_pending_decision():
+    # Pershing II Deployed: USSR +1 VP, then the USSR removes US influence
+    # from three Western European countries. If the VP ends the game the
+    # removal must not be offered (mandate #1: pending is None iff ended).
+    engine = _bare()
+    engine.vp = -19
+    engine.board.influence['France']['US'] = 2
+    engine._fire_event(Side.USSR, 'Pershing_II_Deployed')
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.pending_decision is None and engine.legal_actions() == ()

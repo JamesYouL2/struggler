@@ -2129,6 +2129,12 @@ class Engine:
     def _push(
         self, actor: Side, kind: DecisionKind, options: tuple[Action, ...], context: dict
     ) -> None:
+        # Mandate #1: pending_decision is None iff the game has ended. An
+        # event can end the game mid-resolution (Pershing II's VP reaching
+        # 20, then its influence removal) and must not leave a decision
+        # behind; the continuation is simply abandoned, as _win does.
+        if self.is_terminal:
+            return
         self._decision_stack.append(self._new_decision(actor, kind, options, context))
 
     def _roll_d6(self) -> int:
