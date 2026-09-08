@@ -2,8 +2,10 @@
 
 Every seed is played twice, once per seating. A full game reports the win
 rate; a checkpoint (`--stop-turn N`) stops at the end of turn N and reports
-the position instead: VP, DEFCON and the strategic board value, signed for
-the benchmarked seat. Checkpoints after turn 1 (opening), turn 3 (end of
+the position instead, signed for the benchmarked seat: VP scored, DEFCON,
+the strategic board value, and a projection of the VP still to come from
+battleground control (per region, weighted by how many more times and how
+soon that region is expected to score; see `scoring_weights`). Checkpoints after turn 1 (opening), turn 3 (end of
 the Early War) and turn 7 (end of the Mid War) are cheap, low-variance
 proxies; the full game remains the final check, since a checkpoint score
 can be farmed at the late game's expense.
@@ -22,9 +24,63 @@ import sys
 import time
 from multiprocessing import Pool
 
-from struggler.engine import Engine, Side
+from struggler.engine import Engine, Region, Side, Subregion
+from struggler.engine.cards import entry_turn
+from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.replay import HistoryBuilder
+from struggler.bots.public_cards import CARDS, card_state
 from struggler.bots.strategic import StrategicPlayer
+
+# Checkpoint projection: how many more times each region is expected to
+# score, and how soon. A scoring card still to come this deck cycle counts
+# once now and once more after the reshuffle; one already in the discard
+# only after the reshuffle; a Mid War region's card only from the turn its
+# period enters. Southeast Asia scores once, and is removed. Each turn of
+# distance discounts the scoring by TURN_DISCOUNT.
+TURN_DISCOUNT = 0.8
+SEA_WEIGHT = 0.8
+CARDS_PER_TURN = 14  # both hands' draws, Early War
+
+
+def region_bg_diff(board, side: Side) -> dict[str, int]:
+    """Battleground control difference per region (and Southeast Asia), for `side`."""
+    diff = {r.value: 0 for r in Region}
+    diff['SOUTHEAST_ASIA'] = 0
+    for cid, info in board.countries.items():
+        if not info.battleground:
+            continue
+        controller = board.control(cid)
+        sign = 1 if controller is side else -1 if controller is side.opponent else 0
+        diff[info.region.value] += sign
+        if Subregion.SOUTHEAST_ASIA in info.subregions:
+            diff['SOUTHEAST_ASIA'] += sign
+    return diff
+
+
+def scoring_weights(engine, side: Side) -> dict[str, float]:
+    """Expected, turn-discounted number of further scorings per region."""
+    obs = engine.observe(side)
+    reshuffle_in = max(1, -(-obs.draw_pile_size // CARDS_PER_TURN))  # turns until the deck runs out
+    weights = {}
+    for card, region in SCORING_CARD_REGION.items():
+        state = card_state(obs, card)
+        if state == 'future':
+            weights[region.value] = TURN_DISCOUNT ** (entry_turn(CARDS[card]) - obs.turn)
+        elif state == 'discard':
+            weights[region.value] = TURN_DISCOUNT ** reshuffle_in
+        else:  # in a hand or the draw pile: this cycle and the next one
+            weights[region.value] = 1.0 + TURN_DISCOUNT ** reshuffle_in
+    state = card_state(obs, 'Southeast_Asia_Scoring')
+    weights['SOUTHEAST_ASIA'] = 0.0 if state in ('discard', 'removed') else SEA_WEIGHT
+    return weights
+
+
+def projection(engine, side: Side) -> dict:
+    diff = region_bg_diff(engine.board, side)
+    weights = scoring_weights(engine, side)
+    projected = sum(diff[r] * weights[r] for r in diff)
+    return dict(bg_diff=diff, weights={r: round(w, 2) for r, w in weights.items()},
+                projected_vp=round(projected, 2))
 
 
 def build(kind: str, seed: int, simulations: int):
@@ -65,7 +121,9 @@ def play(job: tuple) -> dict:
     sign = 1 if side is Side.US else -1
     winner = engine.winner
     value = StrategicPlayer().value(engine.board, side)
-    return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
+    outlook = projection(engine, side)
+    return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal, **outlook,
+                total=round(sign * engine.vp + outlook['projected_vp'], 2),
                 winner=None if winner is None else winner.value, reason=engine.game_over_reason,
                 turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
                 value=round(value, 2), seconds=round(time.time() - start, 1),
@@ -89,6 +147,10 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
     summary = dict(games=len(games), stop_turn=stop_turn, finished=len(finished),
                    nuclear_losses=sum(g['reason'] == 'defcon_1' and g['winner'] != g['bot_side'] for g in games),
                    mean_signed_vp=round(statistics.fmean(g['signed_vp'] for g in games), 2),
+                   mean_projected_vp=round(statistics.fmean(g['projected_vp'] for g in games), 2),
+                   mean_total=round(statistics.fmean(g['total'] for g in games), 2),
+                   mean_bg_diff={r: round(statistics.fmean(g['bg_diff'][r] for g in games), 2)
+                                 for r in games[0]['bg_diff']},
                    mean_value=round(statistics.fmean(g['value'] for g in games), 2),
                    mean_defcon=round(statistics.fmean(g['defcon'] for g in games), 2),
                    mean_game_seconds=round(statistics.fmean(g['seconds'] for g in games), 1))
@@ -119,7 +181,7 @@ def main(argv=None):
         for game in pool.imap_unordered(play, jobs, chunksize=1):
             games.append(game)
             print(f"{len(games):3d}/{len(jobs)} seed {game['seed']} {game['bot_side']:<4} T{game['turn']} "
-                  f"vp={game['signed_vp']:+d} defcon={game['defcon']} value={game['value']:+.1f} "
+                  f"vp={game['signed_vp']:+d} proj={game['projected_vp']:+.1f} defcon={game['defcon']} "
                   f"{game['reason'] or '...'} {game['seconds']}s", file=sys.stderr, flush=True)
     games.sort(key=lambda g: (g['seed'], g['bot_side']))
     summary = summarize(games, args.stop_turn)
