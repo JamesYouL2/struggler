@@ -47,29 +47,6 @@ action = bot.choose_action(observation, history)
   (5 holds against Socialist Governments). The influence search decides
   only if the book's country is somehow unavailable. Before the book the
   value function put 3 in Czechoslovakia, a non-battleground.
-- **Every weight is in VP.** A country is worth its tier's VP per
-  scoring of its region (`battleground` 1.0, `southeast_asia` 0.6,
-  `control` 0.3), times the region's expected remaining scorings from the
-  static card schedule, so the exchange rate between a battleground and
-  a VP depends on the turn and on where the scoring cards are: a
-  battleground in unscored turn-1 Europe is about 1.6 VP of tier plus its
-  share of the exact region score, scaled the same way; one in a region
-  just scored, 0.6. A stake (presence without control) is the control
-  value times `conversion` (0.65) to the power of the Ops still needed:
-  a point in a 2-stability country is 65% of control, in a 3-stability
-  country 42%. Reach into a battleground we could not otherwise place in
-  is `access` (0.5) of that same option, priced by what it would cost to
-  take. `vp` is 1 by construction and `military` 1 because a Military Ops
-  shortfall is paid in VP. On the opening board an Op is worth 3-5 VP and
-  a 4-Ops card 12-16, against Nuclear Test Ban's 3.
-- Red Scare/Purge, Containment and Brezhnev Doctrine are priced as the
-  rounds left times the marginal value of an Op for the side they touch,
-  on this board (`marginal_op`, smoothed over a card's range). CIA Created
-  and Lone Gunman are worth what the granted Op buys the side that gets it
-  (`opponent_ops_value` evaluates the board from the other seat). A
-  headline candidate is worth its event minus the action-round use it
-  gives up (`card_play_value`), since the card it displaces takes that
-  round.
 - Ops are priced by their best use on this board (`ops_value`): a greedy
   influence plan (so the value is concave in Ops: the fourth point buys
   less than the first) or the best coup, whichever is larger. Events,

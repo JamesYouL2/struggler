@@ -3,7 +3,7 @@ import dataclasses
 
 import pytest
 
-from struggler.bots.strategic import CARDS, StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
 from struggler.bots.train import evaluate, mutate
 import random
@@ -31,7 +31,7 @@ def test_reused_evaluation_caches_match_fresh_policy_after_board_and_weight_chan
     bot.rank_actions(engine.observe(Side.US))
     engine.board.influence['Iran']['US'] = 4
     engine.board.influence['Pakistan']['USSR'] = 2
-    bot.weights = StrategicWeights(conversion=0.4, battleground=2)
+    bot.weights = StrategicWeights(progress_curve=2, battleground=7)
     obs = engine.observe(Side.US)
     assert bot.rank_actions(obs) == StrategicPlayer(bot.weights).rank_actions(obs)
 
@@ -90,16 +90,7 @@ def test_public_event_simulation_prefers_fidel_over_dead_event():
     options = tuple(Action(K.HEADLINE_PLAY, {'card': c}) for c in ('Truman_Doctrine','Fidel'))
     obs = dataclasses.replace(obs, pending_decision=Decision(1,Side.USSR,K.HEADLINE_PLAY,options))
     before = engine.serialize()
-    bot = StrategicPlayer()
-    ranked = bot.rank_actions(obs)
-    # Fidel's event is simulated (Cuba becomes USSR-controlled) and is
-    # positive; Truman Doctrine has nothing to remove on this board.
-    assert bot.event_value(obs, 'Fidel') > 0 == bot.event_value(obs, 'Truman_Doctrine')
-    # A headline is worth its event minus the action-round use it gives up.
-    def expected(cid):
-        event = bot.event_value(obs, cid)
-        return event - bot.card_play_value(obs, cid, CARDS[cid].ops, event)
-    assert [a.payload['card'] for _, a in ranked] == sorted(('Truman_Doctrine', 'Fidel'), key=expected, reverse=True)
+    assert StrategicPlayer().choose_action(obs, []).payload['card'] == 'Fidel'
     assert engine.serialize() == before
 
 
@@ -195,18 +186,18 @@ def test_influence_value_is_convex_and_reserve_scales_with_stability():
             return bot.country_value(board, cid, Side.US)
         finally:
             board.influence[cid]['US'] = 0
-    # A stake is the control value times its conversion odds, so a lone
-    # point is well under half of control, and the reserve beyond control
-    # is worth little. (Reach is priced separately: access=0 here.)
-    bot.weights = StrategicWeights(access=0)
-    empty, one, control = (value_at('Iraq', n) for n in (0, 1, 3))  # stability 3
-    assert 0 < one - empty < 0.5 * (control - empty)
-    assert one - empty == pytest.approx(bot.weights.progress * bot.weights.conversion ** 2 * (control - empty), rel=1e-6)
-    assert value_at('Iraq', 4) - control < one - empty
-    # With reserve_stability the reserve is worth more where a coup is cheap.
-    bot = StrategicPlayer(StrategicWeights(reserve_stability=1.0, access=0))
+    # Default (linear, flat) shape: the first point in stability-2 Iran is
+    # priced above control's own term -- the option-value stand-in.
+    empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
+    assert one - empty > bot.weights.battleground
+    assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2)
+    # Convex shape: well under half of control for a lone point, and a
+    # reserve that is worth more where a coup is cheap.
+    bot = StrategicPlayer(StrategicWeights(progress_curve=2.0, reserve_stability=1.0))
     board = bot.board
     board.load_influence(engine.board.serialize())
+    empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
+    assert one - empty < 0.5 * (control - empty)
     guard_low = value_at('Angola', 2) - value_at('Angola', 1)      # stability 1
     guard_high = value_at('Pakistan', 3) - value_at('Pakistan', 2)  # stability 2
     assert 0 < guard_high < guard_low

@@ -69,14 +69,9 @@ def test_ops_plan_serves_the_same_coup_target_as_the_full_policy():
     assert reference[0].payload['type'] == 'coup'
     assert served[:2] == reference[:2]
     assert (policy.misses, policy.served) == (1, 1)  # the target came from the plan
-    # With no coup on offer the plan is simply not consulted.
-    def no_coup():
-        engine = coup_position()
-        engine._decision_stack.clear()
-        engine._push_ops_type(Side.US, 3, allow_coup=False)
-        return engine
-    reference = run_ops(no_coup(), StrategicPlayer())
-    served = run_ops(no_coup(), RolloutPolicy())
+    # With influence preferred instead, the plan is simply not consulted.
+    reference = run_ops(coup_position(1), StrategicPlayer())
+    served = run_ops(coup_position(1), RolloutPolicy())
     assert reference[0].payload['type'] == 'influence'
     assert served[0] == reference[0]
 
