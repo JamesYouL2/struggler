@@ -158,6 +158,16 @@ which card leaves and how many safe plays remain afterwards.
 | Grain Sales to Soviets | A random USSR card is revealed; the US keeps it or returns it. | Removes a USSR card, and the US may play it in full. |
 | Missile Envy | Opponent surrenders its highest-Ops card. | Both a hand attack and a forced event on receipt; see the retrieval table above. |
 
+**How strong humans use the attack cards.** Assume the worst when the
+opponent can hold them: a strong player always events Grain Sales to
+Soviets and always events Aldrich Ames Remix, and events Terrorism almost
+always when behind and always once Iranian Hostage Crisis is in effect
+(two random discards). Bot-versus-bot logs under-represent all three, so a
+hand-attack rate learned from them (see
+[STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)) describes those bots, not
+a human opponent; against a human, treat "the opponent may hold the card"
+as "the opponent will play it".
+
 **Self-trapping as disposal.** Because a trap's discard fires no event, a
 side can play the opponent's trap for Ops on purpose to dump cards it
 could never safely play. The USSR playing Bear Trap for Ops can then shed

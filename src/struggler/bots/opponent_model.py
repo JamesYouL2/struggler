@@ -19,6 +19,11 @@ Train from the checked-in game logs:
 
 Use it: STRUGGLER_OPPONENT_MODEL=models/opponent-model-v1.json for the
 `strategic` and `event-value` players.
+
+A model describes the opponents in its logs. Bot-vs-bot games rarely event
+Grain Sales, Aldrich Ames, or Terrorism; strong humans always event the
+first two and Terrorism when behind or with Iranian Hostage Crisis, so a
+checkpoint fitted to bot logs under-predicts hand attacks against humans.
 """
 from __future__ import annotations
 

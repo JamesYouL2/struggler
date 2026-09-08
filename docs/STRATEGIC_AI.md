@@ -160,7 +160,13 @@ accepted by `EventValuePlayer`); the report next to the checkpoint gives
 log-loss and Brier score per head against the base-rate predictor and a
 calibration table on held-out games. The flat defaults remain the
 fallback without a checkpoint. A model trained on bot-vs-bot logs learns
-those bots' habits, so retrain it when the bots change.
+those bots' habits, so retrain it when the bots change. In particular the
+checked-in checkpoint's hand-attack head is a base rate below 1% because
+these bots almost never event Grain Sales, Aldrich Ames, or Terrorism;
+strong humans always event the first two and event Terrorism whenever
+behind or holding Iranian Hostage Crisis
+([DEFCON_STRATEGY.md](DEFCON_STRATEGY.md#hand-discard-effects-traps-and-modifiers)).
+Against humans prefer the flat prior, or a model trained on human logs.
 
 Two decisions outside the card play itself are also priced. A
 battleground coup (`coup_survival_risk`, used for the Ops-type choice and
