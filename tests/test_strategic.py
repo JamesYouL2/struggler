@@ -23,6 +23,19 @@ def test_invests_in_uncontrolled_battleground_without_mutating_observation():
     assert bot.board.influence == obs.influence
 
 
+def test_reused_evaluation_caches_match_fresh_policy_after_board_and_weight_changes():
+    engine = Engine(seed=1)
+    engine.board.influence['Iran']['US'] = 1
+    engine._maybe_push_place_influence(Side.US, 3)
+    bot = StrategicPlayer()
+    bot.rank_actions(engine.observe(Side.US))
+    engine.board.influence['Iran']['US'] = 4
+    engine.board.influence['Pakistan']['USSR'] = 2
+    bot.weights = StrategicWeights(progress_curve=2, battleground=7)
+    obs = engine.observe(Side.US)
+    assert bot.rank_actions(obs) == StrategicPlayer(bot.weights).rank_actions(obs)
+
+
 @pytest.mark.parametrize('crisis', [False, True])
 def test_avoids_fatal_coups(crisis):
     engine = Engine(seed=0)

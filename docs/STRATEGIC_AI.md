@@ -340,3 +340,27 @@ seconds on this workspace (other validation work ran concurrently); none
 of the rollouts hit the step cap. The US selected Pakistan investment
 macros on turn 1 AR3 and AR4 and scored Asia at -5 on AR5. This is a smoke
 measurement, not a paired comparison or evidence of a strength gain.
+
+### Profile-guided speed improvements
+
+Strategic evaluation now caches country values (including event sandboxes)
+and map access terms for one decision, reuses region membership, and skips
+regional rescoring when a hypothetical influence change leaves control
+unchanged. Realignment evaluates each distinct dice margin once while
+retaining the original summation order. Influence observations copy both
+mapping levels directly; their integer leaves need no recursive deepcopy.
+MCTS information keys freeze public fields directly instead of deep-copying
+a dataclass and encoding JSON. Simulation count, safety policy, rollout
+horizon, and VP-inclusive returns are unchanged.
+
+Three alternating before/after runs on saved seed-3003 positions measured:
+
+| Workload | Before (median) | After (median) | Speedup |
+| --- | ---: | ---: | ---: |
+| Rank 150 strategic decisions | 0.900 s | 0.627 s | 1.44x |
+| First US card pick, 24 MCTS simulations | 4.472 s | 2.772 s | 1.61x |
+
+All legal-action rankings and root MCTS move values matched exactly across
+these comparisons. These are local microbenchmarks, not a full-game timing
+or playing-strength claim. Measurements are saved in
+`logs/game-check/mcts-speed-comparison.json` (gitignored evidence).

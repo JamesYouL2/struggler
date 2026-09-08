@@ -123,13 +123,15 @@ class StrategicPlayer:
         _sync_board(self.board, observation)
         self._events = {}
         self._region_cache = {}
+        self._country_cache = {}
+        self._access_cache = {}
+        self._region_members = {r: self.board.countries_in(r) for r in Region}
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
             self._planner = self.planner_for(observation)
-        ranked = sorted(((self.safety_key(observation, a), a) for a in decision.options),
-                        key=lambda pair: pair[0], reverse=True)
-        return ranked
+        return sorted(((self.safety_key(observation, a), a) for a in decision.options),
+                      key=lambda pair: pair[0], reverse=True)
 
     def _log_choice(self, obs, decision, ranked):
         """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""
@@ -218,7 +220,8 @@ class StrategicPlayer:
         cache = getattr(self, '_region_cache', None)
         key = None
         if cache is not None and board is self.board:
-            key = (region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, board.countries_in(region))))
+            key = (region, tuple((v['US'], v['USSR']) for v in
+                                 map(board.influence.__getitem__, self._region_members[region])))
             if key in cache:
                 net = cache[key]
                 return net if side is Side.US else -net
@@ -234,6 +237,10 @@ class StrategicPlayer:
         w = self.weights
         info = board.countries[cid]
         own, opp = (board.influence[cid][s.value] for s in (side, side.opponent))
+        cache = getattr(self, '_country_cache', None)
+        key = (board, cid, side, own, opp)
+        if cache is not None and key in cache:
+            return cache[key]
         margin = own - opp
         importance = self.importance(info)
         value = importance * (1 if margin >= info.stability else -1 if margin <= -info.stability else 0)
@@ -247,9 +254,18 @@ class StrategicPlayer:
         guard = w.reserve * importance / info.stability ** w.reserve_stability
         value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         # First footholds open nearby battlegrounds on a later action round.
-        access = sum(1 / board.countries[n].stability for n in board.neighbors(cid)
-                     if n in board.countries and board.countries[n].battleground)
+        access_cache = getattr(self, '_access_cache', None)
+        access_key = (board, cid)
+        if access_cache is not None and access_key in access_cache:
+            access = access_cache[access_key]
+        else:
+            access = sum(1 / board.countries[n].stability for n in board.neighbors(cid)
+                         if n in board.countries and board.countries[n].battleground)
+            if access_cache is not None:
+                access_cache[access_key] = access
         value += w.access * access * ((own > 0) - (opp > 0))
+        if cache is not None:
+            cache[key] = value
         return value
 
     def value(self, board: Board, side: Side) -> float:
@@ -287,16 +303,21 @@ class StrategicPlayer:
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         board, side = self.board, obs.side
+        if own == 0 and opp == 0:
+            return 0.
         region = board.countries[cid].region
         urgency = self.scoring_urgency(obs, cid)
-        def local():
-            return self.country_value(board, cid, side) + self.weights.region * urgency * self.region_score(board, region, side)
-        before = local()
+        region_before = self.region_score(board, region, side)
+        before = self.country_value(board, cid, side) + self.weights.region * urgency * region_before
+        controller = board.control(cid)
         original = dict(board.influence[cid])
         try:
             board.influence[cid][side.value] = max(0, original[side.value] + own)
             board.influence[cid][side.opponent.value] = max(0, original[side.opponent.value] + opp)
-            return local() - before
+            # Partial influence and overprotection cannot change regional VP.
+            region_after = (region_before if board.control(cid) is controller else
+                            self.region_score(board, region, side))
+            return self.country_value(board, cid, side) + self.weights.region * urgency * region_after - before
         finally:
             board.influence[cid].update(original)
 
@@ -313,8 +334,7 @@ class StrategicPlayer:
             return self._planner.discard_risk(None)
         if obs.defcon - 1 <= 1:
             return 1.
-        influence = copy.deepcopy(dict(obs.influence))
-        influence[country] = dict(influence[country])
+        influence = {c: dict(v) for c, v in obs.influence.items()}
         influence[country][obs.side.value] = max(1, influence[country][obs.side.value])
         after = replace(obs, defcon=obs.defcon-1, influence=influence)
         planner = self.planner_for(after)
@@ -382,10 +402,14 @@ class StrategicPlayer:
         side = obs.side
         bonus = _realignment_bonus(self.board, side, cid) - _realignment_bonus(self.board, side.opponent, cid) + _realignment_modifier(obs, side)
         total = 0.0
+        outcomes = {}
         for a in range(1, 7):
             for b in range(1, 7):
                 margin = int(a-b+bonus)
-                total += self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
+                if margin not in outcomes:
+                    outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
+                # Keep the original addition order (and floating-point ties).
+                total += outcomes[margin]
         return total * self.weights.coup_discount
 
     def event_value(self, obs: Observation, cid: str) -> float:

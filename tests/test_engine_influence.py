@@ -97,5 +97,14 @@ def test_observe_reflects_influence_and_pending_decision():
     assert obs.defcon == 5
     assert obs.pending_decision is engine.pending_decision
 
+    # Rollout observations own both mapping levels: neither direction of
+    # mutation may change an already-issued view or the live board.
+    engine.board.influence['Poland']['USSR'] = 3
+    assert obs.influence['Poland']['USSR'] == 0
+    obs.influence['Poland']['USSR'] = 7
+    obs.influence['France'] = {'US': 9, 'USSR': 0}
+    assert engine.board.influence['Poland']['USSR'] == 3
+    assert engine.board.influence['France']['US'] == 0
+
     with pytest.raises(ValueError):
         engine.observe(Side.CHANCE)

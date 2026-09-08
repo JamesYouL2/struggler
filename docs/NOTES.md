@@ -74,3 +74,8 @@ safety, and actually investing before scoring. See `docs/STRATEGIC_AI.md`
 urgency-only behavior remains unchanged. Next: measure paired-seat strength
 and search cost before promoting this prototype or expanding its scope.
 
+Speed follow-up: profiling the prototype led to exact evaluation caching,
+control-aware regional rescoring, deduplicated realignment evaluation, and
+cheaper isolated observations/information keys. Three alternating local
+runs measured 1.44x strategic and 1.61x MCTS speedups with identical rankings
+and root values. See `docs/STRATEGIC_AI.md` for workloads and evidence.

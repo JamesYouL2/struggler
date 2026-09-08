@@ -7,12 +7,11 @@ observation. No live engine, private stack, or live RNG is accepted.
 from __future__ import annotations
 
 import copy
-import json
 import logging
 import math
 import random
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass, fields
 
 from struggler.engine import DecisionKind as K, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
@@ -40,9 +39,16 @@ class Edge:
 
 def information_key(obs):
     """Only information available to this seat; decision IDs are bookkeeping."""
-    data = asdict(obs)
-    data['pending_decision'].pop('id')
-    return json.dumps(data, sort_keys=True, default=lambda value: value.value)
+    def freeze(value):
+        if isinstance(value, dict):
+            return tuple((k, freeze(v)) for k, v in sorted(value.items()))
+        if isinstance(value, (tuple, list)):
+            return tuple(map(freeze, value))
+        return value
+    d = obs.pending_decision
+    decision = (d.actor, d.kind, tuple((a.kind, freeze(a.payload)) for a in d.options), freeze(d.context))
+    return tuple(decision if f.name == 'pending_decision' else freeze(getattr(obs, f.name))
+                 for f in fields(obs))
 
 
 class MCTSPlayer:
