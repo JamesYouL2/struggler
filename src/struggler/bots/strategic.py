@@ -109,6 +109,7 @@ class StrategicPlayer:
         # DEFCON-drop probabilities replace the flat survival_prior values.
         self.opponent_model = opponent_model
         self._planner = None
+        self._event_basis = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -412,28 +413,50 @@ class StrategicPlayer:
                 total += outcomes[margin]
         return total * self.weights.coup_discount
 
+    def _public_event_value(self, obs: Observation, cid: str) -> float:
+        """Simulate a whitelisted event in an idle sandbox and value the change.
+
+        Every whitelisted event at one decision starts from the same board,
+        so its per-country and per-region terms are computed once and only
+        the countries and regions the event touched are re-evaluated,
+        preserving the original summation order.
+        """
+        engine = self.public_engine(obs)
+        basis_key = (self.weights, obs.side, tuple((c, v['US'], v['USSR'])
+                                                 for c, v in obs.influence.items()))
+        if self._event_basis is None or self._event_basis[0] != basis_key:
+            countries = {c: self.country_value(engine.board, c, obs.side) for c in engine.board.countries}
+            regions = {r: self.region_score(engine.board, r, obs.side) for r in Region}
+            before = sum(countries.values()) + self.weights.region * sum(regions.values())
+            self._event_basis = (basis_key, countries, regions, before)
+        _, countries, regions, before = self._event_basis
+        engine._fire_event(obs.side, cid)
+        policy = StrategicPlayer(self.weights)
+        for _ in range(32):
+            if engine.is_terminal or engine.pending_decision is None:
+                break
+            d = engine.pending_decision
+            if d.kind is not K.EVENT_INFLUENCE:
+                break
+            engine.step(policy.choose_action(engine.observe(d.actor), []))
+        if engine.is_terminal:
+            return -LOSS if engine.winner is obs.side else LOSS
+        changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
+        changed_regions = {engine.board.countries[c].region for c in changed}
+        after = sum(self.country_value(engine.board, c, obs.side) if c in changed else v
+                    for c, v in countries.items())
+        after += self.weights.region * sum(self.region_score(engine.board, r, obs.side)
+                                            if r in changed_regions else v for r, v in regions.items())
+        result = after - before
+        return result + self.weights.vp * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+
     def event_value(self, obs: Observation, cid: str) -> float:
         if cid in self._events:
             return self._events[cid]
         card = CARDS[cid]
         sign = -1 if card.side.value == obs.side.opponent.value else 1
         if cid in PUBLIC_EVENTS:
-            engine = self.public_engine(obs)
-            before = self.value(engine.board, obs.side)
-            engine._fire_event(obs.side, cid)
-            policy = StrategicPlayer(self.weights)
-            for _ in range(32):
-                if engine.is_terminal or engine.pending_decision is None:
-                    break
-                d = engine.pending_decision
-                if d.kind is not K.EVENT_INFLUENCE:
-                    break
-                engine.step(policy.choose_action(engine.observe(d.actor), []))
-            if engine.is_terminal:
-                result = -LOSS if engine.winner is obs.side else LOSS
-            else:
-                result = self.value(engine.board, obs.side) - before
-                result += self.weights.vp * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+            result = self._public_event_value(obs, cid)
         elif cid in ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge'):
             rounds = max(1, (6 if obs.turn <= 3 else 7) - obs.action_round)
             result = sign * rounds * self.weights.ops
