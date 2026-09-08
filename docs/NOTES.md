@@ -47,6 +47,28 @@ The VP weight against the new Ops scale: 3 / 6 / 10 score 0.81 / 0.88 /
 against the current default (3) in mirror matches on the same seeds
 (`logs/game-check/vp-*`). No signal at 32 games; the default stays 3.
 
+### The VP-unit value function: tried, reverted, worth retrying
+
+Commit 2d72916 (reverted by 3f3baad) put every weight in VP: a country =
+its tier's VP per scoring x the region's expected remaining scorings; a
+stake = control value x conversion ** (Ops still needed); reach = a share
+of the option it opens, priced by its cost; the exact region score scaled
+the same way; Red Scare/Containment = rounds x marginal Op value; CIA
+Created = what the granted Op buys. The turn-1 table then read the way a
+strong player reads it (Nasser = two USSR Ops, Nuclear Test Ban 3 against
+a 4-Ops card's 12-16, COMECON free, Vietnam Revolts up for Thailand
+reach). It lost anyway: 0.31 against its parent (ab50946), 0.125 after
+three follow-ups (headline = event - half its action-round use, military
+credit 0.5, every future scoring cycle counted), 0.20 with the cycles
+off; seven weight ablations at the turn-3 checkpoint (tiers x3/x5/x8,
+discount 0.6, region 0.4, access/reserve down) all trailed by 3-6 total.
+The turn-3 battleground map showed it ceding Middle East and Asia while
+taking Africa and South America. The unmeasured suspects are the stake
+form (conversion odds vs the linear fraction), the reserve (0.16 VP vs
+0.6 VP a point), and the region score's ten-times larger share. Evidence:
+`logs/game-check/vpunits*`. The form is right; the calibration needs the
+checkpoint benchmark one structural change at a time, not all at once.
+
 Still wrong on that board, by human judgement: Marshall Plan at 13.6 (one
 Op) is far too low, COMECON at 5.4 slightly high. Both are the same gap:
 a stake is valued by its fraction of the way to control, not by its odds
