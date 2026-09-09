@@ -80,13 +80,13 @@ def corpus_position(pred):
     raise LookupError('no corpus position matches')
 
 
-def mcts_on(rec):
+def mcts_on(rec, *, search_all=False):
     """Run the search and return its statistics; a position where MCTS
     falls back to the plain policy (no scoring card in hand, or sampling
     failure) is a hard error, not a silent non-profile."""
     engine = Engine.deserialize(rec['engine'])
     side = Side(rec['side'])
-    bot = MCTSPlayer(simulations=24)
+    bot = MCTSPlayer(simulations=24, search_all=search_all)
     action = bot.choose_action(engine.observe(side), [])
     if bot.last_search is None:
         raise RuntimeError(f"no search ran for seed {rec['seed']} T{rec['turn']} AR{rec['action_round']} {rec['side']}")
@@ -112,9 +112,11 @@ def main():
                                 and Engine.deserialize(r['engine']).defcon <= 3
                                 and any(op == 'hazardous' and result
                                         for op, _card, result in r.get('planner', {}).get('probes', ())))
-    for label, rec in (('MCTS opening', opening), ('MCTS scoring', scoring), ('MCTS hazardous', hazardous)):
+    for label, rec, search_all in (('MCTS opening', opening, False),
+                                   ('MCTS scoring', scoring, False),
+                                   ('MCTS hazardous', hazardous, True)):
         print(f"  position: seed {rec['seed']} T{rec['turn']} AR{rec['action_round']} {rec['side']}")
-        profile(label, lambda rec=rec: mcts_on(rec), args.repeats)
+        profile(label, lambda rec=rec, search_all=search_all: mcts_on(rec, search_all=search_all), args.repeats)
     revision = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
     dirty = subprocess.run(['git', 'status', '--porcelain', 'src'], capture_output=True, text=True).stdout.strip()
     with open(args.out, 'w') as f:
