@@ -40,7 +40,8 @@
         "ops": null
       },
       "Ask_Not_What_Your_Country_Can_Do_For_You": {
-        "ops": null
+        "ops": 4.5,
+        "note": "About 4.5 for the US, and obviously much stronger at the start of a turn than the end: the value is the number of cards in the US hand it can still upgrade. (Expert.) The bot's _hand_upgrade_value is hand-dependent for the same reason and bounds the count by the Action Rounds left; this figure is the start-of-turn case."
       },
       "Shuttle_Diplomacy": {
         "ops": null

@@ -201,6 +201,10 @@ class StrategicWeights:
     vp_mid: float = 1.0
     vp_late: float = 2.0
     military: float = 2.0
+    # Retired: the estimate fallback it scaled now prices through
+    # `ops_value`, like every other Ops term. Kept so saved weights and the
+    # parity corpus's recorded weights still load; `mutate` will perturb it
+    # to no effect.
     ops: float = 2.0
     # A country is worth what its region will still score: the sum over its
     # scoring cards' expected future plays of scoring_discount ** (turns
@@ -1070,8 +1074,16 @@ class StrategicPlayer:
         elif cid == ASK:
             result = self._hand_upgrade_value(obs)
         if result is None:
-            # Explicit approximation for events beyond the public simulator.
-            result = sign * card.ops * self.weights.ops * 0.8
+            # Explicit approximation for events beyond the public simulator:
+            # the card's Ops on this board, discounted -- and on the same
+            # scale as everything else. This used to be `card.ops *
+            # weights.ops * 0.8`, a raw weight of 2.0 where `ops_value(1)`
+            # is ~30 on turn 1 and ~75 on turn 6, so every card that fell
+            # through here was priced at 0.02-0.06 Ops: CIA Created, which
+            # grants a literal Op, came out at 1.6 raw against 28.6 for one
+            # Op. The same defect was found and fixed for `vp` (see the
+            # StrategicWeights comment on vp_early); `ops` was left behind.
+            result = sign * self.ops_value(obs, card.ops) * 0.8
         # Opponent-granted operations may coup a battleground at DEFCON 2.
         planner = self._planner or self.planner_for(obs)
         risk = planner.event_risk(cid)
