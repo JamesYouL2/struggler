@@ -110,7 +110,8 @@ def main():
                               and any(c.endswith('_Scoring') for c in Engine.deserialize(r['engine']).hands[r['side']]))
     hazardous = corpus_position(lambda r: r['kind'] == 'action_round_play' and r['turn'] >= 5
                                 and Engine.deserialize(r['engine']).defcon <= 3
-                                and r.get('planner', {}).get('hazardous') and any(r['planner']['hazardous'].values()))
+                                and any(op == 'hazardous' and result
+                                        for op, _card, result in r.get('planner', {}).get('probes', ())))
     for label, rec in (('MCTS opening', opening), ('MCTS scoring', scoring), ('MCTS hazardous', hazardous)):
         print(f"  position: seed {rec['seed']} T{rec['turn']} AR{rec['action_round']} {rec['side']}")
         profile(label, lambda rec=rec: mcts_on(rec), args.repeats)
