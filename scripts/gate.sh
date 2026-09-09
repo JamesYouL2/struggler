@@ -8,10 +8,13 @@
 # THE EXIT STATUS IS THE VERDICT. This script used to print numbers and exit 0
 # whatever they said, so "the gate passed" only ever meant "the gate ran"; step
 # 4 is what makes it mean something. The rules live in
-# `benchmark.acceptance`: no nuclear losses, two samples over disjoint seeds
-# and 150+ games, and a pooled score whose one-sided 95% upper bound reaches
-# 0.500. Only measurable regressions are blocked, because at these sample
-# sizes most real changes are not measurable in either direction.
+# `benchmark.acceptance`: no more nuclear losses than chance explains, two
+# samples over disjoint seeds and 150+ games, and a pooled score whose
+# one-sided 95% upper bound reaches 0.500. Only measurable regressions are
+# blocked, because at these sample sizes most real changes are not measurable
+# in either direction.
+# Read the verdict, and mind the exit status: piping this script into `tail`
+# hands you tail's status, not the gate's.
 # Usage: scripts/gate.sh [base-ref=HEAD~1] [pre-session-ref] [seeds=4000-4031] [workers=8] [held-out=5000-5063]
 # Results go to logs/game-check/gate-<head>/ and a one-line summary is printed.
 # The candidate is a snapshot: HEAD is checked out into a temporary

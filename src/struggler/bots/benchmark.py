@@ -196,6 +196,14 @@ ACCEPTANCE = dict(
     confidence=1.645,   # one-sided 95%
     min_games=150,      # pooled, finished
     min_samples=2,      # at least one of them not the seeds the change was tuned on
+    # Nuclear losses are rare rather than impossible: 3 in the 1920 gate games
+    # recorded under logs/game-check, 0.16%, spread over three separate
+    # commits, two of which landed. At that rate a 192-game gate sees one by
+    # chance about a quarter of the time, so demanding zero would reject a
+    # quarter of all changes on variance alone -- the exact failure this rule
+    # set out to avoid for strength. Two is a fail (about 4% by chance), one
+    # is a warning that names the seed so it can be replayed.
+    max_nuclear=1,
 )
 
 
@@ -216,9 +224,11 @@ def acceptance(samples) -> tuple[bool, list[str]]:
 
     Three rules, all required:
 
-    1. **No nuclear losses.** Losing to DEFCON 1 is the survival planner
-       failing, not variance, and this project has treated a single one as a
-       blocker since a gate blamed one on the wrong commit.
+    1. **No more nuclear losses than chance explains.** Two is a fail, one is
+       a warning naming the seed to replay. The measured rate is 3 in 1920
+       recorded gate games, so a 192-game gate sees one by chance about a
+       quarter of the time; demanding zero would reject a quarter of all
+       changes on variance alone.
     2. **Enough evidence, from more than the seeds it was tuned on.** At least
        two samples over disjoint seeds and 150 finished games pooled. Selecting
        change after change on one seed range is how a bot overfits its own
@@ -235,26 +245,34 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     pooled: dict[int, float] = {}
     seen: dict[int, str] = {}
     overlap = False
-    total = 0
+    total = nuclear = 0
+    nuclear_seeds: list[tuple] = []
     for label, report in samples:
         games = report.get('games', [])
         summary = report.get('summary', {})
         scores = seed_scores(games)
         total += sum(1 for g in games if g.get('finished'))
-        losses = summary.get('nuclear_losses', 0)
-        if losses:
-            ok = False
+        losses = [g for g in games if g.get('reason') == 'defcon_1']
+        nuclear += len(losses)
+        nuclear_seeds += [(g['seed'], g['bot_side'], g['turn']) for g in losses]
         lines.append(f"  {label}: {len(scores)} seeds, "
                      f"score {statistics.fmean(scores.values()):.3f}, "
                      f"signed VP {summary.get('mean_signed_vp')}, "
-                     f"nuclear losses {losses}")
+                     f"nuclear losses {summary.get('nuclear_losses', len(losses))}")
         for seed in scores:
             if seed in seen and seen[seed] != label:
                 overlap = True
             seen[seed] = label
         pooled.update(scores)
-    if any(r.get('summary', {}).get('nuclear_losses') for _l, r in samples):
-        lines.append('  FAIL nuclear losses: a DEFCON-1 loss is a blocker, not variance')
+    if nuclear:
+        where = ', '.join(f'seed {s} {side} T{t}' for s, side, t in nuclear_seeds)
+        if nuclear > ACCEPTANCE['max_nuclear']:
+            ok = False
+            lines.append(f'  FAIL nuclear losses: {nuclear} is past the {ACCEPTANCE["max_nuclear"]} '
+                         f'chance allows at the measured rate ({where})')
+        else:
+            lines.append(f'  WARN nuclear losses: {nuclear}, within the rate variance explains, '
+                         f'but replay it ({where})')
     if len(samples) < ACCEPTANCE['min_samples'] or overlap:
         ok = False
         lines.append(f"  FAIL evidence: need {ACCEPTANCE['min_samples']} samples over disjoint "

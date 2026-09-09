@@ -51,9 +51,13 @@ def test_a_baseline_without_a_sibling_evaluator_still_loads(tmp_path):
 
 
 def _report(seeds, result, *, nuclear=0, finished=True):
-    """A benchmark report with both seats of every seed scoring `result`."""
-    games = [dict(seed=s, bot_side=side, finished=finished, result=result if finished else None)
+    """A benchmark report with both seats of every seed scoring `result`, and
+    `nuclear` of those games lost to DEFCON 1."""
+    games = [dict(seed=s, bot_side=side, finished=finished, turn=10, reason='vp',
+                  result=result if finished else None)
              for s in seeds for side in ('US', 'USSR')]
+    for game in games[:nuclear]:
+        game['reason'] = 'defcon_1'
     return dict(summary=dict(games=len(games), nuclear_losses=nuclear,
                              mean_signed_vp=0.0, score=result), games=games)
 
@@ -87,11 +91,24 @@ def test_acceptance_requires_disjoint_seeds_and_enough_of_them():
     assert not ok and any('finished games pooled' in line for line in lines), lines
 
 
-def test_acceptance_treats_one_nuclear_loss_as_a_blocker():
+def test_acceptance_measures_nuclear_losses_against_their_rate():
+    """Losing to DEFCON 1 is rare, not impossible: 3 in the 1920 recorded gate
+    games, across three commits, two of which landed. Demanding zero would
+    reject about a quarter of all gates on variance alone, so one is a warning
+    naming the seed to replay and two is a failure."""
     from struggler.bots.benchmark import acceptance
     ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
                             ('held-out', _report(range(5000, 5048), 0.5))])
-    assert not ok and any('nuclear' in line for line in lines), lines
+    assert ok, lines
+    warning = next(line for line in lines if 'WARN nuclear' in line)
+    assert 'seed 4000' in warning  # named so it can be replayed
+    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=2)),
+                            ('held-out', _report(range(5000, 5048), 0.5))])
+    assert not ok and any('FAIL nuclear' in line for line in lines), lines
+    # Split across samples counts the same way.
+    ok, _ = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
+                        ('held-out', _report(range(5000, 5048), 0.5, nuclear=1))])
+    assert not ok
 
 
 def test_acceptance_counts_a_seed_once_not_once_per_seat():

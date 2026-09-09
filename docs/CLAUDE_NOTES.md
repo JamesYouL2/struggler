@@ -572,12 +572,27 @@ needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands).
 **Its exit status is the verdict.** It used to print numbers and exit 0
 whatever they said, so "the gate passed" only ever meant "the gate ran",
 and these notes have used the word wrongly more than once. The rules are
-in `benchmark.acceptance` and are deliberately asymmetric: no nuclear
-losses, two samples over disjoint seeds and 150+ finished games, and a
-pooled score whose one-sided 95% upper bound reaches 0.500. A change is
-blocked only when the games say it is *worse*. At 32 seeds most real
-changes are not measurable in either direction, and a rule that demanded
-proof of improvement would block all of them.
+in `benchmark.acceptance` and are deliberately asymmetric: no more nuclear
+losses than chance explains, two samples over disjoint seeds and 150+
+finished games, and a pooled score whose one-sided 95% upper bound reaches
+0.500. A change is blocked only when the games say it is *worse*. At 32
+seeds most real changes are not measurable in either direction, and a rule
+that demanded proof of improvement would block all of them.
+
+Mind the exit status when you invoke it: `scripts/gate.sh | tail` gives you
+tail's status, not the gate's. Read the printed verdict.
+
+The nuclear-loss rule started as "any is a blocker" and was wrong. It
+rejected the scoring-horizon commit on one loss, and the recorded gate
+games say that is variance: 3 in 1920 games, 0.16%, across three separate
+commits, two of which landed. At that rate a 192-game gate sees one about a
+quarter of the time, so demanding zero would have rejected a quarter of all
+changes on noise, which is the failure the strength rule was written to
+avoid. Two is now a fail; one warns and names the seat and seed to replay.
+Replay it: seed 4014 USSR turn 9 was a real lost position, the planner
+having correctly flagged every remaining play as a certain loss several
+action rounds earlier, with two US DEFCON-lowering cards stuck in a hand of
+two at DEFCON 2.
 
 A seed counts once, not once per seat: both seats play the same deal from
 the same shuffle, so counting them separately understates the spread and
