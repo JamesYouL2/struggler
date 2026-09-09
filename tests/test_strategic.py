@@ -348,3 +348,25 @@ def test_un_intervention_is_kept_for_the_worst_opponent_card():
     plain.rank_actions(without)
     assert plain.card_play_value(without, 'Marshall_Plan', ops, plain.event_value(without, 'Marshall_Plan')) < plain.ops_value(without, ops)
 
+
+
+def test_ops_modifiers_are_priced_from_the_hands_they_touch():
+    """Containment is the marginal Op on every other Ops card in the US hand;
+    Red Scare from the US seat is the expected marginal Op lost over the
+    USSR's hand, drawn from the unseen cards; both dwarf the old flat rate."""
+    from struggler.engine import Side
+    engine = _opening_board()
+    engine.phase = 'action_rounds'
+    engine.hands['US'] = ['Containment', 'Europe_Scoring', 'Duck_and_Cover', 'Truman_Doctrine', 'NATO', 'Nasser']
+    engine._push_action_round_play(Side.US)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    ov = lambda n: bot.ops_value(obs, n)
+    # Duck and Cover 3 -> 4, Truman 1 -> 2, Nasser 1 -> 2; NATO is 4 already, scoring is nothing.
+    expected = (ov(4) - ov(3)) + 2 * (ov(2) - ov(1))
+    assert abs(bot.event_value(obs, 'Containment') - expected) < 1e-6
+    assert bot.event_value(obs, 'Containment') > ov(1)
+    red = bot.event_value(obs, 'Red_Scare_Purge')
+    assert red > 0 and red > ov(1)  # a whole hand at -1 each is worth more than an Op
+    assert bot.event_value(obs, 'Brezhnev_Doctrine') < 0  # the USSR's hand grows

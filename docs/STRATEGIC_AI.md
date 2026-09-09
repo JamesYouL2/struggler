@@ -56,7 +56,11 @@ action = bot.choose_action(observation, history)
   worth 44-58, and the VP weight is the knob to calibrate against that.
 - Every event the idle sandbox can run is simulated (`PUBLIC_EVENTS` is
   everything but the `HIDDEN_INFO_EVENTS`, which need hands or the deck,
-  and the Ops-modifier cards): the helper policy plays each choice the
+  and the Ops-modifier cards, which are priced directly: Containment and
+  Brezhnev Doctrine as the marginal Op on every other Ops card in the
+  beneficiary's hand, Red Scare/Purge as the expected marginal Op lost over
+  the victim's hand drawn from the unseen cards, the China card included;
+  about 5-7 Ops at a turn-1 headline): the helper policy plays each choice the
   event raises, chance takes its middle roll, and an event the sandbox
   cannot drive falls back to the 0.8 x Ops estimate. Before this only 23
   events were simulated, and De-Stalinization was priced at 4.8, below its

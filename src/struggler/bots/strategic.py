@@ -65,7 +65,7 @@ def _copy_state(value):
 HIDDEN_INFO_EVENTS = frozenset('''Five_Year_Plan Grain_Sales_to_Soviets Missile_Envy
 Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
 Our_Man_in_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
-# Duration effects priced by the Ops they add or take away.
+# Duration effects priced by the marginal Ops they add to or take from the hands they touch.
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
 # For the docs and tests: what the sandbox is asked to simulate.
 PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
@@ -671,8 +671,7 @@ class StrategicPlayer:
         sign = -1 if card.side.value == obs.side.opponent.value else 1
         result = None
         if cid in OPS_MODIFIER_EVENTS:
-            rounds = max(1, (6 if obs.turn <= 3 else 7) - obs.action_round)
-            result = sign * rounds * self.weights.ops
+            result = self._ops_modifier_value(obs, cid)
         elif cid in PUBLIC_EVENTS:
             try:
                 result = self._public_event_value(obs, cid)
@@ -687,6 +686,43 @@ class StrategicPlayer:
         result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
         return result
+
+    def _ops_modifier_value(self, obs: Observation, cid: str) -> float:
+        """Containment / Brezhnev Doctrine: +1 Op (to a maximum of 4) on every
+        Ops card the beneficiary plays for the rest of the turn; Red Scare /
+        Purge: -1 (to a minimum of 1) on every card the victim plays. Priced
+        directly as the marginal Ops over the cards concerned, on our Ops
+        scale: our own hand exactly (every other card, scoring cards worth
+        nothing), the opponent's as their hand size times the expected
+        marginal over the unseen cards. Positive when the hand affected is
+        the one it helps, from our seat."""
+        from struggler.bots.public_cards import card_state
+        if cid == 'Red_Scare_Purge':
+            target, delta = obs.side.opponent, -1
+        else:
+            target = Side.US if cid == 'Containment' else Side.USSR
+            delta = +1
+
+        def marginal(ops: int) -> float:
+            if delta > 0:
+                return self.ops_value(obs, min(4, ops+1)) - self.ops_value(obs, ops)
+            return self.ops_value(obs, ops) - self.ops_value(obs, max(1, ops-1))
+
+        def per_card(c) -> float:
+            return 0. if c.scoring or c.ops <= 0 else marginal(c.ops)
+
+        if target is obs.side:
+            others = [CARDS[c] for c in obs.hand if c != cid]
+            total = sum(per_card(c) for c in others)
+        else:
+            unseen = [c for c in CARDS.values() if card_state(obs, c.id) == 'unseen' and c.id != cid]
+            mean = sum(per_card(c) for c in unseen) / len(unseen) if unseen else 0.
+            total = mean * max(0, obs.opponent_hand_size - 1)
+        if obs.china_card_available and obs.china_card_owner is target:
+            total += per_card(CARDS['The_China_Card'])
+        # Good for us when our own Ops grow or the opponent's shrink.
+        helps_us = (target is obs.side) == (delta > 0)
+        return total if helps_us else -total
 
     def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
         """A card played from hand: its Ops (the opponent's event fires too,

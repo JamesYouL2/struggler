@@ -191,7 +191,7 @@ Three things to do about that, cheapest first:
 - Done: `models/expert_valuations.json` holds the expert's prices in US
   Ops on the opening board; `benchmark --expert` diffs them (5 misses at
   e56aecb: Marshall 0.7 vs 3.2, Suez -0.85 vs -2.5, three orderings).
-  Most rows are still unpriced. Next: fit weights to it.
+  Containment and Red Scare were the flat `rounds x ops` formula (0.48 Ops each); now priced from the hands they touch (5.1 and 6.8 Ops at the turn-1 headline). Most rows are still unpriced. Next: fit weights to it.
 - Spend the compute on seeds, not on runs: the anchor game set every
   third commit, and the base set at 64 seeds (SE 0.03) instead of 16.
   Full games cost about a minute per 16 seeds per seating on 4 workers.
