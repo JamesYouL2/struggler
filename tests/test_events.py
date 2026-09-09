@@ -401,6 +401,100 @@ def test_un_intervention_cancels_an_opponent_event_played_for_ops():
     assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # used for Ops
 
 
+def test_awacs_blocks_muslim_revolution_as_an_event():
+    """"Muslim Revolution may no longer be played as an event." The AWACS
+    flag was written and never read by anything, so the block was inert."""
+    def fire_muslim_revolution(engine):
+        engine.board.influence["Iran"]["US"] = 3
+        engine._fire_event(Side.USSR, "Muslim_Revolution")
+        steps = 0
+        while engine.pending_decision is not None and \
+                engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE:
+            engine.step(engine.pending_decision.options[0])
+            steps += 1
+            assert steps <= 4
+        return engine.board.influence["Iran"]["US"]
+
+    engine = _bare()
+    assert fire_muslim_revolution(engine) == 0, 'the event should fire before AWACS'
+
+    engine._fire_event(Side.US, "AWACS_Sale_to_Saudis")
+    assert engine.game_effects.get("awacs") is True
+    assert fire_muslim_revolution(engine) == 3, 'AWACS did not block it'
+
+
+def test_marine_barracks_removes_two_points_not_two_countries():
+    """"Remove all US Influence in Lebanon. Remove a total of 2 US Influence
+    from any countries in the Middle East." The second clause counted points;
+    the code emptied two whole countries."""
+    engine = _bare()
+    engine.board.influence["Lebanon"]["US"] = 2
+    for cid in ("Israel", "Iran"):
+        engine.board.influence[cid]["US"] = 4
+    engine._fire_event(Side.USSR, "Marine_Barracks_Bombing")
+    assert engine.board.influence["Lebanon"]["US"] == 0  # "all", as printed
+    steps = 0
+    while engine.pending_decision is not None and \
+            engine.pending_decision.kind is DecisionKind.EVENT_INFLUENCE:
+        engine.step(engine.pending_decision.options[0])
+        steps += 1
+        assert steps <= 4
+    assert engine.board.influence["Israel"]["US"] + engine.board.influence["Iran"]["US"] == 6, \
+        'exactly 2 points should have gone, not two whole countries'
+
+
+def test_yuri_and_samantha_lapses_at_the_end_of_the_turn():
+    """"USSR receives 1 VP for each US Coup attempt made for the remainder of
+    the turn." It lived in game_effects, which nothing clears, so it paid for
+    every US coup for the rest of the game."""
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
+    assert engine.turn_effects.get("yuri_samantha") is True
+    assert "yuri_samantha" not in engine.game_effects
+    engine.turn_effects.clear()  # what _end_of_turn does
+    assert not engine.turn_effects.get("yuri_samantha")
+
+
+def test_tear_down_this_wall_prevents_a_later_willy_brandt():
+    """"Cancels/prevents 'Willy Brandt'." Only the cancel half existed, so a
+    Willy Brandt played afterwards -- the common order, Tear Down This Wall
+    being Late War -- still paid the USSR and re-lifted NATO."""
+    engine = _bare()
+    engine.game_effects["willy_brandt"] = True
+    engine._fire_event(Side.US, "Tear_Down_This_Wall")
+    assert "willy_brandt" not in engine.game_effects  # cancelled
+
+    while engine.pending_decision is not None:
+        engine.step(engine.pending_decision.options[0])
+    before_vp = engine.vp
+    before_inf = engine.board.influence["West_Germany"]["USSR"]
+    engine._fire_event(Side.USSR, "Willy_Brandt")
+    assert engine.vp == before_vp, 'prevented, so no VP'
+    assert engine.board.influence["West_Germany"]["USSR"] == before_inf
+    assert "willy_brandt" not in engine.game_effects
+
+
+def test_us_japan_pact_controls_japan_without_sweeping_ussr_influence():
+    """"The US receives sufficient Influence in Japan to bring it to US
+    Control." There is no removal clause. Control is a margin, so with 3 USSR
+    Influence there the US needs 7, not 4 -- and the USSR keeps its markers.
+    `gain_control` is for the cards that print *both* clauses (Fidel,
+    Romanian Abdication)."""
+    engine = _bare()
+    stability = engine.board.countries["Japan"].stability
+    engine.board.influence["Japan"]["USSR"] = 3
+    engine._fire_event(Side.US, "US_Japan_Mutual_Defense_Pact")
+    assert engine.board.influence["Japan"]["USSR"] == 3, 'no removal clause on this card'
+    assert engine.board.influence["Japan"]["US"] == 3 + stability
+    assert engine.board.control("Japan") is Side.US
+
+    # Fidel does print the removal clause, and must keep it.
+    cuba = _bare()
+    cuba.board.influence["Cuba"]["US"] = 3
+    cuba._fire_event(Side.USSR, "Fidel")
+    assert cuba.board.influence["Cuba"]["US"] == 0
+
+
 def test_military_operations_track_stops_at_five():
     """The track is 0-5 and Ops past the top are not recorded. It was
     unbounded, and Arms Race compares the two sides' positions -- so eight
@@ -1638,10 +1732,10 @@ def _americas_africa_non_bg(engine):
     ]
 
 
-def test_che_offers_a_free_coup_in_the_americas_and_africa():
+def test_che_offers_a_coup_in_the_americas_and_africa():
     engine = _bare(seed=1)
     engine.defcon = 5
-    engine.board.influence["Nicaragua"]["US"] = 1  # opponent Influence for the free coup
+    engine.board.influence["Nicaragua"]["US"] = 1  # opponent Influence for the coup
     engine._fire_event(Side.USSR, "Che")
     d = engine.pending_decision
     assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.USSR
@@ -1662,13 +1756,70 @@ def test_che_second_coup_after_removing_us_influence_excludes_the_first():
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Nicaragua"}))
     roll = engine.pending_decision  # COUP_ROLL, che state attached
     assert roll.kind is DecisionKind.COUP_ROLL and "che" in roll.context
-    assert engine.military_ops["USSR"] == 0  # a free coup does not count as military Ops (8.2.5)
+    # Che is not a "free" Coup -- Junta, Ortega and Tear Down This Wall print
+    # that word and Che does not -- so it advances Military Operations by the
+    # card's Ops, once per attempt.
+    assert engine.military_ops["USSR"] == 3
     # Nicaragua has stability 1, so even the seeded roll here removes US Influence.
     engine.step(roll.options[0])
     assert engine.board.influence["Nicaragua"]["US"] == 0
     second = engine.pending_decision
     assert second.kind is DecisionKind.EVENT_CHOICE
     assert "Nicaragua" not in {a.payload["choice"] for a in second.options}
+
+
+def test_che_earns_military_ops_for_both_attempts_up_to_the_ceiling():
+    """"The fact that Che earns you Mil Ops (unlike Junta) is just icing on
+    the cake." Two 3-Ops attempts are 6, which the track's ceiling of 5 caps
+    -- the two rules meeting."""
+    engine = _bare(seed=3)
+    engine.defcon = 5
+    engine.board.influence["Nicaragua"] = {"US": 2, "USSR": 0}  # stability 1, non-bg
+    engine.board.influence["Costa_Rica"]["US"] = 1
+    engine._fire_event(Side.USSR, "Che")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Nicaragua"}))
+    assert engine.military_ops["USSR"] == 3
+    engine.step(engine.pending_decision.options[0])  # the roll removes US Influence
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Costa_Rica"}))
+    assert engine.military_ops["USSR"] == 5, 'both attempts count, capped at the track ceiling'
+
+
+def test_junta_free_coup_earns_no_military_ops():
+    """The other side of the same distinction: Junta prints "free Coup", so
+    it advances nothing and ignores DEFCON's geography restriction."""
+    engine = _bare(seed=1)
+    engine.defcon = 5
+    engine.board.influence["Nicaragua"]["US"] = 1
+    engine._fire_event(Side.USSR, "Junta")
+    steps = 0
+    while engine.pending_decision is not None and steps < 12:
+        d = engine.pending_decision
+        if d.kind is DecisionKind.COUP_ROLL:
+            break
+        pick = next((a for a in d.options if a.payload.get("choice") == "coup"), None)
+        engine.step(pick or d.options[0])
+        steps += 1
+    assert engine.military_ops["USSR"] == 0
+
+
+def test_a_region_bonus_context_is_json_native():
+    """Mandate #5: serialized state is JSON primitives with no custom
+    encoder. `bonus` and `non_bonus` became per-bonus sequences, and holding
+    them as tuples passed `json.dumps` but came back as lists -- so a golden
+    checkpoint compared unequal to the very state that wrote it. No existing
+    golden carried a bonus at a checkpoint, so nothing caught it until one
+    did."""
+    engine = _bare()
+    engine.turn_effects["vietnam_revolts"] = True
+    engine.china_card_owner = "USSR"
+    engine.china_card_available = True
+    engine._push_ops_type(Side.USSR, 4, china=True)
+    context = engine.pending_decision.context
+    assert context["bonus"] == ["asia", "se_asia"]
+    assert all(type(v) in (int, str, bool, list, dict, type(None))
+               for v in context.values()), context
+    state = engine.serialize()
+    assert json.loads(json.dumps(state)) == state, 'serialize() is not its own wire format'
 
 
 def test_che_serializes_with_its_repeat_state_on_the_stack():
@@ -1777,13 +1928,54 @@ def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
     assert engine.is_terminal and engine.winner is Side.USSR
 
 
-def test_we_will_bury_you_defused_by_us_un_intervention():
-    engine = _bare()
+def _we_will_bury_you_in_play(engine, ars_played: int):
+    """Fire We Will Bury You mid-turn, with `ars_played` card plays already
+    begun, so its "US's next Action Round" window is a real index."""
     engine.defcon = 5
-    engine.turn_effects["we_will_bury_you"] = True
+    engine.turn = 1
+    engine.phase = "action_rounds"
+    engine._ars_played = ars_played
+    engine._fire_event(Side.USSR, "We_Will_Bury_You")
+    return engine
+
+
+def test_we_will_bury_you_defused_by_us_un_intervention():
+    """The USSR plays it on its Action Round (play index 0); the US's next is
+    index 1, and UN Intervention there cancels it."""
+    engine = _we_will_bury_you_in_play(_bare(), ars_played=1)
+    assert engine.turn_effects["we_will_bury_you_window"] == 1
+    engine._ars_played = 2  # the US's play at index 1 is now under way
     engine.hands["US"] = ["Fidel", "UN_Intervention"]  # Fidel is a USSR (opponent) event
     _play_card_for(engine, Side.US, "Fidel", "un_intervention")
     assert "we_will_bury_you" not in engine.turn_effects
+
+
+def test_we_will_bury_you_is_not_defused_by_a_later_action_round():
+    """"...on the US's next Action Round" -- that one and no other. Any US
+    play later in the turn used to cancel it, so the US could wait for a
+    convenient opponent card to pair UN Intervention with."""
+    engine = _we_will_bury_you_in_play(_bare(), ars_played=1)
+    assert engine.turn_effects["we_will_bury_you_window"] == 1
+    engine._ars_played = 4  # two rounds later
+    engine.hands["US"] = ["Fidel", "UN_Intervention"]
+    _play_card_for(engine, Side.US, "Fidel", "un_intervention")
+    assert engine.turn_effects.get("we_will_bury_you") is True, 'the window had passed'
+
+
+def test_un_intervention_cannot_be_headlined():
+    """Second edition text: "May not be played during headline phase." The
+    FAQ turns on the same distinction -- We Will Bury You is cancelled in the
+    US's next Action Round, and a headline is not an Action Round."""
+    engine = _bare()
+    engine.phase = "headline"
+    engine.hands = {"USSR": ["Fidel"], "US": ["Duck_and_Cover", "UN_Intervention"]}
+    engine._push_headline(Side.US)
+    offered = {a.payload["card"] for a in engine.pending_decision.options}
+    assert offered == {"Duck_and_Cover"}, offered
+
+    # It is still a normal card in an Action Round, including its combo mode.
+    engine.phase = "action_rounds"
+    assert "un_intervention" in engine._play_modes(Side.US, "Fidel")
 
 
 def test_formosan_makes_taiwan_a_battleground_for_asia_scoring():
@@ -2119,8 +2311,45 @@ def test_nixon_plays_the_china_card_two_unconditional_branches():
     assert already.pending_decision is None
 
 
-def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
+def _us_holds_the_middle_east(engine):
+    """Our Man In Tehran's precondition: the US Controls a Middle East
+    country."""
+    engine.board.influence["Israel"]["US"] = engine.board.countries["Israel"].stability
+    return engine
+
+
+def test_our_man_in_tehran_needs_a_us_controlled_middle_east_country():
+    """"If the US controls at least one Middle East country, the US player
+    draws the top 5 cards..." The precondition was missing, so the event
+    fired off an empty Middle East."""
     engine = _bare()
+    engine.draw_pile = ["Fidel", "Nasser", "Allende"]
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert engine._our_man_queue == [] and engine.pending_decision is None
+
+    _us_holds_the_middle_east(engine)
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert len(engine._our_man_queue) == 3
+
+
+def test_our_man_in_tehran_discards_rather_than_removing_from_the_game():
+    """"...may reveal and then discard any or all of these drawn cards." The
+    discard pile is where a reshuffle, SALT Negotiations and Star Wars can
+    still reach them; `removed_cards` is permanent exile and nothing
+    reshuffles it."""
+    engine = _us_holds_the_middle_east(_bare())
+    engine.draw_pile = ["Fidel", "Nasser", "Allende"]
+    engine.discard_pile = []
+    engine.removed_cards = []
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    for choice in ("remove", "keep", "remove"):
+        engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": choice}))
+    assert sorted(engine.discard_pile) == ["Allende", "Fidel"]
+    assert engine.removed_cards == []
+
+
+def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
+    engine = _us_holds_the_middle_east(_bare())
     engine.draw_pile = ["Fidel", "Nasser", "Allende", "COMECON", "Duck_and_Cover", "Blockade"]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
     assert len(engine._our_man_queue) == 5  # only the top 5 are examined
@@ -2130,13 +2359,13 @@ def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
     for choice in ("keep", "remove", "keep", "keep", "remove"):
         engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": choice}))
     assert engine.pending_decision is None
-    assert len(engine.removed_cards) == 2
+    assert len(engine.discard_pile) == 2  # discarded, not removed from the game
     assert len(engine.draw_pile) == 4  # 1 untouched + 3 kept, reshuffled back in
     assert engine._our_man_queue == [] and engine._our_man_kept == []
 
 
 def test_our_man_in_tehran_never_leaks_the_examined_card_via_observe():
-    engine = _bare()
+    engine = _us_holds_the_middle_east(_bare())
     engine.draw_pile = ["Fidel", "Nasser", "Allende"]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
     for player in (Side.US, Side.USSR):

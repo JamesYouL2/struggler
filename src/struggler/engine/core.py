@@ -401,7 +401,8 @@ class Engine:
         options = self._coup_target_options(side)
         if not options:
             return
-        self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": bonus})
+        self._push(side, DecisionKind.COUP_TARGET, options,
+                   {"ops": ops, "bonus": list(bonus) if bonus else None})
 
     def begin_realignment_operations(self, side: Side, ops: int) -> None:
         if ops <= 0:
@@ -783,6 +784,20 @@ class Engine:
         side), plus one per currently-held extra-round source."""
         return 2 * action_rounds(self.turn) + len(self._extra_action_round_sides())
 
+    def _next_play_index_for(self, side: Side) -> int | None:
+        """The 0-based index of `side`'s next card play this turn, or None if
+        it has none left.
+
+        `_ars_played` counts plays already begun, and the current one is
+        `_ars_played - 1`, so the search starts at `_ars_played` -- the next
+        play after this one. Used for We Will Bury You, whose window is "the
+        US's next Action Round" and nothing later.
+        """
+        for idx in range(self._ars_played, self._total_action_rounds()):
+            if self._side_for_play_index(idx) is side:
+                return idx
+        return None
+
     def _side_for_play_index(self, idx: int) -> Side:
         """Whose play the 0-based `idx` is. The base rounds alternate USSR,
         US, USSR, ...; any extra rounds beyond the base go to
@@ -956,13 +971,21 @@ class Engine:
     # -- headline phase -----------------------------------------------------
 
     def _push_headline(self, side: Side) -> None:
-        # The China Card cannot be headlined; scoring cards can.
+        # The China Card cannot be headlined (it is not in a hand at all);
+        # scoring cards can. UN Intervention cannot: the second edition added
+        # "May not be played during headline phase" to its text, and the FAQ
+        # is explicit that a headline and an Action Round are different
+        # things -- We Will Bury You is cancelled by UN Intervention in the
+        # US's next *Action Round*, never at the headline.
         physical_turn = self.physical_mode and side is self.physical_side
-        candidates = (
-            self._physical_hand_candidates(side)
-            if physical_turn
-            else list(self.hands[side.value])
-        )
+        candidates = [
+            cid for cid in (
+                self._physical_hand_candidates(side)
+                if physical_turn
+                else list(self.hands[side.value])
+            )
+            if cid != RULES["un_intervention_id"]
+        ]
         options = tuple(
             Action(DecisionKind.HEADLINE_PLAY, {"card": cid}) for cid in candidates
         )
@@ -1291,8 +1314,14 @@ class Engine:
             # U-2 Incident's rider: "if UN Intervention is played later this
             # turn as an event, the USSR receives an additional 1 VP" -- either
             # side playing it, since the card names none.
-            if side is Side.US:
+            # "Unless UN Intervention is played as an Event on the US's next
+            # Action Round, the USSR receives 3 VP" -- that Action Round and
+            # no other. Any US play later in the turn used to defuse it, so
+            # the US could wait for a convenient opponent card to pair with.
+            if side is Side.US and \
+                    self.turn_effects.get("we_will_bury_you_window") == self._ars_played - 1:
                 self.turn_effects.pop("we_will_bury_you", None)
+                self.turn_effects.pop("we_will_bury_you_window", None)
             if self.turn_effects.pop("u2_incident", None):
                 self._award_vp(Side.USSR, 1)
             un_id = RULES["un_intervention_id"]
@@ -1350,7 +1379,7 @@ class Engine:
              # None rather than an empty tuple: every state recorded before a
              # play could carry two bonuses wrote null here, and they have to
              # keep comparing equal.
-             "bonus": self._ops_bonus_region(side, china) or None,
+             "bonus": list(self._ops_bonus_region(side, china)) or None,
              "allow_coup": allow_coup},
         )
 
@@ -1752,12 +1781,30 @@ class Engine:
         self.board.influence[country][side.value] = 0
 
     def gain_control(self, country: str, side: Side) -> None:
-        """Remove all opponent Influence in `country` and give `side` enough of
-        its own for Control ("adds sufficient Influence for Control")."""
+        """Remove all opponent Influence in `country`, then give `side` enough
+        of its own for Control.
+
+        Two clauses, and only the cards that print both get this: Fidel and
+        Romanian Abdication say "Remove all US Influence in X" *and* "adds
+        sufficient Influence for Control". A card that prints only the second
+        wants `bring_to_control`, which leaves the opponent's markers where
+        they are."""
         self.board.influence[country][side.opponent.value] = 0
-        stability = self.board.countries[country].stability
-        if self.board.influence[country][side.value] < stability:
-            self.board.influence[country][side.value] = stability
+        self.bring_to_control(country, side)
+
+    def bring_to_control(self, country: str, side: Side) -> None:
+        """Add just enough Influence for `side` to Control `country`, leaving
+        the opponent's markers alone.
+
+        Control is a margin, not a total, so this is opponent + stability --
+        the US/Japan Mutual Defense Pact "receives sufficient Influence in
+        Japan to bring it to US Control" and removes nothing, where
+        `gain_control` would have swept 3 USSR Influence off the board and
+        left the US on 4 instead of 7."""
+        need = (self.board.influence[country][side.opponent.value]
+                + self.board.countries[country].stability)
+        if self.board.influence[country][side.value] < need:
+            self.board.influence[country][side.value] = need
 
     # -- events that grant "conduct Operations" -----------------------------
 
@@ -2360,8 +2407,8 @@ class Engine:
             return
         self._push(
             side, DecisionKind.PLACE_INFLUENCE, options,
-            {"bonus": bonus or None, "base": base, "spent": spent,
-             "non_bonus": tuple(non_bonus) if bonus else 0},
+            {"bonus": list(bonus) if bonus else None, "base": base, "spent": spent,
+             "non_bonus": list(non_bonus) if bonus else 0},
         )
 
     def _handle_place_influence(self, decision: Decision, action: Action) -> None:
@@ -2543,8 +2590,12 @@ class Engine:
     ) -> None:
         """Continue a push_free_coup_or_realign branch once the player picks.
 
-        A free Coup roll granted by an event does not count towards required
-        Military Operations (8.2.5), so it never touches military_ops."""
+        A Coup the card calls "free" -- Junta, Ortega Elected in Nicaragua,
+        Tear Down This Wall -- differs from an ordinary one in exactly two
+        ways: it does not advance the Military Operations track, and it
+        ignores DEFCON's geography restriction (8.1.5). It still degrades
+        DEFCON on a Battleground like any other Coup. Che prints neither
+        word and gets neither exemption; see `begin_che_coup`."""
         if choice == "coup":
             options = tuple(
                 Action(DecisionKind.COUP_TARGET, {"country": cid})
@@ -2627,13 +2678,23 @@ class Engine:
     def begin_che_coup(
         self, side: Side, country: str, ops: int, candidates: list[str], used: list[str]
     ) -> None:
-        """Resolve a chosen Che coup: a free Coup roll (8.2.5), so it does not
-        move the Military Ops track. A logged CHANCE roll decides it; the
+        """Resolve a chosen Che coup. A logged CHANCE roll decides it; the
         COUP_ROLL context carries the `che` state so _handle_coup_roll can
-        offer the second attempt if this one removes US Influence."""
+        offer the second attempt if this one removes US Influence.
+
+        Che is *not* a free Coup and does advance the Military Operations
+        track, once per attempt. Junta, Ortega and Tear Down This Wall print
+        "free Coup", which means no Military Ops and no DEFCON geography
+        restriction; Che prints neither word and is an ordinary Coup using the
+        card's Operations value. The target enumeration above already treated
+        it that way -- it applies the DEFCON restriction the free family
+        skips -- so only the Military Ops half was out of step. Two successful
+        attempts are 3 + 3, which the track's ceiling of 5 then caps.
+        """
         if self.turn_effects.get("cuban_missile_crisis") == side.value:
             self._win(side.opponent, "cuban_missile_crisis")
             return
+        self._add_military_ops(side, ops)
         used = list(used) + [country]
         self._push(
             Side.CHANCE,
@@ -2816,7 +2877,8 @@ class Engine:
             # every state recorded before a play could carry two was written
             # in, and they have to keep comparing equal.
             {"card_ops": card_ops, "spent": spent,
-             "bonus": bonus or None, "non_bonus": tuple(non_bonus) if bonus else 0},
+             "bonus": list(bonus) if bonus else None,
+             "non_bonus": list(non_bonus) if bonus else 0},
         )
 
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
@@ -2973,24 +3035,25 @@ def _decode_context(context: dict) -> dict:
     shape and converted here, so replaying one exercises the new code on the
     old question and has to give the old answer.
 
-    JSON also has no tuples, so a `bonus` written by a current engine comes
-    back as a list; normalising here means nothing downstream has to care
-    which of the three shapes it was handed.
+    Lists, not tuples: mandate #5 says the serialized state is JSON
+    primitives with no custom encoder, and `serialize()` hands the context
+    out as it holds it. A tuple there survives `json.dumps` but comes back a
+    list, so a golden checkpoint compares unequal to the state that wrote it.
     """
     bonus = context.get("bonus")
     outside = context.get("non_bonus")
     if bonus is None and not isinstance(outside, (list, tuple)):
         return context  # already the no-bonus shape the encoder writes
     context = dict(context)
-    tags = (bonus,) if isinstance(bonus, str) else tuple(bonus or ())
+    tags = [bonus] if isinstance(bonus, str) else list(bonus or ())
     context["bonus"] = tags or None
     if "non_bonus" in context:
         if not tags:
             context["non_bonus"] = 0
         elif isinstance(outside, int) or outside is None:
-            context["non_bonus"] = (outside or 0,) * len(tags)
+            context["non_bonus"] = [outside or 0] * len(tags)
         else:
-            context["non_bonus"] = tuple(outside)
+            context["non_bonus"] = list(outside)
     return context
 
 

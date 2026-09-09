@@ -53,9 +53,18 @@ def event(
     *,
     eligible: Callable[["Engine", Side], bool] | None = None,
 ) -> Callable[[Callable[["Engine", Side], None]], Callable[["Engine", Side], None]]:
-    """Register the decorated function as `card_id`'s event resolver."""
+    """Register the decorated function as `card_id`'s event resolver.
+
+    A second registration for the same card is an error rather than a silent
+    overwrite. Nixon Plays The China Card was registered twice with identical
+    bodies, which changed nothing -- until someone fixed one of them, and the
+    later registration quietly won."""
 
     def register(fn: Callable[["Engine", Side], None]) -> Callable[["Engine", Side], None]:
+        if card_id in EVENTS:
+            raise ValueError(f"{card_id} already has an event resolver "
+                             f"({EVENTS[card_id].resolve.__name__}); "
+                             "two registrations mean the later one silently wins")
         EVENTS[card_id] = Event(resolve=fn, eligible=eligible or Event.eligible)
         return fn
 
@@ -303,13 +312,20 @@ def _nato(engine: "Engine", side: Side) -> None:
 
 @event("US_Japan_Mutual_Defense_Pact")
 def _us_japan_pact(engine: "Engine", side: Side) -> None:
-    # US gains enough Influence to Control Japan; the USSR may never Coup or
-    # make Realignment rolls against Japan for the rest of the game.
-    engine.gain_control("Japan", Side.US)
+    # "The US receives sufficient Influence in Japan to bring it to US
+    # Control" -- there is no removal clause, so USSR Influence stays put.
+    # The USSR may never Coup or Realign against Japan thereafter.
+    engine.bring_to_control("Japan", Side.US)
     engine.game_effects["us_japan_pact"] = True
 
 
-@event("Willy_Brandt")
+@event(
+    "Willy_Brandt",
+    # Tear Down This Wall "cancels/prevents" this. Only the cancel half was
+    # implemented, so a Willy Brandt played afterwards -- the common order,
+    # since Tear Down This Wall is Late War -- still paid out.
+    eligible=lambda engine, side: not engine.game_effects.get("tear_down_this_wall"),
+)
 def _willy_brandt(engine: "Engine", side: Side) -> None:
     # USSR gains 1 VP and 1 Influence in West Germany, and NATO no longer
     # protects West Germany (persistent).
@@ -427,6 +443,7 @@ def _tear_down_wall(engine: "Engine", side: Side) -> None:
     # In East Germany: +3 US Influence. In Europe: the US gets 3 Ops for a
     # free Coup attempt or Realignment (not Influence).
     engine.game_effects.pop("willy_brandt", None)  # cancels Willy Brandt
+    engine.game_effects["tear_down_this_wall"] = True  # and prevents it later
     engine.add_influence("East_Germany", Side.US, 3)
     engine.push_free_coup_or_realign(
         Side.US, "Tear_Down_This_Wall", ops=3,
@@ -525,7 +542,12 @@ def _socialist_governments(engine: "Engine", side: Side) -> None:
     )
 
 
-@event("Muslim_Revolution")
+@event(
+    "Muslim_Revolution",
+    # "Muslim Revolution may no longer be played as an event." The AWACS flag
+    # was set and never read by anything, so the block was inert.
+    eligible=lambda engine, side: not engine.game_effects.get("awacs"),
+)
 def _muslim_revolution(engine: "Engine", side: Side) -> None:
     countries = ["Sudan", "Iran", "Iraq", "Egypt", "Libya", "Saudi_Arabia",
                  "Syria", "Jordan"]
@@ -632,9 +654,12 @@ def _marine_barracks(engine: "Engine", side: Side) -> None:
         cid for cid, info in engine.board.countries.items()
         if info.region is Region.MIDDLE_EAST and cid != "Lebanon"
     ]
+    # "Remove a total of 2 US Influence from any countries in the Middle
+    # East" -- two points, chosen one at a time, not two whole countries.
+    # `whole=True` here emptied two countries on top of Lebanon.
     engine.push_event_influence(
         event="Marine_Barracks_Bombing", op="remove", choose_side=Side.USSR,
-        inf_side=Side.US, remaining=2, candidates=middle_east, whole=True,
+        inf_side=Side.US, remaining=2, candidates=middle_east,
     )
 
 
@@ -769,7 +794,10 @@ def _flower_power(engine: "Engine", side: Side) -> None:
 @event("Yuri_and_Samantha")
 def _yuri_and_samantha(engine: "Engine", side: Side) -> None:
     # The USSR scores 1 VP for every US coup attempt for the rest of the game.
-    engine.game_effects["yuri_samantha"] = True
+    # "...for the remainder of the turn": a turn effect, so it lapses with
+    # the turn. It was in game_effects, which nothing clears, and paid the
+    # USSR for every US coup for the rest of the game.
+    engine.turn_effects["yuri_samantha"] = True
 
 
 # -- set-DEFCON branch -------------------------------------------------------
@@ -1286,6 +1314,11 @@ def _we_will_bury_you(engine: "Engine", side: Side) -> None:
     engine._change_defcon(-1, caused_by=side)
     if not engine.is_terminal:
         engine.turn_effects["we_will_bury_you"] = True
+        # The window is the US's *next* Action Round, fixed now. None when
+        # the US has none left this turn, which makes it uncancellable.
+        window = engine._next_play_index_for(Side.US)
+        if window is not None:
+            engine.turn_effects["we_will_bury_you_window"] = window
 
 
 # -- Formosan Resolution: Taiwan scores as a Battleground for the US ----------
@@ -1575,18 +1608,6 @@ def _special_relationship(engine: "Engine", side: Side) -> None:
         )
 
 
-@event("Nixon_Plays_The_China_Card")
-def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
-    # Physical card text, confirmed: "If USA has The China Card: +2 VP for
-    # USA. If CCCP has The China Card: USA gets the card, face down and
-    # unavailable for immediate play." Two exhaustive, unconditional
-    # branches -- no discard-to-keep option exists on the card.
-    if engine.china_card_owner == "US":
-        engine._award_vp(Side.US, 2)
-    else:
-        engine.china_card_owner = "US"
-        engine.china_card_available = False  # face down: not usable this turn
-
 
 @event("Nixon_Plays_The_China_Card")
 def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
@@ -1601,7 +1622,15 @@ def _nixon_plays_the_china_card(engine: "Engine", side: Side) -> None:
         engine.china_card_available = False  # face down: not usable this turn
 
 
-@event("Our_Man_In_Tehran")
+@event(
+    "Our_Man_In_Tehran",
+    # "If the US controls at least one Middle East country..."
+    eligible=lambda engine, side: any(
+        engine.board.control(cid) is Side.US
+        for cid, info in engine.board.countries.items()
+        if info.region is Region.MIDDLE_EAST
+    ),
+)
 def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # The US (regardless of who phases this) looks at the top 5 cards of the
     # draw pile one at a time, removing or keeping each; kept cards return to
@@ -1638,7 +1667,10 @@ def _our_man_in_tehran_choice(engine: "Engine", side: Side, choice: str, context
     if choice == "keep":
         engine._our_man_kept.append(card)
     else:
-        engine.removed_cards.append(card)
+        # "may reveal and then *discard*" -- the discard pile, where a
+        # reshuffle, SALT Negotiations and Star Wars can still reach it.
+        # `removed_cards` is permanent exile and nothing reshuffles it.
+        engine.discard_pile.append(card)
     _push_our_man_step(engine)
 
 

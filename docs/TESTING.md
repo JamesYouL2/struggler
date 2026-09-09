@@ -28,6 +28,21 @@ A replay log is a JSON file:
 The current goldens are `influence_basic.json`, `full_game_ops_only.json`,
 `events.json` and `physical_basic.json`.
 
+**When a rules change makes a golden unreplayable**, `scripts/regenerate_replay.py`
+rebuilds it: same start descriptor, and with `--repair` every recorded
+action that is still legal is kept, driving only from the first one that is
+not. Removing the Chinese Civil War space from the map invalidated two of
+`full_game_ops_only.json`'s 618 actions and there was no way to regenerate
+it, which is why the script exists. Regenerating throws away the evidence a
+golden was holding, so do it only when the log genuinely cannot replay, say
+so in the commit, and check that whatever the log existed to cover still is
+(`test_golden_events_replay_actually_fires_events` is that check for
+`events.json`).
+
+A golden whose *actions* still replay needs no regeneration even when the
+recorded state changes -- replay it, confirm the only differences are the
+ones the change explains, and rewrite the checkpoints alone.
+
 ## Property-based invariant tests
 
 Using `hypothesis` to generate random *legal* action sequences (always drawn

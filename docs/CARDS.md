@@ -199,6 +199,12 @@ Late-War 2-per-country removal), De-Stalinization (a relocate flow: remove
 up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 2 each).
 
+The map is the 84 countries of the standard board. The Chinese Civil War
+space belongs to the optional variant in rulebook section 12, which this
+engine does not implement; it was in `countries.json` as a plain Asian
+country, so it scored (rule 12.1 says it "does not affect any scoring
+card") and the US could use it (12.1 forbids that outright). Removed.
+
 **Region Ops bonuses** (`_ops_bonus_region`, `_bonus_ops`). The China Card
 earns +1 Op if every Op is spent in Asia; a USSR play under Vietnam Revolts
 earns +1 if every Op is spent in South East Asia. A play can carry both --
