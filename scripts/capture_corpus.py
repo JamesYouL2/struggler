@@ -31,6 +31,25 @@ CAPTURE_ROUNDS = (1, 3, 6)
 PLANNER_OPS = ('whole_hand', 'risk', 'event_risk', 'hazardous')
 
 
+def _gains(bot, obs, cid, ops):
+    """`_investment`'s candidate gains: value per Op at each affordable
+    point count, in the order it considers them."""
+    board = bot.board
+    original = dict(board.influence[cid])
+    spent, out = 0, []
+    try:
+        for points in range(1, ops + 1):
+            spent += board.influence_cost(obs.side, cid)
+            if spent > ops:
+                break
+            board.influence[cid].update(original)
+            out.append(bot.delta(obs, cid, own=points) / spent)
+            board.influence[cid][obs.side.value] += points
+    finally:
+        board.influence[cid].update(original)
+    return out
+
+
 def planner_probes(planner, hand) -> list:
     """Ordered planner queries on one instance, results in query order. The
     node budget is shared across calls, so the order is part of the
@@ -86,7 +105,11 @@ def outputs(bot: StrategicPlayer, engine: Engine, side: Side) -> dict:
             [c for c in board.countries if board.is_reachable(side, c)]
         rec['placements'] = {'ops': ops, 'candidates': cands,
                              'delta': {c: [probe.delta(obs, c, own=k) for k in range(1, ops + 1)] for c in cands},
-                             'investment': {c: list(probe._investment(obs, c, ops)) for c in cands}}
+                             'investment': {c: list(probe._investment(obs, c, ops)) for c in cands},
+                             # Per-point value-per-Op, so the checker can tell a
+                             # meaningful choice of point count from a tie that
+                             # `_investment`'s strict `>` decides by one ulp.
+                             'gains': {c: _gains(probe, obs, c, ops) for c in cands}}
     planner = probe._planner
     if planner is not None:
         rec['planner'] = {'probes': planner_probes(planner, obs.hand), 'nodes_after_probes': planner.nodes,

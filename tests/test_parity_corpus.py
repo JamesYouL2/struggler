@@ -49,6 +49,7 @@ def test_corpus_schema_and_provenance(corpus):
     assert any(r.get('planner_limited', {}).get('truncated') for r in records), 'no truncated planner case'
     assert any('rollout_ranking' in r for r in records)
     assert any('placements' in r for r in records)
+    assert any('gains' in r.get('placements', {}) for r in records)
 
 
 def _ranking(ranked):
@@ -110,15 +111,32 @@ def test_evaluator_and_planner_reproduce_the_corpus(corpus):
                 mismatches.append((i, 'event_value', c, got, v))
                 break
         if 'placements' in rec:
+            # Two passes, in the generator's order: every delta, then every
+            # investment. Interleaving them warms the per-decision caches
+            # differently and moves values in the last bits.
             pl = rec['placements']
             for c in pl['candidates']:
                 got = [probe.delta(obs, c, own=k) for k in range(1, pl['ops'] + 1)]
                 if not all(_close(a, b) for a, b in zip(got, pl['delta'][c])):
                     mismatches.append((i, 'delta', c, got, pl['delta'][c]))
                     break
+            for c in pl['candidates']:
                 inv = probe._investment(obs, c, pl['ops'])
-                if not (_close(inv[0], pl['investment'][c][0]) and inv[1] == pl['investment'][c][1]):
-                    mismatches.append((i, 'investment', c, list(inv), pl['investment'][c]))
+                want_gain, want_points = pl['investment'][c]
+                if not _close(inv[0], want_gain):
+                    mismatches.append((i, 'investment value', c, list(inv), pl['investment'][c]))
+                    break
+                # The point count is a contract only where the choice is
+                # real. `delta` is not a pure function of the board (it
+                # reads per-decision caches), so equal-best gains can differ
+                # by an ulp between capture and replay and flip
+                # `_investment`'s strict `>`. Where the best two gains are
+                # that close, either answer reproduces the same value.
+                gains = pl.get('gains', {}).get(c) or []
+                best = max(gains) if gains else None
+                tied = best is not None and sum(1 for g in gains if abs(g - best) <= 1e-12) > 1
+                if inv[1] != want_points and not tied:
+                    mismatches.append((i, 'investment points', c, list(inv), pl['investment'][c], gains))
                     break
         if 'planner' in rec:
             planner = probe._planner
