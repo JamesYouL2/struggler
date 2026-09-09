@@ -85,14 +85,15 @@
     },
     "Containment": {
       "ops": null,
-      "note": "Way too low at 0.48; number to come."
+      "note": "Very strong headline. Number of Ops it affects: the cards you will actually play this turn (action rounds, not hand size), so about an Op under the raw hand count."
     },
     "Red_Scare_Purge": {
       "ops": null,
-      "note": "Way, way too low at 0.48; number to come. Symmetric card: the US seat's view depends on who holds it."
+      "note": "Very strong headline, same rule as Containment; 1-Op cards are unaffected. Symmetric card: the US seat's view is the value of the US playing it."
     },
     "Five_Year_Plan": {
-      "ops": null
+      "ops": 1.0,
+      "note": "Solely the event value of hitting the USSR with Marshall / US-Japan / Containment; not worth a lot."
     },
     "Duck_and_Cover": {
       "ops": null
@@ -102,7 +103,8 @@
       "note": "About an Op as an event, though you would never event it."
     },
     "Olympic_Games": {
-      "ops": null
+      "ops": 1.0,
+      "note": "Maybe an Op: the opponent always participates; sponsor rolls +2, winner takes 2 VP (expected ~0.9 VP to the sponsor)."
     },
     "Indo_Pakistani_War": {
       "ops": 0.5,
@@ -132,7 +134,8 @@
       "note": "A whole thing: nullifies the opponent's event, like spacing a card but stronger with high-Ops cards (Marshall, US/Japan). Hand-dependent; unpriced."
     },
     "The_Cambridge_Five": {
-      "ops": null
+      "ops": -1.0,
+      "note": "Only matters if it hits an opposing scoring card. About an Op either way."
     }
   },
   "footholds": {

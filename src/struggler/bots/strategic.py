@@ -711,13 +711,18 @@ class StrategicPlayer:
         def per_card(c) -> float:
             return 0. if c.scoring or c.ops <= 0 else marginal(c.ops)
 
+        # Only the cards that will actually be played this turn count: the
+        # action rounds left after this play, not the hand (one card is held).
+        total_rounds = 6 if obs.turn <= 3 else 7
+        rounds = total_rounds if obs.phase == 'headline' else max(0, total_rounds - obs.action_round)
         if target is obs.side:
-            others = [CARDS[c] for c in obs.hand if c != cid]
-            total = sum(per_card(c) for c in others)
+            others = sorted((per_card(CARDS[c]) for c in obs.hand if c != cid), reverse=True)
+            n = min(len(others), rounds)
+            total = sum(others) * n / len(others) if others else 0.
         else:
             unseen = [c for c in CARDS.values() if card_state(obs, c.id) == 'unseen' and c.id != cid]
             mean = sum(per_card(c) for c in unseen) / len(unseen) if unseen else 0.
-            total = mean * max(0, obs.opponent_hand_size - 1)
+            total = mean * min(max(0, obs.opponent_hand_size - 1), rounds)
         if obs.china_card_available and obs.china_card_owner is target:
             total += per_card(CARDS['The_China_Card'])
         # Good for us when our own Ops grow or the opponent's shrink.
