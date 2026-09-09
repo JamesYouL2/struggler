@@ -219,6 +219,68 @@ def event_table(seed: int, weights=None, out=sys.stdout) -> None:
         print(f"{side.value} Ops worth: " + ', '.join(f'{n} Ops = {v:.1f}' for n, v in ops[side].items()), file=out)
 
 
+def to_ops(value: float, scale: dict[int, float]) -> float:
+    """Convert a bot value to Ops on the bot's own (concave) Ops scale by
+    piecewise-linear interpolation, extrapolating past the last point."""
+    sign = -1 if value < 0 else 1
+    v = abs(value)
+    points = [(0, 0.)] + sorted(scale.items())
+    for (n0, v0), (n1, v1) in zip(points, points[1:]):
+        if v <= v1:
+            return sign * (n0 + (v-v0) / (v1-v0) if v1 > v0 else n0)
+    (n0, v0), (n1, v1) = points[-2], points[-1]
+    return sign * (n1 + (v-v1) / (v1-v0)) if v1 > v0 else sign * n1
+
+
+def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
+    """Diff the bot's turn-1 valuations against the expert's, in US Ops.
+    Prints every priced row with the difference, the unfilled rows as a
+    to-do list, and the ordering constraints; returns the number of
+    misses (differences over the file's tolerance, plus broken orders)."""
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.bots.public_cards import CARDS
+    expert = json.load(open(path))
+    engine, _ = opening_board(seed)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer(weights)
+    bot.rank_actions(obs)
+    scale = {n: bot.ops_value(obs, n) for n in (1, 2, 3, 4)}
+    tol = expert.get('tolerance_ops', 0.5)
+    got: dict[str, float] = {}
+    for cid, row in expert['cards'].items():
+        if cid not in CARDS:
+            raise ValueError(f'expert_valuations: unknown card {cid}')
+        got[cid] = to_ops(bot.event_value(obs, cid), scale)
+    for cid, row in expert.get('footholds', {}).items():
+        if cid.startswith('_'):
+            continue
+        got['foothold:' + cid] = to_ops(bot.country_value(bot.board, cid, Side.US), scale)
+    misses, todo = 0, []
+    print(f"expert check on {expert['board']} (US Ops; 1 Op = {scale[1]:.1f}, tolerance {tol})", file=out)
+    print(f"{'row':<40}{'expert':>8}{'bot':>8}{'diff':>8}  note", file=out)
+    rows = [(k, v) for k, v in expert['cards'].items()] + \
+           [('foothold:' + k, v) for k, v in expert.get('footholds', {}).items() if not k.startswith('_')]
+    for key, row in rows:
+        want = row.get('ops')
+        if want is None:
+            todo.append(key)
+            continue
+        diff = got[key] - want
+        flag = ' <-- ' if abs(diff) > tol else '     '
+        misses += abs(diff) > tol
+        print(f"{key:<40}{want:>8.2f}{got[key]:>8.2f}{diff:>+8.2f}{flag}{row.get('note', '')}", file=out)
+    for a, rel, b in expert.get('order', []):
+        ok = got[a] > got[b] if rel == 'better_for_us_than' else got[a] < got[b]
+        misses += not ok
+        print(f"{'ORDER ok ' if ok else 'ORDER BROKEN'} {a} {rel} {b}: {got[a]:+.2f} vs {got[b]:+.2f}", file=out)
+    if todo:
+        print('unpriced (fill in models/expert_valuations.json):', file=out)
+        for key in todo:
+            print(f"  {key:<38} bot says {got[key]:+.2f} Ops", file=out)
+    print(f'{misses} misses', file=out)
+    return misses
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--bot', default='mcts', help='mcts | strategic | greedy; strategic@<file.py> loads that version')
@@ -232,13 +294,18 @@ def main(argv=None):
     parser.add_argument('--bot-weights', help='strategic weights JSON for --bot only (the opponent keeps defaults)')
     parser.add_argument('--table', action='store_true',
                         help='print the turn-1 event-value review table for the first seed and exit')
+    parser.add_argument('--expert', metavar='JSON',
+                        help='diff the turn-1 valuations against this expert file, in US Ops, and exit')
     args = parser.parse_args(argv)
-    if args.table:
+    if args.table or args.expert:
         weights = None
         if args.bot_weights:
             from struggler.bots.strategic import StrategicWeights
             weights = StrategicWeights.load(args.bot_weights)
-        event_table(parse_seeds(args.seeds)[0], weights)
+        if args.table:
+            event_table(parse_seeds(args.seeds)[0], weights)
+        if args.expert:
+            expert_check(args.expert, parse_seeds(args.seeds)[0], weights)
         return
     seeds = parse_seeds(args.seeds)
     if args.log_dir:

@@ -188,11 +188,10 @@ term is a weight the games cannot tune.
 
 Three things to do about that, cheapest first:
 
-- Make the expert table a fixture. The valuations in this file (Marshall
-  ~3 US Ops, Suez ~2.5, Israel's point ~1, wars under Suez, Romania ~0,
-  Japan under the Philippines) belong in a checked-in JSON that the
-  benchmark diffs against in Op units, so judgement is a test that runs
-  in a second, and weights can be fitted to it instead of to 32 games.
+- Done: `models/expert_valuations.json` holds the expert's prices in US
+  Ops on the opening board; `benchmark --expert` diffs them (5 misses at
+  e56aecb: Marshall 0.7 vs 3.2, Suez -0.85 vs -2.5, three orderings).
+  Most rows are still unpriced. Next: fit weights to it.
 - Spend the compute on seeds, not on runs: the anchor game set every
   third commit, and the base set at 64 seeds (SE 0.03) instead of 16.
   Full games cost about a minute per 16 seeds per seating on 4 workers.
@@ -207,7 +206,11 @@ Three things to do about that, cheapest first:
 
 The gate for any value-function change is `scripts/gate.sh [base-ref]`:
 the turn-1 event-value table (`python -m struggler.bots.benchmark
---table`, read it by eye against your own judgement), the turn-3
+--table`, read it by eye against your own judgement), the expert
+valuation diff (`--expert models/expert_valuations.json`: the expert's
+prices in US Ops on the opening board, the bot's values converted on its
+own Ops scale, misses over 0.5 Ops flagged, ordering constraints checked,
+unpriced rows listed as a to-do), the turn-3
 checkpoint against the base commit, and full games against the base
 commit and the pre-session bot (b2e8572). One structural change per
 branch; it lands only when the table's disagreements shrink and neither
