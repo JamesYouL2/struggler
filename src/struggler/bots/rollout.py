@@ -102,6 +102,7 @@ class RolloutPolicy(StrategicPlayer):
             self.hits += 1
             ranked, self._plan, self._placements = cached
             _sync_board(self.board, obs)  # callers read the board after a hit too
+            self._position.refresh(self.board)  # ... and the snapshot goes with it
             return ranked
         ranked = self._served(obs) if self.serve_plans else None
         if ranked is not None:
@@ -190,13 +191,13 @@ class RolloutPolicy(StrategicPlayer):
                     if cost > remaining:
                         break
                     remaining -= cost
-                    board.influence[c][side.value] += 1
+                    self._add_influence(c, side, 1)
                     plan.append(c)
                 self._base_regions = {}  # the committed points moved the board
         finally:
             self._base_regions = None
             for c, inf in original.items():
-                board.influence[c].update(inf)
+                self._set_influence(c, inf['US'], inf['USSR'])
         return plan
 
     def score(self, obs, action):

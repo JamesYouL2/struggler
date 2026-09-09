@@ -21,8 +21,17 @@ PY=${PYTHON:-$ROOT/.venv/bin/python}
 HEAD_SHA=$(git rev-parse --short HEAD)
 OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
 mkdir -p "$OUT"
-git show "$BASE:src/struggler/bots/strategic.py" > "$OUT/base_strategic.py"
-git show "$OLD:src/struggler/bots/strategic.py" > "$OUT/old_strategic.py"
+# Each baseline gets its own directory: benchmark.load_module binds a sibling
+# `evaluator.py` in place of the candidate's while it loads `strategic.py`, so
+# a baseline that predates the evaluator split still runs its own terms.
+snapshot() {  # snapshot <ref> <dir>
+  mkdir -p "$2"
+  git show "$1:src/struggler/bots/strategic.py" > "$2/strategic.py"
+  git show "$1:src/struggler/bots/evaluator.py" > "$2/evaluator.py" 2>/dev/null \
+    || rm -f "$2/evaluator.py"
+}
+snapshot "$BASE" "$OUT/base"
+snapshot "$OLD" "$OUT/old"
 SNAP=$(mktemp -d)
 git worktree add -q --detach "$SNAP" HEAD
 trap 'git worktree remove --force "$SNAP"' EXIT
@@ -34,11 +43,11 @@ summ() { $PY -c "import sys,json; d=json.loads(sys.stdin.read()); print({k:d[k] 
 echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
 echo "== 2. turn-3 checkpoint vs $BASE"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base_strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
 echo "== 3a. full games vs $BASE"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base_strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-base.json" 2>/dev/null | summ
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-base.json" 2>/dev/null | summ
 if [ "${GATE_ANCHOR:-0}" = "1" ]; then
   echo "== 3b. full games vs pre-session $OLD"
-  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old_strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ
+  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ
 fi
 echo "results in $OUT"

@@ -141,6 +141,49 @@ is simulated there (`PUBLIC_EVENTS`). The live engine, its private decision stac
 its RNG state, and the opponent's hidden cards are never copied or inspected.
 The actual action always comes from the offered legal options.
 
+## Where the evaluation lives
+
+The terms above are pure functions in `bots/evaluator.py`. Each one is a
+function of its arguments alone: no `self`, no `Observation`, no `RULES`
+lookup, no memo, so the same arguments always give the same float.
+`StrategicPlayer` keeps the policy -- which observation is in play, what to
+search, how to rank -- and calls them.
+
+Two pieces of data carry what the terms need.
+
+- **`Terrain`** is the map: adjacency, stability, battlegrounds, regions and
+  the rules constants derived from them. It never changes, so it is built
+  once per process. Countries are indices into `data/countries.json` order,
+  and neighbours are sorted by name so that a sum cannot change with
+  `PYTHONHASHSEED`.
+- **`Position`** is one board's influence plus the vectors the terms would
+  otherwise recompute constantly: control per country, reachability per side,
+  and the neighbour counts reachability needs. `Position.place` keeps all
+  three correct after one country changes, in time proportional to that
+  country's neighbours.
+
+Scoring urgency is the third input, passed as a vector. It depends on the
+observation and never on the board, so `prepare` computes it once per
+decision instead of memoising it country by country mid-search.
+
+**The one rule.** `StrategicPlayer.board` and `StrategicPlayer._position`
+describe the same position, and every write goes through `_set_influence` or
+`_add_influence` (or through `prepare`, which reloads both). A write straight
+into `board.influence` leaves the snapshot describing a board that no longer
+exists. `STRUGGLER_CHECK_SNAPSHOT=1`, or setting `strategic.CHECK_SNAPSHOT`,
+makes every `delta` inside a ranking rebuild the snapshot from the board and
+compare; two tests use it to pin the write sites, in `test_strategic.py` and
+`test_rollout.py`. Outside a ranking `delta` re-reads the board itself, so the
+diagnostic entry points (`country_value`, `region_score`, `region_margin`,
+`value`) stay correct for callers that write to the board directly.
+
+This structure exists because the evaluator twice shipped a memo keyed on
+less state than the terms actually read. `_access` reads influence two hops
+out but was memoised on `(board, cid, side)`, so a trial placement in a
+neighbour left it stale, and the same position scored differently depending
+on what had been evaluated first: 39 of 598 corpus rankings changed when the
+memo was bypassed. A function that owns no state cannot do that.
+
 ## Evaluate and train
 
 Evaluation plays both seats on every seed, with events enabled. Identical seeds

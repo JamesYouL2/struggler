@@ -198,11 +198,22 @@ Weights keep their names; the array order is defined in one place.
 
 ## Prerequisites in Python
 
-Option C above is the prerequisite list, in Astra's order: corpus and
-baselines, planner memoisation, incremental indexing, decide. A
-pure-function evaluator (no reads of `self._obs`, `board`, `RULES` or
-caches inside the country, access, wipe and margin terms) is part of the
-Rust stage, not of C, and only if C leads there.
+Option C above is the prerequisite list, in Codex's order: corpus and
+baselines, planner memoisation, incremental indexing, decide.
+
+The pure-function evaluator is **done** and landed ahead of that order,
+because it turned out to be the fix for a correctness defect rather than
+only a porting convenience: two memos in `StrategicPlayer` were keyed on
+less state than the terms read, and the same position scored differently
+depending on what had been evaluated first. `bots/evaluator.py` now holds
+the country, access, wipe, region and margin terms as functions of
+`(Terrain, Position, weights, urgency, defcon)` -- no reads of `self._obs`,
+`board`, `RULES` or any memo. That module is the data layout below, in
+Python: `Terrain` is the static tables a kernel would receive once,
+`Position` the influence plus derived control and reachability vectors, and
+countries are already indices into `data/countries.json` order. The
+remaining Python-side prerequisite is the indexing measurement, not the
+extraction.
 
 ## Verification
 
@@ -239,7 +250,7 @@ preserved where it affects traversal or summation.
 | DEFCON memoisation, measured alone | 1 day | corpus (C step 2) |
 | Indexing, incremental slices | 1-2 days | corpus (C step 3) |
 | Decide | half a day | above (C step 4) |
-| Pure-function evaluator | 1-2 days | only if C leads to Rust |
+| Pure-function evaluator | done | none |
 | `evaluate_placements` + `board_value` in Rust, parity | 3-5 days | corpus |
 | coup/realign values | 1 day | above |
 
@@ -306,7 +317,8 @@ is a few hundred lines with the Python path kept as the oracle.
 | Risk | Handling |
 | --- | --- |
 | Floating-point summation order changes tie-breaks between near-equal placements | Each operation keeps its *existing* tie rule and the port reproduces it: `RolloutPolicy.score` resolves equal values by country-string order (`max` over `(value, country)`), `_investment` keeps the first best point count (strict `>`), action sorting is stable on its own key. The corpus includes tied cases; any standardisation is a separate semantic commit. Parity is exact rankings and top actions, values within absolute plus relative tolerance. |
-| Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed by the pure-function prerequisite (step 3); the Python fallback is that pure function, so both paths share one contract. |
+| Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed: the terms live in `bots/evaluator.py` and take `(Terrain, Position, weights, urgency, defcon)`. `_scoring_weights` is gone, replaced by an urgency vector computed once per decision; the margin basis is passed as an argument rather than read from `self`. The Python fallback is that pure function, so both paths share one contract. |
+| A baseline loaded by `strategic@<file>` silently uses the *candidate's* evaluator | `benchmark.load_module` binds an `evaluator.py` sitting beside the baseline file in place of the candidate's while the baseline executes, and `gate.sh` snapshots both files per revision. Without it, a gate spanning an evaluator change reports the candidate playing itself. |
 | Boundary cost dominating if the granularity is wrong | `evaluate_placements` takes all candidates at once; measured whole-decision wall time including conversion is the acceptance metric. |
 | Behaviour drift from an "accidental" fix while porting | Algorithm changes and acceleration never share a commit; the corpus is regenerated only by an explicit, reviewed commit. |
 | Maintenance with no Rust on the user's side | Module under ~600 lines, one file per call, Python oracle kept indefinitely, `STRUGGLER_NATIVE=0` restores the old behaviour in one environment variable. |

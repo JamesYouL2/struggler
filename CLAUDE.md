@@ -10,6 +10,7 @@ commit.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The decision stack, the public API, `Engine`, core types |
 | [docs/CARDS.md](docs/CARDS.md) | `events.py`, `cards.json`, anything card-related |
 | [docs/BOTS.md](docs/BOTS.md) | `bots/`, the `Player` protocol, physical mode |
+| [docs/STRATEGIC_AI.md](docs/STRATEGIC_AI.md) | `bots/strategic.py`, `bots/evaluator.py`, the value function and its snapshot contract |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/CLAUDE_NOTES.md](docs/CLAUDE_NOTES.md) | Bot strategy work: the stated principles, their status, and what is open (Claude's notes; Codex's audit is `docs/CODEX_NOTES.md`, the Rust plan `docs/RUST_PORT_PLAN.md`) |
@@ -34,7 +35,9 @@ the tests.
   - `engine/` — the rules engine itself: state, board, cards, events,
     replay, and the `Player`/`HumanPlayer` contract that bots plug into.
   - `bots/` — the automated `Player` implementations, wired up by
-    `src/main.py`'s `build_player`.
+    `src/main.py`'s `build_player`, plus `evaluator.py`: the board-value
+    terms as pure functions over an indexed snapshot, which the strategic
+    policy calls and a native port would receive as-is.
   - `data/` — the game's JSON facts (`cards.json`, `countries.json`,
     `rules.json`).
 
@@ -48,3 +51,9 @@ the tests.
 - **Don't re-derive placement legality from the live board mid-Ops-spend.**
   Rule 6.1.1 freezes reachability at the start of the action round; see the
   reachability section of `docs/ARCHITECTURE.md`.
+- **Don't memoise an evaluation term on less state than it reads.** This has
+  shipped twice. `_access` reads influence two hops out and was keyed on one
+  country, so a trial placement left it stale and the same position scored
+  differently depending on what came first: 39 of 598 corpus rankings changed
+  when the memo was bypassed. The terms now live in `bots/evaluator.py` and
+  own no state; see the snapshot contract in `docs/STRATEGIC_AI.md`.

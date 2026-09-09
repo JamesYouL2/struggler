@@ -95,6 +95,27 @@ def test_placement_plan_spends_every_op_legally_and_restores_the_board():
     assert total == 1 + 4
 
 
+def test_the_placement_plan_keeps_the_snapshot_in_step(monkeypatch):
+    """`_placement_plan` commits and rolls back points on `policy.board` while
+    a ranking basis is active, so it is the one write site the `delta` fallback
+    would not cover: outside a ranking `delta` re-reads the board, but the plan
+    sets `_base_regions` itself. Under CHECK_SNAPSHOT every `delta` compares
+    the snapshot with the board it is supposed to describe."""
+    from struggler.bots import strategic
+    engine = bare_engine()
+    engine.phase = 'action_rounds'
+    engine.board.influence['Italy']['US'] = 1
+    engine._push_ops_type(Side.US, 4)
+    policy = RolloutPolicy()
+    obs = engine.observe(Side.US)
+    policy.rank_actions(obs)
+    engine.step(Action(K.OPS_TYPE, {'type': 'influence'}))
+    monkeypatch.setattr(strategic, 'CHECK_SNAPSHOT', True)
+    placed = run_ops(engine, policy)
+    assert len(placed) == 4
+    assert policy._position.matches(policy.board)
+
+
 def test_rankings_are_cached_per_information_key_until_reset():
     engine = coup_position()
     policy = RolloutPolicy()

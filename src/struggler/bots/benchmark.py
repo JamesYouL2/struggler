@@ -70,15 +70,49 @@ def projection(engine, side: Side) -> dict:
                 projected_vp=round(projected, 2))
 
 
-def load_module(path: str):
-    """Import a bot module from a file: `strategic@/path/to/old_strategic.py`
-    plays an earlier version of the policy against the current one."""
+def _exec_file(path: str, name: str):
     import importlib.util
-    spec = importlib.util.spec_from_file_location('struggler_benchmark_' + str(abs(hash(path))), path)
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
     spec.loader.exec_module(module)
     return module
+
+
+def load_module(path: str):
+    """Import a bot module from a file: `strategic@/path/to/old_strategic.py`
+    plays an earlier version of the policy against the current one.
+
+    An `evaluator.py` sitting next to `path` is loaded first and stands in for
+    `struggler.bots.evaluator` while `path` executes, so the old policy binds
+    the evaluator it was written against. Without that substitution a gate
+    whose baseline imports the evaluator would run the baseline's
+    `strategic.py` on the *candidate's* evaluation terms and report the
+    candidate playing itself. `strategic.py` binds the module once at import,
+    so restoring the real one afterwards leaves the baseline holding its own.
+    """
+    import os.path
+    sibling = os.path.join(os.path.dirname(os.path.abspath(path)), 'evaluator.py')
+    if not os.path.exists(sibling):
+        return _exec_file(path, 'struggler_benchmark_' + str(abs(hash(path))))
+    import struggler.bots as package
+    key, attribute = 'struggler.bots.evaluator', 'evaluator'
+    saved_module, saved_attribute = sys.modules.get(key), getattr(package, attribute, None)
+    base = _exec_file(sibling, 'struggler_benchmark_evaluator_' + str(abs(hash(sibling))))
+    sys.modules[key] = base
+    setattr(package, attribute, base)
+    try:
+        return _exec_file(path, 'struggler_benchmark_' + str(abs(hash(path))))
+    finally:
+        if saved_module is None:
+            sys.modules.pop(key, None)
+        else:
+            sys.modules[key] = saved_module
+        if saved_attribute is None:
+            if hasattr(package, attribute):
+                delattr(package, attribute)
+        else:
+            setattr(package, attribute, saved_attribute)
 
 
 def build(kind: str, seed: int, simulations: int, model: str | None = None):

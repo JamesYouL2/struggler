@@ -29,12 +29,15 @@ class EventValuePlayer(StrategicPlayer):
         region = self.board.countries[cid].region
         before = self._correction(obs, region)
         original = dict(self.board.influence[cid])
+        mine, theirs = obs.side.value, obs.side.opponent.value
         try:
-            self.board.influence[cid][obs.side.value] = max(0, original[obs.side.value]+own)
-            self.board.influence[cid][obs.side.opponent.value] = max(0, original[obs.side.opponent.value]+opp)
+            moved = dict(original)
+            moved[mine] = max(0, original[mine] + own)
+            moved[theirs] = max(0, original[theirs] + opp)
+            self._set_influence(cid, moved['US'], moved['USSR'])
             after = self._correction(obs, region)
         finally:
-            self.board.influence[cid].update(original)
+            self._set_influence(cid, original['US'], original['USSR'])
         return base + self.vp_value(obs)*(after-before)
 
     def country_values(self, observation):
@@ -42,17 +45,16 @@ class EventValuePlayer(StrategicPlayer):
 
         These are marginal changes, not an additive allocation of all board VP.
         """
-        from struggler.bots.greedy import _sync_board
         from .features import score
         self._corrections.clear()
-        _sync_board(self.board, observation)
+        self.prepare(observation)
         result = {}
         for cid, info in self.board.countries.items():
             before = score(self.board, observation, info.region) + self._correction(observation, info.region)
-            self.board.influence[cid][observation.side.value] += 1
+            self._add_influence(cid, observation.side, 1)
             try:
                 after = score(self.board, observation, info.region) + self._correction(observation, info.region)
             finally:
-                self.board.influence[cid][observation.side.value] -= 1
+                self._add_influence(cid, observation.side, -1)
             result[cid] = after-before
         return result

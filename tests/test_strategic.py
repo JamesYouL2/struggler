@@ -156,9 +156,9 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
     assert bot.scoring_weight(asia_dead, 'Thailand') > bot.scoring_weight(asia_dead, 'Japan')
     # Battleground control is worth more where more scoring is still to come.
-    bot._obs, bot._scoring_weights = live, {}
+    bot.prepare(live)
     live_value = bot.delta(live, 'Iran', own=3)
-    bot._obs, bot._scoring_weights = dead, {}
+    bot.prepare(dead)
     assert bot.delta(dead, 'Iran', own=3) < live_value
 
 
@@ -349,6 +349,26 @@ def test_access_does_not_depend_on_an_earlier_trial_placement():
     assert bot._access(board, 'Israel', Side.USSR) == expected
 
 
+def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
+    """The snapshot's control and reachability vectors are updated one country
+    at a time, so any write to `board.influence` that skips `_set_influence`
+    leaves them describing a board that no longer exists. Under
+    CHECK_SNAPSHOT every `delta` inside a ranking rebuilds the snapshot from
+    the board and compares it, which covers the placement search, the
+    investment loop and the points `ops_value` commits and rolls back."""
+    from struggler.bots import strategic
+    engine = _opening_board()
+    engine.phase = 'action_rounds'
+    engine.hands['USSR'] = ['Nasser', 'Marshall_Plan', 'Truman_Doctrine']
+    engine._push_action_round_play(Side.USSR)
+    obs = engine.observe(Side.USSR)
+    bot = StrategicPlayer()
+    monkeypatch.setattr(strategic, 'CHECK_SNAPSHOT', True)
+    ranked = bot.rank_actions(obs)
+    assert ranked and ranked[0][1] in obs.pending_decision.options
+    assert bot._position.matches(bot.board)
+
+
 def test_un_intervention_is_kept_for_the_worst_opponent_card():
     from struggler.engine import Side
     engine = _opening_board()
@@ -446,7 +466,6 @@ def test_region_margin_incremental_matches_full_recompute():
         region = board.countries[cid].region
         try:
             fast = bot.region_margin_after(board, region, Side.USSR, cid, original)
-            bot._region_cache.pop(('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, bot._region_members[region]))), None)
             full = bot.region_margin(board, region, Side.USSR)
             # Bitwise, not within a tolerance: a swapped aggregate that is
             # only close reorders near-ties against a freshly computed one,

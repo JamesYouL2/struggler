@@ -11,20 +11,29 @@ import copy
 import json
 import logging
 import math
+import os
 from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 from typing import Sequence
 
 from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side
 from struggler.engine.board import Board
+from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
-from struggler.engine.core import RULES, SANDBOX_LOG, SCORING_CARD_REGION
+from struggler.engine.core import SANDBOX_LOG
+from struggler.bots import evaluator as ev
 from struggler.bots.public_cards import card_state, scoring_cards_for, scoring_schedule
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
 RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARNING
+# Every write to `self.board.influence` has to go through `_set_influence`, or
+# the snapshot's control and reachability vectors stop describing the board.
+# Setting STRUGGLER_CHECK_SNAPSHOT=1 rebuilds the snapshot on every `delta`
+# and compares; `test_strategic.py` and `test_rollout.py` use it to pin the
+# write sites, and both were checked to fail when one is broken.
+CHECK_SNAPSHOT = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
 from struggler.bots.greedy import (
     _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
     _in_bonus_region, _realignment_bonus, _realignment_modifier,
@@ -194,6 +203,11 @@ class StrategicPlayer:
                  opponent_model=None):
         self.weights = weights or StrategicWeights()
         self.board = Board()
+        # The static map, and the snapshot of `self.board` that every
+        # evaluation term reads instead of re-deriving control and
+        # reachability from the influence dictionaries.
+        self._terrain = ev.terrain()
+        self._position = ev.Position(self._terrain)
         self._events: dict[str, float] = {}
         self.survival_prior = survival_prior or SurvivalPrior()
         # Optional bots.opponent_model.OpponentModel: learned hand-attack and
@@ -204,7 +218,9 @@ class StrategicPlayer:
         self._base_regions = None
         self._base_margins = None
         self._obs = None
-        self._scoring_weights = None
+        # Per-country scoring weight for `self._obs`, in terrain order, or
+        # None for a bare evaluation with no observation behind it.
+        self._urgency = None
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -216,7 +232,7 @@ class StrategicPlayer:
         decision = observation.pending_decision
         if decision is None or not decision.options:
             raise ValueError('StrategicPlayer requires a pending decision with legal options')
-        _sync_board(self.board, observation)
+        self.prepare(observation)
         self._events = {}
         # The event sandbox's basis (every country's and region's value on
         # the current board) is keyed on influence alone; the scoring
@@ -224,16 +240,12 @@ class StrategicPlayer:
         # turn and hand, so it must not survive into this one (the parity
         # corpus caught a headline's basis pricing action round 1's events).
         self._event_basis = None
-        self._region_cache = {}
         self._base_regions = {}
         self._base_margins = {}
         self._ops_values = {}
         self._relocation_gain = None
         self._space_card = None
         self._un_card = None
-        self._obs = observation
-        self._scoring_weights = {}
-        self._region_members = {r: self.board.countries_in(r) for r in Region}
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
@@ -243,6 +255,67 @@ class StrategicPlayer:
                           key=lambda pair: pair[0], reverse=True)
         finally:
             self._base_regions = self._base_margins = None  # callers may move the board after ranking
+
+    def prepare(self, observation: Observation) -> None:
+        """Point the player at `observation`: the board, the snapshot of it,
+        and the scoring weight of every country. Everything that evaluates a
+        position starts here, so that nothing downstream has to ask an
+        observation what a country is worth."""
+        _sync_board(self.board, observation)
+        self._position.sync(self.board)
+        self._obs = observation
+        self._urgency = self._urgency_for(observation)
+
+    def _urgency_for(self, obs: Observation) -> tuple[float, ...]:
+        """Every country's scoring weight, in terrain order. It is a function
+        of the observation alone, so it is computed once here rather than
+        memoised country by country while the board is being searched.
+        `scoring_cards_for` reads only a country's region and whether it is in
+        South East Asia, so this computes at most seven distinct sums."""
+        countries, seen, out = self.board.countries, {}, []
+        for cid in self._terrain.ids:
+            info = countries[cid]
+            key = (info.region, Subregion.SOUTHEAST_ASIA in info.subregions)
+            weight = seen.get(key)
+            if weight is None:
+                weight = seen[key] = self._scoring_weight_uncached(obs, cid)
+            out.append(weight)
+        return tuple(out)
+
+    def _set_influence(self, cid: str, us: int, ussr: int) -> None:
+        """Write one country's influence to the board and to the snapshot.
+
+        Every write to `self.board.influence` goes through here or through
+        `prepare`. The snapshot's control and reachability vectors are
+        incremental, so one write that skips this leaves them describing a
+        board that no longer exists -- the same defect the removed `_access`
+        memo had. `CHECK_SNAPSHOT` is what pins it."""
+        influence = self.board.influence[cid]
+        influence['US'] = us
+        influence['USSR'] = ussr
+        self._position.place(self._terrain.index[cid], us, ussr)
+
+    def _add_influence(self, cid: str, side: Side, points: int) -> None:
+        influence = self.board.influence[cid]
+        self._set_influence(cid, influence['US'] + points * (side is Side.US),
+                            influence['USSR'] + points * (side is Side.USSR))
+
+    def _urgency_vector(self) -> tuple[float, ...]:
+        """The prepared scoring weights, or all ones for a bare evaluation
+        (no observation: every country counts for its printed value)."""
+        return self._urgency if self._urgency is not None else ev.ones(self._terrain)
+
+    def _position_for(self, board: Board) -> ev.Position:
+        """A snapshot of `board`, brought up to date first.
+
+        These are the diagnostic entry points -- tests, the benchmark, the
+        corpus probes -- and they are reached with the board in whatever state
+        the caller left it, including states written straight into
+        `board.influence`. The ranking hot path never comes through here; it
+        holds `self._position` and keeps it current via `_set_influence`."""
+        if board is self.board:
+            return self._position.refresh(board)
+        return ev.Position(self._terrain).sync(board)
 
     def _log_choice(self, obs, decision, ranked):
         """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""
@@ -325,339 +398,61 @@ class StrategicPlayer:
         return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
 
     def region_score(self, board: Board, region: Region, side: Side) -> float:
-        # Scoring a region is the hottest call in a decision; the same
-        # regional position recurs across every candidate country, so
-        # memoise on the region's influence for the life of this decision.
-        cache = getattr(self, '_region_cache', None)
-        key = None
-        if cache is not None and board is self.board:
-            key = (region, tuple((v['US'], v['USSR']) for v in
-                                 map(board.influence.__getitem__, self._region_members[region])))
-            if key in cache:
-                net = cache[key]
-                return net if side is Side.US else -net
-        try:
-            net = board.score_region(region)
-        except RuntimeError:  # Europe control has no numeric scoring value.
-            net = 100 if board.region_tier(Side.US, region).value == 'control' else -100
-        if key is not None:
-            cache[key] = net
+        """Net VP from scoring `region` now. Europe's control tier has no
+        scoring value, so it stands in as +/-100 (see `evaluator.region_vp`)."""
+        net = ev.region_vp(self._terrain, self._position_for(board), region)
         return net if side is Side.US else -net
 
-    def _region_margin(self, board: Board, region: Region) -> float:
-        """Partial credit toward the next scoring tier, net for the US in VP
-        (see StrategicWeights.margin_presence). Europe's control tier has
-        no VP; its domination gap is used as everywhere else."""
-        w = self.weights
-        if not (w.margin_presence or w.margin_battleground or w.margin_country):
-            return 0.
-        members = self._region_members.get(region) if hasattr(self, '_region_members') else None
-        if members is None:
-            members = board.countries_in(region)
-        # Memoised like region_score, on the region's influence, per decision.
-        cache = getattr(self, '_region_cache', None)
-        key = None
-        if cache is not None and board is self.board:
-            key = ('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, members)))
-            if key in cache:
-                return cache[key][0]
-        result = self._region_margin_uncached(board, region, members)
-        if key is not None:
-            cache[key] = result
-        return result[0]
+    def region_margin(self, board: Board, region: Region, side: Side) -> float:
+        """Partial credit toward the region's next scoring tier."""
+        net = ev.margin_basis(self._terrain, self._position_for(board), region,
+                              self.weights, self._urgency_vector())[0]
+        return net if side is Side.US else -net
 
-    @staticmethod
-    def _margin_contribution(info, us: int, su: int):
-        """One country's share of the region aggregates: per side
-        (controlled countries, fractional battlegrounds, progress)."""
-        margin = us - su
-        if margin >= info.stability:
-            return (1, float(info.battleground), 1.), (0, 0., 0.)
-        if -margin >= info.stability:
-            return (0, 0., 0.), (1, float(info.battleground), 1.)
-        if us > 0 and margin > 0:
-            frac = margin / info.stability
-            return (0, info.battleground * frac, frac), (0, 0., 0.)
-        if su > 0 and margin < 0:
-            frac = -margin / info.stability
-            return (0, 0., 0.), (0, info.battleground * frac, frac)
-        return (0, 0., 0.), (0, 0., 0.)
-
-    def _margin_unit(self, region: Region, members) -> tuple[float, bool, float]:
-        w = self.weights
-        presence_vp, domination_vp, _ = RULES['scoring'][region.name]
-        sw = (self._scoring_weights.get(members[0]) if self._scoring_weights and members[0] in self._scoring_weights
-              else self.scoring_weight(self._obs, members[0]) if self._scoring_weights is not None else 1.)
-        # One battleground's control value in this region is the unit; the
-        # domination gap is in presence units.
-        return w.battleground * sw, sw >= w.margin_live, (domination_vp - presence_vp) / presence_vp
-
-    @staticmethod
-    def _margin_bg_total(fractions: dict) -> float:
-        """Sum the per-member battleground fractions in member order. The
-        full walk adds a 0.0 for every other member and `x + 0.0 == x`, so
-        this is bitwise identical to it, which keeps a swapped aggregate from
-        reordering near-ties against a freshly computed one."""
-        total = 0.
-        for _, value in sorted(fractions.items()):
-            total += value
-        return total
-
-    def _margin_credit(self, agg, unit: float, live: bool, gap: float) -> float:
-        """Net US credit from the aggregates {side: [countries, battlegrounds, best progress]}."""
-        w = self.weights
-        net = 0.
-        for side, sign in ((Side.US, 1), (Side.USSR, -1)):
-            mine, theirs = agg[side], agg[side.opponent]
-            credit = 0.
-            if live and mine[0] == 0:
-                credit += w.margin_presence * mine[2]
-            bg_margin = max(-2., min(2., mine[1] - theirs[1]))
-            c_margin = max(-2, min(2, mine[0] - theirs[0]))
-            credit += gap * (w.margin_battleground * bg_margin + w.margin_country * c_margin)
-            net += sign * credit * unit
-        return net
-
-    def _region_margin_uncached(self, board: Board, region: Region, members):
-        """Returns (net US credit, aggregates, unit, live, gap)."""
-        unit, live, gap = self._margin_unit(region, members)
-        inf = board.influence
-        agg = {Side.US: [0, 0., 0.], Side.USSR: [0, 0., 0.]}
-        fractions = {Side.US: {}, Side.USSR: {}}
-        for index, cid in enumerate(members):
-            v = inf[cid]
-            for side, (c, bgf, prog) in zip((Side.US, Side.USSR), self._margin_contribution(board.countries[cid], v['US'], v['USSR'])):
-                a = agg[side]
-                a[0] += c
-                a[1] += bgf
-                if bgf:
-                    fractions[side][index] = bgf
-                if prog > a[2]:
-                    a[2] = prog
-        return self._margin_credit(agg, unit, live, gap), agg, unit, live, gap, fractions, members
-
-    def _margin_basis(self, board: Board, region: Region):
+    def _margin_basis(self, region: Region):
         """The region margin's aggregates for the board as this ranking found
-        it: `(net, aggregates, unit, live, gap)`. Cached per region under the
-        same contract as `_base_regions` (a caller that commits a change
-        mid-ranking clears both), so the hot path neither walks the region
-        nor builds an influence-keyed cache entry."""
+        it. Cached per region under the same contract as `_base_regions` (a
+        caller that commits a change mid-ranking clears both), so the hot path
+        neither walks the region nor builds an influence-keyed cache key."""
         base = self._base_margins
         hit = None if base is None else base.get(region)
         if hit is None:
-            members = self._region_members.get(region) if hasattr(self, '_region_members') \
-                else board.countries_in(region)
-            hit = self._region_margin_uncached(board, region, members)
+            hit = ev.margin_basis(self._terrain, self._position, region,
+                                  self.weights, self._urgency_vector())
             if base is not None:
                 base[region] = hit
         return hit
 
-    def _margin_swapped(self, basis, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
-        """The region margin after `cid` moved from `before` to the board's
-        current influence, by swapping that one country's contribution into
-        `basis`'s aggregates. Falls back to a full pass only when the country
-        may have held the region's best progress toward presence."""
-        _, agg, unit, live, gap, fractions, members = basis
-        info = board.countries[cid]
-        current = board.influence[cid]
-        index = members.index(cid)
-        old = self._margin_contribution(info, before['US'], before['USSR'])
-        new = self._margin_contribution(info, current['US'], current['USSR'])
-        adjusted = {}
-        for s_, o, n in zip((Side.US, Side.USSR), old, new):
-            a = agg[s_]
-            if o[2] > 0 and o[2] >= a[2] and n[2] < o[2]:
-                return self.region_margin(board, region, side)
-            if n[1] == o[1]:
-                bg_total = a[1]  # unchanged, and exactly as the walk summed it
-            else:
-                swapped = dict(fractions[s_])
-                if n[1]:
-                    swapped[index] = n[1]
-                else:
-                    swapped.pop(index, None)
-                bg_total = self._margin_bg_total(swapped)
-            adjusted[s_] = [a[0] - o[0] + n[0], bg_total, max(a[2], n[2])]
-        net = self._margin_credit(adjusted, unit, live, gap)
+    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str,
+                            before: dict) -> float:
+        """The region margin after `cid` moved from `before` to what the board
+        now holds, swapped into the pre-change aggregates. Kept for callers
+        (and the parity test) that hold no basis. Reads the snapshot only: the
+        board is not touched."""
+        t = self._terrain
+        pos = self._position_for(board)
+        i, was_us, was_ussr = t.index[cid], before['US'], before['USSR']
+        now = pos.place(i, was_us, was_ussr)
+        try:
+            basis = ev.margin_basis(t, pos, region, self.weights, self._urgency_vector())
+        finally:
+            pos.place(i, now[0], now[1])
+        net = ev.margin_swapped(t, pos, region, basis, i, was_us, was_ussr,
+                                self.weights, self._urgency_vector())
         return net if side is Side.US else -net
 
-    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
-        """`_margin_swapped` against the pre-change board's own aggregates.
-        Kept for callers (and the parity test) that do not hold a basis."""
-        cache = getattr(self, '_region_cache', None)
-        if cache is None or board is not self.board:
-            return self.region_margin(board, region, side)
-        current = dict(board.influence[cid])
-        board.influence[cid].update(before)
-        try:
-            members = self._region_members.get(region) if hasattr(self, '_region_members') \
-                else board.countries_in(region)
-            basis = self._region_margin_uncached(board, region, members)
-        finally:
-            board.influence[cid].update(current)
-        return self._margin_swapped(basis, board, region, side, cid, before)
-
     def country_value(self, board: Board, cid: str, side: Side) -> float:
-        # Not memoised: the access, wipe-backing and first-mover terms below
-        # all read neighbouring influence, so a key of this country's own
-        # `(own, opp)` does not identify the value. See `_access`.
-        w = self.weights
-        info = board.countries[cid]
-        inf = board.influence[cid]
-        us, ussr = inf['US'], inf['USSR']
-        own, opp = (us, ussr) if side is Side.US else (ussr, us)
-        margin = own - opp
-        importance = self.importance(info)
-        # Control is worth what the region will still score (a battleground
-        # in an unscored Early War region >> one in a region just scored,
-        # or one whose scoring is turns away). Absent an observation (a
-        # bare leaf evaluation) the schedule weight is 1.
-        weights = self._scoring_weights
-        if weights is not None:
-            importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
-        value = importance * (1 if margin >= info.stability else -1 if margin <= -info.stability else 0)
-        # Progress toward control is convex: control is worth VP, a lone
-        # point is not (it can only lead there), so a half-built country is
-        # worth well under half of a controlled one.
-        fraction = max(-1.0, min(1.0, margin / info.stability))
-        value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
-        # Wipe risk (see StrategicWeights.wipe): the couper's expected take.
-        if own > 0 and w.wipe > 0:
-            value -= self._wipe_risk(board, cid, info, side, own, opp, importance)
-        if opp > 0 and w.wipe > 0:
-            value += self._wipe_risk(board, cid, info, side.opponent, opp, own, importance)
-        guard = w.reserve * importance
-        value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
-        if info.battleground and (own > 0) != (opp > 0):
-            # Tempo is worth most where control is cheap: per stability,
-            # like every other per-Op term (a 4-stability contest is the
-            # least valuable Op on the board).
-            if own > 0 and board.is_reachable(side.opponent, cid):
-                value += w.first_mover * importance / info.stability
-            elif opp > 0 and board.is_reachable(side, cid):
-                value -= w.first_mover * importance / info.stability
-        # First footholds open nearby battlegrounds on a later action round:
-        # a stake is worth the uncontrolled battlegrounds it alone lets us
-        # reach. Nothing for ground we already reach (a fourth point in
-        # Eastern Europe opens nothing), and nothing for ground we hold.
-        value += w.access * (self._access(board, cid, side) * (own > 0)
-                             - self._access(board, cid, side.opponent) * (opp > 0))
-        return value
-
-    def _wipe_risk(self, board: Board, cid: str, info, holder: Side, held: int, other: int,
-                   importance: float) -> float:
-        """Expected loss to `holder` from the opponent's coup wiping this
-        country: the chance a 3- or 4-Ops coup removes every point (roll +
-        Ops - 2 x stability >= held), where DEFCON allows a coup here,
-        shared over the opponent's coupable targets, times the stake.
-        Unbacked and the couper gets there first (adjacent already, or the
-        coup's excess leaves them influence): the battleground flips, so
-        the stake is holder's position plus the country's control value.
-        Backed: the stake is holder's position, times `wipe_backed`."""
-        if held <= 0:
-            return 0.
-        w = self.weights
-        obs = self._obs
-        defcon = obs.defcon if obs is not None else 5
-        if defcon < RULES['coup_min_defcon'].get(info.region.name, 2):
-            return 0.
-        wipes = sum(1 for ops in (3, 4) for roll in range(1, 7) if roll + ops - 2 * info.stability >= held)
-        p = wipes / 12
-        if p == 0:
-            return 0.
-        margin = held - other
-        position = importance * (1 if margin >= info.stability else 0) \
-            + w.progress * importance * max(0., min(1., margin / info.stability))
-        key = holder.value
-        inf = board.influence
-        backed = cid in board._adjacency.get(key, ()) or any(
-            inf[n][key] > 0 for n in board.neighbors(cid) if n in inf)
-        if backed:
-            stake = w.wipe_backed * position
-        else:
-            couper = holder.opponent
-            first = board.is_reachable(couper, cid) or 6 + 4 - 2 * info.stability > held
-            stake = w.wipe * (position + (importance * (1 + w.progress) if first else 0.))
-        return p * stake / max(1, self._coup_targets(board, holder, defcon))
-
-    def _coup_targets(self, board: Board, holder: Side, defcon: int) -> int:
-        """How many battlegrounds `holder` has influence in that the
-        opponent could coup at this DEFCON and could wipe with a 4-Ops
-        coup on some roll."""
-        n = 0
-        for cid, info in board.countries.items():
-            held = board.influence[cid][holder.value]
-            if held <= 0 or not info.battleground:
-                continue
-            if defcon < RULES['coup_min_defcon'].get(info.region.name, 2):
-                continue
-            if 6 + 4 - 2 * info.stability >= held:
-                n += 1
-        return n
-
+        """What `cid` is worth to `side` on this board."""
+        t = self._terrain
+        return ev.country_value(t, self._position_for(board), t.index[cid],
+                                ev.SIDE_INDEX[side], self.weights, self._urgency_vector(),
+                                self._obs.defcon if self._obs is not None else 5)
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
-        """Reach a holding here gives: the adjacent battlegrounds we do not
-        control, each worth its control value scaled by 1/stability. Full weight
-        when this holding alone reaches one, `access_redundant` when another
-        holding already does (insurance, and one more direction to contest
-        from). Chains count too, discounted by `access_chain`: a battleground
-        two steps away through a country we do not yet hold (Israel -> Egypt
-        -> Libya, Iran -> Pakistan -> India, Australia -> Malaysia ->
-        Thailand). Getting to battlegrounds first is most of what a
-        non-battleground is for.
-
-        Recomputed on every call, deliberately. This reads influence up to
-        two hops out, so the `(board, cid, side)` memo it used to carry went
-        stale the moment a trial placement moved a neighbour: it returned a
-        different number depending on what had been evaluated before it, and
-        that reordered 39 of the parity corpus's 598 rankings. Any memo here
-        has to be keyed on the whole two-hop neighbourhood, which costs about
-        what the walk itself costs."""
-        w = self.weights
-        inf, key_side = board.influence, side.value
-        home = board._adjacency.get(key_side, ())
-        # Board adjacency is stored as frozensets.  Walk it canonically:
-        # changing PYTHONHASHSEED must not change floating-point summation
-        # order and flip an otherwise tied placement ranking.
-        first = tuple(sorted(board.neighbors(cid)))
-        first_set = frozenset(first)
-        total = 0.
-        for n in first:
-            info = board.countries.get(n)
-            if info is None:
-                continue
-            if info.battleground and board.control(n) is not side:
-                if n in home or inf[n][key_side] > 0:
-                    weight = w.access_redundant  # present already; this adds a direction
-                elif any(inf[m][key_side] > 0 for m in board.neighbors(n) if m != cid and m in inf):
-                    weight = w.access_redundant  # reachable through another holding
-                else:
-                    weight = 1.
-                if board.is_reachable(side.opponent, n):
-                    weight *= w.access_contested
-                total += weight * self._importance_of(n, info) / info.stability
-            if inf[n][key_side] > 0 or board.control(n) is side.opponent:
-                continue  # already ours to build from, or not a step we take
-            for m in sorted(board.neighbors(n)):
-                minfo = board.countries.get(m)
-                if (minfo is None or not minfo.battleground or m == cid or m in first_set
-                        or board.control(m) is side or inf[m][key_side] > 0 or m in home):
-                    continue
-                if any(inf[k][key_side] > 0 for k in board.neighbors(m) if k in inf):
-                    continue  # reachable directly from somewhere already
-                contested = w.access_contested if board.is_reachable(side.opponent, m) else 1.
-                total += w.access_chain * contested * self._importance_of(m, minfo) / minfo.stability
-        return total
-
-    def _importance_of(self, cid: str, info) -> float:
-        """A country's tier times what its region will still score: the
-        same scale country_value puts on control."""
-        importance = self.importance(info)
-        weights = self._scoring_weights
-        if weights is not None:
-            importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
-        return importance
+        """The reach a holding in `cid` gives `side` (see `evaluator.access`)."""
+        t = self._terrain
+        return ev.access(t, self._position_for(board), t.index[cid], ev.SIDE_INDEX[side],
+                         self.weights, self._urgency_vector())
 
     def evaluate(self, observation: Observation, board: Board | None = None) -> float:
         """The board value for `observation`'s side in that observation's own
@@ -666,48 +461,42 @@ class StrategicPlayer:
         alone evaluates in whatever context the last `rank_actions` left
         behind, which made an identical leaf return three different values
         depending on which position had been ranked before it."""
-        saved = (self._obs, self._scoring_weights, self.__dict__.get('_region_cache'),
-                 self.__dict__.get('_ops_values'), {c: dict(v) for c, v in self.board.influence.items()})
-        _sync_board(self.board, observation)  # `board`, if given, must describe the same position
-        self._obs = observation
-        self._scoring_weights = {}
-        self._region_cache = {}
+        saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
+                 {c: dict(v) for c, v in self.board.influence.items()})
+        self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
-        if not hasattr(self, '_region_members'):
-            self._region_members = {r: self.board.countries_in(r) for r in Region}
         try:
             return self.value(self.board, observation.side)
         finally:
-            self._obs, self._scoring_weights, region, ops_values, influence = saved
-            for name, val in (('_region_cache', region), ('_ops_values', ops_values)):
-                if val is not None:
-                    setattr(self, name, val)
+            self._obs, self._urgency, ops_values, influence = saved
+            if ops_values is not None:
+                self._ops_values = ops_values
             for c, v in influence.items():
                 self.board.influence[c].update(v)
+            self._position.sync(self.board)
 
     def value(self, board: Board, side: Side) -> float:
-        return sum(self.country_value(board, c, side) for c in board.countries) \
-            + self.weights.region * sum(self.region_score(board, r, side) for r in Region) \
-            + sum(self.region_margin(board, r, side) for r in Region)
-
-    def region_margin(self, board: Board, region: Region, side: Side) -> float:
-        net = self._region_margin(board, region)
-        return net if side is Side.US else -net
+        return ev.board_value(self._terrain, self._position_for(board), ev.SIDE_INDEX[side],
+                              self.weights, self._urgency_vector(),
+                              self._obs.defcon if self._obs is not None else 5)
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score, discounted by
-        how far off each scoring is (see StrategicWeights.scoring_discount)."""
-        cache = self._scoring_weights
-        if cache is not None and cid in cache:
-            return cache[cid]
+        how far off each scoring is (see StrategicWeights.scoring_discount).
+
+        Answered from the prepared vector when `obs` is the observation this
+        player was prepared for, which is every call on the hot path."""
+        if self._urgency is not None and obs is self._obs:
+            return self._urgency[self._terrain.index[cid]]
+        return self._scoring_weight_uncached(obs, cid)
+
+    def _scoring_weight_uncached(self, obs: Observation, cid: str) -> float:
         w = self.weights
         total = 0.
         for card in scoring_cards_for(self.board.countries[cid]):
             held = card in obs.hand
             for turns in scoring_schedule(obs, card):
                 total += w.scoring_discount ** turns * (w.scoring_hand if held and turns == 0 else 1.)
-        if cache is not None:
-            cache[cid] = total
         return total
 
     def importance(self, info) -> float:
@@ -715,42 +504,63 @@ class StrategicPlayer:
         return self.weights.battleground if info.battleground else self.weights.control
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
-        board, side = self.board, obs.side
+        """What adding `own` of our influence and `opp` of theirs to `cid` is
+        worth: the country, its region's score and its region's margin, after
+        minus before."""
         if own == 0 and opp == 0:
             return 0.
-        region = board.countries[cid].region
+        if self._base_regions is None:
+            # Outside a ranking this is a diagnostic call, and the board may
+            # have been written to directly since the last `prepare`. Inside
+            # one, every write went through `_set_influence` and the snapshot
+            # is already current, which is what CHECK_SNAPSHOT asserts.
+            self._position.refresh(self.board)
+        elif CHECK_SNAPSHOT:
+            assert self._position.matches(self.board), f'snapshot stale before delta({cid})'
+        t, w, pos = self._terrain, self.weights, self._position
+        i = t.index[cid]
+        region = t.region_of[i]
+        s = ev.SIDE_INDEX[obs.side]
+        sign = 1 if s == ev.US else -1
+        vector = self._urgency_vector()
+        defcon = self._obs.defcon if self._obs is not None else 5
         urgency = self.scoring_weight(obs, cid)
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
         # region's starting score is fixed; anyone committing a change
         # mid-ranking must clear `_base_regions`.
         base = self._base_regions
-        region_before = None if base is None else base.get(region)
-        if region_before is None:
-            region_before = self.region_score(board, region, side)
+        net_before = None if base is None else base.get(region)
+        if net_before is None:
+            net_before = ev.region_vp(t, pos, region)
             if base is not None:
-                base[region] = region_before
+                base[region] = net_before
+        region_before = sign * net_before
         # The margin's aggregates for the unchanged board, cached per region
         # for this ranking exactly like `region_before` above: the trial
         # change below then swaps this one country's contribution, so no
         # call here walks the region or builds a per-influence cache key.
-        basis = self._margin_basis(board, region)
-        margin_before = basis[0] if side is Side.US else -basis[0]
-        before = self.country_value(board, cid, side) + self.weights.region * urgency * region_before + margin_before
-        controller = board.control(cid)
-        original = dict(board.influence[cid])
+        basis = self._margin_basis(region)
+        margin_before = sign * basis[0]
+        before = (ev.country_value(t, pos, i, s, w, vector, defcon)
+                  + w.region * urgency * region_before + margin_before)
+        controller = pos.control[i]
+        was_us, was_ussr = pos.inf[ev.US][i], pos.inf[ev.USSR][i]
+        if s == ev.US:
+            self._set_influence(cid, max(0, was_us + own), max(0, was_ussr + opp))
+        else:
+            self._set_influence(cid, max(0, was_us + opp), max(0, was_ussr + own))
         try:
-            board.influence[cid][side.value] = max(0, original[side.value] + own)
-            board.influence[cid][side.opponent.value] = max(0, original[side.opponent.value] + opp)
             # Partial influence and overprotection cannot change regional VP;
             # the margin term (progress toward presence) can move on either.
-            region_after = (region_before if board.control(cid) is controller else
-                            self.region_score(board, region, side))
-            margin_after = self._margin_swapped(basis, board, region, side, cid, original)
-            return (self.country_value(board, cid, side) + self.weights.region * urgency * region_after
-                    + margin_after - before)
+            region_after = (region_before if pos.control[i] == controller
+                            else sign * ev.region_vp(t, pos, region))
+            margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
+                                                    was_us, was_ussr, w, vector)
+            return (ev.country_value(t, pos, i, s, w, vector, defcon)
+                    + w.region * urgency * region_after + margin_after - before)
         finally:
-            board.influence[cid].update(original)
+            self._set_influence(cid, was_us, was_ussr)
 
     def coup_survival_risk(self, obs: Observation, country: str) -> float:
         """Turn-loss risk of the hand after couping `country` now.
@@ -856,12 +666,12 @@ class StrategicPlayer:
                         break
                     remaining -= cost
                     total += gain * cost
-                    board.influence[c][side.value] += 1
+                    self._add_influence(c, side, 1)
                 self._base_regions = {} if self._base_regions is not None else None
                 self._base_margins = {} if self._base_margins is not None else None
         finally:
             for c, inf in original.items():
-                board.influence[c].update(inf)
+                self._set_influence(c, inf['US'], inf['USSR'])
             self._base_regions = {} if self._base_regions is not None else None
             self._base_margins = {} if self._base_margins is not None else None
         return total
@@ -876,13 +686,13 @@ class StrategicPlayer:
                 spent += self.board.influence_cost(obs.side, cid)
                 if spent > ops:
                     break
-                self.board.influence[cid].update(original)
+                self._set_influence(cid, original['US'], original['USSR'])
                 gain = self.delta(obs, cid, own=points) / spent
                 if gain > best[0]:
                     best = (gain, points)
-                self.board.influence[cid][obs.side.value] += points
+                self._add_influence(cid, obs.side, points)
         finally:
-            self.board.influence[cid].update(original)
+            self._set_influence(cid, original['US'], original['USSR'])
         return best
 
     def _event_helper(self) -> 'StrategicPlayer':
@@ -904,12 +714,12 @@ class StrategicPlayer:
                 spent += self.board.influence_cost(obs.side, cid)
                 if spent > ops:
                     break
-                self.board.influence[cid].update(original)
+                self._set_influence(cid, original['US'], original['USSR'])
                 gain = self.delta(obs, cid, own=points)
                 best = max(best, gain / spent)
-                self.board.influence[cid][obs.side.value] += points
+                self._add_influence(cid, obs.side, points)
         finally:
-            self.board.influence[cid].update(original)
+            self._set_influence(cid, original['US'], original['USSR'])
         return best
 
     def coup(self, obs: Observation, cid: str, ops: int) -> float:
