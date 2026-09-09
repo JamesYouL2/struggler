@@ -79,12 +79,19 @@ class StrategicWeights:
     # non-battlegrounds >> other non-battlegrounds. Battleground Ops score
     # domination and control (or deny them); the cheap SEA countries keep
     # Asia from being dominated and score later; the rest are worth little.
-    control: float = 1.0
+    control: float = 0.0
     battleground: float = 5.0
     southeast_asia: float = 2.0
+    # A plain non-battleground counts for nothing of its own: its control
+    # only moves the domination tally, which the region score computes
+    # exactly. What is left is leverage: a controlled country gives +1 on
+    # realignments against each adjacent enemy battleground, and reach.
+    leverage: float = 1.0
     progress: float = 2.8
     reserve: float = 0.35
-    access: float = 0.65
+    access: float = 1.5
+    access_redundant: float = 0.35
+    access_chain: float = 0.4
     region: float = 1.3
     vp: float = 3.0
     military: float = 2.0
@@ -308,6 +315,11 @@ class StrategicPlayer:
         value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
         # Over-protection is worth little, and least where stability already
         # makes a coup expensive.
+        # Realignment leverage: control next to the enemy's battlegrounds.
+        if margin >= info.stability:
+            value += w.leverage * self._leverage(board, cid, side)
+        elif margin <= -info.stability:
+            value -= w.leverage * self._leverage(board, cid, side.opponent)
         guard = w.reserve * importance / info.stability ** w.reserve_stability
         value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         # First footholds open nearby battlegrounds on a later action round:
@@ -320,25 +332,75 @@ class StrategicPlayer:
             cache[key] = value
         return value
 
+    def _leverage(self, board: Board, cid: str, side: Side) -> float:
+        """Adjacent battlegrounds the opponent controls, weighted by how
+        cheap they are to shake: +1 on every realignment roll there."""
+        cache = getattr(self, '_access_cache', None)
+        key = ('leverage', board, cid, side)
+        if cache is not None and key in cache:
+            return cache[key]
+        total = 0.
+        for n in board.neighbors(cid):
+            info = board.countries.get(n)
+            if info is not None and info.battleground and board.control(n) is side.opponent:
+                total += 1 / info.stability
+        if cache is not None:
+            cache[key] = total
+        return total
+
     def _access(self, board: Board, cid: str, side: Side) -> float:
+        """Reach a holding here gives: the adjacent battlegrounds we do not
+        control, each worth its control value scaled by 1/stability. Full weight
+        when this holding alone reaches one, `access_redundant` when another
+        holding already does (insurance, and one more direction to contest
+        from). Chains count too, discounted by `access_chain`: a battleground
+        two steps away through a country we do not yet hold (Israel -> Egypt
+        -> Libya, Iran -> Pakistan -> India, Australia -> Malaysia ->
+        Thailand). Getting to battlegrounds first is most of what a
+        non-battleground is for."""
         cache = getattr(self, '_access_cache', None)
         key = (board, cid, side)
         if cache is not None and key in cache:
             return cache[key]
+        w = self.weights
         inf, key_side = board.influence, side.value
+        home = board._adjacency.get(key_side, ())
+        first = set(board.neighbors(cid))
         total = 0.
-        for n in board.neighbors(cid):
+        for n in first:
             info = board.countries.get(n)
-            if info is None or not info.battleground or board.control(n) is side:
+            if info is None:
                 continue
-            if n in board._adjacency.get(key_side, ()) or inf[n][key_side] > 0:
-                continue  # reachable anyway
-            if any(inf[m][key_side] > 0 for m in board.neighbors(n) if m != cid and m in inf):
-                continue  # reachable through another holding
-            total += 1 / info.stability
+            if info.battleground and board.control(n) is not side:
+                if n in home or inf[n][key_side] > 0:
+                    weight = w.access_redundant  # present already; this adds a direction
+                elif any(inf[m][key_side] > 0 for m in board.neighbors(n) if m != cid and m in inf):
+                    weight = w.access_redundant  # reachable through another holding
+                else:
+                    weight = 1.
+                total += weight * self._importance_of(n, info) / info.stability
+            if inf[n][key_side] > 0 or board.control(n) is side.opponent:
+                continue  # already ours to build from, or not a step we take
+            for m in board.neighbors(n):
+                minfo = board.countries.get(m)
+                if (minfo is None or not minfo.battleground or m == cid or m in first
+                        or board.control(m) is side or inf[m][key_side] > 0 or m in home):
+                    continue
+                if any(inf[k][key_side] > 0 for k in board.neighbors(m) if k in inf):
+                    continue  # reachable directly from somewhere already
+                total += w.access_chain * self._importance_of(m, minfo) / minfo.stability
         if cache is not None:
             cache[key] = total
         return total
+
+    def _importance_of(self, cid: str, info) -> float:
+        """A country's tier times what its region will still score: the
+        same scale country_value puts on control."""
+        importance = self.importance(info)
+        weights = self._scoring_weights
+        if weights is not None:
+            importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
+        return importance
 
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) + self.weights.region * sum(self.region_score(board, r, side) for r in Region)

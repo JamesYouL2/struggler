@@ -297,20 +297,34 @@ def test_space_slot_goes_to_the_worst_opponent_card():
     assert bot.event_value(obs, 'Decolonization') < bot.event_value(obs, 'Fidel') < 0
 
 
-def test_access_counts_only_newly_reachable_battlegrounds():
+def test_access_prices_reach_first_footholds_and_chains():
     from struggler.engine import Side
     engine = _opening_board()
     bot = StrategicPlayer()
     board = bot.board
     board.load_influence(engine.board.serialize())
-    # Hungary borders Austria, Czechoslovakia, Romania, Yugoslavia: the USSR
-    # already reaches all of Eastern Europe, so a point there opens nothing.
+    # Hungary borders no battleground and everything two steps away is
+    # already reachable from Eastern Europe: a point there opens nothing.
     assert bot._access(board, 'Hungary', Side.USSR) == 0
-    # Venezuela opens South American battlegrounds the USSR reaches no other way.
-    assert bot._access(board, 'Venezuela', Side.USSR) > 0
-    # Once the USSR holds Brazil itself, Venezuela opens nothing more there.
+    # Venezuela opens South American battlegrounds the USSR reaches no
+    # other way, and Brazil is worth more than Colombia (stability 2 vs 1
+    # cuts the other way, but Brazil's chain into Argentina/Chile adds).
+    alone = bot._access(board, 'Venezuela', Side.USSR)
+    assert alone > 0
+    # Once the USSR holds Brazil itself, Venezuela's reach into Brazil is
+    # redundant: worth less, not nothing (insurance, one more direction).
     board.influence['Brazil']['USSR'] = 1
-    assert bot._access(board, 'Venezuela', Side.USSR) == 0
+    assert 0 < bot._access(board, 'Venezuela', Side.USSR) < alone
+    # Reach scales with what the battleground is worth: Israel's one point
+    # opens Egypt, and through it Libya; the same geometry in a region that
+    # will not score for turns is worth less.
+    obs = engine.observe(Side.US)
+    bot.rank_actions(obs)
+    israel = bot._access(bot.board, 'Israel', Side.US)
+    assert israel > 0
+    board.influence['Egypt']['US'] = 1
+    bot._access_cache = {}  # the cache is per decision; the board just changed under it
+    assert bot._access(board, 'Israel', Side.US) < israel
 
 
 def test_un_intervention_is_kept_for_the_worst_opponent_card():
@@ -333,3 +347,4 @@ def test_un_intervention_is_kept_for_the_worst_opponent_card():
     without = dataclasses.replace(obs, hand=tuple(c for c in obs.hand if c != 'UN_Intervention'))
     plain.rank_actions(without)
     assert plain.card_play_value(without, 'Marshall_Plan', ops, plain.event_value(without, 'Marshall_Plan')) < plain.ops_value(without, ops)
+

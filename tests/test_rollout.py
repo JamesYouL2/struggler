@@ -9,6 +9,7 @@ def coup_position(us_in_nigeria=2):
     engine = bare_engine()
     engine.phase = 'action_rounds'
     engine.defcon = 4
+    engine.turn = 4  # Africa scores from the Mid War: the coup there is worth taking
     engine.board.influence['Angola']['USSR'] = 1
     engine.board.influence['Zaire']['USSR'] = 1
     engine.board.influence['Nigeria']['USSR'] = 1

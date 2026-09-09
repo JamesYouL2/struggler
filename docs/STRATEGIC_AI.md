@@ -62,10 +62,15 @@ action = bot.choose_action(observation, history)
   events were simulated, and De-Stalinization was priced at 4.8, below its
   Ops. Flag-only events (NATO, Warsaw Pact, Formosan Resolution, NORAD)
   move no influence and so value 0; that is a known gap.
-- Access is the uncontrolled battlegrounds a stake alone lets its side
-  reach (`_access`): nothing for ground already reachable, nothing for
-  ground held. A fourth point in Eastern Europe opens nothing; a first
-  point in Venezuela opens South America.
+- Access is the battlegrounds a stake lets its side reach (`_access`),
+  each worth its control value over its stability: full weight when this
+  holding alone reaches one, `access_redundant` when another holding
+  already does (insurance, one more direction to contest from), and
+  `access_chain` for a battleground two steps away through a country not
+  yet held (Israel -> Egypt -> Libya, Iran -> Pakistan -> India, Australia
+  -> Malaysia -> Thailand). Nothing for ground held. Getting to
+  battlegrounds first is most of what a non-battleground is for, and it is
+  why De-Stalinization prices so high.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
   candidate, and only it is valued as a space play when choosing a card.

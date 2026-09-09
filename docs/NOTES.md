@@ -25,7 +25,10 @@ committing DEFCON suicide. Everything below is an instance of that.
 | Coups/realignments should be valued like placement, generally preferring placement (Ops efficiency: a coup on a 2-stability country is -1 Op). | Done: same `delta` pricing, `coup_discount` 0.9. | |
 | 1- and 2-stability countries are more VP per Op while their scoring is live. | Already what the influence search maximises (gain per Op); noted, nothing extra encoded. | |
 | Blockade paid with a US/neutral 3-Ops card is great for the USSR; paid with De Gaulle / Socialist Governments / Suez Crisis it is good for the US (event never fires). Discards return at the reshuffle, so dumping Decolonization / De-Stalinization delays them, it does not remove them. | Noted, not priced: the pay choice scores flat minus printed Ops, and the USSR-seat sandbox assumes the US cannot pay (Blockade values 39.7 to the USSR, 0 to the US on the opening board). | `docs/DEFCON_STRATEGY.md` "Hand discard effects". |
-| The opening is known: USSR 4 East Germany / 4 Poland / 1 Austria (or Yugoslavia); US 4 West Germany / 3 Italy, then the +2 handicap to Iran and West Germany. | Done: `OPENING_BOOK` in `bots/strategic.py`; the +2 is `rules.json` "setup_bonus", on in `main.py`, the trainer and the benchmark. The US 4/3 split is an assumption to confirm. | `docs/STRATEGIC_AI.md` "How it plays". |
+| The opening: USSR 4 East Germany / 4 Poland / 1 Austria (or Yugoslavia). US old school is 4 West Germany / 4 Italy / Iran to 2 (7 in Western Europe plus the +2 handicap). Preferred: 3 West Germany / 3 France / 2 Italy / Iran to 2. The 3rd Italy point and the 4th France point are worth a lot while Socialist Governments, De Gaulle and Suez Crisis are in the deck. UK to 6 / Canada to 3 is also viable, for NORAD and Special Relationship. The Nordics should never be filled in any game. | Partly: `OPENING_BOOK` in `bots/strategic.py` plays 4 West Germany / 3 Italy, then the handicap to Iran and West Germany (West Germany 5 / Italy 3), which is neither line above. The +2 is `rules.json` "setup_bonus", on in `main.py`, the trainer and the benchmark. The book should move to the preferred line, or the value function should find it on its own. | `docs/STRATEGIC_AI.md` "How it plays". |
+| A plain non-battleground is worth nothing of its own: its control only moves the domination tally, which the region score computes. What is left is adjacency, and adjacency to battlegrounds we do not own matters more than adjacency to enemy-controlled ones: it is what lets us place, coup and re-enter after Nasser or Fidel, and realignments are the rare use. Israel next to an empty Egypt is the test case. | In progress (uncommitted): `control` weight 0; `_access` rewritten to pay for every adjacent battleground not ours at its control value over stability (full when this holding alone reaches it, `access_redundant` 0.35 otherwise) plus `access_chain` 0.4 for battlegrounds two steps away through a country not yet held; `access` weight 0.65 -> 1.0. Table: Suez 10.7 -> 14.1, Israel's point 6.8 -> 14.1 (user: still low), De-Stalinization 60.6 -> 79.2, Nasser 40.5 -> 45.6, Marshall 24.8 -> 14.9 (unchanged by this; France and domination denial are the missing pieces), 1 US Op 16.4 -> 18.5. Suez still far below its ~2.5-Op target: UK 5 -> 3 is worth 1.6 because `region_score` is the exact tier score and sees no country-count margin, so "domination replacement" is unpriced. Arab-Israeli War at 33 prices above Suez, wrongly: the sandbox takes the middle roll, so a die event is a certain success (next commit). | `python -m struggler.bots.benchmark --table`, HEAD vs working tree. |
+| Marshall Plan on the opening board is a little over 3 US Ops: seven points is at most 3 battleground points (West Germany and Italy cushions, France's first step) worth at least 2 Ops, plus 4 non-battleground points and NATO enablement together worth about 1 Op, closer to 1 than 2. It denies Europe domination for good (Spain and Turkey are never cheaply reachable afterward) and insures UK/France against Suez and Arab-Israeli War. It does not give immediate domination: France still needs 3. Worth more than US/Japan Mutual Defense Pact at the start. Its strength is conditional on the opening: holding Marshall you spread the 7 + 2 instead of stacking West Germany or Italy to 5, both of which are wastes; the opening book cannot see the hand, so the table's Marshall row is measured on the wrong board. | Table target ~50-55 on the current scale (1 US Op = 16.4). HEAD says 24.8, the leverage draft 15.4. The per-country function is additive, so the collective domination-denial value can only come from the region score; check whether the sandbox's region score sees "presence in seven non-battlegrounds makes USSR domination impossible" or only present domination. | Turn-1 table rows for Marshall Plan, US/Japan, Suez Crisis. |
+| Romanian Abdication and Independent Reds are near zero until the USSR holds the Europe battleground lead; Romania is only a domination count. The table's 0.0 for them with `control` at 0 is right, not a bug. | Accepted. | Turn-1 table. |
 | Judge a bot at checkpoints, not only by wins: VP scored plus the battleground control difference per region, weighted by how many more times and how soon each region scores (live card: this cycle and after the reshuffle; discarded: after it; Mid War: from turn 4; Southeast Asia once), each turn away discounted. | Done: `python -m struggler.bots.benchmark --stop-turn 1|3|7` (`projection`, `scoring_weights`). Turn 1 MCTS vs strategic is flat: -0.23 total, 8 wins / 9 losses on the 17 seats that searched. | `logs/game-check/*-4000-4015.t1*.json`; per-game logs with `--log-dir`. |
 
 ## Turn-1 review (seed 4004, and the opening board)
@@ -83,26 +86,82 @@ of converting to control by scoring time and what that control would do
 to domination. Flag events value 0. The VP weight (3) has not been
 recalibrated to the new Ops scale.
 
+## US opening setups: the math (opening board, seed 4000)
+
+Seven setups (final influence; the US has 7 in Western Europe plus the +2
+handicap, Iran starts at 1). "Value" is the value function from the US
+seat. The threat columns are the US Ops needed to regain control of every
+Western Europe battleground it held, after the USSR's best choice (1 per
+point, 2 while the USSR controls it). "Coup4" is a 4-Ops USSR coup on
+Italy at DEFCON 5, expected Ops to restore and the chance control is
+lost. "WG break" is the USSR Ops from East Germany to end US control of
+West Germany.
+
+| Setup | Value | Soc. Gov. | De Gaulle | Suez | Coup4 E[Ops] | P(lose) | WG break |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A 4 WG / 4 Italy / Iran 2 (classic) | 53.2 | 2 | 0 | 0 | 2.33 | 0.67 | 2 |
+| B 3 WG / 3 France / 2 Italy / Iran 2 | 58.3 | 3 | 3 | 2 | 6.00 | 1.00 | 0 |
+| C 5 WG / 2 Italy / Iran 3 | 53.2 | 2 | 0 | 0 | 6.00 | 1.00 | 4 |
+| D 5 WG / 3 Italy / Iran 2 (book) | 53.2 | 1 | 0 | 0 | 4.00 | 0.83 | 4 |
+| E 4 WG / 2 France / 2 Italy / Iran 2 | 63.5 | 3 | 0 | 0 | 6.00 | 1.00 | 2 |
+| F 4 WG / 3 France / 2 Italy / Iran 1 | 53.3 | 3 | 3 | 2 | 6.00 | 1.00 | 2 |
+| G 4 WG / 3 Italy / Iran 3 | 53.2 | 2 | 0 | 0 | 4.00 | 0.83 | 2 |
+
+Two findings. The value function cannot tell A, C, D and G apart: the
+reserve term is linear in excess points, so two spare points are worth
+the same wherever they sit, and it has no notion of coup protection
+(Italy at 2 is a certain loss to a 4-Ops coup, at 4 it holds a third of
+the time). And it prefers E by 10 for two uncontrolled France points,
+the progress term paying linearly for lone points: the "lone points"
+item below. On the exposure math the classic 4/4/2 is the safest line
+(De Gaulle and Suez cost nothing, the coup costs least); the 3 WG lines
+leave West Germany open at 1 Op per USSR point, which is the strongest
+single argument against them. What the table does not price: tempo
+(France control before the USSR can enter it), NATO, and the +1 to
+Iran's Middle East reach.
+
 ## What is still open, roughly in order
 
-1. Event Grain Sales, Aldrich Ames, Terrorism (with the Hostage doubling)
-   in the strategic bot's event whitelist, then retrain
-   `bots/opponent_model.py` on new logs so the hand-attack prior means
-   something.
-2. Scoring-card timing: the US in seed 3003 plays Asia Scoring at -6 on
+The value-function programme (Sept 2026), each step gated by
+`scripts/gate.sh` against the previous one, one structural change per
+branch:
+
+1. Land what is in the tree as two commits and gate each: (a) `control`
+   0 and the `_access` rewrite (unowned adjacency, redundancy, chains,
+   scaled by control value, weight 1.5); (b) dice averaged over every
+   face in the sandbox. Read the turn-1 table for each; the turn-3
+   checkpoint and full games must not drop.
+2. Backing and wipe risk: a holding is backed when a neighbour holds our
+   influence (or home adjacency). Price every held country by the chance
+   the opponent's best coup wipes it (roll + Ops - 2 x stability >= our
+   points, gated by the DEFCON coup rule), times a lockout multiplier
+   when unbacked and a repair cost when backed. Replaces the linear
+   `reserve` term (which cannot tell 4 WG/4 Italy from 5 WG/2 Italy),
+   gives lone points their real value (a liability unbacked, an asset when
+   they back a battleground), and makes the attacker's coup evaluator see
+   an Italy coup on an unbacked board as a lockout and an Iran coup as a
+   normal wipe. Test cases: the opening-setup table above, Italy after De
+   Gaulle + Suez, Israel's point at ~1 Op.
+3. Country-count margin toward domination in `region_score`: the exact
+   tier score sees nothing until a tier flips, so UK 5 -> 3 is worth 1.6,
+   Marshall's seven countries are worth nothing collectively, and Suez's
+   "domination replacement" cost is unpriced. Price the margin in
+   countries and battlegrounds toward the next tier, weighted by the
+   region's scoring weight. Targets: Suez ~2.5 US Ops, Marshall ~3.
+4. Opening from the hand: the book cannot see Marshall Plan, De Gaulle or
+   Suez in hand; with 2 and 3 in place, evaluate setups (the table above)
+   with the value function plus the held events, and either let the
+   function choose or key the book on the hand. Then the Marshall row is
+   measured on the right board.
+5. Scoring-card timing: the US in seed 3003 plays Asia Scoring at -6 on
    turn 1 AR6 with no Asia presence. The bot only has an urgency
    multiplier; it does not plan "build the region, then score".
-3. Lone points: the bot places single points that die to 1-Op coups next
-   turn (3003, turns 2-3: Colombia, Guatemala, Nigeria). Needs a rule for
-   when a single point in an uncontrolled battleground is a liability.
-4. The neural bot (`bots/event_value/`) covers 6 events; 59 deck cards can
-   move a region's score. The scalable design is generic: fire every live
-   card in a sandbox, drive choices with the strategic policy, aggregate
-   exposure x swing per region. Not started. Head-to-head it is 0.53 ±
-   0.06 against the strategic bot, i.e. indistinguishable.
-5. Greedy is a dead opponent (0.00 against strategic). The trainer now
-   anchors on frozen strategic weights; 32 games per candidate gives a
-   standard error of 0.06, so detecting a 5-point gain needs ~4x that.
+
+Behind those: Grain Sales, Aldrich Ames, Terrorism in the strategic
+event whitelist and a retrain of `bots/opponent_model.py`; the generic
+event-exposure design for `bots/event_value/` (0.53 +/- 0.06 vs strategic,
+indistinguishable); the trainer's dead greedy opponent and its 32-game
+standard error of 0.06.
 
 ## How to look at things
 
