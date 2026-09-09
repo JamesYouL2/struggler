@@ -66,7 +66,8 @@ code disagrees with the game, and several were defects until recently.
 | Chernobyl bars only Influence placed with Operations. "Realignments do not add influence, so the USSR player could still make a Realignment roll. Coups are also allowed... the Soviet player could also add Influence in the selected region through the play of events." | FAQ, card #94 | `_chernobyl_blocks` |
 | Truman Doctrine's "uncontrolled" means controlled by neither power, not merely un-Soviet. | FAQ, card #19 | `push_event_influence(requires_uncontrolled=True)` |
 | Rule 9.5: the China Card may not be played as a discard required by an event, so it is never a Quagmire/Bear Trap or Blockade candidate. It is not in `hands`, which is what keeps it out. | Rules §9.5; FAQ, card #6 | `_trap_discard_candidates`, `_payable_cards` |
-| Forcing yourself to discard a scoring card is legal — "The illegal act would be holding the scoring card" — which is why Five Year Plan draws from the whole hand. | FAQ §5.0 and card #5 | `push_random_discard` |
+| NORAD places its Influence "at the conclusion of any Action Round in which the DEFCON Status was placed on 2" -- after the round, not when DEFCON moved. Otherwise the side whose play degraded DEFCON still has Operations in hand to answer the placement with. | Card face | `_push_pending_norad` |
+| Forcing yourself to discard a scoring card is legal — "The illegal act would be holding the scoring card" — which is why Five Year Plan draws from the whole hand and Ask Not… offers them. | FAQ §5.0 and card #5 | `push_random_discard`, `_push_ask_not` |
 | The Chinese Civil War space is the **optional variant** of rules section 12. Within it the space "does not affect any scoring card" and the US "may not use Operations or events of any kind" on it. This engine does not implement the variant, and the space is not on its map. | Rules §12.1 | `data/countries.json` |
 
 ## Reading the sources for defects

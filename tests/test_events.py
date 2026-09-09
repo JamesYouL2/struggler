@@ -1463,6 +1463,23 @@ def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
     assert "Containment" not in engine.hands["US"]
 
 
+def test_ask_not_may_discard_a_scoring_card():
+    """"The illegal act would be holding the scoring card. If a player can
+    find a way to force himself to discard a scoring card, he is free to do
+    so" (FAQ 5.0). Dumping a scoring card that would score for the opponent is
+    one of the strongest things this card does."""
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]
+    engine.hands["US"] = ["Asia_Scoring", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    offered = {a.payload["choice"] for a in engine.pending_decision.options}
+    assert "Asia_Scoring" in offered
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Asia_Scoring"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "stop"}))
+    assert "Asia_Scoring" in engine.discard_pile
+    assert "Asia_Scoring" not in engine.hands["US"]
+    assert engine.vp == 0, "discarded, not scored"
+
 def test_ask_not_always_benefits_the_us_even_when_ussr_plays_it():
     # US-associated: the event favors the US regardless of who plays the
     # card, the same way Duck and Cover always favors the US.
@@ -2378,20 +2395,62 @@ def test_glasnost_scores_and_grants_ops_only_after_the_reformer():
 # -- headline-cancellation interaction, and a persistent operating lock -----
 
 
-def test_norad_fires_only_when_defcon_moves_to_two():
-    engine = _bare()
+def _norad_armed(engine: Engine) -> Engine:
     engine.defcon = 5
     engine._fire_event(Side.US, "NORAD")
     engine.board.influence["Canada"]["US"] = 4  # "If Canada is US-controlled"
     engine.board.influence["France"] = {"US": 2, "USSR": 0}
     engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2
+    return engine
+
+
+def test_norad_fires_at_the_conclusion_of_the_action_round_not_when_defcon_moves():
+    """"...at the conclusion of any Action Round in which the DEFCON Status
+    was placed on 2." Placing the Influence the instant DEFCON moved put it
+    inside the round that caused the move -- so a USSR play that degraded
+    DEFCON with its Event and still had Operations to spend could answer the
+    US placement with them. It has to land after the round is over."""
+    engine = _norad_armed(_bare())
     assert engine.defcon == 2
+    assert engine.turn_effects.get("norad_pending") is True
+    assert engine.pending_decision is None, "nothing lands mid-round"
+
+    assert engine._push_pending_norad() is True
     d = engine.pending_decision
     assert d is not None and d.kind is DecisionKind.EVENT_INFLUENCE and d.actor is Side.US
     offered = {a.payload["country"] for a in d.options}
     assert "France" in offered  # only countries the US already has Influence in
     engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "France"}))
     assert engine.board.influence["France"]["US"] == 3
+    assert "norad_pending" not in engine.turn_effects  # spent, and once only
+
+
+def test_norad_placement_is_pushed_by_the_director_between_action_rounds():
+    engine = _bare()
+    engine.turn = 1
+    engine.phase = "action_rounds"
+    engine._ars_played = 1
+    _norad_armed(engine)
+    assert engine.pending_decision is None
+    engine._advance_director()
+    d = engine.pending_decision
+    assert d is not None and d.kind is DecisionKind.EVENT_INFLUENCE and d.actor is Side.US
+    assert engine._ars_played == 1, "the next round has not begun yet"
+
+
+def test_norad_rechecks_canada_at_the_moment_it_places():
+    """The Canada condition belongs to the placement, not to the DEFCON move:
+    the round it fires at the end of may well have taken Canada away."""
+    engine = _norad_armed(_bare())
+    engine.board.influence["Canada"] = {"US": 0, "USSR": 0}  # control lost during the round
+    assert engine._push_pending_norad() is False
+    assert engine.pending_decision is None
+
+
+def test_norad_nullified_by_quagmire_before_it_places():
+    engine = _norad_armed(_bare())
+    engine._fire_event(Side.US, "Quagmire")  # nullifies NORAD
+    assert engine._push_pending_norad() is False
 
 
 def test_norad_inactive_without_us_controlling_canada():
@@ -2400,6 +2459,7 @@ def test_norad_inactive_without_us_controlling_canada():
     engine._fire_event(Side.US, "NORAD")
     engine.board.influence["France"] = {"US": 2, "USSR": 0}
     engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2, but Canada not US-controlled
+    assert engine._push_pending_norad() is False
     assert engine.pending_decision is None
 
 
@@ -2408,13 +2468,14 @@ def test_norad_does_not_refire_while_already_at_two():
     engine.defcon = 2
     engine.game_effects["norad"] = True
     engine._change_defcon(0, caused_by=Side.US)  # stays at 2: no fresh "move"
-    assert engine.pending_decision is None
+    assert "norad_pending" not in engine.turn_effects
 
 
 def test_norad_inactive_without_the_event_having_fired():
     engine = _bare()
     engine.defcon = 5
     engine._change_defcon(-3, caused_by=Side.US)  # 5 -> 2, but NORAD never fired
+    assert "norad_pending" not in engine.turn_effects
     assert engine.pending_decision is None
 
 

@@ -604,6 +604,10 @@ class Engine:
             return
 
         if self.phase == "action_rounds":
+            # A drained stack here means the previous Action Round has
+            # concluded, which is when NORAD places its Influence.
+            if self._push_pending_norad():
+                return
             total = self._total_action_rounds()
             if self._ars_played >= total:
                 self._end_of_turn()
@@ -3078,25 +3082,47 @@ class Engine:
             )
             self._win(responsible.opponent, "defcon_1")
             return
-        # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
-        # 2 the US adds 1 Influence to a country where it already has some.
-        if (
-            self.defcon == 2
-            and before != 2
-            and self.game_effects.get("norad")
-            and self.board.control("Canada") is Side.US
-        ):
-            self._push_norad_influence()
+        # NORAD arms here and fires at the conclusion of the Action Round
+        # (_push_pending_norad); this only records that DEFCON was placed on 2
+        # during it. Whether the US still controls Canada, and whether NORAD is
+        # still in effect at all, are questions for the moment the Influence is
+        # actually placed.
+        if self.defcon == 2 and before != 2 and self.game_effects.get("norad"):
+            self.turn_effects["norad_pending"] = True
 
-    def _push_norad_influence(self) -> None:
+    def _push_pending_norad(self) -> bool:
+        """NORAD: "the US may add 1 Influence to any country already containing
+        US Influence at the conclusion of any Action Round in which the DEFCON
+        Status was placed on 2". Returns True iff a decision was pushed.
+
+        The conclusion of the round, not the instant DEFCON moved -- and the
+        difference is not cosmetic. A USSR play that degrades DEFCON with its
+        Event and then spends its Operations used to hand the US its NORAD
+        Influence *first*, in the middle of the USSR's own Action Round, which
+        let the USSR spend those Operations answering it. It cannot: the
+        placement lands after the round is over.
+
+        Called from `_advance_once` at the top of the action-round branch,
+        which is where a drained decision stack means "the previous round has
+        concluded". A flag armed during the Headline Phase therefore resolves
+        as the action rounds open; see docs/LIMITATIONS.md.
+        """
+        if not self.turn_effects.pop("norad_pending", False):
+            return False
+        if not self.game_effects.get("norad"):  # Quagmire nullified it since
+            return False
+        if self.board.control("Canada") is not Side.US:  # "If Canada is US-controlled"
+            return False
         candidates = [
             cid for cid in self.board.countries if self.board.influence[cid]["US"] > 0
         ]
-        if candidates:
-            self.push_event_influence(
-                event="NORAD", op="place", choose_side=Side.US, inf_side=Side.US,
-                remaining=1, candidates=candidates,
-            )
+        if not candidates:
+            return False
+        self.push_event_influence(
+            event="NORAD", op="place", choose_side=Side.US, inf_side=Side.US,
+            remaining=1, candidates=candidates,
+        )
+        return self.pending_decision is not None
 
 
 # -- serialization helpers ---------------------------------------------------

@@ -186,7 +186,10 @@ card), Grain Sales to Soviets (one random USSR card revealed via a CHANCE
 step; the US plays it in full — Event or Ops, via
 `Engine.push_full_card_play` — or returns it for 2 Ops of its own, and an
 empty USSR hand grants the US 2 Ops directly), Ask Not… (discard any own
-cards and redraw as many, via `draw_cards_to_hand`), The Cambridge Five
+cards and redraw as many, via `draw_cards_to_hand`; *scoring cards
+included* — the illegal act is holding one, not discarding it, and dumping
+a scoring card that would score for the opponent is much of the card's
+value), The Cambridge Five
 (place in a region whose scoring card the US holds; blocked during Late
 War).
 
@@ -328,11 +331,16 @@ events are in force out of `game_effects` (`Engine.coup_flags`). The
 strategic bot's wipe term mirrors the same query over its own snapshot.
 
 **A reactive hook consulted from board mechanics.** NORAD
-(`game_effects["norad"]`, checked in `Engine._change_defcon`): while Canada
-is US-controlled, every time DEFCON *moves* to level 2 the US adds 1
-Influence to a country where it already has some, via
-`_push_norad_influence`. A stable DEFCON 2 does not refire it, and Quagmire
-nullifies it.
+(`game_effects["norad"]`). An Action Round in which DEFCON *moves* to level
+2 arms `turn_effects["norad_pending"]` in `Engine._change_defcon`; the
+Influence is placed at the *conclusion* of that round, by
+`Engine._push_pending_norad` from the action-round branch of
+`_advance_once`. The deferral is load-bearing: placing it the instant
+DEFCON moved put it inside the round that caused the move, so a USSR play
+that degraded DEFCON with its Event and still had Operations left could
+answer the US placement with them. Whether Canada is still US-controlled,
+and whether Quagmire has nullified NORAD since, are re-checked at the
+placement, not at the arming. A stable DEFCON 2 does not arm it.
 
 **Immediate conditionals.** Nixon Plays the China Card — two exhaustive,
 unconditional branches, matching the printed card: if the US already holds

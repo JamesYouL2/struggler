@@ -38,14 +38,14 @@ full model of the opponent; see the strategic bot's limits.
   Wars could in principle retrieve it slightly earlier than the physical
   game allows, but the effect it would re-apply is idempotent, so this has
   no actual gameplay consequence.
-- **NORAD fires the instant DEFCON moves to 2**, not "at the conclusion of
-  any Action Round in which the DEFCON status was placed on 2". The
-  difference is ordering, not frequency: the extra US Influence is placed
-  in the middle of whatever dropped DEFCON — before a coup finishes
-  resolving, say — so it cannot target a country the coup itself is about
-  to hand the US, and it interleaves a US decision into the USSR's action
-  round. It also fires on a headline that reaches DEFCON 2, which is not an
-  Action Round at all.
+- **NORAD armed during the Headline Phase places its Influence as the
+  action rounds open**, rather than not at all. The card says "at the
+  conclusion of any Action Round in which the DEFCON Status was placed on
+  2", and a headline is not an Action Round — but a headline that reaches
+  DEFCON 2 is common enough (We Will Bury You, Cuban Missile Crisis) that
+  silently dropping the placement is as much of a guess as keeping it, and
+  no source here rules on the case. The round-timing itself is correct: see
+  `Engine._push_pending_norad`.
 - **Shuttle Diplomacy's dropped Battleground is picked by the engine**
   (`Board.first_battleground_of`), not by the US player, who chooses it in
   the real game. The choice is almost always immaterial — the countries are
@@ -53,14 +53,6 @@ full model of the opponent; see the strategic bot's limits.
   USSR-held Japan is also worth the +1 "Controlled adjacent to the enemy
   superpower" bonus, so dropping Japan is strictly better than dropping any
   other Asian Battleground.
-- **Ask Not… will not discard a scoring card.** `_push_ask_not` filters
-  them out of the offered discards. The FAQ's general ruling is that the
-  illegal act is *holding* a scoring card, and "if a player can find a way
-  to force himself to discard a scoring card, he is free to do so" — but
-  that is stated for Five Year Plan (where the discard is random) and for
-  Missile Envy, not for a card whose whole point is a voluntary discard.
-  Left as-is pending the printed Ask Not text, which none of the sources
-  here quote.
 - **Aldrich Ames Remix**'s "USA reveals their hand face-up until end of
   turn" is modeled as a momentary reveal — the decision options — rather
   than an ongoing visibility grant surfaced through `observe()`. Modeling

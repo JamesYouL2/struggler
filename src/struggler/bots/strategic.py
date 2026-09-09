@@ -742,6 +742,22 @@ class StrategicPlayer:
         engine.removed_cards = list(obs.removed_cards)
         return engine
 
+    def scoring_card_value(self, obs: Observation, cid: str) -> float:
+        """What playing scoring card `cid` right now is worth to `obs.side`,
+        in the same raw units as everything else `score` returns.
+
+        Resolved in the idle sandbox rather than estimated, because the tiers
+        are discontinuous and a near-miss is worth nothing. A play that ends
+        the game returns the win/loss sentinel. Ask Not... prices a *discard*
+        of the same card as the negation of this.
+        """
+        engine = self.public_engine(obs)
+        engine._resolve_scoring_card(cid)
+        if engine.is_terminal:
+            return -LOSS if engine.winner is obs.side else LOSS
+        net = (engine.vp - obs.vp) * (1 if obs.side is Side.US else -1)
+        return net * self.vp_value(obs)
+
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
         (StrategicWeights.vp_early/mid/late) times what one Op buys on this
@@ -1196,12 +1212,10 @@ class StrategicPlayer:
             cid = p['card']
             card = CARDS[cid]
             if card.scoring:
-                engine = self.public_engine(obs)
-                engine._resolve_scoring_card(cid)
-                if engine.is_terminal:
-                    return -LOSS if engine.winner is obs.side else LOSS
-                net = (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
-                return net * self.vp_value(obs) + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
+                value = self.scoring_card_value(obs, cid)
+                if abs(value) >= -LOSS:  # scoring it ends the game
+                    return value
+                return value + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
             event = self.event_value(obs, cid)
             ops = _effective_ops_estimate(card, obs, obs.side)
             if kind is K.HEADLINE_PLAY:
@@ -1254,6 +1268,15 @@ class StrategicPlayer:
             if event == ASK:
                 if choice == 'stop':
                     return 0
+                if CARDS[choice].scoring:
+                    # Discarding a scoring card is legal -- the illegal act is
+                    # holding one (FAQ 5.0) -- and it is much of what this card
+                    # is for. Priced as the exact negation of playing it: dump
+                    # the regions that would score against us, keep the ones
+                    # that would not. Without this a scoring card came out at
+                    # 0 (its Ops value), tying with "stop" and falling to hand
+                    # order.
+                    return -self.scoring_card_value(obs, choice)
                 risk = self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0
                 return 100*risk - CARDS[choice].ops
             if event == 'Salt_Negotiations':

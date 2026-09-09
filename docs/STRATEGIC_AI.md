@@ -189,6 +189,11 @@ action = bot.choose_action(observation, history)
   and spacing, and detects selected dangerous DEFCON cards.
 - Handles event influence removal/placement, war targets, scoring cards,
   discards, and selected event choices such as Blockade and Wargames.
+  Scoring cards go through `StrategicPlayer.scoring_card_value`, which
+  resolves the region in the idle sandbox rather than estimating it, because
+  the tiers are discontinuous and a near-miss is worth nothing. Ask Not's
+  discard choice prices a scoring card as the exact negation of that: dump
+  the regions that would score against us, keep the ones that would not.
 
 All decisions use only `Observation`; history is currently ignored. The event
 sandbox is constructed from public fields with an independent fixed RNG and

@@ -1037,7 +1037,13 @@ def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
         if engine.physical_mode and side is engine.physical_side
         else engine.hands[side.value]
     )
-    choices = tuple(cid for cid in source if not engine.cards[cid].scoring) + ("stop",)
+    # Scoring cards included, deliberately. "The illegal act would be holding
+    # the scoring card. If a player can find a way to force himself to discard
+    # a scoring card, he is free to do so" (FAQ 5.0, and the same ruling under
+    # Five Year Plan). Dumping a scoring card that would score for the
+    # opponent is one of the strongest things this card does, so filtering
+    # them out was not a conservative simplification -- it removed the play.
+    choices = tuple(source) + ("stop",)
     if len(choices) == 1:  # nothing left to discard -> draw and finish
         engine.draw_cards_to_hand(side, discarded)
         return
@@ -1589,9 +1595,10 @@ def _destal_place(engine: "Engine", moved: int) -> None:
 
 @event("NORAD")
 def _norad(engine: "Engine", side: Side) -> None:
-    # As long as NORAD is in effect, every time DEFCON moves to level 2 the US
-    # adds 1 Influence to a country where it already has some (see the hook in
-    # Engine._change_defcon / _push_norad_influence).
+    # As long as NORAD is in effect, an Action Round in which DEFCON is placed
+    # on level 2 ends with the US adding 1 Influence to a country where it
+    # already has some -- armed in Engine._change_defcon, placed at the
+    # conclusion of the round by Engine._push_pending_norad.
     engine.game_effects["norad"] = True
 
 

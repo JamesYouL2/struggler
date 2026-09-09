@@ -779,3 +779,35 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
                                              before, bot._event_helper(), rolls=9))
     assert min(outcomes) < expected < max(outcomes)
     assert abs(expected - sum(outcomes) / 6) < 1e-6
+
+
+def _ask_not_ranking(asia_holder: Side):
+    """Fire Ask Not for the US with Asia Scoring in hand, Asia lopsided in
+    `asia_holder`'s favour, and rank the offered discards."""
+    engine = Engine(seed=1)
+    engine.events_enabled = True
+    for cid in ('North_Korea', 'India', 'Pakistan', 'Thailand', 'Japan',
+                'Taiwan', 'South_Korea', 'Afghanistan'):
+        engine.board.influence[cid] = {'US': 0, 'USSR': 0}
+        engine.board.influence[cid][asia_holder.value] = 9
+    engine.draw_pile = ['Blockade', 'Defectors', 'Quagmire']
+    engine.hands['US'] = ['Asia_Scoring', 'NATO']
+    engine._fire_event(Side.US, 'Ask_Not_What_Your_Country_Can_Do_For_You')
+    decision = engine.pending_decision
+    assert decision.kind is K.EVENT_CHOICE
+    offered = {a.payload['choice'] for a in decision.options}
+    assert {'Asia_Scoring', 'stop'} <= offered
+    ranked = StrategicPlayer().rank_actions(engine.observe(Side.US))
+    return {a.payload['choice']: key for key, a in ranked}
+
+
+def test_ask_not_dumps_a_scoring_card_that_would_score_against_it():
+    """Discarding a scoring card is legal and is much of what Ask Not is for.
+    With Asia in Soviet hands, the US would rather the card never scored."""
+    keys = _ask_not_ranking(Side.USSR)
+    assert keys['Asia_Scoring'] > keys['stop']
+
+
+def test_ask_not_keeps_a_scoring_card_that_would_score_for_it():
+    keys = _ask_not_ranking(Side.US)
+    assert keys['Asia_Scoring'] < keys['stop']
