@@ -18,7 +18,7 @@ from typing import Sequence
 from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side, Subregion
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SANDBOX_LOG, SCORING_CARD_REGION
+from struggler.engine.core import RULES, SANDBOX_LOG, SCORING_CARD_REGION
 from struggler.bots.public_cards import card_state, scoring_cards_for, scoring_schedule
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
@@ -89,9 +89,29 @@ class StrategicWeights:
     leverage: float = 1.0
     progress: float = 2.8
     reserve: float = 0.35
+    # Wipe risk: a holding is priced down by the chance the opponent's coup
+    # (3 or 4 Ops, where DEFCON allows a coup in that region, one coup a
+    # turn shared over their targets) removes every point of it, times what
+    # the position is worth (control plus progress). Unbacked, no neighbour
+    # holds our influence, so a wipe is a lockout, we cannot place there
+    # again: `wipe` of the stake, above 1 for the turns lost. Backed, it
+    # costs the points back at an Op each: `wipe_backed` of the stake.
+    # Off until calibrated (see docs/NOTES.md, plan step 2): the expert's
+    # anchor is that a controlled Thailand backed from Malaysia is worth
+    # about twice the unbacked one while the USSR can coup there.
+    wipe: float = 0.0
+    wipe_backed: float = 0.0
+    # First mover: presence in a battleground the opponent has none in but
+    # could reach. Whoever fills an empty country first makes the other pay
+    # to contest it; the bonus is that tempo, times importance.
+    first_mover: float = 0.6
     access: float = 1.5
     access_redundant: float = 0.35
     access_chain: float = 0.4
+    # Reach into a battleground the opponent can already place in is a race
+    # they may win first (Israel -> Egypt for the USSR, with the US already
+    # next door): worth this fraction of exclusive reach.
+    access_contested: float = 0.25
     region: float = 1.3
     vp: float = 3.0
     military: float = 2.0
@@ -313,8 +333,27 @@ class StrategicPlayer:
         # worth well under half of a controlled one.
         fraction = max(-1.0, min(1.0, margin / info.stability))
         value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
-        # Over-protection is worth little, and least where stability already
-        # makes a coup expensive.
+        # Wipe risk (see StrategicWeights.wipe) and first-mover tempo. The
+        # stake is the side's own position: control plus progress.
+        if own > 0:
+            stake = importance * (1 + w.progress * min(1., own / info.stability)) if margin >= info.stability \
+                else w.progress * importance * min(1., max(0., margin) / info.stability) + \
+                w.progress * importance * min(1., own / info.stability) * (margin <= 0)
+            value -= self._wipe_risk(board, cid, info, side, own) * stake
+        if opp > 0:
+            omargin = -margin
+            stake = importance * (1 + w.progress * min(1., opp / info.stability)) if omargin >= info.stability \
+                else w.progress * importance * min(1., max(0., omargin) / info.stability) + \
+                w.progress * importance * min(1., opp / info.stability) * (omargin <= 0)
+            value += self._wipe_risk(board, cid, info, side.opponent, opp) * stake
+        if info.battleground and (own > 0) != (opp > 0):
+            # Tempo is worth most where control is cheap: per stability,
+            # like every other per-Op term (a 4-stability contest is the
+            # least valuable Op on the board).
+            if own > 0 and board.is_reachable(side.opponent, cid):
+                value += w.first_mover * importance / info.stability
+            elif opp > 0 and board.is_reachable(side, cid):
+                value -= w.first_mover * importance / info.stability
         # Realignment leverage: control next to the enemy's battlegrounds.
         if margin >= info.stability:
             value += w.leverage * self._leverage(board, cid, side)
@@ -331,6 +370,52 @@ class StrategicPlayer:
         if cache is not None:
             cache[key] = value
         return value
+
+    def _wipe_risk(self, board: Board, cid: str, info, holder: Side, held: int) -> float:
+        """The chance a 3- or 4-Ops coup removes every point `holder` has
+        here (roll + Ops - 2 x stability >= held), where DEFCON allows a coup
+        in this region; scaled to 1 when unbacked (no neighbour holds our
+        influence and no superpower adjacency: a wipe locks us out) and to
+        `wipe_backed` when a neighbour does."""
+        if held <= 0:
+            return 0.
+        obs = self._obs
+        defcon = obs.defcon if obs is not None else 5
+        if defcon < RULES['coup_min_defcon'].get(info.region.name, 2):
+            return 0.
+        wipes = sum(1 for ops in (3, 4) for roll in range(1, 7) if roll + ops - 2 * info.stability >= held)
+        p = wipes / 12
+        if p == 0:
+            return 0.
+        key = holder.value
+        inf = board.influence
+        backed = cid in board._adjacency.get(key, ()) or any(
+            inf[n][key] > 0 for n in board.neighbors(cid) if n in inf)
+        # One coup a turn: the opponent picks a target, so the risk is
+        # shared out over the battlegrounds they could wipe, not summed.
+        return p * (self.weights.wipe_backed if backed else self.weights.wipe) / max(1, self._coup_targets(board, holder, defcon))
+
+    def _coup_targets(self, board: Board, holder: Side, defcon: int) -> int:
+        """How many battlegrounds `holder` has influence in that the
+        opponent could coup at this DEFCON and could wipe with a 4-Ops
+        coup on some roll."""
+        cache = getattr(self, '_access_cache', None)
+        key = ('coup_targets', board, holder, defcon)
+        if cache is not None and key in cache:
+            return cache[key]
+        n = 0
+        for cid, info in board.countries.items():
+            held = board.influence[cid][holder.value]
+            if held <= 0 or not info.battleground:
+                continue
+            if defcon < RULES['coup_min_defcon'].get(info.region.name, 2):
+                continue
+            if 6 + 4 - 2 * info.stability >= held:
+                n += 1
+        if cache is not None:
+            cache[key] = n
+        return n
+
 
     def _leverage(self, board: Board, cid: str, side: Side) -> float:
         """Adjacent battlegrounds the opponent controls, weighted by how
@@ -378,6 +463,8 @@ class StrategicPlayer:
                     weight = w.access_redundant  # reachable through another holding
                 else:
                     weight = 1.
+                if board.is_reachable(side.opponent, n):
+                    weight *= w.access_contested
                 total += weight * self._importance_of(n, info) / info.stability
             if inf[n][key_side] > 0 or board.control(n) is side.opponent:
                 continue  # already ours to build from, or not a step we take
@@ -388,7 +475,8 @@ class StrategicPlayer:
                     continue
                 if any(inf[k][key_side] > 0 for k in board.neighbors(m) if k in inf):
                     continue  # reachable directly from somewhere already
-                total += w.access_chain * self._importance_of(m, minfo) / minfo.stability
+                contested = w.access_contested if board.is_reachable(side.opponent, m) else 1.
+                total += w.access_chain * contested * self._importance_of(m, minfo) / minfo.stability
         if cache is not None:
             cache[key] = total
         return total

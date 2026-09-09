@@ -134,7 +134,18 @@ branch:
    the access term likes and the linear progress term does not punish.
    Landed as within noise; watch Asia. (b) 2a3f12c dice averaging: 0.359,
    reverted, see the dice row above; re-land after step 2.
-2. Backing and wipe risk: a holding is backed when a neighbour holds our
+2. Backing and wipe risk (in progress: coded, weights 0). First-mover
+   tempo per stability and contested-reach discount landed first (clean
+   commit). Calibration anchors from the expert: a controlled Thailand
+   backed from Malaysia is worth ~2x the unbacked one while the USSR can
+   coup there; a USSR point in Israel is ~3/5 of a Saudi Arabia point;
+   Iraq is the USSR's best first Op because two cheap Ops there swing
+   Middle East battleground domination, which is plan step 3's term, not
+   this one. Two framings tried: risk x importance (weight 8) orders the
+   USSR list but prices a lone controlled Thailand negative; risk x stake
+   (weight 1.5) is bounded but makes a second Iraq point look worse
+   (more at stake, less wipe chance). The stake framing plus the Thailand
+   2x anchor is the one to finish. A holding is backed when a neighbour holds our
    influence (or home adjacency). Price every held country by the chance
    the opponent's best coup wipes it (roll + Ops - 2 x stability >= our
    points, gated by the DEFCON coup rule), times a lockout multiplier

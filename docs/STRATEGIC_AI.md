@@ -72,9 +72,20 @@ action = bot.choose_action(observation, history)
   already does (insurance, one more direction to contest from), and
   `access_chain` for a battleground two steps away through a country not
   yet held (Israel -> Egypt -> Libya, Iran -> Pakistan -> India, Australia
-  -> Malaysia -> Thailand). Nothing for ground held. Getting to
+  -> Malaysia -> Thailand). Reach into a battleground the opponent can
+  already place in is a race they may win first, worth `access_contested`
+  (0.25) of exclusive reach. Nothing for ground held. Getting to
   battlegrounds first is most of what a non-battleground is for, and it is
   why De-Stalinization prices so high.
+- First mover (`first_mover`): presence in a battleground the opponent has
+  none in but could reach is tempo, whoever fills an empty country first
+  makes the other pay to contest it, worth `first_mover` x importance /
+  stability (a 4-stability contest is the least valuable Op on the board).
+- Wipe risk (`wipe`, `wipe_backed`, `_wipe_risk`): the chance a 3- or
+  4-Ops coup removes every point we hold, where DEFCON allows and shared
+  over the opponent's coupable targets, times the position at stake;
+  unbacked (no neighbour holds our influence) it is a lockout. Coded, off
+  by default until calibrated: see docs/NOTES.md plan step 2.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
   candidate, and only it is valued as a space play when choosing a card.
