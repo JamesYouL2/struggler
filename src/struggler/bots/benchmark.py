@@ -255,6 +255,17 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
         if cid.startswith('_'):
             continue
         got['foothold:' + cid] = to_ops(bot.country_value(bot.board, cid, Side.US), scale)
+    # First-Op placements, ranked: the expert's order per seat against the bot's.
+    placements = expert.get('placement_rank', {})
+    for seat, order in placements.items():
+        if seat.startswith('_') or not order:
+            continue
+        side = Side[seat]
+        sobs = engine.observe(side)
+        sbot = StrategicPlayer(weights)
+        sbot.rank_actions(sobs)
+        values = {c: sbot.influence(sobs, c, 1) for c in order}
+        got['placement:' + seat] = values
     misses, todo = 0, []
     print(f"expert check on {expert['board']} (US Ops; 1 Op = {scale[1]:.1f}, tolerance {tol})", file=out)
     print(f"{'row':<40}{'expert':>8}{'bot':>8}{'diff':>8}  note", file=out)
@@ -273,6 +284,16 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
         ok = got[a] > got[b] if rel == 'better_for_us_than' else got[a] < got[b]
         misses += not ok
         print(f"{'ORDER ok ' if ok else 'ORDER BROKEN'} {a} {rel} {b}: {got[a]:+.2f} vs {got[b]:+.2f}", file=out)
+    for seat, order in placements.items():
+        if seat.startswith('_') or not order:
+            continue
+        values = got['placement:' + seat]
+        inversions = [(a, b) for i, a in enumerate(order) for b in order[i+1:] if values[a] < values[b]]
+        misses += len(inversions)
+        bot_order = sorted(order, key=lambda c: -values[c])
+        print(f"PLACEMENT {seat}: {len(inversions)} inversions in {len(order)} ranked; bot order: {' > '.join(bot_order)}", file=out)
+        for a, b in inversions:
+            print(f"  {a} should beat {b}: {values[a]:.1f} vs {values[b]:.1f}", file=out)
     if todo:
         print('unpriced (fill in models/expert_valuations.json):', file=out)
         for key in todo:

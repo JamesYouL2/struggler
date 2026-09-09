@@ -13,12 +13,12 @@
       "note": "Knocks the US out of the Middle East (Israel), Europe domination replacement, UK repair. Above Arab-Israeli War."
     },
     "Arab_Israeli_War": {
-      "ops": null,
-      "note": "Below Suez: a die roll, and no UK."
+      "ops": -1.78,
+      "note": "Bot's -1.78 accepted, given US/Japan at 2."
     },
     "US_Japan_Mutual_Defense_Pact": {
-      "ops": null,
-      "note": "Below Marshall at the start."
+      "ops": 2.0,
+      "note": "Worth a battleground."
     },
     "Romanian_Abdication": {
       "ops": 0.0,
@@ -57,7 +57,7 @@
     },
     "Vietnam_Revolts": {
       "ops": -4.0,
-      "note": "A ton on an empty Thailand."
+      "note": "A ton on an empty Thailand; much, much weaker once the US has adjacency or control there."
     },
     "Fidel": {
       "ops": -0.65,
@@ -77,8 +77,8 @@
       "note": "US view: the value of the USSR holding it, assuming the US pays a 3-Ops card."
     },
     "NATO": {
-      "ops": null,
-      "note": "Table says 0: flag-only events are a known gap."
+      "ops": 1.0,
+      "note": "Activating Special Relationship is worth about 1 Op. Table says 0: flag-only events are a known gap."
     },
     "Warsaw_Pact_Formed": {
       "ops": null
@@ -111,16 +111,19 @@
       "ops": null
     },
     "Defectors": {
-      "ops": null
+      "ops": null,
+      "note": "Strong in the headline (cancels the USSR headline, +1 VP), cannot be played for the event. Unpriced."
     },
     "Formosan_Resolution": {
       "ops": null
     },
     "NORAD": {
-      "ops": null
+      "ops": 1.0,
+      "note": "0.5 to 1.5 Ops: not much, but something. Table says 0."
     },
     "UN_Intervention": {
-      "ops": null
+      "ops": null,
+      "note": "A whole thing: nullifies the opponent's event, like spacing a card but stronger with high-Ops cards (Marshall, US/Japan). Hand-dependent; unpriced."
     },
     "The_Cambridge_Five": {
       "ops": null
@@ -172,5 +175,30 @@
       "better_for_us_than",
       "foothold:Japan"
     ]
-  ]
+  ],
+  "placement_rank": {
+    "_note": "Rank the battlegrounds a seat can place a first Op into on the opening board, best first. Every pair out of the bot's order counts as a miss. Bot's order at 6cf91c7 is in _bot_US / _bot_USSR for reference.",
+    "_bot_US": [
+      "Egypt",
+      "Pakistan",
+      "Angola",
+      "France",
+      "Iraq",
+      "South_Korea",
+      "Panama",
+      "Israel",
+      "Japan",
+      "Mexico",
+      "Cuba",
+      "South_Africa"
+    ],
+    "_bot_USSR": [
+      "Israel",
+      "South_Korea",
+      "Saudi_Arabia",
+      "Iraq"
+    ],
+    "US": [],
+    "USSR": []
+  }
 }
