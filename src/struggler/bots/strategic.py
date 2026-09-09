@@ -1063,6 +1063,8 @@ class StrategicPlayer:
                 log.warning('event %s failed in the sandbox (%s: %s); using the estimate',
                             cid, type(exc).__name__, exc)
                 self.sandbox_failures[cid] = '%s: %s' % (type(exc).__name__, exc)
+        elif cid == ASK:
+            result = self._hand_upgrade_value(obs)
         if result is None:
             # Explicit approximation for events beyond the public simulator.
             result = sign * card.ops * self.weights.ops * 0.8
@@ -1072,6 +1074,67 @@ class StrategicPlayer:
         result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
         return result
+
+    def _hand_upgrade_value(self, obs: Observation) -> float:
+        """Ask Not...: what replacing the worst of a hand is worth.
+
+        The card's whole strength is that the discard is *chosen*. Every
+        opponent event you were otherwise going to have to play for its Ops
+        -- eating the event to get the Operations -- and every card too small
+        to buy anything becomes an average draw instead. So it is worth the
+        sum of the positive upgrades over a hand, and nothing like the flat
+        `ops * 0.8` estimate it used to fall through to, which priced a
+        3-Ops US card and said nothing about what the card does.
+
+        Our own hand is priced exactly, by `card_play_value`, so an opponent
+        event carries its harm and one of our own carries the better of its
+        Ops and its Event. The replacement is priced on Ops alone: valuing
+        the ~100 unseen events would cost more than the whole decision, and
+        the omission understates the draw and therefore understates this
+        card, which is the safe direction for a term that decides whether to
+        spend an Action Round.
+
+        When the opponent is the beneficiary their hand is unseen (mandate
+        #4), so what they gain is the expected positive deviation over the
+        unseen cards, applied to the hand size we can see.
+
+        A scoring card in hand is deliberately not counted here. Dumping one
+        is often the point -- and legal, see docs/RULES_SOURCES.md -- but it
+        is priced where the choice is actually made, by `scoring_card_value`
+        in `score(EVENT_CHOICE)`. Folding it in here would mean pricing a
+        game-ending scoring card with the win/loss sentinel inside an
+        ordinary value term.
+        """
+        beneficiary = Side.US  # US-associated: the event favours the US whoever plays it
+        unseen = [c for c in CARDS.values()
+                  if not c.scoring and card_state(obs, c.id) == 'unseen']
+        if not unseen:
+            return 0.
+        draw = [self.ops_value(obs, _effective_ops_estimate(c, obs, beneficiary)) for c in unseen]
+        mean = sum(draw) / len(draw)
+        # Upgrading a card you will never get to play is worth nothing, so
+        # the count is bounded by the Action Rounds left after this one --
+        # the same horizon `_ops_modifier_value` applies to Containment.
+        # This is what stops a seven-card hand of small cards from pricing
+        # Ask Not above any card in the game on turn 9.
+        total_rounds = 6 if obs.turn <= 3 else 7
+        rounds = total_rounds if obs.phase == 'headline' else max(0, total_rounds - obs.action_round)
+        if beneficiary is obs.side:
+            gains = []
+            for cid in obs.hand:
+                card = CARDS[cid]
+                if card.scoring or cid == ASK:
+                    continue
+                held = self.card_play_value(
+                    obs, cid, _effective_ops_estimate(card, obs, obs.side),
+                    self.event_value(obs, cid))
+                gains.append(max(0., mean - held))
+            gains.sort(reverse=True)  # the worst cards go first
+            return sum(gains[:rounds])
+        # Their hand is unseen: the mean upgrade an unknown card offers,
+        # over the cards they hold and can still play.
+        per_card = sum(max(0., mean - value) for value in draw) / len(draw)
+        return -per_card * min(obs.opponent_hand_size, rounds)
 
     def _ops_modifier_value(self, obs: Observation, cid: str) -> float:
         """Containment / Brezhnev Doctrine: +1 Op (to a maximum of 4) on every
