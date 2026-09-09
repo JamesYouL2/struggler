@@ -21,7 +21,10 @@
 # worktree and every benchmark runs from there, so editing the working
 # tree while a gate runs cannot change what it measures (it did, once:
 # a gate blamed a nuclear loss on a commit that never produced one).
-# The anchor run (3b) is off by default; GATE_ANCHOR=1 turns it on.
+# The anchor run (3c) is off by default; GATE_ANCHOR=1 turns it on.
+# Step 3 runs both samples in one pool and stops once the seeds still
+# unplayed cannot change the verdict (about 15% of the games, and no
+# historical verdict changes); GATE_DECIDE=0 plays every game.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BASE=${1:-HEAD~1}
@@ -57,10 +60,14 @@ echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
 echo "== 2. turn-3 checkpoint vs $BASE"
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
-echo "== 3a. full games vs $BASE, tuning seeds $SEEDS"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-base.json" 2>/dev/null | summ
-echo "== 3b. full games vs $BASE, held-out seeds $HELD"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$HELD" --workers "$WORKERS" --report "$OUT/full-vs-held.json" 2>/dev/null | summ
+echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
+# One pool over both samples, not two runs. Two pools drained in sequence pay
+# the slowest game's tail twice, and --decide can only stop a run that has
+# played some of each sample. GATE_DECIDE=0 plays every game regardless.
+DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" \
+   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE \
+   --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>/dev/null | summ
 if [ "${GATE_ANCHOR:-0}" = "1" ]; then
   echo "== 3c. full games vs pre-session $OLD"
   $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ

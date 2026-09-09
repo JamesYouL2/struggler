@@ -98,6 +98,100 @@ def _report(seeds, result, *, nuclear=0, finished=True):
                              mean_signed_vp=0.0, score=result), games=games)
 
 
+def test_early_stopping_never_stops_before_the_evidence_floor():
+    """The floor is a floor. A run of unbroken wins is exactly the evidence
+    that tempts a gate to stop at 20 games, and 20 games is not enough to
+    have learned anything about a change."""
+    from struggler.bots.benchmark import ACCEPTANCE, _decided
+    sample_of = {seed: seed % 2 for seed in range(200)}
+    games = []
+    for seed in range(200):
+        for side in ('US', 'USSR'):
+            games.append(dict(seed=seed, bot_side=side, finished=True, turn=10,
+                              reason='vp', result=1.0))
+            assert _decided(games, sample_of, 200) is (
+                len(games) >= ACCEPTANCE['min_games']
+                and _decided(games, sample_of, 200)), 'stopped below the floor'
+        if (seed + 1) * 2 < ACCEPTANCE['min_games']:
+            assert not _decided(games, sample_of, 200)
+
+
+def test_early_stopping_only_stops_where_the_full_run_agrees():
+    """Every historical gate, replayed seed by seed: wherever the rule would
+    have stopped, the verdict it stopped on is the verdict the full run
+    reached. Stopping early is only sound if it cannot change the answer."""
+    import glob, json, os, collections
+    import pytest
+    from struggler.bots.benchmark import seed_scores, verdict, stable_verdict, ACCEPTANCE
+
+    gates = collections.defaultdict(dict)
+    for path in glob.glob('logs/game-check/*/full-vs-*.json'):
+        gates[os.path.dirname(path)][os.path.basename(path)] = path
+    checked = 0
+    for directory, files in sorted(gates.items()):
+        if len(files) < 2:
+            continue
+        groups = []
+        for name in ('full-vs-base.json', 'full-vs-held.json'):
+            if name in files:
+                with open(files[name]) as f:
+                    groups.append(seed_scores(json.load(f)['games']))
+        if len(groups) < 2:
+            continue
+        observed = [(index, score, 0)
+                    for index, scores in enumerate(groups)
+                    for _, score in sorted(scores.items())]
+        total = len(observed)
+        final = verdict(groups, 0, total * 2)
+        for k in range(2, total):
+            if k * 2 < ACCEPTANCE['min_games']:
+                continue
+            if stable_verdict(observed[:k], total - k):
+                partial = collections.defaultdict(dict)
+                for n, (index, score, _) in enumerate(observed[:k]):
+                    partial[index][n] = score
+                assert verdict(list(partial.values()), 0, k * 2) == final, (
+                    directory, k, 'stopped on a verdict the full run disagreed with')
+                checked += 1
+                break
+    if checked < 3:
+        pytest.skip(f'only {checked} local gate reports under logs/game-check '
+                    '(gitignored evidence); the synthetic case covers the rule')
+
+
+def test_early_stopping_agrees_with_the_full_run_on_random_gates():
+    """The same property without local evidence: over random gates spanning
+    clear wins, clear losses and coin flips, stopping early never lands on a
+    verdict the full run contradicts."""
+    import collections
+    import random
+    from struggler.bots.benchmark import verdict, stable_verdict, ACCEPTANCE
+
+    rng = random.Random(11)
+    stops = disagreements = 0
+    for trial in range(60):
+        edge = rng.choice((0.30, 0.45, 0.50, 0.55, 0.70))
+        total = 96
+        observed = [(n % 2, rng.choice((0.0, 0.5, 1.0)) if edge == 0.5
+                     else float(rng.random() < edge), 0)
+                    for n in range(total)]
+
+        def at(k):
+            partial = collections.defaultdict(dict)
+            for n, (index, score, _) in enumerate(observed[:k]):
+                partial[index][n] = score
+            return verdict(list(partial.values()), 0, k * 2)
+
+        final = at(total)
+        for k in range(ACCEPTANCE['min_games'] // 2, total):
+            if stable_verdict(observed[:k], total - k):
+                stops += 1
+                disagreements += at(k) != final
+                break
+    assert stops >= 20, f'the rule almost never fired ({stops} of 60 gates)'
+    assert disagreements == 0, f'{disagreements} of {stops} early stops changed the verdict'
+
+
 def test_acceptance_blocks_only_a_measurable_regression():
     from struggler.bots.benchmark import acceptance
     wide, held = range(4000, 4048), range(5000, 5048)

@@ -596,5 +596,30 @@ About 1.1x. The profile implied nearer 1.2x, and the gap is the profiler:
 678,000 times. Read a profile for *where* the time goes and a stopwatch for
 *how much*.
 
+**The gate stops when the answer is in.** Both samples now run in one worker
+pool (`--seeds` with `--held-seeds`), so the slowest game's tail is paid
+once rather than once per sample, and the seeds alternate between the two
+groups so a run that stops early has played some of each. With `--decide`,
+after each finished seed the gate asks whether the seeds still unplayed
+could change the verdict: the unplayed ones are resampled from the played
+ones, and it stops when the verdict survived every draw but 1%. Resampling
+covers nuclear losses as well as scores, because stopping early can only
+*miss* a failure, and the games not played are exactly the ones that might
+have carried the second loss. `GATE_DECIDE=0` plays everything.
+
+The rule cannot fire before the 150-game evidence floor, which is what
+bounds the saving: replaying the 14 gate reports under `logs/game-check`
+seed by seed, it saves 15.5% of the full games and changes no verdict. The
+floor is doing most of the work here -- at a floor of 100 the saving is 31%
+but one of the 14 verdicts flips, which is why the floor stays where it is.
+Deterministic curtailment (stop only when no possible remaining result
+could change the verdict) is exact but saves just 6%, because one seed can
+swing the mean a long way.
+
+The verdict arithmetic itself now lives in `benchmark.verdict`, which
+`acceptance` reports and `stable_verdict` asks about a resampled future, so
+a rule cannot mean one thing when the gate reports it and another when the
+gate stops early on it. `acceptance` asserts the two agree.
+
 For the weight-by-weight removal candidates, policy/leaf distinction, and
 proposed ablations, see [Strategic simplification audit](STRATEGIC_SIMPLIFICATION.md).

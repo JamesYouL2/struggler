@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import itertools
 import json
 import logging
 import math
 import os
+import random
 import statistics
 import sys
 import time
@@ -259,6 +261,69 @@ def seed_scores(games) -> dict[int, float]:
     return {seed: statistics.fmean(results) for seed, results in by_seed.items()}
 
 
+def verdict(scores_by_sample, nuclear: int, total_games: int) -> bool:
+    """Whether the acceptance rules pass, given per-sample seed scores, the
+    nuclear-loss count and the number of finished games.
+
+    The arithmetic of the verdict lives here alone. `acceptance` adds the
+    reporting and `stable_verdict` asks the same question of a resampled
+    future, so a rule can never mean one thing when the gate reports it and
+    another when the gate decides to stop early on it.
+    """
+    if nuclear > ACCEPTANCE['max_nuclear']:
+        return False
+    if len(scores_by_sample) < ACCEPTANCE['min_samples']:
+        return False
+    seen: set = set()
+    pooled: list[float] = []
+    for scores in scores_by_sample:
+        if seen & scores.keys():
+            return False  # samples must be over disjoint seeds
+        seen |= scores.keys()
+        pooled += list(scores.values())
+    if total_games < ACCEPTANCE['min_games'] or len(pooled) < 2:
+        return False
+    mean = statistics.fmean(pooled)
+    error = statistics.stdev(pooled) / math.sqrt(len(pooled))
+    return mean + ACCEPTANCE['confidence'] * error >= 0.5
+
+
+def stable_verdict(observed, remaining: int, games_per_seed: int = 2,
+                   threshold: float = 0.01, trials: int = 400) -> bool:
+    """Whether the seeds still unplayed could change the verdict.
+
+    `observed` is one `(sample_index, score, nuclear_losses)` per finished
+    seed; `remaining` is how many seeds are left. The unplayed seeds are
+    resampled from the played ones, and the answer is whether the verdict
+    survived every draw but `threshold` of them.
+
+    Resampling covers nuclear losses as well as scores, because stopping
+    early can only *miss* a failure: the games not played are exactly the
+    ones that might have carried the second loss. Deterministically seeded,
+    so re-running a gate stops in the same place.
+    """
+    if remaining <= 0 or len(observed) < 2:
+        return remaining <= 0
+    rng = random.Random(len(observed) * 1000 + remaining)
+    samples = sorted({index for index, _, _ in observed})
+
+    def apply(records):
+        by_sample = {i: {} for i in samples}
+        nuclear = 0
+        for n, (index, score, losses) in enumerate(records):
+            by_sample[index][n] = score  # synthetic seed ids: disjoint by construction
+            nuclear += losses
+        return verdict([s for s in by_sample.values() if s], nuclear,
+                       len(records) * games_per_seed)
+
+    now = apply(observed)
+    for _ in range(trials):
+        drawn = observed + [rng.choice(observed) for _ in range(remaining)]
+        if apply(drawn) != now:
+            return False
+    return True
+
+
 def acceptance(samples) -> tuple[bool, list[str]]:
     """Whether a candidate may land, given `(label, report)` benchmark reports.
 
@@ -336,11 +401,17 @@ def acceptance(samples) -> tuple[bool, list[str]]:
             lines.append('  WARN identical: every game was a dead heat. Confirm the change is '
                          'meant to be a no-op, and that the baseline snapshot holds what changed')
         upper = mean + ACCEPTANCE['confidence'] * error
-        verdict = 'ok' if upper >= 0.5 else 'FAIL'
+        label = 'ok' if upper >= 0.5 else 'FAIL'
         if upper < 0.5:
             ok = False
-        lines.append(f'  {verdict} strength: pooled score {mean:.3f} +/- {error:.3f} over '
+        lines.append(f'  {label} strength: pooled score {mean:.3f} +/- {error:.3f} over '
                      f'{len(values)} seeds, one-sided 95% upper bound {upper:.3f}, needs 0.500')
+    # The lines above explain the verdict; `verdict` *is* the verdict. They
+    # are computed from the same numbers, so a disagreement is a bug in one
+    # of them and the gate should not quietly pick a side.
+    core = verdict([seed_scores(report.get('games', [])) for _, report in samples],
+                   nuclear, total)
+    assert core == ok, ('acceptance and verdict disagree: %s vs %s' % (ok, core), lines)
     lines.append('ACCEPTED' if ok else 'REJECTED')
     return ok, lines
 
@@ -506,6 +577,26 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
     return misses
 
 
+def _decided(games, sample_of, planned_seeds: int) -> bool:
+    """Whether the seeds still to play can change the acceptance verdict.
+
+    A seed counts only once both its seats are in: they share one deal and
+    `seed_scores` averages them, so half a seed is not an observation.
+    """
+    finished: dict[int, list] = {}
+    for game in games:
+        if game.get('finished') and game.get('result') is not None:
+            finished.setdefault(game['seed'], []).append(game)
+    complete = {seed: rows for seed, rows in finished.items() if len(rows) == 2}
+    observed = [(sample_of.get(seed, 0),
+                 statistics.fmean(r['result'] for r in rows),
+                 sum(1 for r in rows if r.get('reason') == 'defcon_1'))
+                for seed, rows in sorted(complete.items())]
+    if len(complete) * 2 < ACCEPTANCE['min_games']:
+        return False  # the evidence floor is a floor, whatever the score says
+    return stable_verdict(observed, planned_seeds - len(complete))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--bot', default='mcts', help='mcts | strategic | greedy; strategic@<file.py> loads that version')
@@ -523,6 +614,11 @@ def main(argv=None):
                         help='diff the turn-1 valuations against this expert file, in US Ops, and exit')
     parser.add_argument('--accept', nargs='+', metavar='REPORT',
                         help='apply the acceptance rules to these --report files and exit 1 if rejected')
+    parser.add_argument('--held-seeds', help='a second, disjoint seed range played in the same pool '
+                                             'as --seeds; with --held-report the two are written separately')
+    parser.add_argument('--held-report', help='where the --held-seeds games go')
+    parser.add_argument('--decide', action='store_true',
+                        help='stop once the seeds still unplayed cannot change the acceptance verdict')
     args = parser.parse_args(argv)
     if args.accept:
         samples = []
@@ -545,27 +641,56 @@ def main(argv=None):
             expert_check(args.expert, parse_seeds(args.seeds)[0], weights)
         return
     seeds = parse_seeds(args.seeds)
+    held = parse_seeds(args.held_seeds) if args.held_seeds else []
+    if set(seeds) & set(held):
+        parser.error('--seeds and --held-seeds must be disjoint: the acceptance rules require it')
     if args.log_dir:
         os.makedirs(args.log_dir, exist_ok=True)
-    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn, args.log_dir, args.bot_weights)
-            for seed in seeds for side in ('US', 'USSR')]
+    # Both samples run in one pool. Two pools drained one after the other pay
+    # the slowest game's tail twice, and a run that stops early has to have
+    # played some of each sample or the verdict has nothing to be about -- so
+    # the seeds alternate between the groups rather than running one first.
+    order = [(0, seed) for seed in seeds]
+    if held:
+        order = [(index, seed)
+                 for row in itertools.zip_longest(seeds, held)
+                 for index, seed in enumerate(row) if seed is not None]
+    jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn,
+             args.log_dir, args.bot_weights)
+            for _, seed in order for side in ('US', 'USSR')]
+    sample_of = {seed: index for index, seed in order}
     start = time.time()
     games = []
+    stopped = None
     with Pool(args.workers) as pool:
-        for game in pool.imap_unordered(play, jobs, chunksize=1):
+        results = pool.imap_unordered(play, jobs, chunksize=1)
+        for game in results:
             games.append(game)
             print(f"{len(games):3d}/{len(jobs)} seed {game['seed']} {game['bot_side']:<4} T{game['turn']} "
                   f"vp={game['signed_vp']:+d} proj={game['projected_vp']:+.1f} defcon={game['defcon']} "
                   f"{game['reason'] or '...'} {game['seconds']}s", file=sys.stderr, flush=True)
+            if args.decide and held and _decided(games, sample_of, len(order)):
+                stopped = len(games)
+                print(f'decided after {stopped} of {len(jobs)} games; '
+                      f'the rest cannot change the verdict', file=sys.stderr, flush=True)
+                pool.terminate()
+                break
     games.sort(key=lambda g: (g['seed'], g['bot_side']))
+    reports = [(args.report, [g for g in games if sample_of.get(g['seed']) == 0])]
+    if held:
+        reports.append((args.held_report, [g for g in games if sample_of.get(g['seed']) == 1]))
     summary = summarize(games, args.stop_turn)
     summary['wall_seconds'] = round(time.time() - start, 1)
     summary['bot'], summary['opponent'], summary['simulations'] = args.bot, args.opponent, args.simulations
     summary['bot_weights'] = args.bot_weights
+    if stopped is not None:
+        summary['stopped_after'] = stopped
+        summary['planned_games'] = len(jobs)
     print(json.dumps(summary))
-    if args.report:
-        with open(args.report, 'w') as f:
-            json.dump(dict(summary=summary, games=games), f, indent=1)
+    for path, subset in reports:
+        if path:
+            with open(path, 'w') as f:
+                json.dump(dict(summary=summarize(subset, args.stop_turn), games=subset), f, indent=1)
 
 
 if __name__ == '__main__':
