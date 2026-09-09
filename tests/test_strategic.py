@@ -323,8 +323,30 @@ def test_access_prices_reach_first_footholds_and_chains():
     israel = bot._access(bot.board, 'Israel', Side.US)
     assert israel > 0
     board.influence['Egypt']['US'] = 1
-    bot._access_cache = {}  # the cache is per decision; the board just changed under it
     assert bot._access(board, 'Israel', Side.US) < israel
+
+
+def test_access_does_not_depend_on_an_earlier_trial_placement():
+    """`_access` reads influence up to two hops out, so the `(board, cid, side)`
+    memo it used to carry went stale as soon as a trial placement moved a
+    neighbour: the same position then scored differently depending on what had
+    been evaluated before it, which reordered 39 of the 598 corpus rankings."""
+    from struggler.engine import Side
+    engine = _opening_board()
+    obs = engine.observe(Side.USSR)
+    plain = StrategicPlayer()
+    plain.rank_actions(obs)
+    expected = plain._access(plain.board, 'Israel', Side.USSR)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    board = bot.board
+    # Make and unmake a neighbouring placement, exactly as `_investment` does.
+    original = dict(board.influence['Egypt'])
+    board.influence['Egypt']['USSR'] += 2
+    on_trial = bot._access(board, 'Israel', Side.USSR)
+    board.influence['Egypt'].update(original)
+    assert on_trial != expected  # the trial board really does price Israel differently
+    assert bot._access(board, 'Israel', Side.USSR) == expected
 
 
 def test_un_intervention_is_kept_for_the_worst_opponent_card():
@@ -399,11 +421,9 @@ def test_first_mover_and_contested_reach():
     # Contested reach: USSR reach into Egypt through Israel is a race the US
     # (already next door) can win, so it is worth access_contested of the
     # exclusive value the same geometry would have with no US in Israel.
-    bot._access_cache = {}
     board.influence['Israel']['USSR'] = 1
     contested = bot._access(board, 'Israel', Side.USSR)
     board.influence['Israel']['US'] = 0
-    bot._access_cache = {}
     exclusive = bot._access(board, 'Israel', Side.USSR)
     assert contested < exclusive
     assert egypt > 0

@@ -227,14 +227,12 @@ class StrategicPlayer:
         self._region_cache = {}
         self._base_regions = {}
         self._base_margins = {}
-        self._country_cache = {}
         self._ops_values = {}
         self._relocation_gain = None
         self._space_card = None
         self._un_card = None
         self._obs = observation
         self._scoring_weights = {}
-        self._access_cache = {}
         self._region_members = {r: self.board.countries_in(r) for r in Region}
         self._planner = None
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
@@ -500,15 +498,14 @@ class StrategicPlayer:
         return self._margin_swapped(basis, board, region, side, cid, before)
 
     def country_value(self, board: Board, cid: str, side: Side) -> float:
+        # Not memoised: the access, wipe-backing and first-mover terms below
+        # all read neighbouring influence, so a key of this country's own
+        # `(own, opp)` does not identify the value. See `_access`.
         w = self.weights
         info = board.countries[cid]
         inf = board.influence[cid]
         us, ussr = inf['US'], inf['USSR']
         own, opp = (us, ussr) if side is Side.US else (ussr, us)
-        cache = getattr(self, '_country_cache', None)
-        key = (board, cid, side, own, opp)
-        if cache is not None and key in cache:
-            return cache[key]
         margin = own - opp
         importance = self.importance(info)
         # Control is worth what the region will still score (a battleground
@@ -545,8 +542,6 @@ class StrategicPlayer:
         # Eastern Europe opens nothing), and nothing for ground we hold.
         value += w.access * (self._access(board, cid, side) * (own > 0)
                              - self._access(board, cid, side.opponent) * (opp > 0))
-        if cache is not None:
-            cache[key] = value
         return value
 
     def _wipe_risk(self, board: Board, cid: str, info, holder: Side, held: int, other: int,
@@ -589,10 +584,6 @@ class StrategicPlayer:
         """How many battlegrounds `holder` has influence in that the
         opponent could coup at this DEFCON and could wipe with a 4-Ops
         coup on some roll."""
-        cache = getattr(self, '_access_cache', None)
-        key = ('coup_targets', board, holder, defcon)
-        if cache is not None and key in cache:
-            return cache[key]
         n = 0
         for cid, info in board.countries.items():
             held = board.influence[cid][holder.value]
@@ -602,8 +593,6 @@ class StrategicPlayer:
                 continue
             if 6 + 4 - 2 * info.stability >= held:
                 n += 1
-        if cache is not None:
-            cache[key] = n
         return n
 
 
@@ -616,11 +605,15 @@ class StrategicPlayer:
         two steps away through a country we do not yet hold (Israel -> Egypt
         -> Libya, Iran -> Pakistan -> India, Australia -> Malaysia ->
         Thailand). Getting to battlegrounds first is most of what a
-        non-battleground is for."""
-        cache = getattr(self, '_access_cache', None)
-        key = (board, cid, side)
-        if cache is not None and key in cache:
-            return cache[key]
+        non-battleground is for.
+
+        Recomputed on every call, deliberately. This reads influence up to
+        two hops out, so the `(board, cid, side)` memo it used to carry went
+        stale the moment a trial placement moved a neighbour: it returned a
+        different number depending on what had been evaluated before it, and
+        that reordered 39 of the parity corpus's 598 rankings. Any memo here
+        has to be keyed on the whole two-hop neighbourhood, which costs about
+        what the walk itself costs."""
         w = self.weights
         inf, key_side = board.influence, side.value
         home = board._adjacency.get(key_side, ())
@@ -655,8 +648,6 @@ class StrategicPlayer:
                     continue  # reachable directly from somewhere already
                 contested = w.access_contested if board.is_reachable(side.opponent, m) else 1.
                 total += w.access_chain * contested * self._importance_of(m, minfo) / minfo.stability
-        if cache is not None:
-            cache[key] = total
         return total
 
     def _importance_of(self, cid: str, info) -> float:
@@ -675,14 +666,11 @@ class StrategicPlayer:
         alone evaluates in whatever context the last `rank_actions` left
         behind, which made an identical leaf return three different values
         depending on which position had been ranked before it."""
-        saved = (self._obs, self._scoring_weights, self.__dict__.get('_country_cache'),
-                 self.__dict__.get('_access_cache'), self.__dict__.get('_region_cache'),
+        saved = (self._obs, self._scoring_weights, self.__dict__.get('_region_cache'),
                  self.__dict__.get('_ops_values'), {c: dict(v) for c, v in self.board.influence.items()})
         _sync_board(self.board, observation)  # `board`, if given, must describe the same position
         self._obs = observation
         self._scoring_weights = {}
-        self._country_cache = {}
-        self._access_cache = {}
         self._region_cache = {}
         self._ops_values = {}
         if not hasattr(self, '_region_members'):
@@ -690,9 +678,8 @@ class StrategicPlayer:
         try:
             return self.value(self.board, observation.side)
         finally:
-            self._obs, self._scoring_weights, country, access, region, ops_values, influence = saved
-            for name, val in (('_country_cache', country), ('_access_cache', access),
-                              ('_region_cache', region), ('_ops_values', ops_values)):
+            self._obs, self._scoring_weights, region, ops_values, influence = saved
+            for name, val in (('_region_cache', region), ('_ops_values', ops_values)):
                 if val is not None:
                     setattr(self, name, val)
             for c, v in influence.items():
