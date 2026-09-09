@@ -89,7 +89,7 @@
     },
     "Red_Scare_Purge": {
       "ops": null,
-      "note": "Very strong headline, same rule as Containment; 1-Op cards are unaffected. Symmetric card: the US seat's view is the value of the US playing it."
+      "note": "Very strong headline: 5-6 Ops at the start of the turn, falling linearly with every card the opponent has already played (and you may have more important cards to play). 1-Op cards are unaffected. Can also be played for its 4 Ops. Symmetric card: the US seat's view is the value of the US playing it."
     },
     "Five_Year_Plan": {
       "ops": 1.0,
