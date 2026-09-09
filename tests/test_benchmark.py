@@ -19,26 +19,62 @@ def test_expert_valuations_file_is_well_formed_and_the_check_runs(tmp_path):
     assert 'misses' in out.getvalue() and misses >= 0
 
 
-def test_a_baseline_policy_loads_its_own_evaluator_not_the_candidates(tmp_path):
+def test_a_baseline_policy_loads_its_own_bot_modules_not_the_candidates(tmp_path):
     """`strategic@<file>` plays an older policy against the current one. That
-    older `strategic.py` imports `struggler.bots.evaluator` by name, so
-    without substitution it would bind the *candidate's* evaluation terms and
-    the gate would report the candidate playing itself. An `evaluator.py`
-    beside the baseline file stands in while it loads, and only while."""
+    older `strategic.py` imports `struggler.bots.*` by name, so without
+    substitution it binds the *candidate's* code and the gate reports the
+    candidate playing itself.
+
+    Not hypothetical, and not only about `evaluator`: when the snapshot held
+    `strategic.py` and `evaluator.py` alone, a `public_cards.py` change gated
+    against itself and returned 0.500 with a standard error of zero over 96
+    seeds. Every snapshotted module stands in, and only while the baseline
+    loads."""
     import sys
     import struggler.bots as package
-    from struggler.bots import evaluator as real
+    from struggler.bots import evaluator as real_evaluator, public_cards as real_cards
+    from struggler.bots.benchmark import load_module
+
+    (tmp_path / 'evaluator.py').write_text('MARKER = "baseline evaluator"\n')
+    (tmp_path / 'public_cards.py').write_text('MARKER = "baseline cards"\n')
+    (tmp_path / 'strategic.py').write_text(
+        'from struggler.bots import evaluator as ev\n'
+        'from struggler.bots import public_cards as pc\n'
+        'BOUND = (ev, pc)\n')
+    evaluator, cards = load_module(str(tmp_path / 'strategic.py')).BOUND
+    assert (evaluator.MARKER, cards.MARKER) == ('baseline evaluator', 'baseline cards')
+    assert evaluator is not real_evaluator and cards is not real_cards
+    # The substitution is undone: the candidate keeps its own code.
+    assert package.evaluator is real_evaluator and package.public_cards is real_cards
+    assert sys.modules['struggler.bots.evaluator'] is real_evaluator
+    assert sys.modules['struggler.bots.public_cards'] is real_cards
+
+
+def test_a_baseline_resolves_the_engine_from_the_candidate(tmp_path):
+    """Only the bot is compared. The engine is the shared arbiter both sides
+    are measured under, so it is deliberately not snapshotted."""
+    from struggler.engine import board as real_board
     from struggler.bots.benchmark import load_module
 
     (tmp_path / 'evaluator.py').write_text('MARKER = "baseline"\n')
     (tmp_path / 'strategic.py').write_text(
-        'from struggler.bots import evaluator as ev\nBOUND = ev\n')
-    loaded = load_module(str(tmp_path / 'strategic.py'))
-    assert loaded.BOUND.MARKER == 'baseline'
-    assert loaded.BOUND is not real
-    # The substitution is undone: the candidate keeps its own terms.
-    assert package.evaluator is real
-    assert sys.modules['struggler.bots.evaluator'] is real
+        'from struggler.engine import board\nBOUND = board\n')
+    assert load_module(str(tmp_path / 'strategic.py')).BOUND is real_board
+
+
+def test_acceptance_warns_when_every_game_is_a_dead_heat():
+    """A gate where both sides play identically is either a change that cannot
+    affect play or a comparison that is not comparing anything."""
+    from struggler.bots.benchmark import acceptance
+    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5)),
+                            ('held-out', _report(range(5000, 5048), 0.5))])
+    assert ok  # a proven no-op refactor is supposed to look like this
+    assert any('WARN identical' in line for line in lines), lines
+    # A change that actually moved games does not warn.
+    mixed = _report(range(4000, 4048), 0.5)
+    mixed['games'][0]['result'] = 1.0
+    ok, lines = acceptance([('gate', mixed), ('held-out', _report(range(5000, 5048), 0.5))])
+    assert ok and not any('WARN identical' in line for line in lines), lines
 
 
 def test_a_baseline_without_a_sibling_evaluator_still_loads(tmp_path):

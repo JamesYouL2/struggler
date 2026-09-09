@@ -34,14 +34,14 @@ PY=${PYTHON:-$ROOT/.venv/bin/python}
 HEAD_SHA=$(git rev-parse --short HEAD)
 OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
 mkdir -p "$OUT"
-# Each baseline gets its own directory: benchmark.load_module binds a sibling
-# `evaluator.py` in place of the candidate's while it loads `strategic.py`, so
-# a baseline that predates the evaluator split still runs its own terms.
+# Each baseline gets its own directory holding that revision's whole
+# `struggler/bots` package: benchmark.load_module resolves every
+# `struggler.bots.*` import to it while `strategic.py` loads, so the baseline
+# runs on its own code. Snapshotting `strategic.py` alone compared a
+# `public_cards.py` change against itself and reported a dead heat.
 snapshot() {  # snapshot <ref> <dir>
   mkdir -p "$2"
-  git show "$1:src/struggler/bots/strategic.py" > "$2/strategic.py"
-  git show "$1:src/struggler/bots/evaluator.py" > "$2/evaluator.py" 2>/dev/null \
-    || rm -f "$2/evaluator.py"
+  git archive "$1" src/struggler/bots | tar -x -C "$2" --strip-components=3
 }
 snapshot "$BASE" "$OUT/base"
 snapshot "$OLD" "$OUT/old"

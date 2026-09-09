@@ -16,6 +16,7 @@ can be farmed at the late game's expense.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import logging
 import math
@@ -74,7 +75,6 @@ def projection(engine, side: Side) -> dict:
 
 
 def _exec_file(path: str, name: str):
-    import importlib.util
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module  # dataclasses resolve annotations through sys.modules
@@ -82,40 +82,80 @@ def _exec_file(path: str, name: str):
     return module
 
 
+class _SnapshotFinder:
+    """Resolves `struggler.bots.<name>` to a directory of snapshotted sources.
+
+    Installed only while a baseline policy is being imported. Anything the
+    snapshot does not contain -- the whole of `struggler.engine`, above all --
+    falls through to normal resolution, which is the point: the engine is the
+    shared arbiter both sides are measured under, and only the bot is being
+    compared.
+    """
+
+    PREFIX = 'struggler.bots.'
+
+    def __init__(self, directory: str):
+        self.directory = directory
+
+    def source_for(self, fullname: str) -> str | None:
+        if not fullname.startswith(self.PREFIX):
+            return None
+        stem = fullname[len(self.PREFIX):]
+        if '.' in stem:  # subpackages are not snapshotted
+            return None
+        path = os.path.join(self.directory, stem + '.py')
+        return path if os.path.exists(path) else None
+
+    def find_spec(self, fullname, path=None, target=None):
+        # No imports in here: a finder that imports re-enters itself.
+        source = self.source_for(fullname)
+        return None if source is None else importlib.util.spec_from_file_location(fullname, source)
+
+
 def load_module(path: str):
-    """Import a bot module from a file: `strategic@/path/to/old_strategic.py`
+    """Import a bot module from a file: `strategic@/path/to/base/strategic.py`
     plays an earlier version of the policy against the current one.
 
-    An `evaluator.py` sitting next to `path` is loaded first and stands in for
-    `struggler.bots.evaluator` while `path` executes, so the old policy binds
-    the evaluator it was written against. Without that substitution a gate
-    whose baseline imports the evaluator would run the baseline's
-    `strategic.py` on the *candidate's* evaluation terms and report the
-    candidate playing itself. `strategic.py` binds the module once at import,
-    so restoring the real one afterwards leaves the baseline holding its own.
+    Every `struggler.bots` module sitting beside `path` stands in for the
+    candidate's while `path` executes, so the old policy binds the modules it
+    was written against. Without that, a gate whose baseline imports anything
+    that changed alongside `strategic.py` runs the baseline on the candidate's
+    code and reports the candidate playing itself. That is not hypothetical:
+    the fix started as `evaluator.py` alone, and the very next gate compared a
+    `public_cards.py` change against itself and returned 0.500 with a standard
+    error of zero over 96 seeds.
+
+    Imports are resolved lazily through a finder rather than pre-executed,
+    because the snapshot's modules import each other and there is no order
+    that is right in general. A baseline module that imports lazily, inside a
+    function called after this returns, still gets the candidate's.
     """
-    import os.path
-    sibling = os.path.join(os.path.dirname(os.path.abspath(path)), 'evaluator.py')
-    if not os.path.exists(sibling):
+    directory = os.path.dirname(os.path.abspath(path))
+    target = os.path.basename(path)
+    finder = _SnapshotFinder(directory)
+    snapshotted = [name[:-3] for name in sorted(os.listdir(directory))
+                   if name.endswith('.py') and name != target and not name.startswith('_')]
+    if not snapshotted:
         return _exec_file(path, 'struggler_benchmark_' + str(abs(hash(path))))
     import struggler.bots as package
-    key, attribute = 'struggler.bots.evaluator', 'evaluator'
-    saved_module, saved_attribute = sys.modules.get(key), getattr(package, attribute, None)
-    base = _exec_file(sibling, 'struggler_benchmark_evaluator_' + str(abs(hash(sibling))))
-    sys.modules[key] = base
-    setattr(package, attribute, base)
+    prefix = _SnapshotFinder.PREFIX
+    saved_modules = {k: v for k, v in sys.modules.items() if k.startswith(prefix)}
+    saved_attributes = {stem: getattr(package, stem, None) for stem in snapshotted}
+    for stem in snapshotted:
+        sys.modules.pop(prefix + stem, None)
+        if hasattr(package, stem):
+            delattr(package, stem)
+    sys.meta_path.insert(0, finder)
     try:
         return _exec_file(path, 'struggler_benchmark_' + str(abs(hash(path))))
     finally:
-        if saved_module is None:
-            sys.modules.pop(key, None)
-        else:
-            sys.modules[key] = saved_module
-        if saved_attribute is None:
-            if hasattr(package, attribute):
-                delattr(package, attribute)
-        else:
-            setattr(package, attribute, saved_attribute)
+        sys.meta_path.remove(finder)
+        for key in [k for k in sys.modules if k.startswith(prefix) and k not in saved_modules]:
+            del sys.modules[key]
+        sys.modules.update(saved_modules)
+        for stem, module in saved_attributes.items():
+            if module is not None:
+                setattr(package, stem, module)
 
 
 def build(kind: str, seed: int, simulations: int, model: str | None = None):
@@ -287,6 +327,14 @@ def acceptance(samples) -> tuple[bool, list[str]]:
         values = list(pooled.values())
         mean = statistics.fmean(values)
         error = statistics.stdev(values) / math.sqrt(len(values))
+        if error == 0 and mean == 0.5:
+            # Every seed a dead heat, on both seats. Either the change cannot
+            # affect play, or the two sides are not actually different: a
+            # baseline snapshot missing the file that changed produces exactly
+            # this, and did. Not a failure, because a refactor proven
+            # behaviour-neutral is supposed to look like this.
+            lines.append('  WARN identical: every game was a dead heat. Confirm the change is '
+                         'meant to be a no-op, and that the baseline snapshot holds what changed')
         upper = mean + ACCEPTANCE['confidence'] * error
         verdict = 'ok' if upper >= 0.5 else 'FAIL'
         if upper < 0.5:
