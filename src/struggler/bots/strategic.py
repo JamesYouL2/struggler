@@ -476,6 +476,18 @@ class StrategicPlayer:
             self._position.sync(self.board)
 
     def value(self, board: Board, side: Side) -> float:
+        """`board`'s whole value to `side`.
+
+        The board comes from the caller, but the *context* does not: scoring
+        urgency and DEFCON come from whatever observation this player was last
+        prepared for, and from a fresh player they are all-ones urgency at
+        DEFCON 5. So the same board scores differently on two players, by
+        design -- a battleground is worth more where more scoring is still to
+        come. Use `evaluate(observation)`, which prepares that context and puts
+        it back, for anything that compares positions, such as a search leaf.
+        Call `value` directly only for a bare, context-free reading of a
+        board, or after `prepare`. `evaluator.board_value` takes the context
+        explicitly and is the honest form of this call."""
         return ev.board_value(self._terrain, self._position_for(board), ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
                               self._obs.defcon if self._obs is not None else 5)

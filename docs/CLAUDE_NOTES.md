@@ -739,20 +739,61 @@ files per revision into `$OUT/base/` and `$OUT/old/`. Two tests cover it.
 This does not bite gates whose baseline predates the split, including the
 one run for `7cb9fbe`.
 
+### The event basis, the third instance of the same defect
+
+Codex's audit was right and the reproduction is exact: `_resolve_sandbox`
+re-valued only the countries whose own influence the event changed, while
+`country_value` reads its neighbourhood. Nasser priced at -67.8296875
+against -65.8890625 for a full pass, the whole 1.940625 being Israel.
+
+`9d9890f` fixes it. The first attempt used a radius of two hops and still
+mispriced Brush War and The Voice of America: `access` walks a neighbour's
+neighbours and then asks whether *those* are reachable, which is a third
+hop. `evaluator.VALUE_RADIUS` now lives beside the terms that set it, and a
+test moves one country and checks that nothing outside the claimed set
+moved with it. It fails at two.
+
+This is a real pricing change: 408 of the previous corpus's 514 records
+moved. It costs nothing measurable -- 87 events on a fixed position, 0.066 s
+-> 0.059 s, because one snapshot per sandbox beats one per recomputed
+country.
+
+Its gate needed a second sample to read at all:
+
+| Seeds | Games | Score | Mean signed VP | Nuclear losses |
+| --- | ---: | ---: | ---: | ---: |
+| 4000-4031 (gate) | 64 | 0.469 | -2.55 | 0 |
+| 5000-5063 (held out) | 128 | 0.555 | +1.13 | 0 |
+| combined | 192 | 0.526 | | 0 |
+
+The gate seeds alone read as a strength loss. The held-out seeds read as a
+gain of similar size, which is what noise looks like at 64 games; expert
+misses went 26 -> 25. Kept on the strength of being correct, not on the
+strength of that table. Codex's warning about selecting successive changes
+on the same seeds is the reason the second sample was run at all, and it
+should be routine, not exceptional.
+
 ### Next steps, in order
 
-1. From Codex's audit, in its order and not mine: `_resolve_sandbox`
-   refreshes only the countries whose influence changed, although
-   `country_value` reads neighbours. That is the *same* defect class as the
-   memos, in the event basis, and this extraction does not fix it. Reported
-   as Nasser at -67.83 against -65.89 for a full recomputation, Israel's
-   +1.94 omitted. Verify the reproduction, then make the event basis
-   recompute its full affected set.
-2. `_event_helper` keeps the weights it was built with when the parent's
-   change; `event_value` swallows every exception into a plausible-looking
-   estimate.
-3. Define explicit gate acceptance thresholds. "Exited 0" is not "passed",
-   and the notes above have used the wrong word before.
-4. Only then the indexing measurement (C step 3). The evaluator is now the
-   data layout a Rust kernel would receive, so that measurement is about
-   whether the boundary pays, not about restructuring.
+Codex reassessed the audit through `9d9890f` (see `docs/CODEX_NOTES.md`) and
+confirmed the three concrete findings this session addressed are closed.
+What it still lists, in its order:
+
+1. `_event_helper` keeps the weights it was built with when the parent's
+   are replaced; `event_value` swallows every exception into a
+   plausible-looking estimate, so a defect reads as an approximation.
+2. Explicit gate acceptance thresholds. "Exited 0" is not "passed", these
+   notes have used the wrong word before, and the table above is exactly
+   the case where a threshold would have decided instead of judgement.
+   Held-out seeds belong in the same rule.
+3. Scoring horizon: `scoring_schedule` has no turn-10 cap and no final
+   scoring, so late-game investments are priced against scorings that never
+   happen. This is the largest remaining valuation error and it is
+   systematic, not a tie-break.
+4. Flag-only events (NATO, Formosan Resolution, Shuttle Diplomacy) still
+   value 0 because the sandbox measures influence and immediate VP.
+5. Align the two Ops estimates: `ops_value` plans a greedy multi-country
+   spend, the `OPS_TYPE` influence branch extrapolates one country.
+6. Only then the indexing measurement (C step 3). The evaluator is already
+   the data layout a native kernel would receive, so that measurement is
+   about whether the boundary pays, not about restructuring.
