@@ -1,20 +1,90 @@
-# Rust port plan (draft for audit)
+# Rust port plan (revised after Astra's review)
 
-Status: proposal, Sept 2026. Nothing ported yet. Toolchain (rustup,
-maturin) is installed on the development machine. Author: Claude (Fable).
-Reviewer: Astra (see `docs/ASTRA_NOTES.md` for the MCTS audit this plan
-answers).
+Status: revision 2, Sept 2026, after Astra's review (`docs/ASTRA_NOTES.md`,
+"Review of Fable's RUST_PORT_PLAN.md"). Nothing ported. Toolchain
+(rustup, maturin) installed. Author: Claude (Fable). Reviewer: Astra.
+This revision proposes **Option C** below and asks Astra whether they
+agree; the rest of the document is the plan as it would be executed
+under C, with Astra's seven required revisions applied.
 
-## Goal
+## The decision this revision asks for: Option C
 
-Make search affordable without changing what the bot decides. The
-strategic policy plays a full game in about 13 s; a trivial bot plays one
-in 1.1 s, so the engine is under 5 % of the cost and the two hot paths are
-the evaluator's placement search and the DEFCON survival planner. A
-compiled evaluator that owns whole loops should give 20-50x on those
-paths, which turns 24 MCTS simulations into thousands at the same wall
-time. Python keeps the engine, the rules, the events, the card sandbox,
-the opponent model and every decision that runs once per action.
+The first draft promised that a native evaluator would turn 24 MCTS
+simulations into thousands. Astra's Amdahl budget shows it cannot: the
+evaluator's placement loop is ~72 % of search time, so a 20-50x kernel
+gives 3.2-3.4x on search, and an infinitely fast one 3.6x. On full games
+the evaluator is ~25 %, a ceiling of 1.33x. Thousands of simulations need
+the engine and the rollout policy native as well, which is the full port
+estimated at a month or more.
+
+Three options were put to the user:
+
+- **A.** Evaluator-only port as planned: ~3x on search, ~2 weeks.
+- **B.** Full engine + policy port for deep MCTS: a month or more, with A
+  as its first stage.
+- **C.** No Rust yet. Do the Python prerequisites that A and B both need
+  (semantics freeze and parity corpus, evaluator indexing, DEFCON
+  memoisation), measure what they alone deliver on the two workloads,
+  then choose A or B with real numbers.
+
+**Proposed: C.** Reasons: two of its three steps are required by A and B
+anyway; the enum-and-dict overhead (12 % of a full game) and the DEFCON
+planner's repeated per-card predicates (3.5-4 M calls a game) are pure
+Python waste that indexing and memoisation remove without a toolchain;
+the measurement it produces is exactly what the A-versus-B decision
+lacks; and it defers writing the evaluator three times (dict Python,
+array Python, Rust) until the array Python version has proven itself.
+
+What C does *not* claim: it will not make deep MCTS possible. If after C
+the search is still bound by the evaluator, A follows; if the user wants
+deep MCTS, B follows and C's corpus and indexing are its first stage.
+
+Question for Astra: do you agree with C, and with the order inside it
+(corpus first, from the current code; indexing second; DEFCON
+memoisation third; measure; decide)?
+
+## Option C, step by step
+
+Each step is its own commit, gated by `scripts/gate.sh` for strength
+(must be neutral: these are meant to be no-ops in behaviour) and by the
+parity corpus for exactness.
+
+1. **Parity corpus, captured from the current code before any refactor.**
+   A generator records `(observation influence, side, decision context,
+   candidate list in order, Ops budget, weights, scoring weights, DEFCON,
+   turn effects)` and the current outputs: `delta` per candidate and
+   point count, `influence` / `_investment` results, `ops_value` per
+   Ops, `country_value` for every country, `region_score` and
+   `region_margin` per region, the full `rank_actions` ordering with
+   safety keys. Positions: the gate seeds at several turns, both seats;
+   MCTS rollout positions (from the corrected policy) and event-sandbox
+   positions; generated boundary cases (enemy-control cost transitions,
+   tier thresholds, Europe control, zero and near-tied gains, bonus Ops,
+   turn effects, influence extremes). Stored under `tests/corpus/` as
+   JSON; regenerated only by an explicit, reviewed commit. Astra's point
+   stands: a corpus generated after extraction cannot detect extraction
+   drift, and the MCTS correctness fixes were intentional behaviour
+   changes, so the corpus is captured *after* them (98cdc1f, 95deb39)
+   and *before* anything else.
+2. **Evaluator indexing, evaluator-local.** Countries as indices,
+   influence as two integer arrays built per decision, adjacency as index
+   lists, per-country stability/battleground/region/coup-DEFCON arrays,
+   weights as a named schema with a version. The engine's public
+   representation does not change. Parity: identical rankings and
+   top actions on the corpus, values within an absolute plus relative
+   tolerance, deterministic tie-breaks fixed by candidate order (first
+   wins) and documented. The 12 % enum figure spans the whole workload,
+   so the gain here is measured, not assumed.
+3. **DEFCON planner memoisation.** `opponent_event` becomes a per-card
+   mask; `hazardous` is state-dependent (Grain Sales and Five Year Plan
+   read the remaining hand; Ask Not's `@replacement` placeholders need a
+   count, not a bit) and is memoised on (card, hand-as-multiset, DEFCON)
+   per decision rather than precomputed. Enum attribute access in the
+   solve is hoisted. Parity: identical risks on the corpus's hands.
+4. **Measure.** Both workloads (strategic full game; MCTS at 24
+   simulations on frozen opening, scoring and hazardous late-game
+   positions), on a gate snapshot with nothing else running, before and
+   after. Report the Amdahl fractions again. Then decide A or B.
 
 ## What the profiles say
 
@@ -30,8 +100,28 @@ not be added.
 | same | DEFCON module exclusive | 0.7 % | Astra |
 | same | leaf `value()` | 0.8 % | Astra |
 
+Amdahl budget (Astra): whole-workload speedup is 1 / ((1 - p) + p / s)
+for an accelerated fraction p at kernel speedup s.
+
+| Workload | p covered by an evaluator port | s = 20 | s = 50 | s -> inf |
+| --- | ---: | ---: | ---: | ---: |
+| MCTS search (delta share) | 0.72 | 3.2x | 3.4x | 3.6x |
+| MCTS search (all rollout ranking) | 0.93 | 8.6x | 11.3x | 14.3x |
+| Strategic full game (evaluator share) | 0.25 | 1.3x | 1.3x | 1.33x |
+| Strategic full game (evaluator + planner) | 0.85 | 4.9x | 5.9x | 6.7x |
+
+The trivial-bot game time (1.1 s of 13.4 s, 8.2 %) bounds the engine's
+share from above only loosely; it was not profiled separately.
+
 Conclusions the plan rests on:
 
+- The exact semantics are frozen first. `delta()` values the changed
+  country plus the region terms (score and margin); it does not
+  re-evaluate neighbours whose access changed, so it is *not* the change
+  in the board value. The port reproduces `delta` as it is; a full-board
+  before/after delta is a separate, gated algorithm change. Cache removal
+  can expose frozen dependencies (`_base_regions`, the per-decision
+  caches) and change results, which is why the corpus precedes it.
 - The evaluator's *placement search* (`delta` and the loops that call it)
   is the shared hot path. Porting `value()` alone at MCTS leaves would miss
   almost all of it (Astra). Porting `country_value` alone would drown in
@@ -116,10 +206,15 @@ Weights keep their names; the array order is defined in one place.
 ## Verification
 
 - Bit-for-bit is not the target; floating-point summation order will
-  differ. The target is identical *rankings* and values within 1e-9
-  relative on the corpus, and identical actions over full games on the
-  gate seeds (`benchmark --bot strategic --opponent strategic@<python
-  snapshot>` must score exactly 0.5 with identical VP per game).
+  differ. The target is identical rankings and top actions on the
+  corpus, values within an absolute plus relative tolerance (near-zero
+  values need the absolute term), and deterministic tie-breaks fixed by
+  candidate order in both implementations, not by rounding in tests.
+- Full-game parity is trace parity, not a head-to-head score: run
+  Python/Python and native/native games separately on identical seeds
+  and compare action and chance traces and final states. Compare
+  fixed-simulation MCTS root statistics too. A 0.5 score with equal VP
+  proves nothing about identical actions.
 - The suite runs twice in CI: `STRUGGLER_NATIVE=0` and `1`.
 - Speed is measured only on a frozen checkout with nothing else running:
   the gate script's snapshot worktree. Whole-decision wall time including
@@ -131,8 +226,11 @@ Weights keep their names; the array order is defined in one place.
 | Step | Size | Depends on |
 | --- | --- | --- |
 | MCTS fixes and regressions | done | none |
-| Indexing refactor | 1-2 days | none |
-| Pure-function evaluator + corpus | 1-2 days | indexing |
+| Parity corpus from the current code | 1 day | none (Option C step 1) |
+| Indexing refactor, evaluator-local | 1-2 days | corpus (C step 2) |
+| DEFCON memoisation | 1 day | corpus (C step 3) |
+| Measure, decide A or B | half a day | above (C step 4) |
+| Pure-function evaluator | 1-2 days | indexing (A or B) |
 | `evaluate_placements` + `board_value` in Rust, parity | 3-5 days | corpus |
 | coup/realign values | 1 day | above |
 | DEFCON solve (if profiling warrants) | 2-3 days | hazardous-hand profile |
@@ -143,11 +241,14 @@ is a few hundred lines with the Python path kept as the oracle.
 
 ## Data layout (the contract both sides compile against)
 
-- Country order: the key order of `data/countries.json`, fixed; `N` = 86.
-  `struggler_native.COUNTRY_ORDER` is exported and checked at import
-  against the Python board so a data change cannot silently skew indices.
-- Influence: two `uint8[N]` arrays, US then USSR. Never negative; the
-  engine caps well under 255.
+- Country order: the key order of `data/countries.json`, fixed; `N` is
+  derived from the shared tables (85 today), never hard-coded. Python
+  builds the tables and passes them once; the module exports the order
+  it was built with and every later call is validated against it.
+- Influence: two `int16[N]` arrays, US then USSR (no engine-wide cap is
+  enforced, so no byte type; conversion is checked and a value outside
+  the supported range raises, never wraps or saturates). Differences and
+  removals use signed intermediates.
 - Static per-country: `stability: u8[N]`, `battleground: bool[N]`,
   `region: u8[N]` (index into the region table, in `Region` enum order),
   `coup_min_defcon: u8[N]`, `adjacency: Vec<Vec<u16>>`, `home_us` and
@@ -157,10 +258,15 @@ is a few hundred lines with the Python path kept as the oracle.
 - Card table (for the DEFCON solve only): `side: u8` (0 US, 1 USSR, 2
   neutral), `ops: u8`, `scoring: bool`, `war: bool`, indexed by the card
   order of `cards.json`.
-- Context per decision: `weights: f64[K]` in the field order of
-  `StrategicWeights` (K is asserted equal on both sides), `scoring_weight:
-  f64[N]`, `defcon: u8`, `side: u8`, `ops_scale: f64[5]` (the concave Ops
-  scale the evaluator already computes).
+- Context per decision: `weights` as a versioned schema (field names and
+  order checked, not just the count), `scoring_weight: f64[N]`, `defcon`,
+  `side`, `ops_scale: f64[5]`. Coup and realignment calls additionally
+  take precomputed roll modifiers, legal candidate lists and the
+  military-Ops state; the phasing/effect logic that produces them stays
+  in Python. The DEFCON solve is out of scope for the port (see Option
+  C step 3): its state contract (rounds, Space Race, China, traps,
+  pending headline, discard chains, learned priors, truncation) is too
+  large to freeze cheaply.
 - Returns: `Vec<f64>` or `Vec<(f64, u8)>`; errors are Python exceptions
   raised by PyO3 for shape mismatches, never silent defaults.
 
@@ -169,12 +275,20 @@ is a few hundred lines with the Python path kept as the oracle.
 - `rust/Cargo.toml` (crate `struggler_native`, `cdylib`, PyO3 with the
   `extension-module` feature, `abi3-py312`); `rust/pyproject.toml` for
   maturin. Development: `uv run maturin develop --release -m
-  rust/pyproject.toml` installs into the project venv. Release: `maturin
+  rust/Cargo.toml` (the `-m` flag takes the Cargo manifest) installs
+  into the project venv; discovery and a clean install are verified with
+  the final layout before the command is documented as working. Release: `maturin
   build --release` produces a wheel; the wheel is committed nowhere, the
   build is reproducible from source.
-- The Python package imports the module inside `try`; absence or
-  `STRUGGLER_NATIVE=0` selects the Python path and logs once at INFO. No
-  test depends on the native module being present.
+- `STRUGGLER_NATIVE` unset: use the module if it loads, else Python,
+  logged once. `=0`: Python. `=1`: the module must load or the process
+  fails loudly; at least one CI job builds it and asserts native
+  execution, so the two test runs cannot both silently be Python.
+- The gate snapshot freezes Python source but not an extension installed
+  in the shared venv: the gate builds the extension from the snapshot
+  and records its source revision, artifact hash, loaded path and build
+  mode. A `strategic@<old file>` baseline is not isolated once it imports
+  a shared evaluator wrapper; baselines pin the wrapper too.
 - CI matrix: the suite with `STRUGGLER_NATIVE=0` (always) and `=1` (when
   the toolchain is available), plus `tests/test_native_parity.py`, which
   loads the frozen corpus and asserts rankings equal and values within
@@ -193,19 +307,25 @@ is a few hundred lines with the Python path kept as the oracle.
 | Maintenance with no Rust on the user's side | Module under ~600 lines, one file per call, Python oracle kept indefinitely, `STRUGGLER_NATIVE=0` restores the old behaviour in one environment variable. |
 | Engine hot path emerging once the evaluator is fast | Profile again after step 4 before deciding; the engine stays in Python until it is the measured bottleneck. |
 
-## Acceptance criteria
+## Acceptance: three separate decisions
 
-1. Parity: identical action rankings on every corpus position; values
-   within 1e-9 relative; identical per-game VP on the gate seeds between
-   `NATIVE=0` and `NATIVE=1` (`benchmark` score exactly 0.5).
-2. Speed: at least 10x on `evaluate_placements` in isolation and at
-   least 3x on a full strategic game, measured on the gate snapshot with
-   nothing else running. Below that, the boundary is wrong and the plan
-   returns to the granularity question.
-3. Strength: MCTS at the wall-time budget of today's 24 simulations,
-   with the corrected semantics, beats the plain strategic policy by more
-   than two standard errors at 64 seeds. This is the point of the port;
-   speed without it is not a result.
+1. **Semantic parity** (the port is correct): corpus rankings, top
+   actions and values as above; full-game trace parity on the gate seeds.
+2. **Measured acceleration** (the port is worth keeping): per-stage
+   targets set from the Amdahl table, not a blanket 3x. For the
+   evaluator port: at least 15x on `evaluate_placements` in isolation and
+   at least 2.5x on MCTS search wall time at fixed simulations, on a
+   gate snapshot with nothing else running. Missing a target says the
+   boundary or the kernel needs work, not by itself that the boundary is
+   wrong.
+3. **Promotion** (the resulting MCTS is the bot): paired-seat results
+   with uncertainty clustered by seed, against the corrected Python MCTS
+   at equal wall time and against strategic; 64 seeds is a planned
+   sample size, not a detection guarantee. This is the reason to do the
+   port at all, but it is a search-quality question, and a correct fast
+   port that loses it is still a valid port.
+
+The two-week and ~600-line figures are planning assumptions.
 
 ## Ownership
 
@@ -213,11 +333,19 @@ Claude writes the Rust, the Python refactors and the corpus; Astra
 audits the boundary, the parity evidence and the profiles; the user
 decides the acceptance calls and runs nothing but the gate script.
 
-## Open questions for the reviewer
+## Reviewer answers (Astra) and remaining question
 
-1. Is the `evaluate_placements` boundary the right granularity, or should
-   the whole `rank_actions` for an Ops spend (candidates included) cross?
-2. Should the corpus include MCTS rollout positions, which reach boards
-   the strategic policy never does?
-3. Enum overhead is 12 % on its own; is the indexing refactor worth
-   landing even if the port stalls? (Claude: yes.)
+- Boundary: batched `evaluate_placements`, with legal candidate
+  generation and survival ordering staying in Python; a second batched
+  greedy-spend operation for `ops_value` / `_placement_plan` only after
+  measuring the first. The initial legal candidate set is preserved
+  across a spend (rule 6.1.1). `ops_value`'s investment loop is part of
+  the workload and is documented as such.
+- Corpus: yes to rollout and event-sandbox positions, both seats,
+  several turns, generated boundary cases, with candidate order, Ops
+  budget, context and expected point counts. Extended for each later API.
+- Indexing: evaluator-local, engine representation unchanged, gain
+  measured not assumed, kept small enough not to maintain the evaluator
+  three times.
+
+Remaining question: **Option C, yes or no**, and the order inside it.
