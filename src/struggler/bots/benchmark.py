@@ -339,10 +339,17 @@ def event_table(seed: int, weights=None, out=sys.stdout) -> None:
         views[side] = {c.id: bot.event_value(obs, c.id) for c in CARDS.values()
                        if not c.scoring and entry_turn(c) <= 1 and c.id != 'The_China_Card'}
         ops[side] = {n: bot.ops_value(obs, n) for n in (1, 2, 3, 4)}
+        failures = dict(bot.sandbox_failures)
     print(f"{'card':<34}{'side':>8}{'ops':>4}{'US view':>10}{'USSR view':>11}  how", file=out)
     for cid in sorted(views[Side.US], key=lambda c: -abs(views[Side.US][c])):
         card = CARDS[cid]
-        how = ('modifier' if cid in OPS_MODIFIER_EVENTS else 'estimate' if cid in HIDDEN_INFO_EVENTS else 'sandbox')
+        # What actually produced the number, not what was meant to: a
+        # sandbox failure falls back to the estimate, and used to be reported
+        # as a simulated value anyway.
+        failed = failures.get(cid)
+        how = ('modifier' if cid in OPS_MODIFIER_EVENTS else
+               'estimate' if cid in HIDDEN_INFO_EVENTS else
+               'estimate (%s)' % failed if failed else 'sandbox')
         print(f"{cid:<34}{card.side.value:>8}{card.ops:>4}{views[Side.US][cid]:>10.1f}{views[Side.USSR][cid]:>11.1f}  {how}", file=out)
     for side in (Side.US, Side.USSR):
         print(f"{side.value} Ops worth: " + ', '.join(f'{n} Ops = {v:.1f}' for n, v in ops[side].items()), file=out)

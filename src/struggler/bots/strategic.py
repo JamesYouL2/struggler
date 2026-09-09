@@ -43,6 +43,16 @@ from struggler.bots.greedy import (
 CARDS = load_cards()
 LOSS = -1_000_000.0
 
+
+class SandboxUnsupported(RuntimeError):
+    """The event sandbox knowingly gave up on an event.
+
+    Raised only where giving up is the designed outcome, so that everything
+    else reaching `event_value`'s fallback is a defect and is logged as one.
+    Catching every exception and substituting an estimate hid a real bug for
+    as long as it existed: the two dice-contest events could never resolve,
+    and their crude estimate was reported as a simulated value."""
+
 # Opening book: the setup placements in order, per stage. The USSR's 6 in
 # Eastern Europe and the US's 7 in Western Europe keep control through
 # East European Unrest / Socialist Governments and take the access points
@@ -208,6 +218,9 @@ class StrategicPlayer:
         # reachability from the influence dictionaries.
         self._terrain = ev.terrain()
         self._position = ev.Position(self._terrain)
+        # Events whose value is the crude estimate rather than a simulation,
+        # and why. Read it before trusting an event value.
+        self.sandbox_failures: dict[str, str] = {}
         self._events: dict[str, float] = {}
         self.survival_prior = survival_prior or SurvivalPrior()
         # Optional bots.opponent_model.OpponentModel: learned hand-attack and
@@ -710,8 +723,12 @@ class StrategicPlayer:
     def _event_helper(self) -> 'StrategicPlayer':
         # Plays the EVENT_INFLUENCE decisions of a simulated event; one
         # instance serves every event this player evaluates.
+        # Rebuilt when the weights object is replaced: training mutates
+        # `bot.weights` on a live player, and a helper left on the old weights
+        # would play the simulated event's choices by one value function while
+        # the result was scored by another.
         helper = self.__dict__.get('_event_policy')
-        if helper is None:
+        if helper is None or helper.weights is not self.weights:
             helper = self._event_policy = StrategicPlayer(self.weights)
         return helper
 
@@ -820,7 +837,7 @@ class StrategicPlayer:
             else:
                 engine.step(policy.choose_action(engine.observe(d.actor), []))
         else:
-            raise RuntimeError('event %s did not resolve in the sandbox' % cid)
+            raise SandboxUnsupported('event %s did not reach rest in 64 steps' % cid)
         if engine.is_terminal:
             return -LOSS if engine.winner is obs.side else LOSS
         changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
@@ -867,8 +884,16 @@ class StrategicPlayer:
         elif cid in PUBLIC_EVENTS:
             try:
                 result = self._public_event_value(obs, cid)
-            except Exception as exc:  # a branch the sandbox cannot drive from public state
+            except SandboxUnsupported as exc:  # a branch the sandbox cannot drive
                 log.debug('event %s not simulated (%s); using the estimate', cid, exc)
+                self.sandbox_failures[cid] = 'unsupported'
+            except Exception as exc:
+                # Not a branch the sandbox declined: something broke. Still fall
+                # back, so one bad event cannot end a game, but say so, and
+                # record it where a caller can see the value is an estimate.
+                log.warning('event %s failed in the sandbox (%s: %s); using the estimate',
+                            cid, type(exc).__name__, exc)
+                self.sandbox_failures[cid] = '%s: %s' % (type(exc).__name__, exc)
         if result is None:
             # Explicit approximation for events beyond the public simulator.
             result = sign * card.ops * self.weights.ops * 0.8

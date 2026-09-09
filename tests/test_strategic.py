@@ -404,6 +404,66 @@ def test_event_basis_reuse_matches_a_full_board_recomputation(monkeypatch):
     assert priced(StrategicPlayer()) == reused  # bitwise: these decide card choice
 
 
+def _event_position():
+    engine = _opening_board()
+    engine.phase = 'action_rounds'
+    engine.hands['USSR'] = ['Nasser', 'Marshall_Plan', 'Truman_Doctrine']
+    engine._push_action_round_play(Side.USSR)
+    return engine.observe(Side.USSR)
+
+
+def test_a_broken_event_simulation_is_reported_not_silently_estimated(caplog, monkeypatch):
+    """`event_value` used to catch every exception, log at debug and hand back
+    the 0.8 x Ops estimate, so a defect read as a supported approximation. It
+    hid one for as long as it existed: the two dice-contest events could never
+    resolve, and the turn-1 table reported their estimate as a simulated
+    value. Failures still fall back, so one bad event cannot end a game, but
+    they say so."""
+    import logging
+    from struggler.bots import strategic
+    obs = _event_position()
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+
+    def explode(self, obs, cid):
+        raise TypeError('a defect, not an unsupported branch')
+
+    monkeypatch.setattr(StrategicPlayer, '_public_event_value', explode)
+    with caplog.at_level(logging.WARNING, logger='struggler.bots.strategic'):
+        bot._events = {}
+        value = bot.event_value(obs, 'Nasser')
+    assert bot.sandbox_failures['Nasser'].startswith('TypeError')
+    assert any('failed in the sandbox' in r.getMessage() for r in caplog.records)
+    # An event the sandbox knowingly declines is not a defect and stays quiet.
+    def decline(self, obs, cid):
+        raise strategic.SandboxUnsupported('no public branch')
+
+    monkeypatch.setattr(StrategicPlayer, '_public_event_value', decline)
+    caplog.clear()
+    quiet = StrategicPlayer()
+    quiet.rank_actions(obs)
+    with caplog.at_level(logging.WARNING, logger='struggler.bots.strategic'):
+        declined = quiet.event_value(obs, 'Nasser')
+    assert quiet.sandbox_failures['Nasser'] == 'unsupported'
+    assert not caplog.records
+    # Both fall back to the same estimate: the difference is what gets said,
+    # not what gets returned, so a defect cannot end a game.
+    assert value == declined
+
+
+def test_the_event_helper_follows_a_weights_replacement():
+    """Training mutates `bot.weights` on a live player. A helper left on the
+    old weights would play the simulated event's choices by one value function
+    while the result was scored by another."""
+    bot = StrategicPlayer()
+    first = bot._event_helper()
+    assert first.weights is bot.weights
+    bot.weights = StrategicWeights(battleground=9.0)
+    second = bot._event_helper()
+    assert second is not first
+    assert second.weights is bot.weights and second.weights.battleground == 9.0
+
+
 def test_un_intervention_is_kept_for_the_worst_opponent_card():
     from struggler.engine import Side
     engine = _opening_board()
