@@ -46,6 +46,21 @@ snapshot() {  # snapshot <ref> <dir>
   mkdir -p "$2"
   git archive "$1" src/struggler/bots | tar -x -C "$2" --strip-components=3
 }
+# A rules change to the engine is not a strength change, and this script
+# cannot see it. Only `src/struggler/bots` is snapshotted -- the engine is
+# deliberately shared, as the arbiter both sides are measured under -- so a
+# change that touches no bot file puts byte-identical players on both sides
+# of every game and returns exactly 0.500. That is the same misreading that
+# once let a broken snapshot report a dead heat as a pass, except here it is
+# inherent: both sides play under the same rules, so a rules fix is symmetric
+# by construction and the games can only say it did not crash. Such a change
+# is validated by its tests, not by this script.
+if [ -z "$(git diff --name-only "$BASE"..HEAD -- src/struggler/bots)" ]; then
+  echo "NOTE: $BASE..HEAD touches no file under src/struggler/bots, which is all"
+  echo "      this gate snapshots. Both sides will play identical bots, so step 4"
+  echo "      can only report a dead heat. Read this run as a crash-and-nuclear-loss"
+  echo "      smoke test; the rules tests are what validate an engine change."
+fi
 snapshot "$BASE" "$OUT/base"
 snapshot "$OLD" "$OUT/old"
 SNAP=$(mktemp -d)

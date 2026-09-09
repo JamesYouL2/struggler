@@ -650,6 +650,17 @@ Deterministic curtailment (stop only when no possible remaining result
 could change the verdict) is exact but saves just 6%, because one seed can
 swing the mean a long way.
 
+**A rules change to the engine is not gateable for strength.** Only
+`src/struggler/bots` is snapshotted; the engine is shared on purpose, as the
+arbiter both sides are measured under. So a commit that touches no bot file
+puts byte-identical players on both sides of every game and returns exactly
+0.500 -- not because the change is neutral, but because both sides play
+under the same new rules, which makes a rules fix symmetric by construction.
+`gate.sh` now says so up front when the diff touches no bot file, because
+"ACCEPTED, 0.500" is otherwise easy to read as evidence. Such a run is a
+crash-and-nuclear-loss smoke test; the rules tests are what validate the
+change.
+
 The verdict arithmetic itself now lives in `benchmark.verdict`, which
 `acceptance` reports and `stable_verdict` asks about a resampled future, so
 a rule cannot mean one thing when the gate reports it and another when the
