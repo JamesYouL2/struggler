@@ -77,6 +77,15 @@ action = bot.choose_action(observation, history)
   (0.25) of exclusive reach. Nothing for ground held. Getting to
   battlegrounds first is most of what a non-battleground is for, and it is
   why De-Stalinization prices so high.
+- Region margin (`margin_presence`, `margin_battleground`, `margin_country`,
+  `region_margin`): the exact region score pays nothing until a tier flips,
+  so partial credit is added on the country-importance scale: progress
+  toward a first controlled country where a side has none (presence, "the
+  whole game" in the Middle East: the USSR's Iraq), and each battleground
+  and country of margin toward or past domination, capped at two, times
+  the domination-minus-presence gap in presence units. Fitted to
+  `models/expert_valuations.json` (31 -> 26 misses; Iraq first for the
+  USSR).
 - First mover (`first_mover`): presence in a battleground the opponent has
   none in but could reach is tempo, whoever fills an empty country first
   makes the other pay to contest it, worth `first_mover` x importance /

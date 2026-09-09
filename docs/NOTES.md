@@ -160,7 +160,13 @@ branch:
    an Italy coup on an unbacked board as a lockout and an Iran coup as a
    normal wipe. Test cases: the opening-setup table above, Italy after De
    Gaulle + Suez, Israel's point at ~1 Op.
-3. Country-count margin toward domination in `region_score`: the exact
+3. Done (region margin, fitted: presence 3.0, battleground 0.5, country
+   0.05 on the importance scale; 31 -> 26 misses, Iraq first for the USSR;
+   the first version on the region score's VP scale, 1.3 raw per VP, could
+   not move anything). Still open inside it: France's first US point is
+   4th, not 1st, because progress toward a battleground that would flip
+   domination earns no margin credit until it is controlled. Original
+   item: country-count margin toward domination in `region_score`: the exact
    tier score sees nothing until a tier flips, so UK 5 -> 3 is worth 1.6,
    Marshall's seven countries are worth nothing collectively, and Suez's
    "domination replacement" cost is unpriced. Price the margin in
@@ -192,7 +198,7 @@ Every term should be one of those. As of Sept 2026:
 | Term | Weight(s) | Kind | Keep? |
 | --- | --- | --- | --- |
 | Battleground control x what the region still scores | `battleground`, scoring weights (`scoring_hand`, `scoring_discount`) | scoring | Keep: the core. |
-| Exact region score | `region` | scoring | Keep. Step 3 adds the margin toward the next tier. |
+| Exact region score, plus the region margin | `region`, `margin_*` | scoring | Keep. |
 | Linear progress toward control | `progress` | progress | Keep. `progress_curve` stays 1 (convexity lost 0.33 without lookahead). |
 | Wipe risk / backing | `wipe`, `wipe_backed` | progress (what a coup takes back) | Keep once calibrated; off now. Replaces `reserve`. |
 | Reserve (flat per spare point) | `reserve` | progress | Keep until wipe is on: removing it with wipe at 0 lost the gate (0.328, one nuclear loss). |
@@ -242,6 +248,18 @@ Three things to do about that, cheapest first:
   control-only bonus; `southeast_asia` is a tier that the region score
   and access should make redundant. The simplification audit in
   `docs/STRATEGIC_SIMPLIFICATION.md` has the sensitivity numbers.
+
+## Open: two nuclear losses as the USSR
+
+Gates at 32 seeds (4000-4031) on 873d9d9 and c5446e0 each reported one
+nuclear loss as the USSR (seeds 4028 vs the base and 4009 vs the
+pre-session bot, `reason=defcon_1`, turns 8 and 4). Earlier sessions had
+0 in 64 games. The DEFCON planner was not touched; the value changes may
+be steering into positions the planner's priors do not cover, or the
+seeds 4016-4031 are new territory. Replaying 4009 as the USSR against the
+pre-session bot here did not reproduce it (USSR won by VP on turn 4), so
+the gate's run differs from a plain replay (opponent model env?). Find
+the diverging setting, reproduce, then narrate the losing turn.
 
 ## How to look at things
 
