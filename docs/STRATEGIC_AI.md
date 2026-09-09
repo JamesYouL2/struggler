@@ -563,5 +563,38 @@ these comparisons. These are local microbenchmarks, not a full-game timing
 or playing-strength claim. Measurements are saved in
 `logs/game-check/mcts-speed-comparison.json` (gitignored evidence).
 
+**Profiling the workload the gate actually runs**, rather than saved
+positions, found the two largest costs outside the evaluator entirely.
+
+- `Board.serialize` deep-copied the influence mapping. Influence is exactly
+  `dict[str, dict[str, int]]`, so a nested comprehension is what
+  `copy.deepcopy` produces and 15x cheaper. The event sandbox forks engines
+  by serializing them and forks again per die face, so this ran 1278 times
+  a game. `Observation` had already been fixed this way; `serialize` had
+  not.
+- The event basis valued all 85 countries, then 10 regions, then 10
+  margins, through the diagnostic entry points -- each of which builds a
+  `Position` for the board it is handed. That is 105 full snapshot rebuilds
+  of one unchanging board, quadratic in the map for a walk that is linear.
+  Those entry points now take an optional snapshot, and the basis builds
+  one.
+
+Both are behaviour-neutral, and the parity corpus is the oracle that says
+so. Eight full benchmark games (seeds 4000-4003, both seats, three
+repetitions, no MCTS), run in both orders to cancel the drift that makes
+whichever revision goes first look better:
+
+| Order | Baseline | Candidate | Speedup |
+| --- | ---: | ---: | ---: |
+| Baseline first | 65.39 s | 61.57 s | 1.06x |
+| Candidate first | 66.65 s | 57.70 s | 1.16x |
+| Position-matched, first slot | 65.39 s | 57.70 s | 1.13x |
+| Position-matched, second slot | 66.65 s | 61.57 s | 1.08x |
+
+About 1.1x. The profile implied nearer 1.2x, and the gap is the profiler:
+`cProfile` charges per-call overhead, so it overstates a function called
+678,000 times. Read a profile for *where* the time goes and a stopwatch for
+*how much*.
+
 For the weight-by-weight removal candidates, policy/leaf distinction, and
 proposed ablations, see [Strategic simplification audit](STRATEGIC_SIMPLIFICATION.md).

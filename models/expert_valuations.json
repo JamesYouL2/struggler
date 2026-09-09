@@ -81,7 +81,8 @@
       "note": "Activating Special Relationship is worth about 1 Op. Table says 0: flag-only events are a known gap."
     },
     "Warsaw_Pact_Formed": {
-      "ops": null
+      "ops": -0.5,
+      "note": "The five points go into Eastern Europe the USSR mostly holds or will hold anyway, and playing it hands the US NATO. Small, and well inside tolerance_ops, so the table's 0 is not a mispricing to chase."
     },
     "Containment": {
       "ops": 4.0,

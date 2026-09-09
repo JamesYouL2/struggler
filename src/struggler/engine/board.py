@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
 
 import functools
@@ -333,7 +332,12 @@ class Board:
     # -- serialization ------------------------------------------------------
 
     def serialize(self) -> dict:
-        return {"influence": copy.deepcopy(self.influence)}
+        # Influence is exactly dict[str, dict[str, int]], so a nested
+        # comprehension is what `copy.deepcopy` would produce and 15x
+        # cheaper. It is not a micro-optimization: the event sandbox forks
+        # engines by serializing them, which made this 16% of a benchmark
+        # game -- more than any evaluator term.
+        return {"influence": {cid: dict(values) for cid, values in self.influence.items()}}
 
     def load_influence(self, data: dict) -> None:
         for cid, values in data["influence"].items():

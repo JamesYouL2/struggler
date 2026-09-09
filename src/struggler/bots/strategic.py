@@ -381,14 +381,22 @@ class StrategicPlayer:
             return None
         return {r: self._overrides_for(r, pos, (formosan, shuttle)) for r in Region}
 
-    def _position_for(self, board: Board) -> ev.Position:
+    def _position_for(self, board: Board, pos: ev.Position | None = None) -> ev.Position:
         """A snapshot of `board`, brought up to date first.
 
         These are the diagnostic entry points -- tests, the benchmark, the
         corpus probes -- and they are reached with the board in whatever state
         the caller left it, including states written straight into
         `board.influence`. The ranking hot path never comes through here; it
-        holds `self._position` and keeps it current via `_set_influence`."""
+        holds `self._position` and keeps it current via `_set_influence`.
+
+        `pos` is a snapshot the caller has already built of *this* board, and
+        is returned untouched. Passing it is not an optimisation of one call
+        but of a loop: valuing every country of a sandbox board through these
+        entry points rebuilt the whole snapshot once per country, which is
+        quadratic in the map for a walk that is linear."""
+        if pos is not None:
+            return pos
         if board is self.board:
             return self._position.refresh(board)
         return ev.Position(self._terrain).sync(board)
@@ -473,16 +481,18 @@ class StrategicPlayer:
         score = self.score(obs, action)
         return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
 
-    def region_score(self, board: Board, region: Region, side: Side) -> float:
+    def region_score(self, board: Board, region: Region, side: Side,
+                     snapshot: ev.Position | None = None) -> float:
         """Net VP from scoring `region` now. Europe's control tier has no
         scoring value, so it stands in as +/-100 (see `evaluator.region_vp`)."""
-        pos = self._position_for(board)
+        pos = self._position_for(board, snapshot)
         net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos))
         return net if side is Side.US else -net
 
-    def region_margin(self, board: Board, region: Region, side: Side) -> float:
+    def region_margin(self, board: Board, region: Region, side: Side,
+                      snapshot: ev.Position | None = None) -> float:
         """Partial credit toward the region's next scoring tier."""
-        net = ev.margin_basis(self._terrain, self._position_for(board), region,
+        net = ev.margin_basis(self._terrain, self._position_for(board, snapshot), region,
                               self.weights, self._urgency_vector())[0]
         return net if side is Side.US else -net
 
@@ -518,10 +528,11 @@ class StrategicPlayer:
                                 self.weights, self._urgency_vector())
         return net if side is Side.US else -net
 
-    def country_value(self, board: Board, cid: str, side: Side) -> float:
+    def country_value(self, board: Board, cid: str, side: Side,
+                      snapshot: ev.Position | None = None) -> float:
         """What `cid` is worth to `side` on this board."""
         t = self._terrain
-        return ev.country_value(t, self._position_for(board), t.index[cid],
+        return ev.country_value(t, self._position_for(board, snapshot), t.index[cid],
                                 ev.SIDE_INDEX[side], self.weights, self._urgency_vector(),
                                 self._obs.defcon if self._obs is not None else 5)
 
@@ -893,9 +904,14 @@ class StrategicPlayer:
         basis_key = (self.weights, obs.side, tuple((c, v['US'], v['USSR'])
                                                  for c, v in obs.influence.items()))
         if self._event_basis is None or self._event_basis[0] != basis_key:
-            countries = {c: self.country_value(engine.board, c, obs.side) for c in engine.board.countries}
-            regions = {r: self.region_score(engine.board, r, obs.side) for r in Region}
-            margins = {r: self.region_margin(engine.board, r, obs.side) for r in Region}
+            # One snapshot for the whole basis. Each of these entry points
+            # would otherwise build its own, so the 85-country walk below
+            # rebuilt an 85-country snapshot 85 times.
+            snap = ev.Position(self._terrain).sync(engine.board)
+            countries = {c: self.country_value(engine.board, c, obs.side, snap)
+                         for c in engine.board.countries}
+            regions = {r: self.region_score(engine.board, r, obs.side, snap) for r in Region}
+            margins = {r: self.region_margin(engine.board, r, obs.side, snap) for r in Region}
             before = sum(countries.values()) + self.weights.region * sum(regions.values()) + sum(margins.values())
             self._event_basis = (basis_key, countries, regions, margins, before)
         _, countries, regions, margins, before = self._event_basis
