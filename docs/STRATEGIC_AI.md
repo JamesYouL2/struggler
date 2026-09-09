@@ -138,6 +138,23 @@ action = bot.choose_action(observation, history)
   stake is our position times `wipe_backed`. Coded, off by default until
   calibrated: see docs/CLAUDE_NOTES.md plan step 2. The flat `reserve` per spare
   point it replaces was removed in Sept 2026.
+
+  It counts only Coups the opponent is actually allowed to attempt. DEFCON
+  was the only bar it knew, so it priced a USSR Coup on US-Controlled Europe
+  under NATO, on Japan under the US/Japan pact, and anywhere in Europe under
+  The Reformer -- none of which the engine will permit.
+  `evaluator.coup_forbidden` mirrors `Board.coup_prohibited` over the
+  snapshot, `strategic.coup_bans` reads which events are in force from the
+  observation, and `coup_targets` drops the barred countries so the risk is
+  not spread over targets that are not targets. Derived per call, not frozen
+  at `prepare`, because NATO's shield follows US *Control* and a trial
+  placement moves control -- the same reason as the scoring overrides.
+
+  Since `wipe` is 0 this changes no game today. It is a prerequisite for
+  turning the term on rather than an improvement to current play: calibrating
+  a term that is systematically wrong across Europe fits a weight to the
+  wrong quantity. It is also what would give NATO and the pact a value, since
+  what they are worth is the risk they remove.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
   candidate, and only it is valued as a space play when choosing a card.

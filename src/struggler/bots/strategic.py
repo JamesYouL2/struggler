@@ -46,6 +46,22 @@ CARDS = load_cards()
 LOSS = -1_000_000.0
 
 
+def coup_bans(game_effects) -> ev.Prohibitions:
+    """Which persistent Coup prohibitions are in force, from public board
+    state -- NATO, the US/Japan pact and The Reformer, with De Gaulle and
+    Willy Brandt lifting NATO's shield on their own country.
+
+    Without these the value function priced a wipe risk on US-Controlled
+    Europe that the USSR is not allowed to attempt, so the bot defended
+    against a move the rules forbid, and thinned the risk it spread over its
+    real targets by counting unreal ones. It is also what gives NATO and the
+    pact a value: what they are worth is the risk they remove, which is a
+    number the bot already computes."""
+    return ev.Prohibitions(*(bool(game_effects.get(name)) for name in
+                             ('nato', 'us_japan_pact', 'reformer',
+                              'degaulle_france', 'willy_brandt')))
+
+
 def scoring_flags(game_effects) -> tuple[bool, bool]:
     """Which per-scoring board adjustments are in force, as (Formosan
     Resolution, Shuttle Diplomacy). Both are public board state, so a bot
@@ -255,6 +271,8 @@ class StrategicPlayer:
         self._urgency = None
         # (Formosan Resolution, Shuttle Diplomacy) as of `self._obs`.
         self._scoring_flags = (False, False)
+        # The Coup prohibitions as of `self._obs`.
+        self._coup_bans = ev.NO_PROHIBITIONS
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -301,6 +319,7 @@ class StrategicPlayer:
         self._obs = observation
         self._urgency = self._urgency_for(observation)
         self._scoring_flags = scoring_flags(observation.game_effects)
+        self._coup_bans = coup_bans(observation.game_effects)
 
     def _urgency_for(self, obs: Observation) -> tuple[float, ...]:
         """Every country's scoring weight, in terrain order. It is a function
@@ -534,7 +553,8 @@ class StrategicPlayer:
         t = self._terrain
         return ev.country_value(t, self._position_for(board, snapshot), t.index[cid],
                                 ev.SIDE_INDEX[side], self.weights, self._urgency_vector(),
-                                self._obs.defcon if self._obs is not None else 5)
+                                self._obs.defcon if self._obs is not None else 5,
+                                self._coup_bans)
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
         """The reach a holding in `cid` gives `side` (see `evaluator.access`)."""
@@ -586,7 +606,7 @@ class StrategicPlayer:
         return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
                               self._obs.defcon if self._obs is not None else 5,
-                              self._overrides_map(pos))
+                              self._overrides_map(pos), self._coup_bans)
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score, discounted by
@@ -661,7 +681,7 @@ class StrategicPlayer:
         # call here walks the region or builds a per-influence cache key.
         basis = self._margin_basis(region)
         margin_before = sign * basis[0]
-        before = (ev.country_value(t, pos, i, s, w, vector, defcon)
+        before = (ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
                   + w.region * urgency * region_before + margin_before)
         controller = pos.control[i]
         was_us, was_ussr = pos.inf[ev.US][i], pos.inf[ev.USSR][i]
@@ -679,7 +699,7 @@ class StrategicPlayer:
                                 t, pos, region, *self._overrides_for(region, pos)))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
-            return (ev.country_value(t, pos, i, s, w, vector, defcon)
+            return (ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
                     + w.region * urgency * region_after + margin_after - before)
         finally:
             self._set_influence(cid, was_us, was_ussr)
@@ -975,7 +995,12 @@ class StrategicPlayer:
         changed_regions |= {r for r in Region
                             if self._overrides_for(r, position, flags)
                             != self._overrides_for(r, position, self._scoring_flags)}
-        after = sum(ev.country_value(t, position, t.index[c], side, w, vector, defcon)
+        # An event that turns NATO or the pact on changes what the opponent
+        # may coup, so the after-value reads the sandbox's own prohibitions.
+        bans = coup_bans(engine.game_effects)
+        if bans != self._coup_bans:
+            affected = set(countries)
+        after = sum(ev.country_value(t, position, t.index[c], side, w, vector, defcon, bans)
                     if c in affected else v for c, v in countries.items())
         after += w.region * sum(
             sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))

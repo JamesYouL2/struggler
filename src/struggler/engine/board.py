@@ -263,6 +263,60 @@ class Board:
                 return cid
         return None
 
+    def nato_protects(
+        self,
+        cid: str,
+        *,
+        nato: bool = False,
+        degaulle_france: bool = False,
+        willy_brandt: bool = False,
+    ) -> bool:
+        """Whether NATO shields `cid` from the USSR: "USA-controlled countries
+        in Europe are protected from CCCP Coup attempts, CCCP Realignments,
+        Brush War." Lifted per-country by De Gaulle (France) and Willy Brandt
+        (West Germany). A pure query: the caller says which events are in
+        force."""
+        if not (nato and self.countries[cid].region is Region.EUROPE
+                and self.control(cid) is Side.US):
+            return False
+        if cid == "France" and degaulle_france:
+            return False
+        if cid == "West_Germany" and willy_brandt:
+            return False
+        return True
+
+    def coup_prohibited(
+        self,
+        attacker: Side,
+        cid: str,
+        *,
+        for_coup: bool = True,
+        nato: bool = False,
+        us_japan_pact: bool = False,
+        reformer: bool = False,
+        degaulle_france: bool = False,
+        willy_brandt: bool = False,
+    ) -> bool:
+        """Whether a persistent event forbids `attacker` a Coup or
+        Realignment against `cid`.
+
+        Only the USSR is ever locked out: NATO protects US-Controlled Europe,
+        the US/Japan pact protects Japan, and The Reformer bars USSR *Coups*
+        (not Realignments) in Europe.
+
+        DEFCON (8.1.5) and the requirement that the defender hold Influence
+        (6.2.1/6.3.1) are the caller's, not this query's -- an evaluation that
+        wants to know what an opponent could do to a country asks a different
+        question about influence than a legality check does."""
+        if attacker is not Side.USSR:
+            return False
+        if us_japan_pact and cid == "Japan":
+            return True
+        if for_coup and reformer and self.countries[cid].region is Region.EUROPE:
+            return True
+        return self.nato_protects(cid, nato=nato, degaulle_france=degaulle_france,
+                                  willy_brandt=willy_brandt)
+
     def score_region(
         self,
         region: Region,

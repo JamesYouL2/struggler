@@ -82,6 +82,45 @@ def test_region_vp_matches_the_engine_under_every_scoring_override():
     assert all(seen), 'the fixture board triggered no promotion or no drop: %s' % (seen,)
 
 
+def test_coup_forbidden_matches_the_engine_under_every_prohibition():
+    """The evaluator mirrors `Board.coup_prohibited` in index space, so the
+    two have to agree for every country under every combination of the events
+    -- which is what stops the bot pricing a wipe risk on a coup the rules
+    forbid."""
+    board = _played_board()
+    # The prohibitions only bite where the US Controls Europe, and De Gaulle
+    # and Willy Brandt only matter on their own country.
+    for cid in board.countries_in(Region.EUROPE):
+        board.influence[cid]['USSR'] = 0
+        board.influence[cid]['US'] = board.countries[cid].stability
+    t = ev.terrain()
+    pos = ev.Position(t).sync(board)
+    names = ('nato', 'us_japan_pact', 'reformer', 'degaulle_france', 'willy_brandt')
+    fired = {name: 0 for name in names}
+    for flags in itertools.product((False, True), repeat=len(names)):
+        bans = ev.Prohibitions(*flags)
+        kwargs = dict(zip(names, flags))
+        for side, attacker in ((Side.USSR, ev.USSR), (Side.US, ev.US)):
+            for i, cid in enumerate(t.ids):
+                expected = board.coup_prohibited(side, cid, **kwargs)
+                assert ev.coup_forbidden(t, pos, i, attacker, bans) == expected, (cid, side, bans)
+                if expected:
+                    for name, on in kwargs.items():
+                        fired[name] += on
+    assert all(fired.values()), f'some prohibition never fired: {fired}'
+    # De Gaulle and Willy Brandt lift the shield rather than raising it.
+    france, wg = t.index['France'], t.index['West_Germany']
+    nato = ev.Prohibitions(nato=True)
+    assert ev.coup_forbidden(t, pos, france, ev.USSR, nato)
+    assert not ev.coup_forbidden(t, pos, france, ev.USSR, nato._replace(degaulle_france=True))
+    assert ev.coup_forbidden(t, pos, wg, ev.USSR, nato)
+    assert not ev.coup_forbidden(t, pos, wg, ev.USSR, nato._replace(willy_brandt=True))
+    # NATO's shield follows control, which is why it is derived per call.
+    board.influence['Italy']['USSR'] = board.countries['Italy'].stability * 2
+    pos.sync(board)
+    assert not ev.coup_forbidden(t, pos, t.index['Italy'], ev.USSR, nato)
+
+
 def test_score_region_agrees_with_the_tier_it_reports():
     """`score_region` inlines the tier walk that `region_tier` returns, for
     speed. Nothing else keeps the two in step."""

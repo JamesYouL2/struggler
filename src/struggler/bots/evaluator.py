@@ -37,6 +37,7 @@ from __future__ import annotations
 import functools
 import math
 from dataclasses import dataclass
+from typing import NamedTuple
 
 from struggler.engine import Region, Side
 from struggler.engine.board import Board
@@ -72,6 +73,11 @@ class Terrain:
     member_pos: tuple[int, ...]
     scoring_vp: dict[Region, tuple[int, int, int | None]]
     coup_min_defcon: tuple[int, ...]
+    # The three countries the Coup prohibitions name, as indices, so the
+    # check is an integer compare rather than a dict lookup per country.
+    japan: int
+    france: int
+    west_germany: int
 
     def side_of(self, cid: str) -> int:
         return self.index[cid]
@@ -104,6 +110,9 @@ def terrain() -> Terrain:
         members=members,
         member_pos=tuple(member_pos),
         scoring_vp={r: tuple(RULES['scoring'][r.name]) for r in Region},
+        japan=index['Japan'],
+        france=index['France'],
+        west_germany=index['West_Germany'],
         coup_min_defcon=tuple(RULES['coup_min_defcon'].get(board.countries[cid].region.name, 2)
                               for cid in ids),
     )
@@ -225,11 +234,55 @@ def importance(t: Terrain, w, urgency, i: int) -> float:
     return (w.battleground if t.battleground[i] else w.control) * urgency[i]
 
 
-def coup_targets(t: Terrain, pos: Position, holder: int, defcon: int) -> int:
+class Prohibitions(NamedTuple):
+    """The persistent events that forbid the USSR a Coup, as flags -- the bot
+    side of `Board.coup_prohibited`.
+
+    Flags rather than the countries they cover, because NATO's shield depends
+    on the US *Controlling* the country, and control is what a trial placement
+    moves. The same reason the scoring overrides are derived per call."""
+    nato: bool = False
+    us_japan_pact: bool = False
+    reformer: bool = False
+    degaulle_france: bool = False
+    willy_brandt: bool = False
+
+
+NO_PROHIBITIONS = Prohibitions()
+
+
+def coup_forbidden(t: Terrain, pos: Position, i: int, attacker: int,
+                   bans: Prohibitions = NO_PROHIBITIONS) -> bool:
+    """`Board.coup_prohibited` over the snapshot: whether a persistent event
+    forbids `attacker` couping country `i`. DEFCON and influence are the
+    caller's, exactly as they are there."""
+    if attacker != USSR:
+        return False
+    if bans.us_japan_pact and i == t.japan:
+        return True
+    europe = t.region_of[i] is Region.EUROPE
+    if bans.reformer and europe:
+        return True
+    if not (bans.nato and europe and pos.control[i] == US):
+        return False
+    if i == t.france and bans.degaulle_france:
+        return False
+    if i == t.west_germany and bans.willy_brandt:
+        return False
+    return True
+
+
+def coup_targets(t: Terrain, pos: Position, holder: int, defcon: int,
+                 bans: Prohibitions = NO_PROHIBITIONS) -> int:
     """How many battlegrounds `holder` has influence in that the opponent
-    could coup at this DEFCON and could wipe with a 4-Ops coup on some roll."""
+    could coup at this DEFCON and could wipe with a 4-Ops coup on some roll.
+
+    A battleground the opponent is forbidden to coup is not one of them: it
+    is not a target, and counting it would also thin the risk spread over the
+    targets that are real."""
     inf_h = pos.inf[holder]
     battleground, stability, minimum = t.battleground, t.stability, t.coup_min_defcon
+    banned = any(bans)
     found = 0
     for i in range(len(inf_h)):
         held = inf_h[i]
@@ -237,13 +290,17 @@ def coup_targets(t: Terrain, pos: Position, holder: int, defcon: int) -> int:
             continue
         if defcon < minimum[i]:
             continue
-        if 6 + 4 - 2 * stability[i] >= held:
-            found += 1
+        if 6 + 4 - 2 * stability[i] < held:
+            continue
+        if banned and coup_forbidden(t, pos, i, 1 - holder, bans):
+            continue
+        found += 1
     return found
 
 
 def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: int,
-              stake_unit: float, w, defcon: int) -> float:
+              stake_unit: float, w, defcon: int,
+              bans: Prohibitions = NO_PROHIBITIONS) -> float:
     """Expected loss to `holder` from the opponent's coup wiping this country.
 
     The chance a 3- or 4-Ops coup removes every point (roll + Ops - 2 x
@@ -258,6 +315,8 @@ def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: 
         return 0.
     if defcon < t.coup_min_defcon[i]:
         return 0.
+    if any(bans) and coup_forbidden(t, pos, i, 1 - holder, bans):
+        return 0.  # the coup this risk is the risk of is not a legal move
     stability = t.stability[i]
     wipes = sum(1 for ops in (3, 4) for roll in range(1, 7) if roll + ops - 2 * stability >= held)
     p = wipes / 12
@@ -273,7 +332,7 @@ def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: 
     else:
         first = pos.reach[1 - holder][i] or 6 + 4 - 2 * stability > held
         stake = w.wipe * (position + (stake_unit * (1 + w.progress) if first else 0.))
-    return p * stake / max(1, coup_targets(t, pos, holder, defcon))
+    return p * stake / max(1, coup_targets(t, pos, holder, defcon, bans))
 
 
 def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
@@ -348,7 +407,8 @@ def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
     return affected
 
 
-def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon: int) -> float:
+def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon: int,
+                  bans: Prohibitions = NO_PROHIBITIONS) -> float:
     """What country `i` is worth to side `s` on this board."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
     own, opp = (us, ussr) if s == US else (ussr, us)
@@ -366,9 +426,9 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon:
     value += w.progress * imp * math.copysign(abs(fraction) ** w.progress_curve, fraction)
     # Wipe risk (see StrategicWeights.wipe): the couper's expected take.
     if own > 0 and w.wipe > 0:
-        value -= wipe_risk(t, pos, i, s, own, opp, imp, w, defcon)
+        value -= wipe_risk(t, pos, i, s, own, opp, imp, w, defcon, bans)
     if opp > 0 and w.wipe > 0:
-        value += wipe_risk(t, pos, i, 1 - s, opp, own, imp, w, defcon)
+        value += wipe_risk(t, pos, i, 1 - s, opp, own, imp, w, defcon, bans)
     guard = w.reserve * imp
     value += guard * (min(2, max(0, margin - stability)) - min(2, max(0, -margin - stability)))
     if t.battleground[i] and (own > 0) != (opp > 0):
@@ -564,7 +624,7 @@ NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
 
 
 def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
-                overrides=None) -> float:
+                overrides=None, bans: Prohibitions = NO_PROHIBITIONS) -> float:
     """Every country, every region score, every region margin, for side `s`.
 
     `overrides` maps a region to its `scoring_overrides` pair; regions absent
@@ -575,6 +635,6 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
     sign = 1 if s == US else -1
     ov = (lambda r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
-    return (sum(country_value(t, pos, i, s, w, urgency, defcon) for i in range(len(t.ids)))
+    return (sum(country_value(t, pos, i, s, w, urgency, defcon, bans) for i in range(len(t.ids)))
             + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)
             + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))

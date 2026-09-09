@@ -248,6 +248,13 @@ not the USSR held a Battleground for it to drop. The strategic bot reads the
 same derivation through `evaluator.scoring_overrides`, so these two are the
 only flag events it can price; see docs/STRATEGIC_AI.md.
 
+`Board.coup_prohibited` answers which of these forbid a given attacker a
+Coup or Realignment, and `Board.nato_protects` the NATO part alone (Brush
+War asks that one too). `Engine._usable_coup_realign_target` keeps only what
+is the engine's: the defender holding Influence, DEFCON, and reading which
+events are in force out of `game_effects` (`Engine.coup_flags`). The
+strategic bot's wipe term mirrors the same query over its own snapshot.
+
 **A reactive hook consulted from board mechanics.** NORAD
 (`game_effects["norad"]`, checked in `Engine._change_defcon`): while Canada
 is US-controlled, every time DEFCON *moves* to level 2 the US adds 1

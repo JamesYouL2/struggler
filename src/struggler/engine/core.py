@@ -1492,36 +1492,26 @@ class Engine:
             min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
             if self.defcon < min_defcon:
                 return False
-        if attacker is not Side.USSR:
-            return True
+        return not self.board.coup_prohibited(attacker, cid, for_coup=for_coup,
+                                              **self.coup_flags())
+
+    def coup_flags(self) -> dict[str, bool]:
+        """Which persistent Coup/Realignment prohibitions are in force, as
+        `Board.coup_prohibited` takes them. Public board state, so a bot can
+        read the same events off its observation and ask the same question of
+        its own snapshot."""
         ge = self.game_effects
-        region = info.region
-        if ge.get("us_japan_pact") and cid == "Japan":
-            return False
-        if for_coup and ge.get("reformer") and region is Region.EUROPE:
-            return False
-        if self._nato_protects(cid):
-            return False
-        return True
+        return {name: bool(ge.get(name)) for name in
+                ("nato", "us_japan_pact", "reformer", "degaulle_france", "willy_brandt")}
 
     def _nato_protects(self, cid: str) -> bool:
-        """Whether NATO currently shields `cid` from the USSR: "USA-controlled
-        countries in Europe are protected from CCCP Coup attempts, CCCP
-        Realignments, Brush War." Lifted per-country by De Gaulle (France) and
-        Willy Brandt (West Germany)."""
+        """Whether NATO currently shields `cid` from the USSR (see
+        `Board.nato_protects`); Brush War asks this too."""
         ge = self.game_effects
-        info = self.board.countries[cid]
-        if not (
-            ge.get("nato")
-            and info.region is Region.EUROPE
-            and self.board.control(cid) is Side.US
-        ):
-            return False
-        if cid == "France" and ge.get("degaulle_france"):
-            return False
-        if cid == "West_Germany" and ge.get("willy_brandt"):
-            return False
-        return True
+        return self.board.nato_protects(
+            cid, nato=bool(ge.get("nato")),
+            degaulle_france=bool(ge.get("degaulle_france")),
+            willy_brandt=bool(ge.get("willy_brandt")))
 
     def _handle_event_ops_order(self, decision: Decision, action: Action) -> None:
         side = Side(decision.context["side"])

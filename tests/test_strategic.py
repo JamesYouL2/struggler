@@ -677,6 +677,53 @@ def test_shuttle_diplomacy_is_credited_to_one_region_not_both():
     assert bot._overrides_for(other, pos) == ev.NO_OVERRIDES
 
 
+def test_nato_removes_a_wipe_risk_the_bot_priced_on_a_coup_the_rules_forbid():
+    """`wipe_risk` gated on DEFCON alone, so it feared a USSR coup on
+    US-Controlled Europe -- a move the engine rejects.
+
+    The term ships at `wipe = 0` ("off until calibrated"), so this is not a
+    live defect: it is the defect the calibration would have inherited.
+    Calibrating a term that is systematically wrong across Europe would have
+    fitted a weight to the wrong quantity, so the weights here are the ones
+    that turn it on."""
+    from struggler.engine import Region
+
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    while engine.phase != 'headline' and not engine.is_terminal:
+        engine.step(engine.pending_decision.options[0])
+    board = engine.board
+    for cid in board.countries_in(Region.EUROPE):
+        board.influence[cid]['USSR'] = 0
+        board.influence[cid]['US'] = board.countries[cid].stability
+    engine.defcon = 5  # Europe is coupable at DEFCON 5 and nowhere below it
+
+    assert StrategicWeights().wipe == 0, 'the term is live now; drop this scaffolding'
+    bot = StrategicPlayer(StrategicWeights(wipe=1.0, wipe_backed=0.5))
+    # France at 3 influence, stability 3: a 4-Ops coup wipes it on 3 rolls of
+    # 12. West Germany cannot be wiped at all (stability 4 needs a 12), which
+    # is why the term is silent there and this test is not about it.
+    target = 'France'
+
+    bot.prepare(engine.observe(Side.US))
+    exposed = bot.country_value(bot.board, target, Side.US)
+    assert engine._usable_coup_realign_target(Side.USSR, target)
+
+    engine.game_effects['nato'] = True
+    bot.prepare(engine.observe(Side.US))
+    shielded = bot.country_value(bot.board, target, Side.US)
+    assert not engine._usable_coup_realign_target(Side.USSR, target)
+    assert shielded > exposed, (exposed, shielded)
+
+    # De Gaulle lifts the shield on France alone, and the bot sees the risk
+    # come back with it. Not back to `exposed`: NATO still shields the rest
+    # of Europe, so what the USSR can still aim is spread over fewer targets.
+    engine.game_effects['degaulle_france'] = True
+    bot.prepare(engine.observe(Side.US))
+    assert bot.country_value(bot.board, target, Side.US) < shielded
+    assert engine._usable_coup_realign_target(Side.USSR, target)
+    assert not engine._usable_coup_realign_target(Side.USSR, 'Italy')
+
+
 def test_region_margin_incremental_matches_full_recompute():
     """delta() swaps one country's contribution into cached aggregates; it
     must equal a full pass over the region for every trial placement."""
