@@ -35,7 +35,7 @@ class EventValuePlayer(StrategicPlayer):
             after = self._correction(obs, region)
         finally:
             self.board.influence[cid].update(original)
-        return base + self.weights.vp*(after-before)
+        return base + self.vp_value(obs)*(after-before)
 
     def country_values(self, observation):
         """Explain +1 friendly influence's regional VP change, before Ops cost.

@@ -11,7 +11,7 @@ import copy
 import json
 import logging
 import math
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -135,7 +135,18 @@ class StrategicWeights:
     # next door): worth this fraction of exclusive reach.
     access_contested: float = 0.25
     region: float = 1.3
-    vp: float = 3.0
+    # A VP in Ops, by era: Ops are worth most while the board is empty and
+    # VP most when few turns are left to convert Ops into anything, so the
+    # expert's rule is 1 Op = 2 VP in the Early War (a VP is 0.5 Op), 1 Op
+    # = 1 VP in the Mid War, 2 Ops = 1 VP in the Late War. The Early rate
+    # agrees with the opening-board fixture (Olympic Games 0.3, Korean War
+    # -1). A per-turn table is the natural refinement once tuning wants
+    # it. The old flat `vp` of 3.0 raw priced a VP at 0.08-0.23 Ops
+    # everywhere, several times under on every scoring, war and VP-event
+    # decision, and by 10-25x in the Late War.
+    vp_early: float = 0.5
+    vp_mid: float = 1.0
+    vp_late: float = 2.0
     military: float = 2.0
     ops: float = 2.0
     # A country is worth what its region will still score: the sum over its
@@ -167,7 +178,12 @@ class StrategicWeights:
         data = json.loads(Path(path).read_text())
         if data.get('version') != 1:
             raise ValueError('unsupported strategic model version')
-        return cls(**data['weights'])
+        known = {f.name for f in fields(cls)}
+        weights = {k: v for k, v in data['weights'].items() if k in known}
+        retired = sorted(set(data['weights']) - known)
+        if retired:
+            log.info('strategic weights %s: ignoring retired fields %s', path, retired)
+        return cls(**weights)
 
     def save(self, path: str | Path, **metadata) -> None:
         Path(path).write_text(json.dumps(dict(version=1, weights=asdict(self), metadata=metadata), indent=2) + '\n')
@@ -611,29 +627,28 @@ class StrategicPlayer:
         alone evaluates in whatever context the last `rank_actions` left
         behind, which made an identical leaf return three different values
         depending on which position had been ranked before it."""
-        saved = (self._obs, self._scoring_weights, self._country_cache if hasattr(self, '_country_cache') else None,
-                 self._access_cache if hasattr(self, '_access_cache') else None,
-                 self._region_cache if hasattr(self, '_region_cache') else None)
-        if board is None:
-            _sync_board(self.board, observation)
-            board = self.board
+        saved = (self._obs, self._scoring_weights, self.__dict__.get('_country_cache'),
+                 self.__dict__.get('_access_cache'), self.__dict__.get('_region_cache'),
+                 self.__dict__.get('_ops_values'), {c: dict(v) for c, v in self.board.influence.items()})
+        _sync_board(self.board, observation)  # `board`, if given, must describe the same position
         self._obs = observation
         self._scoring_weights = {}
         self._country_cache = {}
         self._access_cache = {}
         self._region_cache = {}
+        self._ops_values = {}
         if not hasattr(self, '_region_members'):
             self._region_members = {r: self.board.countries_in(r) for r in Region}
         try:
-            return self.value(board, observation.side)
+            return self.value(self.board, observation.side)
         finally:
-            self._obs, self._scoring_weights, country, access, region = saved
-            if country is not None:
-                self._country_cache = country
-            if access is not None:
-                self._access_cache = access
-            if region is not None:
-                self._region_cache = region
+            self._obs, self._scoring_weights, country, access, region, ops_values, influence = saved
+            for name, val in (('_country_cache', country), ('_access_cache', access),
+                              ('_region_cache', region), ('_ops_values', ops_values)):
+                if val is not None:
+                    setattr(self, name, val)
+            for c, v in influence.items():
+                self.board.influence[c].update(v)
 
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) \
@@ -735,6 +750,27 @@ class StrategicPlayer:
         engine.removed_cards = list(obs.removed_cards)
         return engine
 
+    def vp_value(self, obs: Observation) -> float:
+        """What one VP is worth here, in raw units: the era's Ops-per-VP
+        (StrategicWeights.vp_early/mid/late) times what one Op buys on this
+        board, so VP and Ops stay on one scale as the board's Ops value moves."""
+        w = self.weights
+        per_vp = w.vp_early if obs.turn <= 3 else w.vp_mid if obs.turn <= 7 else w.vp_late
+        cached = self._ops_values.get(1) if hasattr(self, '_ops_values') else None
+        if cached is not None:
+            return per_vp * cached
+        # ops_value prices coups and placements, either of which may price VP
+        # (Yuri and Samantha, wars, the neural correction): while the one-Op
+        # value is itself being computed, a VP is priced at a flat 20 raw per
+        # Op, the opening board's order of magnitude.
+        if getattr(self, '_vp_reentrant', False):
+            return per_vp * 20.
+        self._vp_reentrant = True
+        try:
+            return per_vp * self.ops_value(obs, 1)
+        finally:
+            self._vp_reentrant = False
+
     def ops_value(self, obs: Observation, ops: int) -> float:
         """What `ops` Operations are worth here: the best influence spend
         (a greedy plan, so the value is concave in Ops: the fourth point
@@ -746,6 +782,17 @@ class StrategicPlayer:
         cached = self._ops_values.get(ops)
         if cached is not None:
             return cached
+        total = self._placement_ops_value(obs, ops)
+        engine = self.public_engine(obs)
+        side, board = obs.side, self.board
+        best_coup = max((self.coup(obs, c, ops) for c in board.countries
+                         if engine._usable_coup_realign_target(side, c, for_coup=True)), default=LOSS)
+        value = max(total, best_coup, 0.)
+        self._ops_values[ops] = value
+        return value
+
+    def _placement_ops_value(self, obs: Observation, ops: int) -> float:
+        """The best greedy influence spend of `ops` on this board (no coups)."""
         side, board = obs.side, self.board
         reachable = [c for c in board.countries if board.is_reachable(side, c)
                      and not (side is Side.USSR and obs.turn_effects.get('chernobyl') == board.countries[c].region.value)]
@@ -775,12 +822,7 @@ class StrategicPlayer:
             for c, inf in original.items():
                 board.influence[c].update(inf)
             self._base_regions = {} if self._base_regions is not None else None
-        engine = self.public_engine(obs)
-        best_coup = max((self.coup(obs, c, ops) for c in board.countries
-                         if engine._usable_coup_realign_target(side, c, for_coup=True)), default=LOSS)
-        value = max(total, best_coup, 0.)
-        self._ops_values[ops] = value
-        return value
+        return total
 
     def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:
         """Best value per Op of investing in `cid`, and the points that earn it."""
@@ -845,7 +887,7 @@ class StrategicPlayer:
         deficit = max(0, obs.defcon - obs.military_ops.get(obs.side.value, 0))
         gain += self.weights.military * min(ops, deficit)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
-            gain -= self.weights.vp
+            gain -= self.vp_value(obs)
         return gain
 
     def realign(self, obs: Observation, cid: str) -> float:
@@ -903,7 +945,7 @@ class StrategicPlayer:
         after += sum(self.region_margin(engine.board, r, obs.side) if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before
-        return result + self.weights.vp * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+        return result + self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
 
     def event_value(self, obs: Observation, cid: str) -> float:
         if cid in self._events:
@@ -993,7 +1035,7 @@ class StrategicPlayer:
         return self._un_card or None
 
     def space_value(self, obs: Observation, ops: int) -> float:
-        return self.weights.vp * _space_race_expected_vp(obs, obs.side) - 0.4 * self.ops_value(obs, ops)
+        return self.vp_value(obs) * _space_race_expected_vp(obs, obs.side) - 0.4 * self.ops_value(obs, ops)
 
     def space_card(self, obs: Observation) -> str | None:
         """The card this turn's space slot is for: the opponent's card whose
@@ -1062,7 +1104,7 @@ class StrategicPlayer:
                 if engine.is_terminal:
                     return -LOSS if engine.winner is obs.side else LOSS
                 net = (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
-                return net * self.weights.vp + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
+                return net * self.vp_value(obs) + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
             event = self.event_value(obs, cid)
             ops = _effective_ops_estimate(card, obs, obs.side)
             if kind is K.HEADLINE_PLAY:
@@ -1097,7 +1139,7 @@ class StrategicPlayer:
             penalty += int(ctx.get('count_target_control', True) and self.board.control(cid) is obs.side.opponent)
             probability = max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
             enemy = self.board.influence[cid][obs.side.opponent.value]
-            return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.weights.vp * ctx['vp'])
+            return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
         if kind in (K.QUAGMIRE_DISCARD, K.HELD_CARD_DISCARD):
             cid = p['card']
             return 0 if cid == 'none' else -CARDS[cid].ops - min(0, self.event_value(obs, cid))

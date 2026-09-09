@@ -14,7 +14,8 @@
         "note": "With Quagmire and Nuclear Subs the most important flag events; unpriced by the sandbox (0)."
       },
       "Nuclear_Subs": {
-        "ops": null
+        "ops": 3.5,
+        "note": "How many extra battleground Ops you get out of couping Africa's 1-stability countries: 3-4. The USSR can force defence, but that costs them an Op each."
       },
       "ABM_Treaty": {
         "ops": 5.0,
@@ -72,8 +73,8 @@
         "ops": 4.0
       },
       "We_Will_Bury_You": {
-        "ops": null,
-        "note": "Super important; sandbox says 0."
+        "ops": 2.75,
+        "note": "Around 3, maybe 2.5: weird to play safely but definitely doable. Sandbox says 0."
       },
       "Quagmire": {
         "ops": null,
@@ -88,7 +89,8 @@
         "note": "Bot's value accepted (see the US row)."
       },
       "Muslim_Revolution": {
-        "ops": null
+        "ops": 4.5,
+        "note": "About 4.5 in general."
       },
       "Liberation_Theology": {
         "ops": 3.0,
@@ -105,8 +107,8 @@
         "ops": null
       },
       "Allende": {
-        "ops": null,
-        "note": "Depends on Chile, but always more than the bot's 0.2."
+        "ops": 2.0,
+        "note": "Conditional: 2 if Chile is uncontrolled or US-controlled, ~4 with Chile and Argentina empty, 0.5 if the USSR already controls Chile. The fixture position decides which applies; 2 recorded as the general case."
       },
       "Willy_Brandt": {
         "ops": 1.5
@@ -134,5 +136,5 @@
       }
     }
   },
-  "_vp_scale_note": "Expert rule of thumb for VP in Ops: Early War 2, Mid War 1, Late War 0.5 (uncertain)."
+  "_vp_scale_note": "Expert rule: 1 Op = 2 VP in the Early War (a VP is 0.5 Op), 1 Op = 1 VP in the Mid War, 2 Ops = 1 VP in the Late War. Encoded as StrategicWeights.vp_early/vp_mid/vp_late."
 }

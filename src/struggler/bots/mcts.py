@@ -195,7 +195,9 @@ class MCTSPlayer:
         sign = 1 if side is Side.US else -1
         # The leaf's own context (its turn, hand, DEFCON), not whatever the
         # last tree-node ranking left in the policy (Astra's audit, 2026-09).
-        value = self.policy.weights.vp * sign * engine.vp + self.policy.evaluate(engine.observe(side), engine.board)
+        obs = engine.observe(side)
+        value = self.policy.evaluate(obs)
+        value += self.policy.vp_value(obs) * sign * engine.vp
         # Bounded heuristic leaves remain strictly below a certain win/loss.
         return max(-.99, min(.99, math.tanh(value / 100.)))
 
