@@ -1,11 +1,11 @@
 # Rust port plan (revised after Astra's review)
 
-Status: revision 2, Sept 2026, after Astra's review (`docs/ASTRA_NOTES.md`,
-"Review of Fable's RUST_PORT_PLAN.md"). Nothing ported. Toolchain
-(rustup, maturin) installed. Author: Claude (Fable). Reviewer: Astra.
-This revision proposes **Option C** below and asks Astra whether they
-agree; the rest of the document is the plan as it would be executed
-under C, with Astra's seven required revisions applied.
+Status: revision 3, Sept 2026. Astra agreed to **Option C** as a bounded
+measurement stage, with the order revised as below (`docs/ASTRA_NOTES.md`,
+"Revision 2 / Option C decision"). Nothing ported. Toolchain (rustup,
+maturin) installed. Author: Claude (Fable). Reviewer: Astra. The Option C
+section is the current scope; the later sections describe the Rust stage
+that C may or may not lead to, and are consistent with it.
 
 ## The decision this revision asks for: Option C
 
@@ -39,52 +39,56 @@ What C does *not* claim: it will not make deep MCTS possible. If after C
 the search is still bound by the evaluator, A follows; if the user wants
 deep MCTS, B follows and C's corpus and indexing are its first stage.
 
-Question for Astra: do you agree with C, and with the order inside it
-(corpus first, from the current code; indexing second; DEFCON
-memoisation third; measure; decide)?
+Astra's decision: yes, as a bounded measurement stage, not a commitment
+to finish an array-Python rewrite before Rust is considered. No predicted
+speedup is approved. Deep MCTS does not logically require the whole
+engine native; that stays an option to justify with measurements and a
+latency target.
 
-## Option C, step by step
+## Option C, step by step (Astra's order)
 
 Each step is its own commit, gated by `scripts/gate.sh` for strength
-(must be neutral: these are meant to be no-ops in behaviour) and by the
-parity corpus for exactness.
+(these are meant to be behaviour no-ops) and by the parity corpus for
+exactness. Each optimisation is measured on its own, so attribution is
+not lost.
 
-1. **Parity corpus, captured from the current code before any refactor.**
-   A generator records `(observation influence, side, decision context,
-   candidate list in order, Ops budget, weights, scoring weights, DEFCON,
-   turn effects)` and the current outputs: `delta` per candidate and
-   point count, `influence` / `_investment` results, `ops_value` per
-   Ops, `country_value` for every country, `region_score` and
-   `region_margin` per region, the full `rank_actions` ordering with
-   safety keys. Positions: the gate seeds at several turns, both seats;
-   MCTS rollout positions (from the corrected policy) and event-sandbox
-   positions; generated boundary cases (enemy-control cost transitions,
-   tier thresholds, Europe control, zero and near-tied gains, bonus Ops,
-   turn effects, influence extremes). Stored under `tests/corpus/` as
-   JSON; regenerated only by an explicit, reviewed commit. Astra's point
-   stands: a corpus generated after extraction cannot detect extraction
-   drift, and the MCTS correctness fixes were intentional behaviour
-   changes, so the corpus is captured *after* them (98cdc1f, 95deb39)
-   and *before* anything else.
-2. **Evaluator indexing, evaluator-local.** Countries as indices,
-   influence as two integer arrays built per decision, adjacency as index
-   lists, per-country stability/battleground/region/coup-DEFCON arrays,
-   weights as a named schema with a version. The engine's public
-   representation does not change. Parity: identical rankings and
-   top actions on the corpus, values within an absolute plus relative
-   tolerance, deterministic tie-breaks fixed by candidate order (first
-   wins) and documented. The 12 % enum figure spans the whole workload,
-   so the gain here is measured, not assumed.
-3. **DEFCON planner memoisation.** `opponent_event` becomes a per-card
-   mask; `hazardous` is state-dependent (Grain Sales and Five Year Plan
-   read the remaining hand; Ask Not's `@replacement` placeholders need a
-   count, not a bit) and is memoised on (card, hand-as-multiset, DEFCON)
-   per decision rather than precomputed. Enum attribute access in the
-   solve is hoisted. Parity: identical risks on the corpus's hands.
-4. **Measure.** Both workloads (strategic full game; MCTS at 24
-   simulations on frozen opening, scoring and hazardous late-game
-   positions), on a gate snapshot with nothing else running, before and
-   after. Report the Amdahl fractions again. Then decide A or B.
+1. **Parity corpus and fresh baseline timings, from the current code.**
+   The generator records positions and the current outputs: for the
+   evaluator, `delta` per candidate and point count, `influence` and
+   `_investment`, `ops_value` for 1-4 Ops, `country_value` for every
+   country, `region_score` and `region_margin` per region, and the full
+   `rank_actions` ordering with safety keys; for the planner, the DEFCON
+   risk per card and per play mode with its inputs (hand, DEFCON, turn
+   effects, Space Race state, China, traps, pending headline, learned
+   prior in use, truncation reached or not). Positions: gate seeds at
+   several turns, both seats; MCTS rollout and event-sandbox positions
+   from the corrected policy; generated boundary cases (enemy-control cost
+   transitions, tier thresholds, Europe control, zero and near-tied gains,
+   bonus Ops, turn effects, influence extremes, planner truncation).
+   Baseline profiles on the same snapshot: a strategic full game, and
+   MCTS at 24 simulations on frozen opening, scoring and hazardous
+   late-game positions. Stored under `tests/corpus/`; regenerated only by
+   an explicit, reviewed commit. Captured after the MCTS fixes (98cdc1f,
+   95deb39), which were intentional behaviour changes, and before
+   anything else.
+2. **DEFCON planner: predicate hoisting and memoisation, measured alone.**
+   `DefconPlanner` already caches `solve` and `_event_risk` with
+   `lru_cache`; the millions of `opponent_event` / `hazardous` calls are
+   inside those, so another cache is not assumed to help. Measure hits,
+   misses and key-construction cost first; hoist the enum attribute
+   lookups; make `opponent_event` a per-card lookup; memoise `hazardous`
+   on (card, hand multiset, DEFCON) only if the measurement says so.
+   Hazard-at-DEFCON-2 semantics and `@replacement` multiplicity intact.
+   Parity: identical risks on the corpus.
+3. **Evaluator indexing, incrementally.** Slices (static per-country
+   arrays; influence arrays per decision; adjacency index lists; the
+   weights schema), each with parity and whole-workload timing. If
+   conversion or Python indexing overhead erases the gain, stop; a Rust
+   kernel can take arrays while the dict-based Python evaluator stays the
+   reference. The engine's representation does not change.
+4. **Decide**, with the fresh Amdahl fractions: keep the Python gains
+   only, a batched Rust kernel (`evaluate_placements`), parallel search,
+   or a broader native rollout implementation.
 
 ## What the profiles say
 
@@ -108,7 +112,7 @@ for an accelerated fraction p at kernel speedup s.
 | MCTS search (delta share) | 0.72 | 3.2x | 3.4x | 3.6x |
 | MCTS search (all rollout ranking) | 0.93 | 8.6x | 11.3x | 14.3x |
 | Strategic full game (evaluator share) | 0.25 | 1.3x | 1.3x | 1.33x |
-| Strategic full game (evaluator + planner) | 0.85 | 4.9x | 5.9x | 6.7x |
+| Strategic full game (evaluator + planner) | 0.85 | 5.2x | 6.0x | 6.7x |
 
 The trivial-bot game time (1.1 s of 13.4 s, 8.2 %) bounds the engine's
 share from above only loosely; it was not profiled separately.
@@ -160,7 +164,7 @@ the per-country scoring weight array, DEFCON, side. Passed once per
 
 ### Calls, in port order
 
-1. `evaluate_placements(us: &[u8], su: &[u8], side, ops, candidates: &[u16], ctx) -> Vec<(f64, u8)>`
+1. `evaluate_placements(us: &[i16], su: &[i16], side, ops, candidates: &[u16], ctx) -> Vec<(f64, u8)>`
    The influence search: for each candidate country, the best value per
    Op of investing 1..ops points there (`_investment` / `influence`), with
    the doubled cost past enemy control, including the country term, the
@@ -172,36 +176,29 @@ the per-country scoring weight array, DEFCON, side. Passed once per
    parity tests.
 3. `coup_values(us, su, side, ops, candidates, ctx) -> Vec<f64>` and
    `realign_values(...)`: same board delta with the dice enumerated.
-4. `defcon_risks(hand: &[u16], card_flags, defcon, effects, hand_size_opp) -> Vec<f64>`
-   The survival planner's solve as bitmask arithmetic over the hand, with
-   the per-card predicates (`opponent_event`, `hazardous`) precomputed into
-   masks. Only after profiling hazardous late-game hands confirms it is
-   worth it.
+4. There is no native DEFCON solve. Its state contract is too large to
+   freeze cheaply and its predicates are state-dependent (see Option C
+   step 2); the planner stays in Python, memoised.
 
-Not ported: the engine, events, the event sandbox, `ops_value`'s card
-logic, the opponent model, MCTS tree management, hidden-state sampling,
-logging.
+Not ported: the engine, events, the event sandbox, the DEFCON planner,
+`ops_value`'s card logic (its investment loop is part of the workload and
+is a candidate for the second batched call), the opponent model, MCTS
+tree management, hidden-state sampling, logging.
 
 ### Python side
 
 `bots/evaluator.py` grows the table builders and a `Native` wrapper with
-the same four functions in pure Python. `STRUGGLER_NATIVE=0` forces the
+the same three functions in pure Python. `STRUGGLER_NATIVE=0` forces the
 Python path. The strategic player calls the wrapper; nothing else changes.
 Weights keep their names; the array order is defined in one place.
 
-## Prerequisites in Python (do first, each a gated no-op)
+## Prerequisites in Python
 
-1. Fix and pin Astra's three MCTS findings (done).
-2. Index the evaluator: countries as indices, influence as two arrays,
-   adjacency as index lists, cards as a struct table. This alone should
-   remove most of the enum and dict overhead (12 % + part of 25 %).
-3. Make the evaluator a pure function of (arrays, context): no reads of
-   `self._obs`, `board`, `RULES` or caches inside `country_value`,
-   `_access`, `_wipe_risk`, `region_margin`. The margin's incremental path
-   (`region_margin_after`) and every cache become Rust-internal or vanish.
-4. Freeze a position corpus: a few hundred `(influence, side, ctx)`
-   snapshots from the gate seeds at several turns, with the Python
-   evaluator's outputs for every candidate. This is the parity oracle.
+Option C above is the prerequisite list, in Astra's order: corpus and
+baselines, planner memoisation, incremental indexing, decide. A
+pure-function evaluator (no reads of `self._obs`, `board`, `RULES` or
+caches inside the country, access, wipe and margin terms) is part of the
+Rust stage, not of C, and only if C leads there.
 
 ## Verification
 
@@ -226,11 +223,11 @@ Weights keep their names; the array order is defined in one place.
 | Step | Size | Depends on |
 | --- | --- | --- |
 | MCTS fixes and regressions | done | none |
-| Parity corpus from the current code | 1 day | none (Option C step 1) |
-| Indexing refactor, evaluator-local | 1-2 days | corpus (C step 2) |
-| DEFCON memoisation | 1 day | corpus (C step 3) |
-| Measure, decide A or B | half a day | above (C step 4) |
-| Pure-function evaluator | 1-2 days | indexing (A or B) |
+| Parity corpus and baseline timings | 1 day | none (C step 1) |
+| DEFCON memoisation, measured alone | 1 day | corpus (C step 2) |
+| Indexing, incremental slices | 1-2 days | corpus (C step 3) |
+| Decide | half a day | above (C step 4) |
+| Pure-function evaluator | 1-2 days | only if C leads to Rust |
 | `evaluate_placements` + `board_value` in Rust, parity | 3-5 days | corpus |
 | coup/realign values | 1 day | above |
 | DEFCON solve (if profiling warrants) | 2-3 days | hazardous-hand profile |
@@ -300,7 +297,7 @@ is a few hundred lines with the Python path kept as the oracle.
 
 | Risk | Handling |
 | --- | --- |
-| Floating-point summation order changes tie-breaks between near-equal placements | Parity is on rankings after rounding to 1e-9; the corpus test lists every position whose top action differs, and each is inspected. Summation order in Rust follows the Python loop order where cheap. |
+| Floating-point summation order changes tie-breaks between near-equal placements | Tie-breaks are fixed by candidate order (first wins) in both implementations, not by rounding; parity is exact rankings and top actions, values within absolute plus relative tolerance; the corpus test lists every position whose ranking differs. Summation order in Rust follows the Python loop order where cheap. |
 | Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed by the pure-function prerequisite (step 3); the Python fallback is that pure function, so both paths share one contract. |
 | Boundary cost dominating if the granularity is wrong | `evaluate_placements` takes all candidates at once; measured whole-decision wall time including conversion is the acceptance metric. |
 | Behaviour drift from an "accidental" fix while porting | Algorithm changes and acceleration never share a commit; the corpus is regenerated only by an explicit, reviewed commit. |
@@ -348,4 +345,7 @@ decides the acceptance calls and runs nothing but the gate script.
   measured not assumed, kept small enough not to maintain the evaluator
   three times.
 
-Remaining question: **Option C, yes or no**, and the order inside it.
+Option C: agreed by Astra with the order above. Revision 3 consolidates
+the leftovers Astra listed (prerequisite order, `u8` in signatures, the
+native DEFCON solve and hazard masks, rounding in the risk table, the
+evaluator-plus-planner Amdahl row).
