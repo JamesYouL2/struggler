@@ -451,6 +451,27 @@ def test_a_broken_event_simulation_is_reported_not_silently_estimated(caplog, mo
     assert value == declined
 
 
+def test_the_sandbox_drives_every_event_it_claims_to():
+    """`PUBLIC_EVENTS` is the set the sandbox is supposed to simulate, so a
+    failure there is a defect and not an approximation. The two dice-contest
+    events, Olympic Games and Summit, failed on every board for as long as the
+    whitelist existed: a contest rolls both sides at once and carries two dice
+    in its single CHANCE option, and the sandbox read exactly one key from it.
+    Both then priced at the flat 0.8 x Ops estimate."""
+    from struggler.bots.strategic import PUBLIC_EVENTS
+    obs = _event_position()
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    for cid in sorted(PUBLIC_EVENTS):
+        bot.event_value(obs, cid)
+    assert bot.sandbox_failures == {}
+    # And the two that used to fail are now worth something other than the
+    # estimate they fell back to.
+    for cid in ('Olympic_Games', 'Summit'):
+        estimate = CARDS[cid].ops * bot.weights.ops * 0.8
+        assert bot._public_event_value(obs, cid) != pytest.approx(estimate)
+
+
 def test_the_event_helper_follows_a_weights_replacement():
     """Training mutates `bot.weights` on a live player. A helper left on the
     old weights would play the simulated event's choices by one value function

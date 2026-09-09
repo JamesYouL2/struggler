@@ -8,6 +8,7 @@ AI, not full-game minimax or a pretrained neural network.
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import logging
 import math
@@ -820,11 +821,19 @@ class StrategicPlayer:
             if d.actor is Side.CHANCE:
                 if d.kind.name.endswith('_ROLL') and rolls < 2:
                     # Outside physical mode the engine exposes only the face
-                    # its RNG drew; the sandbox wants all six.
+                    # its RNG drew; the sandbox wants all six. A dice contest
+                    # (Olympic Games, Summit) rolls both sides at once and
+                    # carries two dice in the one option, so the faces are the
+                    # 36 combinations, not six. Reading exactly one key here
+                    # is what made those two events unpriceable.
                     faces = d.options
                     if len(faces) == 1:
-                        (key,) = d.options[0].payload
-                        faces = tuple(Action(d.kind, {key: v}) for v in range(1, 7))
+                        dice = d.options[0].payload
+                        if not dice or not all(isinstance(v, int) and 1 <= v <= 6 for v in dice.values()):
+                            raise SandboxUnsupported(
+                                '%s carries %r, which is not a set of dice' % (d.kind.name, dice))
+                        faces = tuple(Action(d.kind, dict(zip(dice, values)))
+                                      for values in itertools.product(range(1, 7), repeat=len(dice)))
                     total = 0.
                     for option in faces:
                         fork = Engine.deserialize(engine.serialize())
