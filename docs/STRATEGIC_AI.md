@@ -624,9 +624,26 @@ covers nuclear losses as well as scores, because stopping early can only
 *miss* a failure, and the games not played are exactly the ones that might
 have carried the second loss. `GATE_DECIDE=0` plays everything.
 
+Each unplayed seed is drawn from its own sample, never from the two pooled.
+The samples exist because the tuning seeds are the ones a change was
+selected on, so they score better by construction; letting one stand in for
+an unplayed held-out seed would make the rule optimistic in exactly the way
+the split guards against. The gate exhausts the smaller tuning range first,
+so every seed unplayed at the decision point is a held-out one, which is
+what makes the distinction bite rather than a formality. `draw_unplayed` is
+separate from `stable_verdict` so a test can check that property directly
+instead of inferring it from a verdict.
+
+What this is: curtailment, predicting the full run's verdict, rather than a
+test spending its own error budget early -- which is why it never makes a
+rejection more likely, only an acceptance sooner. Its blind spot is the
+bootstrap's: resampling cannot produce a seed score it has not seen, so a
+sample with no spread predicts no spread with false certainty, and a run of
+identical dead heats is exactly that. The evidence floor is the bound on it.
+
 The rule cannot fire before the 150-game evidence floor, which is what
 bounds the saving: replaying the 14 gate reports under `logs/game-check`
-seed by seed, it saves 15.5% of the full games and changes no verdict. The
+seed by seed, it saves 17.3% of the full games and changes no verdict. The
 floor is doing most of the work here -- at a floor of 100 the saving is 31%
 but one of the 14 verdicts flips, which is why the floor stays where it is.
 Deterministic curtailment (stop only when no possible remaining result

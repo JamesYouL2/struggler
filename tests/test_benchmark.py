@@ -104,16 +104,37 @@ def test_early_stopping_never_stops_before_the_evidence_floor():
     have learned anything about a change."""
     from struggler.bots.benchmark import ACCEPTANCE, _decided
     sample_of = {seed: seed % 2 for seed in range(200)}
+    planned = {0: 100, 1: 100}
     games = []
     for seed in range(200):
         for side in ('US', 'USSR'):
             games.append(dict(seed=seed, bot_side=side, finished=True, turn=10,
                               reason='vp', result=1.0))
-            assert _decided(games, sample_of, 200) is (
-                len(games) >= ACCEPTANCE['min_games']
-                and _decided(games, sample_of, 200)), 'stopped below the floor'
         if (seed + 1) * 2 < ACCEPTANCE['min_games']:
-            assert not _decided(games, sample_of, 200)
+            assert not _decided(games, sample_of, planned), 'stopped below the floor'
+
+
+def test_early_stopping_never_predicts_a_held_out_seed_from_a_tuning_seed():
+    """The gate plays two samples because the tuning seeds are the ones the
+    change was selected on, so they score better by construction. Resampling
+    the unplayed seeds from both pooled would let a tuning seed stand in for
+    an unplayed held-out one, making the stopping rule optimistic in exactly
+    the way the split exists to prevent -- and since the gate exhausts the
+    smaller tuning range first, every seed unplayed at the decision point is
+    a held-out one."""
+    import random
+    from struggler.bots.benchmark import draw_unplayed, stable_verdict
+
+    pools = {0: [(0, 1.0, 0)] * 40, 1: [(1, 0.0, 0)] * 20}
+    drawn = draw_unplayed(pools, {0: 0, 1: 30}, random.Random(1))
+    assert len(drawn) == 30
+    assert {record[0] for record in drawn} == {1}, 'a tuning seed stood in for a held-out one'
+    assert {record[1] for record in drawn} == {0.0}
+
+    # And a sample with seeds still to play but nothing observed yet cannot be
+    # predicted at all, so the run must not stop.
+    observed = [(0, 1.0, 0)] * 80
+    assert not stable_verdict(observed, {0: 0, 1: 16})
 
 
 def test_early_stopping_only_stops_where_the_full_run_agrees():
@@ -141,12 +162,14 @@ def test_early_stopping_only_stops_where_the_full_run_agrees():
         observed = [(index, score, 0)
                     for index, scores in enumerate(groups)
                     for _, score in sorted(scores.items())]
+        planned = collections.Counter(index for index, _, _ in observed)
         total = len(observed)
         final = verdict(groups, 0, total * 2)
         for k in range(2, total):
             if k * 2 < ACCEPTANCE['min_games']:
                 continue
-            if stable_verdict(observed[:k], total - k):
+            played = collections.Counter(index for index, _, _ in observed[:k])
+            if stable_verdict(observed[:k], {i: n - played[i] for i, n in planned.items()}):
                 partial = collections.defaultdict(dict)
                 for n, (index, score, _) in enumerate(observed[:k]):
                     partial[index][n] = score
@@ -175,6 +198,7 @@ def test_early_stopping_agrees_with_the_full_run_on_random_gates():
         observed = [(n % 2, rng.choice((0.0, 0.5, 1.0)) if edge == 0.5
                      else float(rng.random() < edge), 0)
                     for n in range(total)]
+        planned = collections.Counter(index for index, _, _ in observed)
 
         def at(k):
             partial = collections.defaultdict(dict)
@@ -184,7 +208,8 @@ def test_early_stopping_agrees_with_the_full_run_on_random_gates():
 
         final = at(total)
         for k in range(ACCEPTANCE['min_games'] // 2, total):
-            if stable_verdict(observed[:k], total - k):
+            played = collections.Counter(index for index, _, _ in observed[:k])
+            if stable_verdict(observed[:k], {i: n - played[i] for i, n in planned.items()}):
                 stops += 1
                 disagreements += at(k) != final
                 break

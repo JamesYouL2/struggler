@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import collections
 import itertools
 import json
 import logging
@@ -288,24 +289,47 @@ def verdict(scores_by_sample, nuclear: int, total_games: int) -> bool:
     return mean + ACCEPTANCE['confidence'] * error >= 0.5
 
 
-def stable_verdict(observed, remaining: int, games_per_seed: int = 2,
+def stable_verdict(observed, remaining, games_per_seed: int = 2,
                    threshold: float = 0.01, trials: int = 400) -> bool:
     """Whether the seeds still unplayed could change the verdict.
 
     `observed` is one `(sample_index, score, nuclear_losses)` per finished
-    seed; `remaining` is how many seeds are left. The unplayed seeds are
-    resampled from the played ones, and the answer is whether the verdict
-    survived every draw but `threshold` of them.
+    seed. `remaining` maps a sample index to how many of its seeds are
+    unplayed. Each unplayed seed is resampled from the observed seeds *of its
+    own sample*, and the answer is whether the verdict survived every draw
+    but `threshold` of them.
+
+    Within its own sample, not pooled: the two samples exist because the
+    tuning seeds are the ones the change was selected on, so they score
+    better than held-out seeds by construction. Letting a tuning seed stand
+    in for an unplayed held-out one would make this optimistic in exactly the
+    way the split is there to prevent -- and since the gate exhausts the
+    smaller tuning range first, every seed still unplayed at the decision
+    point is a held-out one.
 
     Resampling covers nuclear losses as well as scores, because stopping
     early can only *miss* a failure: the games not played are exactly the
     ones that might have carried the second loss. Deterministically seeded,
     so re-running a gate stops in the same place.
+
+    This is curtailment, not a stopping rule with its own error budget: it
+    predicts the verdict of the full run rather than testing a hypothesis
+    early. Its blind spot is the bootstrap's -- resampling cannot produce a
+    seed score it has not already seen, so a sample with no spread predicts
+    no spread with false certainty. The evidence floor in `_decided` is what
+    bounds that, and `docs/STRATEGIC_AI.md` records what it was measured to
+    cost.
     """
-    if remaining <= 0 or len(observed) < 2:
-        return remaining <= 0
-    rng = random.Random(len(observed) * 1000 + remaining)
-    samples = sorted({index for index, _, _ in observed})
+    outstanding = sum(remaining.values())
+    if outstanding <= 0 or len(observed) < 2:
+        return outstanding <= 0
+    pools: dict[int, list] = {}
+    for record in observed:
+        pools.setdefault(record[0], []).append(record)
+    if any(count and index not in pools for index, count in remaining.items()):
+        return False  # a sample with seeds still to play and nothing to predict them from
+    rng = random.Random(len(observed) * 1000 + outstanding)
+    samples = sorted(set(pools) | {i for i, c in remaining.items() if c})
 
     def apply(records):
         by_sample = {i: {} for i in samples}
@@ -318,10 +342,19 @@ def stable_verdict(observed, remaining: int, games_per_seed: int = 2,
 
     now = apply(observed)
     for _ in range(trials):
-        drawn = observed + [rng.choice(observed) for _ in range(remaining)]
-        if apply(drawn) != now:
+        if apply(list(observed) + draw_unplayed(pools, remaining, rng)) != now:
             return False
     return True
+
+
+def draw_unplayed(pools, remaining, rng) -> list:
+    """One resampled stand-in per unplayed seed, each drawn from the pool of
+    its own sample. Separate from `stable_verdict` so that the property the
+    two-sample split depends on -- that a tuning seed never stands in for a
+    held-out one -- is something a test can check directly rather than infer
+    from a verdict."""
+    return [rng.choice(pools[index]) for index, count in remaining.items()
+            for _ in range(count)]
 
 
 def acceptance(samples) -> tuple[bool, list[str]]:
@@ -577,7 +610,7 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
     return misses
 
 
-def _decided(games, sample_of, planned_seeds: int) -> bool:
+def _decided(games, sample_of, planned: dict[int, int]) -> bool:
     """Whether the seeds still to play can change the acceptance verdict.
 
     A seed counts only once both its seats are in: they share one deal and
@@ -594,7 +627,9 @@ def _decided(games, sample_of, planned_seeds: int) -> bool:
                 for seed, rows in sorted(complete.items())]
     if len(complete) * 2 < ACCEPTANCE['min_games']:
         return False  # the evidence floor is a floor, whatever the score says
-    return stable_verdict(observed, planned_seeds - len(complete))
+    played = collections.Counter(sample_of.get(seed, 0) for seed in complete)
+    remaining = {index: count - played[index] for index, count in planned.items()}
+    return stable_verdict(observed, remaining)
 
 
 def main(argv=None):
@@ -659,6 +694,7 @@ def main(argv=None):
              args.log_dir, args.bot_weights)
             for _, seed in order for side in ('US', 'USSR')]
     sample_of = {seed: index for index, seed in order}
+    planned = collections.Counter(index for index, _ in order)
     start = time.time()
     games = []
     stopped = None
@@ -669,7 +705,7 @@ def main(argv=None):
             print(f"{len(games):3d}/{len(jobs)} seed {game['seed']} {game['bot_side']:<4} T{game['turn']} "
                   f"vp={game['signed_vp']:+d} proj={game['projected_vp']:+.1f} defcon={game['defcon']} "
                   f"{game['reason'] or '...'} {game['seconds']}s", file=sys.stderr, flush=True)
-            if args.decide and held and _decided(games, sample_of, len(order)):
+            if args.decide and held and _decided(games, sample_of, planned):
                 stopped = len(games)
                 print(f'decided after {stopped} of {len(jobs)} games; '
                       f'the rest cannot change the verdict', file=sys.stderr, flush=True)
