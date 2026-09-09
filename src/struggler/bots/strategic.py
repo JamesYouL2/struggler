@@ -624,7 +624,11 @@ class StrategicPlayer:
         w = self.weights
         inf, key_side = board.influence, side.value
         home = board._adjacency.get(key_side, ())
-        first = set(board.neighbors(cid))
+        # Board adjacency is stored as frozensets.  Walk it canonically:
+        # changing PYTHONHASHSEED must not change floating-point summation
+        # order and flip an otherwise tied placement ranking.
+        first = tuple(sorted(board.neighbors(cid)))
+        first_set = frozenset(first)
         total = 0.
         for n in first:
             info = board.countries.get(n)
@@ -642,9 +646,9 @@ class StrategicPlayer:
                 total += weight * self._importance_of(n, info) / info.stability
             if inf[n][key_side] > 0 or board.control(n) is side.opponent:
                 continue  # already ours to build from, or not a step we take
-            for m in board.neighbors(n):
+            for m in sorted(board.neighbors(n)):
                 minfo = board.countries.get(m)
-                if (minfo is None or not minfo.battleground or m == cid or m in first
+                if (minfo is None or not minfo.battleground or m == cid or m in first_set
                         or board.control(m) is side or inf[m][key_side] > 0 or m in home):
                     continue
                 if any(inf[k][key_side] > 0 for k in board.neighbors(m) if k in inf):

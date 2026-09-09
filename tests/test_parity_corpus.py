@@ -8,7 +8,10 @@ and node counts. Regenerate the corpus only by an explicit commit
 import gzip
 import json
 import math
+import os
 import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -50,6 +53,30 @@ def test_corpus_schema_and_provenance(corpus):
     assert any('rollout_ranking' in r for r in records)
     assert any('placements' in r for r in records)
     assert any('gains' in r.get('placements', {}) for r in records)
+
+
+def test_placement_ranking_is_independent_of_python_hash_seed():
+    """Unordered adjacency walks used to move record 121 by one ulp and
+    reorder Iran/Italy/South Africa between fresh Python processes."""
+    root = pathlib.Path(__file__).parents[1]
+    probe = """
+import gzip, json
+from struggler.bots.defcon import SurvivalPrior
+from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.engine import Engine, Side
+with gzip.open(r'%s', 'rt') as stream:
+    rec = json.load(stream)['records'][121]
+engine = Engine.deserialize(rec['engine'])
+bot = StrategicPlayer(StrategicWeights(**rec['weights']),
+                      survival_prior=SurvivalPrior(**rec['prior']))
+print(json.dumps([a.payload for _key, a in bot.rank_actions(engine.observe(Side(rec['side'])))],
+                 sort_keys=True))
+""" % CORPUS
+    outputs = []
+    for seed in ('0', '1', '2'):
+        env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONPATH=str(root / 'src'))
+        outputs.append(subprocess.check_output([sys.executable, '-c', probe], env=env, text=True))
+    assert len(set(outputs)) == 1
 
 
 def _ranking(ranked):
