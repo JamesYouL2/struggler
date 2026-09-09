@@ -56,6 +56,12 @@ def test_evaluator_and_planner_reproduce_the_corpus(records):
             if not all(_close(x, y) for x, y in zip(g['key'], w['key'])):
                 mismatches.append((i, 'safety key', g['payload'], g['key'], w['key']))
                 break
+        if rec.get('production_nodes') is not None and bot._planner is not None:
+            if bot._planner.nodes != rec['production_nodes']:
+                mismatches.append((i, 'production_nodes', bot._planner.nodes, rec['production_nodes']))
+        probe = StrategicPlayer()
+        probe.rank_actions(obs)
+        bot = probe
         board = bot.board
         for c, v in rec['country_value'].items():
             if not _close(bot.country_value(board, c, side), v):

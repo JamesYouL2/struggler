@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "board": "Mid War: corpus positions seed 4001 T7 AR1 (US seat) and seed 4000 T7 AR1 (USSR seat), from tests/corpus/positions.json.gz",
+  "unit": "US Ops from the US seat on the US position; USSR Ops from the USSR seat on the USSR position (positive is good for the seat). Bot values converted on that seat's Ops scale.",
+  "tolerance_ops": 0.75,
+  "US": {
+    "cards": {
+      "Junta": {
+        "ops": 4.0,
+        "note": "Generally 4: as the US you still get the coup; as the USSR you can swing two battlegrounds by breaking one, couping the other, and dumping 4 Ops on AR1."
+      },
+      "Bear_Trap": {
+        "ops": null,
+        "note": "With Quagmire and Nuclear Subs the most important flag events; unpriced by the sandbox (0)."
+      },
+      "Nuclear_Subs": {
+        "ops": null
+      },
+      "ABM_Treaty": {
+        "ops": null
+      },
+      "Brush_War": {
+        "ops": null
+      },
+      "Grain_Sales_to_Soviets": {
+        "ops": null
+      },
+      "The_Voice_Of_America": {
+        "ops": null
+      },
+      "OAS_Founded": {
+        "ops": null
+      },
+      "Salt_Negotiations": {
+        "ops": null
+      },
+      "Ask_Not_What_Your_Country_Can_Do_For_You": {
+        "ops": null
+      },
+      "Shuttle_Diplomacy": {
+        "ops": null
+      },
+      "Kitchen_Debates": {
+        "ops": null
+      },
+      "Ussuri_River_Skirmish": {
+        "ops": null
+      },
+      "Puppet_Governments": {
+        "ops": null
+      },
+      "Camp_David_Accords": {
+        "ops": null
+      },
+      "Sadat_Expels_Soviets": {
+        "ops": null
+      },
+      "Colonial_Rear_Guards": {
+        "ops": null
+      },
+      "Arms_Race": {
+        "ops": null
+      }
+    }
+  },
+  "USSR": {
+    "cards": {
+      "Junta": {
+        "ops": 4.0
+      },
+      "We_Will_Bury_You": {
+        "ops": null,
+        "note": "Super important; sandbox says 0."
+      },
+      "Quagmire": {
+        "ops": null,
+        "note": "With Bear Trap and Nuclear Subs the most important flag events."
+      },
+      "Brush_War": {
+        "ops": null
+      },
+      "ABM_Treaty": {
+        "ops": null
+      },
+      "Muslim_Revolution": {
+        "ops": null
+      },
+      "Liberation_Theology": {
+        "ops": null
+      },
+      "Flower_Power": {
+        "ops": null
+      },
+      "Portuguese_Empire_Crumbles": {
+        "ops": null
+      },
+      "South_African_Unrest": {
+        "ops": null
+      },
+      "Allende": {
+        "ops": null
+      },
+      "Willy_Brandt": {
+        "ops": null
+      },
+      "Cultural_Revolution": {
+        "ops": null
+      },
+      "Missile_Envy": {
+        "ops": null
+      },
+      "OPEC": {
+        "ops": null
+      },
+      "Brezhnev_Doctrine": {
+        "ops": null
+      },
+      "Lone_Gunman": {
+        "ops": null
+      },
+      "U2_Incident": {
+        "ops": null
+      }
+    }
+  }
+}

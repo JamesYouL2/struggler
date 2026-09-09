@@ -29,24 +29,45 @@ CAPTURE_ROUNDS = (1, 3, 6)
 
 
 def outputs(bot: StrategicPlayer, engine: Engine, side: Side) -> dict:
+    """The production ranking from the in-game bot, then diagnostic probes
+    on an independent instance (Astra: the planner's node budget is shared
+    across calls on one instance, so probing every card on the production
+    planner could push it into conservative results; and evaluator probes
+    must not prime the production policy). `production_nodes` is the
+    budget the real ranking consumed; `probe_order` is the sequence the
+    probes were asked in, which the parity test replays."""
+    from dataclasses import asdict
     obs = engine.observe(side)
     ranked = bot.rank_actions(obs)
-    board = bot.board
     rec = {
         'ranking': [{'payload': a.payload, 'key': list(key)} for key, a in ranked],
-        'country_value': {c: bot.country_value(board, c, side) for c in board.countries},
-        'region_score': {r.name: bot.region_score(board, r, side) for r in Region},
-        'region_margin': {r.name: bot.region_margin(board, r, side) for r in Region},
-        'ops_value': {n: bot.ops_value(obs, n) for n in (1, 2, 3, 4)},
+        'production_nodes': bot._planner.nodes if bot._planner is not None else None,
+        'prior': asdict(bot.survival_prior),
+        'options': [a.payload for a in obs.pending_decision.options],
+        'context': {k: v for k, v in obs.pending_decision.context.items()
+                    if isinstance(v, (int, float, str, bool, list, tuple, type(None)))},
     }
-    planner = bot._planner
+    probe = StrategicPlayer(bot.weights, survival_prior=bot.survival_prior)
+    probe.rank_actions(obs)
+    board = probe.board
+    rec.update({
+        'country_value': {c: probe.country_value(board, c, side) for c in board.countries},
+        'region_score': {r.name: probe.region_score(board, r, side) for r in Region},
+        'region_margin': {r.name: probe.region_margin(board, r, side) for r in Region},
+        'ops_value': {n: probe.ops_value(obs, n) for n in (1, 2, 3, 4)},
+    })
+    planner = probe._planner
     if planner is not None:
+        order = ['whole_hand'] + [f'risk:{c}' for c in obs.hand] + [f'event_risk:{c}' for c in obs.hand] \
+            + [f'hazardous:{c}' for c in obs.hand]
         rec['planner'] = {
+            'probe_order': order,
             'whole_hand_risk': planner.risk(),
             'card_risk': {c: planner.risk(c) for c in obs.hand},
             'event_risk': {c: planner.event_risk(c) for c in obs.hand},
             'hazardous': {c: bool(planner.hazardous(c)) for c in obs.hand},
-            'nodes': planner.nodes,
+            'nodes_after_probes': planner.nodes,
+            'truncated': planner.nodes > planner.prior.max_states,
         }
     return rec
 
@@ -84,8 +105,12 @@ def main(argv=None):
     for seed in parse_seeds(args.seeds):
         records.extend(capture(seed))
         print(f'seed {seed}: {len(records)} records so far', file=sys.stderr)
+    import subprocess
+    revision = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()
+    dirty = bool(subprocess.run(['git', 'status', '--porcelain', 'src'], capture_output=True, text=True).stdout.strip())
     with gzip.open(args.out, 'wt') as f:
-        json.dump({'version': 1, 'records': records}, f, sort_keys=True)
+        json.dump({'version': 2, 'source_revision': revision, 'dirty': dirty,
+                   'python': sys.version, 'records': records}, f, sort_keys=True)
     print(f'{len(records)} positions -> {args.out} in {time.time()-start:.0f}s')
 
 

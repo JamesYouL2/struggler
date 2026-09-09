@@ -13,9 +13,10 @@ The first draft promised that a native evaluator would turn 24 MCTS
 simulations into thousands. Astra's Amdahl budget shows it cannot: the
 evaluator's placement loop is ~72 % of search time, so a 20-50x kernel
 gives 3.2-3.4x on search, and an infinitely fast one 3.6x. On full games
-the evaluator is ~25 %, a ceiling of 1.33x. Thousands of simulations need
-the engine and the rollout policy native as well, which is the full port
-estimated at a month or more.
+the evaluator is ~25 %, a ceiling of 1.33x. Thousands of simulations would
+need most of the rollout path native, whether that is the whole engine
+(B), a narrower native rollout implementation, or parallel search; which
+of those, if any, is C step 4's decision, not a premise.
 
 Three options were put to the user:
 
@@ -29,8 +30,10 @@ Three options were put to the user:
 
 **Proposed: C.** Reasons: two of its three steps are required by A and B
 anyway; the enum-and-dict overhead (12 % of a full game) and the DEFCON
-planner's repeated per-card predicates (3.5-4 M calls a game) are pure
-Python waste that indexing and memoisation remove without a toolchain;
+planner's repeated per-card predicates (3.5-4 M calls a game) are
+possible savings that indexing and memoisation may recover without a
+toolchain, to be measured, not assumed (the planner already caches its
+solve);
 the measurement it produces is exactly what the A-versus-B decision
 lacks; and it defers writing the evaluator three times (dict Python,
 array Python, Rust) until the array Python version has proven itself.
@@ -112,7 +115,7 @@ for an accelerated fraction p at kernel speedup s.
 | MCTS search (delta share) | 0.72 | 3.2x | 3.4x | 3.6x |
 | MCTS search (all rollout ranking) | 0.93 | 8.6x | 11.3x | 14.3x |
 | Strategic full game (evaluator share) | 0.25 | 1.3x | 1.3x | 1.33x |
-| Strategic full game (evaluator + planner) | 0.85 | 5.2x | 6.0x | 6.7x |
+| Strategic full game (evaluator + planner; hypothetical, the planner is not in the proposed scope) | 0.85 | 5.2x | 6.0x | 6.7x |
 
 The trivial-bot game time (1.1 s of 13.4 s, 8.2 %) bounds the engine's
 share from above only loosely; it was not profiled separately.
@@ -167,10 +170,11 @@ the per-country scoring weight array, DEFCON, side. Passed once per
 1. `evaluate_placements(us: &[i16], su: &[i16], side, ops, candidates: &[u16], ctx) -> Vec<(f64, u8)>`
    The influence search: for each candidate country, the best value per
    Op of investing 1..ops points there (`_investment` / `influence`), with
-   the doubled cost past enemy control, including the country term, the
-   region score, the region margin and access for the country and its
-   neighbours (everything `delta()` touches). This is the single call that
-   removes 70-90 % of measured evaluation cost in both workloads.
+   the doubled cost past enemy control, reproducing `delta()` exactly: the
+   changed country's value (whose access term reads its neighbours'
+   influence without rescoring them) plus the region score and margin.
+   This is the call that covers the `delta` share of both workloads
+   (53-73 % measured); actual coverage is measured, not assumed.
 2. `board_value(us, su, side, ctx) -> f64` The leaf: sum of country terms,
    region score, region margin. Cheap, needed for MCTS leaves and for
    parity tests.
@@ -202,6 +206,14 @@ Rust stage, not of C, and only if C leads there.
 
 ## Verification
 
+Oracle discipline (Astra, revision-3 check): the corpus records, per
+case, the production ranking from the in-game bot with the planner node
+budget it consumed, then probes on an independent instance in a recorded
+order, so a diagnostic query can never push the production planner past
+`max_states`; the prior (including `max_states`), decision options and
+context, and the source revision are stored. Hand iteration order is
+preserved where it affects traversal or summation.
+
 - Bit-for-bit is not the target; floating-point summation order will
   differ. The target is identical rankings and top actions on the
   corpus, values within an absolute plus relative tolerance (near-zero
@@ -230,7 +242,6 @@ Rust stage, not of C, and only if C leads there.
 | Pure-function evaluator | 1-2 days | only if C leads to Rust |
 | `evaluate_placements` + `board_value` in Rust, parity | 3-5 days | corpus |
 | coup/realign values | 1 day | above |
-| DEFCON solve (if profiling warrants) | 2-3 days | hazardous-hand profile |
 
 About two weeks of focused work, with the first three steps useful on
 their own. Rust knowledge on the user's side is not required: the module
@@ -252,16 +263,13 @@ is a few hundred lines with the Python path kept as the oracle.
   `home_ussr: Vec<u16>`.
 - Region table: `members: Vec<Vec<u16>>`, `presence/domination/control
   VP: i16` (control `-1` for Europe's non-numeric tier).
-- Card table (for the DEFCON solve only): `side: u8` (0 US, 1 USSR, 2
-  neutral), `ops: u8`, `scoring: bool`, `war: bool`, indexed by the card
-  order of `cards.json`.
 - Context per decision: `weights` as a versioned schema (field names and
   order checked, not just the count), `scoring_weight: f64[N]`, `defcon`,
   `side`, `ops_scale: f64[5]`. Coup and realignment calls additionally
   take precomputed roll modifiers, legal candidate lists and the
   military-Ops state; the phasing/effect logic that produces them stays
   in Python. The DEFCON solve is out of scope for the port (see Option
-  C step 3): its state contract (rounds, Space Race, China, traps,
+  C step 2): its state contract (rounds, Space Race, China, traps,
   pending headline, discard chains, learned priors, truncation) is too
   large to freeze cheaply.
 - Returns: `Vec<f64>` or `Vec<(f64, u8)>`; errors are Python exceptions
@@ -297,7 +305,7 @@ is a few hundred lines with the Python path kept as the oracle.
 
 | Risk | Handling |
 | --- | --- |
-| Floating-point summation order changes tie-breaks between near-equal placements | Tie-breaks are fixed by candidate order (first wins) in both implementations, not by rounding; parity is exact rankings and top actions, values within absolute plus relative tolerance; the corpus test lists every position whose ranking differs. Summation order in Rust follows the Python loop order where cheap. |
+| Floating-point summation order changes tie-breaks between near-equal placements | Each operation keeps its *existing* tie rule and the port reproduces it: `RolloutPolicy.score` resolves equal values by country-string order (`max` over `(value, country)`), `_investment` keeps the first best point count (strict `>`), action sorting is stable on its own key. The corpus includes tied cases; any standardisation is a separate semantic commit. Parity is exact rankings and top actions, values within absolute plus relative tolerance. |
 | Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed by the pure-function prerequisite (step 3); the Python fallback is that pure function, so both paths share one contract. |
 | Boundary cost dominating if the granularity is wrong | `evaluate_placements` takes all candidates at once; measured whole-decision wall time including conversion is the acceptance metric. |
 | Behaviour drift from an "accidental" fix while porting | Algorithm changes and acceleration never share a commit; the corpus is regenerated only by an explicit, reviewed commit. |
