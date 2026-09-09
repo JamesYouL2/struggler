@@ -103,8 +103,8 @@
       "note": "About an Op as an event, though you would never event it."
     },
     "Olympic_Games": {
-      "ops": 1.0,
-      "note": "Maybe an Op: the opponent always participates; sponsor rolls +2, winner takes 2 VP (expected ~0.9 VP to the sponsor)."
+      "ops": 0.3,
+      "note": "Bot's 0.29 accepted: the opponent participates, sponsor rolls +2, winner takes 2 VP, about 0.9 VP expected to the sponsor."
     },
     "Indo_Pakistani_War": {
       "ops": 0.5,
