@@ -82,10 +82,11 @@ def test_change_defcon_clamps_at_five():
     assert engine.defcon == 5
 
 
-def test_full_control_of_europe_does_not_auto_win():
-    # Confirmed rule: controlling all of Europe wins only when the Europe
-    # Scoring card is played (out of scope for this board-only test) — it
-    # must NOT end the game immediately.
+def test_control_of_europe_does_not_auto_win_until_europe_is_scored():
+    # Confirmed rule: Controlling Europe wins when the Europe Scoring card is
+    # played, not the moment the board reaches it.
+    from struggler.engine import ScoringTier
+
     engine = Engine(seed=1)
     europe = engine.board.countries_in(Region.EUROPE)
     for cid in europe[:-1]:
@@ -97,7 +98,8 @@ def test_full_control_of_europe_does_not_auto_win():
     action = next(a for a in engine.legal_actions() if a.payload["country"] == last)
     engine.step(action)
 
-    assert engine.board.controls_all_of_europe() is Side.US
+    assert engine.board.region_tier(Side.US, Region.EUROPE) is ScoringTier.CONTROL
+    assert not engine.is_terminal and engine.winner is None
 
 
 def test_coup_requires_opponent_influence_in_target():

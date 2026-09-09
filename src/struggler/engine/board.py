@@ -180,16 +180,6 @@ class Board:
             self.__dict__["_by_region"] = cache
         return cache.get(region, ())
 
-    def controls_all_of_europe(self) -> Side | None:
-        """Whether one side currently controls every country in Europe.
-        """
-        europe = self.countries_in(Region.EUROPE)
-        if all(self.control(cid) is Side.US for cid in europe):
-            return Side.US
-        if all(self.control(cid) is Side.USSR for cid in europe):
-            return Side.USSR
-        return None
-
     # -- region scoring ---------------------------------------------------------
 
     def region_tier(
@@ -302,8 +292,9 @@ class Board:
                 if control_vp is None:
                     raise RuntimeError(
                         f"{region} reached CONTROL tier for {side}, but has no scoring "
-                        "value defined (Europe's full control is an immediate win, not "
-                        "a scoring-card outcome — see Board.controls_all_of_europe)."
+                        "value defined. Control of Europe is an automatic victory rather "
+                        "than a VP award, so it has no number to return: ask "
+                        "region_tier() for the tier instead."
                     )
                 base = control_vp
             else:

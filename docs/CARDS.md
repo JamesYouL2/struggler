@@ -314,6 +314,30 @@ default the other way: the operator is asked first — and must genuinely
 place their real card on the board before the app asks for the bot's pick —
 so the bot's choice can actually depend on it.
 
+## Region scoring: Control of Europe is a win, not VP
+
+"Control: Control more countries in the Region than the opponent, and Control
+all of the Battleground countries." That is the scoring tier, and it is not
+control of every country in the region, which is a stricter thing a side may
+never reach. Europe alone has no Control value in `rules.json`, because
+Control of Europe is an automatic victory: "If either side Controls Europe,
+that side wins when the Europe Scoring card is played." Final Scoring scores
+every region as if its card had been played, so it wins there too, ahead of
+whatever another region would have scored -- `Engine._finish_game` resolves
+Europe first for that reason rather than relying on the order of `Region`.
+
+The engine used to gate that win on control of every Europe country and
+otherwise score the Control tier as Domination, with a `VERIFY` comment
+against the guess. A US board holding all five Europe Battlegrounds and three
+more countries scored 10 VP where it should have ended the game, and the bot,
+which had the rule right, priced one captured position's Europe Scoring play
+at 126 rather than as the certain win it was.
+
+`Board.score_region` still raises rather than returning a number for that
+tier, since there is no number to return; ask `Board.region_tier` instead.
+`Board.controls_all_of_europe` is gone: it encoded the wrong condition and is
+what the engine was reading.
+
 ## Corrected DEFCON-related event behavior
 
 Five Year Plan fires only a discarded US-associated event. Scoring cards are

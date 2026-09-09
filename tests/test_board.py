@@ -61,14 +61,23 @@ def test_influence_cost_doubles_in_opponent_controlled_country():
     assert board.influence_cost(Side.USSR, "Guatemala") == 1
 
 
-def test_controls_all_of_europe():
+def test_control_of_europe_is_the_scoring_tier_not_every_country():
+    """"Control: Control more countries in the Region than the opponent, and
+    Control all of the Battleground countries." Every country in the region is
+    a stricter thing a side may never reach, and treating it as the condition
+    is what once let a US Europe Control score 10 VP instead of winning."""
     board = Board()
     europe = board.countries_in(Region.EUROPE)
-    assert board.controls_all_of_europe() is None
-    for cid in europe:
-        stability = board.countries[cid].stability
-        board.influence[cid]["US"] = stability
-    assert board.controls_all_of_europe() is Side.US
+    battlegrounds = [c for c in europe if board.countries[c].battleground]
+    others = [c for c in europe if not board.countries[c].battleground]
+    assert board.region_tier(Side.US, Region.EUROPE) is ScoringTier.NONE
+    for cid in battlegrounds + others[:2]:
+        board.influence[cid]["US"] = board.countries[cid].stability
+    # The US holds every Battleground and more countries than the USSR, but is
+    # nowhere near holding all of Europe.
+    uncontrolled = [c for c in europe if board.control(c) is None]
+    assert uncontrolled, "the fixture should leave part of Europe uncontrolled"
+    assert board.region_tier(Side.US, Region.EUROPE) is ScoringTier.CONTROL
 
 
 def test_region_tier_presence_domination_control():
