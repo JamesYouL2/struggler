@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import statistics
 import sys
@@ -181,6 +182,99 @@ def play(job: tuple) -> dict:
                 value=round(value, 2), seconds=round(time.time() - start, 1),
                 searches=int(searches), search_seconds=round(search_seconds, 1),
                 result=None if not engine.is_terminal else 0.5 if winner is None else float(winner is side))
+
+
+# What a candidate has to clear before it lands. The gate used to print
+# numbers and exit 0, so "the gate passed" meant "the gate ran"; these are the
+# rules that make it mean something. They are deliberately permissive about
+# *improvement* and strict about evidence: a change is blocked only when the
+# games say it is worse, because at these sample sizes most real changes are
+# not measurable either way and blocking them all would stop the project.
+ACCEPTANCE = dict(
+    confidence=1.645,   # one-sided 95%
+    min_games=150,      # pooled, finished
+    min_samples=2,      # at least one of them not the seeds the change was tuned on
+)
+
+
+def seed_scores(games) -> dict[int, float]:
+    """Each seed's mean result. Both seats of one seed play the same deal from
+    the same shuffle, so they are one observation and not two; counting them
+    separately understates the spread and makes every result look
+    significant."""
+    by_seed: dict[int, list] = {}
+    for game in games:
+        if game.get('finished') and game.get('result') is not None:
+            by_seed.setdefault(game['seed'], []).append(game['result'])
+    return {seed: statistics.fmean(results) for seed, results in by_seed.items()}
+
+
+def acceptance(samples) -> tuple[bool, list[str]]:
+    """Whether a candidate may land, given `(label, report)` benchmark reports.
+
+    Three rules, all required:
+
+    1. **No nuclear losses.** Losing to DEFCON 1 is the survival planner
+       failing, not variance, and this project has treated a single one as a
+       blocker since a gate blamed one on the wrong commit.
+    2. **Enough evidence, from more than the seeds it was tuned on.** At least
+       two samples over disjoint seeds and 150 finished games pooled. Selecting
+       change after change on one seed range is how a bot overfits its own
+       benchmark.
+    3. **Not measurably worse.** The pooled score's one-sided 95% upper bound
+       must reach 0.500. A change that is neutral, unmeasurable, or better
+       passes; only evidence of a regression blocks.
+
+    The expert valuation check is deliberately not a rule. It is a handful of
+    hand-priced rows read by eye, and its miss count moves by one or two on
+    changes that are otherwise clearly fine.
+    """
+    lines, ok = [], True
+    pooled: dict[int, float] = {}
+    seen: dict[int, str] = {}
+    overlap = False
+    total = 0
+    for label, report in samples:
+        games = report.get('games', [])
+        summary = report.get('summary', {})
+        scores = seed_scores(games)
+        total += sum(1 for g in games if g.get('finished'))
+        losses = summary.get('nuclear_losses', 0)
+        if losses:
+            ok = False
+        lines.append(f"  {label}: {len(scores)} seeds, "
+                     f"score {statistics.fmean(scores.values()):.3f}, "
+                     f"signed VP {summary.get('mean_signed_vp')}, "
+                     f"nuclear losses {losses}")
+        for seed in scores:
+            if seed in seen and seen[seed] != label:
+                overlap = True
+            seen[seed] = label
+        pooled.update(scores)
+    if any(r.get('summary', {}).get('nuclear_losses') for _l, r in samples):
+        lines.append('  FAIL nuclear losses: a DEFCON-1 loss is a blocker, not variance')
+    if len(samples) < ACCEPTANCE['min_samples'] or overlap:
+        ok = False
+        lines.append(f"  FAIL evidence: need {ACCEPTANCE['min_samples']} samples over disjoint "
+                     f'seeds, got {len(samples)}' + (' with overlapping seeds' if overlap else ''))
+    if total < ACCEPTANCE['min_games']:
+        ok = False
+        lines.append(f"  FAIL evidence: {total} finished games pooled, need {ACCEPTANCE['min_games']}")
+    if len(pooled) < 2:
+        ok = False
+        lines.append('  FAIL evidence: not enough seeds to estimate a spread')
+    else:
+        values = list(pooled.values())
+        mean = statistics.fmean(values)
+        error = statistics.stdev(values) / math.sqrt(len(values))
+        upper = mean + ACCEPTANCE['confidence'] * error
+        verdict = 'ok' if upper >= 0.5 else 'FAIL'
+        if upper < 0.5:
+            ok = False
+        lines.append(f'  {verdict} strength: pooled score {mean:.3f} +/- {error:.3f} over '
+                     f'{len(values)} seeds, one-sided 95% upper bound {upper:.3f}, needs 0.500')
+    lines.append('ACCEPTED' if ok else 'REJECTED')
+    return ok, lines
 
 
 def parse_seeds(spec: str) -> list[int]:
@@ -352,7 +446,19 @@ def main(argv=None):
                         help='print the turn-1 event-value review table for the first seed and exit')
     parser.add_argument('--expert', metavar='JSON',
                         help='diff the turn-1 valuations against this expert file, in US Ops, and exit')
+    parser.add_argument('--accept', nargs='+', metavar='REPORT',
+                        help='apply the acceptance rules to these --report files and exit 1 if rejected')
     args = parser.parse_args(argv)
+    if args.accept:
+        samples = []
+        for path in args.accept:
+            with open(path) as f:
+                samples.append((os.path.basename(path).removesuffix('.json'), json.load(f)))
+        ok, lines = acceptance(samples)
+        print('acceptance:')
+        for line in lines:
+            print(line)
+        return 0 if ok else 1
     if args.table or args.expert:
         weights = None
         if args.bot_weights:
@@ -388,4 +494,4 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())  # --accept returns 1 when the rules reject the candidate

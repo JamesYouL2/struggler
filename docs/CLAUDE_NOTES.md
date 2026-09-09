@@ -567,18 +567,39 @@ extraction; see the 2026-09-09 section at the end of this file.
 
 The gate for any value-function change is `scripts/gate.sh [base-ref]`
 (runs from a snapshot of HEAD; base defaults to HEAD~1; the anchor run
-needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands). The
-Rust plan is `docs/RUST_PORT_PLAN.md`, for Astra to audit:
-the turn-1 event-value table (`python -m struggler.bots.benchmark
---table`, read it by eye against your own judgement), the expert
-valuation diff (`--expert models/expert_valuations.json`: the expert's
-prices in US Ops on the opening board, the bot's values converted on its
-own Ops scale, misses over 0.5 Ops flagged, ordering constraints checked,
-unpriced rows listed as a to-do), the turn-3
-checkpoint against the base commit, and full games against the base
-commit and the pre-session bot (b2e8572). One structural change per
-branch; it lands only when the table's disagreements shrink and neither
-game check drops. When a check fails, bisect, do not tune.
+needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands).
+
+**Its exit status is the verdict.** It used to print numbers and exit 0
+whatever they said, so "the gate passed" only ever meant "the gate ran",
+and these notes have used the word wrongly more than once. The rules are
+in `benchmark.acceptance` and are deliberately asymmetric: no nuclear
+losses, two samples over disjoint seeds and 150+ finished games, and a
+pooled score whose one-sided 95% upper bound reaches 0.500. A change is
+blocked only when the games say it is *worse*. At 32 seeds most real
+changes are not measurable in either direction, and a rule that demanded
+proof of improvement would block all of them.
+
+A seed counts once, not once per seat: both seats play the same deal from
+the same shuffle, so counting them separately understates the spread and
+makes noise look like a result.
+
+The held-out range (5000-5063 by default) exists because selecting change
+after change on 4000-4031 is how a bot overfits its own benchmark. It
+earned its place immediately: the event-basis fix scored 0.469 on the
+tuning seeds and 0.555 held out.
+
+The rest of the gate is diagnostics to read, not rules: the turn-1
+event-value table (`python -m struggler.bots.benchmark --table`, read by
+eye against your own judgement), the expert valuation diff (`--expert
+models/expert_valuations.json`: the expert's prices in US Ops on the
+opening board, the bot's values converted on its own Ops scale, misses
+over 0.5 Ops flagged, ordering constraints checked, unpriced rows listed
+as a to-do), and the turn-3 checkpoint. The expert check is deliberately
+not a rule: it is a handful of hand-priced rows whose miss count moves by
+one or two on changes that are otherwise clearly fine. One structural
+change per branch. When a check fails, bisect, do not tune.
+
+The Rust plan is `docs/RUST_PORT_PLAN.md`.
 
 ```sh
 # narrate a game: plays, events, influence moves, coups, DEFCON, scoring
