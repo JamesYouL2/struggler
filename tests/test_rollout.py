@@ -48,6 +48,22 @@ def risks(policy, obs):
     return {a.payload['card']: -key[1] for key, a in policy.rank_actions(obs)}
 
 
+def influence_position():
+    """A board with a legal but unattractive coup target, so the Ops-type
+    choice really is about which is worth more. `coup_position(1)` used to
+    serve: it stopped once the influence branch was priced by the same greedy
+    spend as `ops_value`, because the old best-single-country-times-Ops
+    estimate had overpriced that spend by 58% (188 against 119)."""
+    engine = bare_engine()
+    engine.phase = 'action_rounds'
+    engine.defcon = 4
+    engine.turn = 4
+    engine.board.influence['Italy']['US'] = 1
+    engine.board.influence['France']['USSR'] = 1  # stability 3: a poor coup
+    engine._push_ops_type(Side.US, 4)
+    return engine
+
+
 def test_hazardous_hand_near_defcon_2_keeps_the_full_survival_search():
     obs = hazard_position(2)
     assert risks(RolloutPolicy(), obs) == risks(StrategicPlayer(), obs)
@@ -71,8 +87,8 @@ def test_ops_plan_serves_the_same_coup_target_as_the_full_policy():
     assert served[:2] == reference[:2]
     assert (policy.misses, policy.served) == (1, 1)  # the target came from the plan
     # With influence preferred instead, the plan is simply not consulted.
-    reference = run_ops(coup_position(1), StrategicPlayer())
-    served = run_ops(coup_position(1), RolloutPolicy())
+    reference = run_ops(influence_position(), StrategicPlayer())
+    served = run_ops(influence_position(), RolloutPolicy())
     assert reference[0].payload['type'] == 'influence'
     assert served[0] == reference[0]
 

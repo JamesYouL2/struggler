@@ -204,19 +204,19 @@ class RolloutPolicy(StrategicPlayer):
         if action.kind is not K.OPS_TYPE:
             return super().score(obs, action)
         ctx, kind = obs.pending_decision.context, action.payload['type']
+        if kind == 'influence':
+            # No single target to remember: a placement spend is served by
+            # `_placement_plan`, not by `_plan`. Let the parent price it, so
+            # the two do not drift apart.
+            return super().score(obs, action)
         ops = ctx['ops']
         board, side = self.board, obs.side
-        if kind == 'influence':
-            candidates = ((self.influence(obs, c, ops) * ops, c) for c in board.countries
-                          if board.is_reachable(side, c)
-                          and not (side.value == 'USSR' and obs.turn_effects.get('chernobyl') == board.countries[c].region.value))
-        else:
-            engine = self.public_engine(obs)
-            coup = kind == 'coup'
-            candidates = ((self.coup(obs, c, ops + int(_in_bonus_region(i, ctx.get('bonus')))) if coup
-                           else self.realign(obs, c) * ops, c)
-                          for c, i in board.countries.items()
-                          if engine._usable_coup_realign_target(side, c, for_coup=coup))
+        engine = self.public_engine(obs)
+        coup = kind == 'coup'
+        candidates = ((self.coup(obs, c, ops + int(_in_bonus_region(i, ctx.get('bonus')))) if coup
+                       else self.realign(obs, c) * ops, c)
+                      for c, i in board.countries.items()
+                      if engine._usable_coup_realign_target(side, c, for_coup=coup))
         value, target = max(candidates, default=(LOSS, None))
         self._targets[kind] = target
         return value

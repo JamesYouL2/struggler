@@ -60,7 +60,12 @@ action = bot.choose_action(observation, history)
   value function put 3 in Czechoslovakia, a non-battleground.
 - Ops are priced by their best use on this board (`ops_value`): a greedy
   influence plan (so the value is concave in Ops: the fourth point buys
-  less than the first) or the best coup, whichever is larger. Events,
+  less than the first) or the best coup, whichever is larger. The Ops-type
+  choice prices its influence branch with that same greedy plan. It used to
+  take the best single country's value per Op and multiply by the Ops, which
+  assumes every point goes to one country at the first point's rate: on one
+  test position that read 188 where the plan reads 119, so a card could be
+  picked on one estimate and spent on the strength of another. Events,
   Ops and VP are then on one scale, where a battleground control is 19
   and a VP is `vp` (3). A flat 2 per Op had made Nuclear Test Ban's 3 VP
   (9) beat its 4 Ops (8) on turn 1; now 4 Ops on the opening board are

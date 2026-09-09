@@ -263,6 +263,7 @@ class StrategicPlayer:
         self._base_regions = {}
         self._base_margins = {}
         self._ops_values = {}
+        self._placement_values = {}
         self._relocation_gain = None
         self._space_card = None
         self._un_card = None
@@ -481,16 +482,22 @@ class StrategicPlayer:
         alone evaluates in whatever context the last `rank_actions` left
         behind, which made an identical leaf return three different values
         depending on which position had been ranked before it."""
+        # Both Ops caches are per position, so they are put back with the
+        # board they describe. Leaving this leaf's behind would price the
+        # interrupted ranking's Ops from a board it never saw.
         saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
+                 self.__dict__.get('_placement_values'),
                  {c: dict(v) for c, v in self.board.influence.items()})
         self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
+        self._placement_values = {}
         try:
             return self.value(self.board, observation.side)
         finally:
-            self._obs, self._urgency, ops_values, influence = saved
-            if ops_values is not None:
-                self._ops_values = ops_values
+            self._obs, self._urgency, ops_values, placements, influence = saved
+            for name, value in (('_ops_values', ops_values), ('_placement_values', placements)):
+                if value is not None:
+                    setattr(self, name, value)
             for c, v in influence.items():
                 self.board.influence[c].update(v)
             self._position.sync(self.board)
@@ -682,7 +689,15 @@ class StrategicPlayer:
         return value
 
     def _placement_ops_value(self, obs: Observation, ops: int) -> float:
-        """The best greedy influence spend of `ops` on this board (no coups)."""
+        """The best greedy influence spend of `ops` on this board (no coups).
+
+        Memoised for the life of one ranking, like `_ops_values` and under the
+        same contract: every caller restores the board it borrowed. Both
+        `ops_value`, which prices a card, and the Ops-type choice, which spends
+        it, ask for this, and the search is not cheap enough to run twice."""
+        cache = self.__dict__.get('_placement_values')
+        if cache is not None and ops in cache:
+            return cache[ops]
         side, board = obs.side, self.board
         reachable = [c for c in board.countries if board.is_reachable(side, c)
                      and not (side is Side.USSR and obs.turn_effects.get('chernobyl') == board.countries[c].region.value)]
@@ -714,6 +729,8 @@ class StrategicPlayer:
                 self._set_influence(c, inf['US'], inf['USSR'])
             self._base_regions = {} if self._base_regions is not None else None
             self._base_margins = {} if self._base_margins is not None else None
+        if cache is not None:
+            cache[ops] = total
         return total
 
     def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:
@@ -1047,7 +1064,14 @@ class StrategicPlayer:
         if kind is K.OPS_TYPE:
             ops = ctx['ops']
             if p['type'] == 'influence':
-                return max((self.influence(obs, c, ops) * ops for c in self.board.countries if self.board.is_reachable(obs.side, c) and not (obs.side is Side.USSR and obs.turn_effects.get('chernobyl') == self.board.countries[c].region.value)), default=LOSS)
+                # The same greedy multi-country spend `ops_value` prices a card
+                # with. Taking the best single country's value per Op and
+                # multiplying by the Ops, as this did, is a different estimate:
+                # it assumes every point goes to that one country at the first
+                # point's rate, so it overprices a spend whose best target
+                # saturates after a point or two. A card could then be chosen
+                # on one estimate and its Ops spent on the strength of another.
+                return self._placement_ops_value(obs, ops)
             engine = self.public_engine(obs)
             coup = p['type'] == 'coup'
             return max(((self.coup(obs, c, ops + int(_in_bonus_region(i, ctx.get('bonus')))) if coup else self.realign(obs, c) * ops)
