@@ -811,3 +811,15 @@ def test_ask_not_dumps_a_scoring_card_that_would_score_against_it():
 def test_ask_not_keeps_a_scoring_card_that_would_score_for_it():
     keys = _ask_not_ranking(Side.US)
     assert keys['Asia_Scoring'] < keys['stop']
+
+
+def test_event_partition_names_are_real_cards():
+    """`HIDDEN_INFO_EVENTS` and `OPS_MODIFIER_EVENTS` are subtractions from
+    `PUBLIC_EVENTS`, so a misspelled id does not fail -- it silently leaves
+    the card in the simulated set. `Our_Man_in_Tehran` (lowercase i) did
+    exactly that: the sandbox simulated a draw-pile peek against an empty
+    draw pile, returned 0.0, and recorded no failure."""
+    from struggler.bots.strategic import HIDDEN_INFO_EVENTS, OPS_MODIFIER_EVENTS
+    unknown = sorted(c for c in set(HIDDEN_INFO_EVENTS) | set(OPS_MODIFIER_EVENTS)
+                     if c not in CARDS)
+    assert unknown == []

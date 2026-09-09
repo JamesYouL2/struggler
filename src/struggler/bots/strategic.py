@@ -113,10 +113,14 @@ def _copy_state(value):
 # every choice it raises and chance taking its middle outcome.
 HIDDEN_INFO_EVENTS = frozenset('''Five_Year_Plan Grain_Sales_to_Soviets Missile_Envy
 Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
-Our_Man_in_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
+Our_Man_In_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
 # Duration effects priced by the marginal Ops they add to or take from the hands they touch.
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
-# For the docs and tests: what the sandbox is asked to simulate.
+# For the docs and tests: what the sandbox is asked to simulate. Every name
+# above must be a real card id -- `Our_Man_in_Tehran` (lowercase i) matched
+# nothing, so the card stayed in PUBLIC_EVENTS and was simulated in a sandbox
+# whose draw pile is empty. It returned 0.0 and recorded no failure, which
+# reads as a supported value rather than an artifact.
 PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
                           if not c.scoring and c.id not in HIDDEN_INFO_EVENTS
                           and c.id not in OPS_MODIFIER_EVENTS)
