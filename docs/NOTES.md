@@ -249,21 +249,24 @@ Three things to do about that, cheapest first:
   and access should make redundant. The simplification audit in
   `docs/STRATEGIC_SIMPLIFICATION.md` has the sensitivity numbers.
 
-## Open: two nuclear losses as the USSR
+## Resolved: the two "nuclear losses" were the gate measuring the working tree
 
-Gates at 32 seeds (4000-4031) on 873d9d9 and c5446e0 each reported one
-nuclear loss as the USSR (seeds 4028 vs the base and 4009 vs the
-pre-session bot, `reason=defcon_1`, turns 8 and 4). Earlier sessions had
-0 in 64 games. The DEFCON planner was not touched; the value changes may
-be steering into positions the planner's priors do not cover, or the
-seeds 4016-4031 are new territory. Replaying 4009 as the USSR against the
-pre-session bot here did not reproduce it (USSR won by VP on turn 4), so
-the gate's run differs from a plain replay (opponent model env?). Find
-the diverging setting, reproduce, then narrate the losing turn.
+Gates on 873d9d9 and c5446e0 each reported one nuclear loss as the USSR.
+Neither reproduces: the same commit, seeds and opponent, run from a
+clean checkout, gives 0.867 and 0 nuclear losses. The gate ran each
+benchmark as a fresh process importing the live `src/`, and the working
+tree was being edited (the margin term, at its wrong VP scale, among
+other drafts) while the later steps ran. Every gate from 50e8bff to
+c5446e0 is therefore suspect, including 873d9d9's 0.328 failure.
+`scripts/gate.sh` now checks HEAD out into a temporary worktree and runs
+from it; the anchor run is off unless GATE_ANCHOR=1; defaults are 32
+seeds, 8 workers, base HEAD~1. The chain was re-gated cleanly after.
 
 ## How to look at things
 
-The gate for any value-function change is `scripts/gate.sh [base-ref]`:
+The gate for any value-function change is `scripts/gate.sh [base-ref]`
+(runs from a snapshot of HEAD; base defaults to HEAD~1; the anchor run
+needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands):
 the turn-1 event-value table (`python -m struggler.bots.benchmark
 --table`, read it by eye against your own judgement), the expert
 valuation diff (`--expert models/expert_valuations.json`: the expert's
