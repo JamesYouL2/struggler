@@ -15,7 +15,8 @@ from dataclasses import fields
 
 from struggler.engine import DecisionKind as K
 from struggler.bots.defcon import DefconPlanner
-from struggler.bots.strategic import LOSS, StrategicPlayer, _coup_risks_defcon, _in_bonus_region, _sync_board
+from struggler.bots.strategic import (LOSS, StrategicPlayer, _bonus_ops, _coup_risks_defcon,
+                                      _in_bonus_region, _sync_board)
 
 
 def _freeze(value):
@@ -165,9 +166,11 @@ class RolloutPolicy(StrategicPlayer):
         ops = int(ctx.get('ops_remaining', ctx.get('remaining', ctx.get('ops', 1))))
         if ctx.get('bonus'):
             ops = ctx['base'] - ctx['spent']
-            if not ctx['non_bonus'] and all(_in_bonus_region(self.board.countries[c], ctx['bonus'])
-                                            for c in options):
-                ops += 1
+            # One extra point per bonus still intact whose region holds every
+            # country this plan would place in.
+            ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
+                       if outside == 0
+                       and all(_in_bonus_region(self.board.countries[c], tag) for c in options))
         super().rank_actions(obs)  # sync the board and caches
         self._base_regions = {}
         board, side = self.board, obs.side
@@ -213,7 +216,7 @@ class RolloutPolicy(StrategicPlayer):
         board, side = self.board, obs.side
         engine = self.public_engine(obs)
         coup = kind == 'coup'
-        candidates = ((self.coup(obs, c, ops + int(_in_bonus_region(i, ctx.get('bonus')))) if coup
+        candidates = ((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup
                        else self.realign(obs, c) * ops, c)
                       for c, i in board.countries.items()
                       if engine._usable_coup_realign_target(side, c, for_coup=coup))

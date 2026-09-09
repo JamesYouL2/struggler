@@ -181,6 +181,28 @@ Late-War 2-per-country removal), De-Stalinization (a relocate flow: remove
 up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 2 each).
 
+**Region Ops bonuses** (`_ops_bonus_region`, `_bonus_ops`). The China Card
+earns +1 Op if every Op is spent in Asia; a USSR play under Vietnam Revolts
+earns +1 if every Op is spent in South East Asia. A play can carry both --
+the USSR's China Card under Vietnam Revolts -- and because South East Asia
+is inside Asia, Ops spent entirely there satisfy each condition and earn
+both points. That makes the China Card a 6-Ops card, and it is the only way
+to reach 6: Containment and Brezhnev cannot add to it, since their ceiling
+of 4 applies before these bonuses. The engine used to give China precedence
+and drop the other, calling the stack rare and unmodelled; it is a standard
+USSR line.
+
+The two lapse independently, so `bonus` is a tuple of region tags and
+`non_bonus` the spend that has strayed outside each one. A China Card play
+that leaves South East Asia for the rest of Asia forfeits Vietnam Revolts'
+point and keeps China's: 5 Ops, not 6 or 4. The same all-or-nothing rule
+applies to influence (`_bonus_influence_options`), coups (a South East
+Asian target under both earns +2 Ops and +2 military Ops) and realignments
+(one extra attempt per intact bonus). A context with no bonus is still
+written as `None`/`0`, and `_decode_context` reads the older single-tag
+shape, so recorded states and the parity corpus stay comparable across the
+change.
+
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
 Scare/Purge — consulted via `_effective_ops`, cleared at end of turn. Both
 printed bounds apply: Red Scare "to a minimum of 1", Containment and

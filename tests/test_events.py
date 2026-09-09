@@ -199,7 +199,7 @@ def test_the_region_bonus_is_added_after_the_ceiling_not_under_it():
     china = engine.cards[RULES["china_card_id"]]
     assert china.ops == 4
     assert effective_ops(china.ops, {"containment": True}, Side.US) == 4
-    assert engine._ops_bonus_region(Side.US, china=True) == "asia"
+    assert engine._ops_bonus_region(Side.US, china=True) == ("asia",)
 
 
 def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
@@ -799,6 +799,78 @@ def test_how_i_learned_sets_defcon_and_adds_military_ops():
 # -- per-turn regional Ops bonus (Vietnam Revolts) ---------------------------
 
 
+def test_china_card_under_vietnam_revolts_is_a_six_ops_card_in_south_east_asia():
+    """The two region bonuses stack, and this is the only way to a 6-Ops
+    play. South East Asia is inside Asia, so Ops spent entirely there satisfy
+    the China Card's "all in Asia" and Vietnam Revolts' "all in South East
+    Asia" at once: 4 + 1 + 1. Containment and Brezhnev cannot add to it,
+    because their ceiling of 4 applies before these are counted.
+
+    The engine used to give China precedence and drop the other bonus, which
+    it called a rare stack not modelled; it is a standard USSR line."""
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Vietnam_Revolts")
+    engine.turn_effects["brezhnev"] = True  # capped away, not added
+    china = RULES["china_card_id"]
+    engine.china_card_owner = "USSR"
+    engine.china_card_available = True
+    engine.hands["USSR"] = [china]
+    _play_card_for(engine, Side.USSR, china, "ops")
+    ctx = engine.pending_decision.context
+    assert tuple(ctx["bonus"]) == ("asia", "se_asia")
+    assert ctx["ops"] == 4, 'Brezhnev must not push a 4-Ops card to 5'
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+
+    placed = 0
+    while engine.pending_decision is not None and \
+            engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE:
+        options = [a for a in engine.pending_decision.options
+                   if Subregion.SOUTHEAST_ASIA
+                   in engine.board.countries[a.payload["country"]].subregions]
+        assert options, 'ran out of South East Asian placements'
+        engine.step(options[0])
+        placed += 1
+        assert placed <= 8
+    assert placed == 6, f'all-South-East-Asia should buy 6 points, bought {placed}'
+
+
+def test_the_asia_bonus_survives_leaving_south_east_asia_and_the_other_does_not():
+    """The two bonuses lapse independently. Stepping out of South East Asia
+    into the rest of Asia forfeits Vietnam Revolts' point and keeps the China
+    Card's, so the play is worth 5 rather than 6 or 4."""
+    engine = _bare()
+    engine._fire_event(Side.USSR, "Vietnam_Revolts")
+    china = RULES["china_card_id"]
+    engine.china_card_owner = "USSR"
+    engine.china_card_available = True
+    engine.hands["USSR"] = [china]
+    engine.board.influence["Afghanistan"]["USSR"] = 1  # a non-SE-Asian foothold
+    _play_card_for(engine, Side.USSR, china, "ops")
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+
+    def pick(in_se: bool):
+        for a in engine.pending_decision.options:
+            info = engine.board.countries[a.payload["country"]]
+            if info.region is Region.ASIA and \
+                    (Subregion.SOUTHEAST_ASIA in info.subregions) == in_se:
+                return a
+        return None
+
+    first = pick(in_se=False)  # Asia but not South East Asia: kills one bonus
+    assert first is not None
+    engine.step(first)
+    placed = 1
+    while engine.pending_decision is not None and \
+            engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE:
+        options = [a for a in engine.pending_decision.options
+                   if engine.board.countries[a.payload["country"]].region is Region.ASIA]
+        assert options, 'ran out of Asian placements'
+        engine.step(options[0])
+        placed += 1
+        assert placed <= 8
+    assert placed == 5, f'Asia-only should buy 5 points, bought {placed}'
+
+
 def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
     engine = _bare()
     engine._fire_event(Side.USSR, "Vietnam_Revolts")
@@ -807,7 +879,7 @@ def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
     engine.board.influence["Vietnam"]["USSR"] = 2  # a reachable SE Asia foothold
     engine.hands["USSR"] = ["Socialist_Governments"]  # 3-Ops card
     _play_card_for(engine, Side.USSR, "Socialist_Governments", "ops")
-    assert engine.pending_decision.context["bonus"] == "se_asia"
+    assert tuple(engine.pending_decision.context["bonus"]) == ("se_asia",)
     engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
 
     def se_asia(opts):
@@ -828,8 +900,11 @@ def test_region_bonus_does_not_apply_to_us_or_outside_se_asia():
     engine = _bare()
     engine.turn_effects["vietnam_revolts"] = True
     # US plays are unaffected; only the USSR gets the SE Asia bonus.
-    assert engine._ops_bonus_region(Side.US, china=False) is None
-    assert engine._ops_bonus_region(Side.USSR, china=False) == "se_asia"
+    assert engine._ops_bonus_region(Side.US, china=False) == ()
+    assert engine._ops_bonus_region(Side.USSR, china=False) == ("se_asia",)
+    # The US gets Asia from the China Card and nothing from Vietnam Revolts.
+    assert engine._ops_bonus_region(Side.US, china=True) == ("asia",)
+    assert engine._ops_bonus_region(Side.USSR, china=True) == ("asia", "se_asia")
 
 
 # -- influence + optional free operation (Junta) -----------------------------

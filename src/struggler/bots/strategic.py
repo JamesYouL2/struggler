@@ -38,7 +38,7 @@ RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARN
 CHECK_SNAPSHOT = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
 from struggler.bots.greedy import (
     _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
-    _in_bonus_region, _realignment_bonus, _realignment_modifier,
+    _bonus_ops, _in_bonus_region, _realignment_bonus, _realignment_modifier,
     _space_race_expected_vp, _sync_board,
 )
 
@@ -1160,8 +1160,11 @@ class StrategicPlayer:
             ops = int(ctx.get('ops_remaining', ctx.get('remaining', ctx.get('ops', 1))))
             if ctx.get('bonus'):
                 ops = ctx['base'] - ctx['spent']
-                if not ctx['non_bonus'] and _in_bonus_region(self.board.countries[p['country']], ctx['bonus']):
-                    ops += 1
+                # One extra point per bonus whose region has held every point
+                # so far and holds this one too; two are possible at once.
+                ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
+                           if outside == 0
+                           and _in_bonus_region(self.board.countries[p['country']], tag))
             return self.influence(obs, p['country'], ops)
         if kind is K.EVENT_INFLUENCE:
             cid = p['country']
@@ -1170,7 +1173,7 @@ class StrategicPlayer:
                 amount = -self.board.influence[cid][ctx['inf_side']] if ctx.get('whole') else -amount
             return self.delta(obs, cid, **{'own' if ctx['inf_side'] == obs.side.value else 'opp': amount})
         if kind is K.COUP_TARGET:
-            ops = ctx['ops'] + int(_in_bonus_region(self.board.countries[p['country']], ctx.get('bonus')))
+            ops = ctx['ops'] + _bonus_ops(self.board.countries[p['country']], ctx.get('bonus'))
             return self.coup(obs, p['country'], ops)
         if kind is K.REALIGNMENT_TARGET:
             return self.realign(obs, p['country'])
@@ -1187,7 +1190,7 @@ class StrategicPlayer:
                 return self._placement_ops_value(obs, ops)
             engine = self.public_engine(obs)
             coup = p['type'] == 'coup'
-            return max(((self.coup(obs, c, ops + int(_in_bonus_region(i, ctx.get('bonus')))) if coup else self.realign(obs, c) * ops)
+            return max(((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup else self.realign(obs, c) * ops)
                         for c, i in self.board.countries.items() if engine._usable_coup_realign_target(obs.side, c, for_coup=coup)), default=LOSS)
         if kind in (K.HEADLINE_PLAY, K.ACTION_ROUND_PLAY):
             cid = p['card']
