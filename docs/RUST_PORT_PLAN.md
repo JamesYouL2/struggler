@@ -120,6 +120,56 @@ for an accelerated fraction p at kernel speedup s.
 The trivial-bot game time (1.1 s of 13.4 s, 8.2 %) bounds the engine's
 share from above only loosely; it was not profiled separately.
 
+**Re-measured 2026-09-09, after the pure-function extraction** (Claude), on
+a whole benchmark game -- the workload `scripts/gate.sh` actually runs --
+rather than on saved positions:
+
+| Module (exclusive time) | Share |
+| --- | ---: |
+| `evaluator.py` (the proposed port) | 45.8 % |
+| `strategic.py` (policy, caches, sandbox driving) | 19.8 % |
+| built-ins (`max`/`min`/`any`/`dict.get`), mostly from evaluator loops | 15.3 % |
+| `board.py` + `core.py` (the engine, explicitly not ported) | 9.5 % |
+| `defcon.py` (the planner, explicitly not ported) | 3.3 % |
+
+So p = 0.458 for a strategic full game, not the 0.25 recorded above: the
+extraction moved terms into `evaluator.py` that were spread across
+`strategic.py`, and the `Board.serialize` deepcopy that was inflating the
+non-evaluator share is gone. The ceiling is **1.84x at s -> infinity**, and
+about 2.2x if the port also absorbs the built-ins those loops call. Two
+cautions on both numbers: `cProfile` charges per-call overhead and so
+flatters exactly this kind of code, and MCTS is not in this workload at all.
+
+**Standing recommendation (Claude, 2026-09-09): not yet.** Three reasons,
+in order of weight.
+
+1. *The semantics are not frozen, and the plan's own first condition is
+   that they are.* `region_vp`, `country_value` and `board_value` all
+   changed signature in a single day (scoring overrides, then Coup
+   prohibitions). A port has to be bitwise-identical to whatever it copies,
+   so every semantic change during a port is paid for twice.
+2. *It cannot reach 5x on the workload that measures strength today.* The
+   gate plays strategic against strategic, where the ceiling is under 2x.
+   The 3.2-3.6x row is MCTS search, and the 8.6-14.3x row is a port of all
+   of rollout ranking -- a bigger scope than the kernel list in this plan.
+   Anyone quoting a large number should say which row it comes from.
+3. *Evaluation consistency is still the binding constraint, not speed.* Four
+   correctness defects landed on 2026-09-09, two of them live engine rules
+   bugs (the missing Containment/Brezhnev Ops ceiling, and the unmodelled
+   China Card + Vietnam Revolts bonus stack). Searching deeper with wrong
+   values finds worse moves more confidently.
+
+What to do instead, while those settle: profile the workload the gate runs
+and fix what it names. An afternoon of that bought 1.1x
+(`docs/STRATEGIC_AI.md`), and it found the two largest costs outside the
+evaluator entirely, which no amount of evaluator microbenchmarking would
+have surfaced. `access` is now the single largest term at 283 k calls and
+about 11 % of a game, and is the obvious next target.
+
+Revisit the port when the evaluator's signatures have been stable for a
+stretch, and when there is evidence that search depth rather than
+evaluation quality is what limits playing strength.
+
 Conclusions the plan rests on:
 
 - The exact semantics are frozen first. `delta()` values the changed
