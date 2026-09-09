@@ -201,6 +201,12 @@ class StrategicPlayer:
             raise ValueError('StrategicPlayer requires a pending decision with legal options')
         _sync_board(self.board, observation)
         self._events = {}
+        # The event sandbox's basis (every country's and region's value on
+        # the current board) is keyed on influence alone; the scoring
+        # weights it was computed with belong to the previous decision's
+        # turn and hand, so it must not survive into this one (the parity
+        # corpus caught a headline's basis pricing action round 1's events).
+        self._event_basis = None
         self._region_cache = {}
         self._base_regions = {}
         self._country_cache = {}
