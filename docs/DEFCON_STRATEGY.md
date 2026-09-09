@@ -150,7 +150,7 @@ which card leaves and how many safe plays remain afterwards.
 
 | Effect | Who discards | What to check |
 | --- | --- | --- |
-| Blockade | US, a printed-3+-Ops card, or lose all West Germany influence. | Paying is optional. Refusing is a board hit, never a nuclear loss. Paying a 3+ Ops opponent card (We Will Bury You, KAL-007, Tear Down This Wall) is a clean exit because the event does not fire. Paying your last spare safe card can leave a 1-Ops suicide card as the only play for the final round: that is exactly how the seed 2401 game was lost. |
+| Blockade | US, a 3+-Ops card (modified value), or lose all West Germany influence. | Paying is optional. Refusing is a board hit, never a nuclear loss. Paying a 3+ Ops opponent card (We Will Bury You, KAL-007, Tear Down This Wall) is a clean exit because the event does not fire. Paying your last spare safe card can leave a 1-Ops suicide card as the only play for the final round: that is exactly how the seed 2401 game was lost. |
 | Latin American Debt Crisis | US, same 3+-Ops clause, or the USSR doubles influence in two South American countries. | Same test as Blockade. The board hit is usually mild, so refusing is cheap when the hand is tight. |
 
 What Blockade costs the US depends entirely on which card pays. Discarding
@@ -161,7 +161,7 @@ event never fires and the card only comes back at the reshuffle. That
 return matters the other way too: a strong USSR card (Decolonization,
 De-Stalinization) sent to the discard by any route is back in the next
 cycle, so dumping it delays rather than removes it. The bots do not price
-this yet: the pay choice is scored as a flat minus printed Ops, and from
+this yet: the pay choice is scored as a flat minus modified Ops, and from
 the USSR's seat the sandbox assumes the US cannot pay. The right price is
 the smaller of "lose West Germany" and the paying card's cost, where the
 cost of a US/neutral card is its Ops value and the cost of a USSR card is

@@ -1802,6 +1802,38 @@ def test_junta_free_coup_earns_no_military_ops():
     assert engine.military_ops["USSR"] == 0
 
 
+def test_discard_clauses_use_the_modified_ops_value_not_the_printed_one():
+    """FAQ 7.4: "When a card's Ops value is modified, does this apply for all
+    purposes (Beartrap/Quagmire, coup rolls, Space Race, military ops credit)
+    or just when actually used for Ops? A. Yes, it applies for all purposes."
+    The Missile Envy ruling says it from the other side: a trapped player
+    must discard it next "if its value has not been degraded by Red
+    Scare/Purge". This was a documented simplification hedged as "arguably";
+    the FAQ settles it."""
+    from struggler.engine.events import _payable_cards
+
+    engine = _bare()
+    engine.hands["US"] = ["Duck_and_Cover"]  # printed 3 Ops
+    assert _payable_cards(engine, Side.US) == ["Duck_and_Cover"]
+    engine.turn_effects["red_scare"] = Side.US.value  # 3 -> 2, out of reach
+    assert _payable_cards(engine, Side.US) == []
+    engine.turn_effects.clear()
+    engine.hands["US"] = ["Nasser"]  # printed 1 Op
+    engine.turn_effects["containment"] = True  # 1 -> 2, still short of 3
+    assert _payable_cards(engine, Side.US) == []
+
+    # And the traps' 2+ clause moves the same way.
+    trapped = _bare()
+    trapped.hands["USSR"] = ["Fidel"]  # printed 2 Ops
+    assert trapped._trap_discard_candidates(Side.USSR) == ["Fidel"]
+    trapped.turn_effects["red_scare"] = Side.USSR.value  # 2 -> 1
+    assert trapped._trap_discard_candidates(Side.USSR) == []
+    trapped.turn_effects.clear()
+    trapped.turn_effects["brezhnev"] = True  # a 1-Op card becomes payable
+    trapped.hands["USSR"] = ["Nasser"]
+    assert trapped._trap_discard_candidates(Side.USSR) == ["Nasser"]
+
+
 def test_a_region_bonus_context_is_json_native():
     """Mandate #5: serialized state is JSON primitives with no custom
     encoder. `bonus` and `non_bonus` became per-bonus sequences, and holding

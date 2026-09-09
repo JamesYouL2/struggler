@@ -19,6 +19,7 @@ import math
 
 from struggler.engine import DecisionKind as K, Side, Region
 from struggler.engine.cards import load_cards
+from struggler.engine.core import effective_ops
 from struggler.engine.rules import RULES
 
 log = logging.getLogger('struggler.bots.defcon')
@@ -29,7 +30,8 @@ ASK = 'Ask_Not_What_Your_Country_Can_Do_For_You'
 RAISERS = {'How_I_Learned_to_Stop_Worrying': 5, 'Salt_Negotiations': 2,
            'Nuclear_Test_Ban': 2, 'ABM_Treaty': 1}
 REDUCERS = {'Duck_and_Cover', 'We_Will_Bury_You', 'Soviets_Shoot_Down_KAL_007'}
-# Events that make the US discard a printed-3+-Ops card or take a board hit.
+# Events that make the US discard a 3+-Ops card (modified value, per FAQ
+# 7.4 -- see DefconPlanner.payable) or take a board hit.
 # The discard never fires an event, so it is also an exit for a hazardous card.
 US_PAYABLE_DISCARDS = {'Blockade', 'Latin_American_Debt_Crisis'}
 # Card -> the side its event traps (mirrors Engine._TRAP_KEYS).
@@ -282,10 +284,19 @@ class DefconPlanner:
         risk = self.event_risk(cid, defcon, remaining)
         return risk+(1-risk)*onward(d=max(2,defcon-1) if cid in REDUCERS else defcon)
 
-    @staticmethod
-    def payable(hand, minimum=3):
-        """Cards the engine accepts for a printed-Ops discard clause (Blockade: 3, traps: 2)."""
-        return [c for c in hand if c in CARDS and not CARDS[c].scoring and CARDS[c].ops >= minimum]
+    def payable(self, hand, minimum=3):
+        """Cards the engine accepts for a discard clause (Blockade: 3, traps: 2).
+
+        The *modified* Ops value, matching `Engine.effective_ops`: the FAQ
+        applies a modified value "for all purposes", Beartrap/Quagmire named
+        among them. Red Scare can strand this side in a trap the printed
+        values would have let it escape, and the planner has to model the
+        trap the engine will actually run.
+        """
+        effects = self.obs.turn_effects
+        return [c for c in hand
+                if c in CARDS and not CARDS[c].scoring
+                and effective_ops(CARDS[c].ops, effects, self.side) >= minimum]
 
     def trap_step(self, hand, rounds, defcon, pos, attempts, china):
         """One trapped round: discard a 2+ Ops card (no event) and roll 1-4 to escape."""

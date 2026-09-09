@@ -280,7 +280,8 @@ of the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
 −1; USSR +3 VP at end of turn unless the US plays UN Intervention, which
 clears the `we_will_bury_you` turn effect).
 
-**"Discard a printed-3+-Ops card or suffer" branch.** Blockade and Latin
+**"Discard a 3+-Ops card or suffer" branch.** The modified Ops value, not
+the printed one (FAQ 7.4; see docs/RULES_SOURCES.md). Blockade and Latin
 American Debt Crisis, with the US choosing from its own hand the same way
 Ask Not… does.
 

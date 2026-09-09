@@ -1397,8 +1397,15 @@ def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, cont
 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
-    """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
-    3+ card to cancel" clause on Blockade and Latin American Debt Crisis).
+    """`side`'s hand cards worth 3 or more Ops to `side` -- the "discard a 3+
+    card to cancel" clause on Blockade and Latin American Debt Crisis.
+
+    The *modified* value, not the printed one. FAQ section 7.4: "When a card's
+    Ops value is modified, does this apply for all purposes (Beartrap/Quagmire,
+    coup rolls, Space Race, military ops credit) or just when actually used
+    for Ops? A. Yes, it applies for all purposes." So Red Scare/Purge can put
+    a 3-Ops card out of reach of this clause, and Containment can bring a
+    2-Ops card into it.
 
     In physical mode, `side`'s true hand may be unknown to the engine; source
     candidates from the physical-hand pool instead (see
@@ -1412,13 +1419,15 @@ def _payable_cards(engine: "Engine", side: Side) -> list[str]:
     return [
         cid
         for cid in source
-        if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
+        if not engine.cards[cid].scoring
+        and engine._effective_ops(side, engine.cards[cid]) >= 3
     ]
 
 
 @event("Blockade")
 def _blockade(engine: "Engine", side: Side) -> None:
-    # Unless the US discards a printed-3+-Ops card, remove all US Influence from
+    # Unless the US discards a 3+-Ops card (modified value, see _payable_cards),
+    # remove all US Influence from
     # West Germany. (The US picks among its own cards — the same own-hand choice
     # Ask Not already surfaces.)
     payable = _payable_cards(engine, Side.US)
@@ -1450,7 +1459,8 @@ def _glasnost(engine: "Engine", side: Side) -> None:
 
 @event("Latin_American_Debt_Crisis")
 def _latin_american_debt_crisis(engine: "Engine", side: Side) -> None:
-    # Unless the US discards a printed-3+-Ops card, the USSR doubles its
+    # Unless the US discards a 3+-Ops card (modified value, see _payable_cards),
+    # the USSR doubles its
     # Influence in two South America countries.
     payable = _payable_cards(engine, Side.US)
     if payable:

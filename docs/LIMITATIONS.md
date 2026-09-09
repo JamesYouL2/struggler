@@ -38,14 +38,6 @@ full model of the opponent; see the strategic bot's limits.
   Wars could in principle retrieve it slightly earlier than the physical
   game allows, but the effect it would re-apply is idempotent, so this has
   no actual gameplay consequence.
-- **Discard clauses use printed Ops.** Blockade and Latin American Debt
-  Crisis accept any printed-3+-Ops card, and Quagmire/Bear Trap any
-  printed-2+-Ops card, regardless of Red Scare/Purge or Containment/
-  Brezhnev. On the tabletop the modified value arguably applies, which
-  makes Red Scare/Purge plus Blockade or a trap far harsher than this
-  engine plays it. The bots' survival planner follows the engine
-  (`DefconPlanner.payable`); [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md#hand-discard-effects-traps-and-modifiers)
-  records the tabletop reading.
 - **Aldrich Ames Remix**'s "USA reveals their hand face-up until end of
   turn" is modeled as a momentary reveal — the decision options — rather
   than an ongoing visibility grant surfaced through `observe()`. Modeling

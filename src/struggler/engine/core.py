@@ -2770,16 +2770,34 @@ class Engine:
                 return key
         return None
 
-    def _push_trap_step(self, side: Side, key: str) -> None:
+    def _trap_discard_candidates(self, side: Side) -> list[str]:
+        """The cards `side` may spend to attempt an escape from Bear Trap or
+        Quagmire: 2+ Ops, non-scoring.
+
+        The *modified* Ops value, not the printed one. FAQ 7.4: "When a card's
+        Ops value is modified, does this apply for all purposes
+        (Beartrap/Quagmire, coup rolls, Space Race, military ops credit) or
+        just when actually used for Ops? A. Yes, it applies for all purposes."
+        The Missile Envy ruling says it from the other side: a trapped player
+        must discard it next "if its value has not been degraded by Red
+        Scare/Purge". So Red Scare can strand a player in a trap that the
+        printed values would have let them escape.
+
+        In physical mode the hand may be unknown, so candidates come from the
+        physical pool and the operator picks the one that matches.
+        """
         source = (
             self._physical_hand_candidates(side)
             if self.physical_mode and side is self.physical_side
             else self.hands[side.value]
         )
-        payable = [
+        return [
             cid for cid in source
-            if not self.cards[cid].scoring and self.cards[cid].ops >= 2
+            if not self.cards[cid].scoring and self._effective_ops(side, self.cards[cid]) >= 2
         ]
+
+    def _push_trap_step(self, side: Side, key: str) -> None:
+        payable = self._trap_discard_candidates(side)
         if payable:
             options = tuple(
                 Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid}) for cid in payable

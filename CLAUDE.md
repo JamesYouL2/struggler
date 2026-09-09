@@ -13,6 +13,7 @@ commit.
 | [docs/STRATEGIC_AI.md](docs/STRATEGIC_AI.md) | `bots/strategic.py`, `bots/evaluator.py`, the value function and its snapshot contract |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
+| [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
 | [docs/CLAUDE_NOTES.md](docs/CLAUDE_NOTES.md) | Bot strategy work: the stated principles, their status, and what is open (Claude's notes; Codex's audit is `docs/CODEX_NOTES.md`, the Rust plan `docs/RUST_PORT_PLAN.md`) |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
