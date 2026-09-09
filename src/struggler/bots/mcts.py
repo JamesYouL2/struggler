@@ -43,7 +43,7 @@ class Edge:
 
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
-                 time_limit=None, opponent_model=None, rollout_options=None):
+                 time_limit=None, opponent_model=None, rollout_options=None, search_all=False):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
@@ -55,6 +55,9 @@ class MCTSPlayer:
         self.simulations = simulations
         self.max_steps = max_steps
         self.time_limit = time_limit
+        # Search every action-round play, not only turns with a scoring card
+        # in hand (an experiment: strength versus time on plain turns).
+        self.search_all = search_all
         self.intent = None
         self.last_search = None
 
@@ -205,7 +208,7 @@ class MCTSPlayer:
             return self.continuation(obs, target)
         self.intent = None
         self.last_search = None
-        if not any(CARDS[c].scoring for c in obs.hand):
+        if not self.search_all and not any(CARDS[c].scoring for c in obs.hand):
             return self.policy.choose_action(obs, history)
         start = time.monotonic()
         rng = random.Random(f'{self.seed}:{obs.side.value}:{obs.turn}:{obs.action_round}:{d.id}')

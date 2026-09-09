@@ -96,7 +96,8 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None):
         from struggler.bots.mcts import MCTSPlayer
         # STRUGGLER_ROLLOUT_OPTIONS='{"full_planner": true}' switches RolloutPolicy ablations.
         options = json.loads(os.environ.get('STRUGGLER_ROLLOUT_OPTIONS', '{}'))
-        return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options)
+        return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options,
+                          search_all=os.environ.get('STRUGGLER_MCTS_SEARCH_ALL') == '1')
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()
