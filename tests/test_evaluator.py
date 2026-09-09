@@ -8,6 +8,8 @@ against a full rebuild.
 import itertools
 
 from struggler.engine import Engine, Region, Side
+from struggler.engine.rules import RULES
+from struggler.engine.types import ScoringTier
 from struggler.bots import evaluator as ev
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 
@@ -48,6 +50,59 @@ def test_region_vp_matches_the_engine_region_scoring():
             # +/-100, which is what the ranking needs it to be worth.
             expected = 100 if board.region_tier(Side.US, region).value == 'control' else -100
         assert ev.region_vp(t, pos, region) == expected
+
+
+def test_region_vp_matches_the_engine_under_every_scoring_override():
+    """The evaluator mirrors `Board.score_region` in index space, so the two
+    have to agree with the scoring overrides in force as well as without
+    them -- which is what lets the bot price Formosan Resolution and Shuttle
+    Diplomacy instead of scoring the board as if they were not there."""
+    board = _played_board()
+    # The fixture leaves Taiwan uncontrolled, and Formosan Resolution only
+    # promotes a Taiwan the US holds.
+    board.influence['Taiwan']['US'] = board.countries['Taiwan'].stability
+    t = ev.terrain()
+    pos = ev.Position(t).sync(board)
+    seen = [0, 0]
+    for formosan, shuttle in itertools.product((False, True), repeat=2):
+        for region in Region:
+            names = board.scoring_overrides(region, formosan_resolution=formosan,
+                                            shuttle_diplomacy=shuttle)
+            indices = ev.scoring_overrides(t, pos, region, formosan_resolution=formosan,
+                                           shuttle_diplomacy=shuttle)
+            # The same countries, named two ways.
+            assert tuple(frozenset(t.index[c] for c in group) for group in names) == indices
+            for slot, group in enumerate(names):
+                seen[slot] += len(group)
+            try:
+                expected = board.score_region(region, *names)
+            except RuntimeError:
+                continue  # Europe control: no VP either implementation can name
+            assert ev.region_vp(t, pos, region, *indices) == expected, (region, formosan, shuttle)
+    assert all(seen), 'the fixture board triggered no promotion or no drop: %s' % (seen,)
+
+
+def test_score_region_agrees_with_the_tier_it_reports():
+    """`score_region` inlines the tier walk that `region_tier` returns, for
+    speed. Nothing else keeps the two in step."""
+    board = _played_board()
+    values = {ScoringTier.NONE: 0, ScoringTier.PRESENCE: 0, ScoringTier.DOMINATION: 0}
+    for region in Region:
+        presence, domination, control = RULES['scoring'][region.name]
+        values[ScoringTier.PRESENCE] = presence
+        values[ScoringTier.DOMINATION] = domination
+        tiers = {s: board.region_tier(s, region) for s in (Side.US, Side.USSR)}
+        if control is None and ScoringTier.CONTROL in tiers.values():
+            continue  # Europe control has no VP to compare
+        values[ScoringTier.CONTROL] = control
+        bonus = {}
+        for s in (Side.US, Side.USSR):
+            bonus[s] = sum(
+                (board.countries[cid].battleground + board.is_adjacent(s.opponent.value, cid))
+                for cid in board.countries_in(region) if board.control(cid) is s)
+        assert board.score_region(region) == (
+            values[tiers[Side.US]] + bonus[Side.US]
+            - values[tiers[Side.USSR]] - bonus[Side.USSR]), region
 
 
 def test_incremental_writes_leave_the_snapshot_identical_to_a_full_rebuild():

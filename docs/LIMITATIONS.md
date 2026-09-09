@@ -19,6 +19,19 @@ full model of the opponent; see the strategic bot's limits.
   trainer and the benchmark play with it (`--no-setup-bonus` turns it off);
   `Engine.new_game` defaults to the printed setup so the recorded golden
   replays are unchanged, and `serialize()` carries the flag only when set.
+- **The bot spends Shuttle Diplomacy once, in one region.** The card drops
+  one USSR-Controlled Battleground from *one* scoring -- the first Middle
+  East or Asia scoring, whichever comes first -- and the engine consumes it
+  exactly that way. A position value sums both regions at once and cannot
+  know which will be scored, so `StrategicPlayer._shuttle_region` credits the
+  discount to the region whose scoring is nearer (by scoring urgency), ties
+  going to the Middle East. Crediting both would book a one-shot twice, and
+  since dropping a Battleground can cost a whole tier the error would be
+  measured in tiers rather than in rounding: on the parity corpus one
+  position moved 5 VP in Asia and 1 in the Middle East from the same single
+  discount. Pricing the *actual* play of a scoring card is unaffected and
+  exact, because that goes through the engine in the sandbox, which applies
+  and consumes the effect for real.
 - **Shuttle Diplomacy** is filed to the discard pile when played, rather
   than kept "in front of you" until its delayed effect triggers. Only the
   effect flag matters mechanically. A card-manipulation event such as Star

@@ -162,8 +162,12 @@ and passed to Rust once (`Tables::new`), held in a `PyCell`.
 ### Per-decision context
 
 Weights (the `StrategicWeights` fields as an f64 array in a fixed order),
-the per-country scoring weight array, DEFCON, side. Passed once per
-`rank_actions`, not per call.
+the per-country scoring weight array, DEFCON, side, and the two scoring-
+override flags (Formosan Resolution, Shuttle Diplomacy) plus the region
+index the second is spent on. Passed once per `rank_actions`, not per call.
+The flags rather than the resulting country sets: the sets are a function
+of control, which every trial placement can move, so they are derived
+inside the kernel exactly as `evaluator.scoring_overrides` derives them.
 
 ### Calls, in port order
 

@@ -71,6 +71,7 @@ class Engine:
         self._next_decision_id = 0
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
+        self._final_scoring_ran = False
         # Swap for SANDBOX_LOG on a simulation engine (see bots.strategic.public_engine).
         self.log = log
         self.cards: dict[str, Card] = load_cards()
@@ -254,6 +255,18 @@ class Engine:
         """Why the game ended ('defcon_1', 'vp', 'final_vp', 'wargames', ...), or None while it runs."""
         return self._game_over_reason
 
+    @property
+    def final_scoring_ran(self) -> bool:
+        """Whether the game reached Final Scoring (10.4) -- the turn-10 board
+        being scored region by region.
+
+        Not the same as ending with reason 'final_vp'. Final Scoring can end
+        the game at 'europe_control' or 'vp' before it reaches the last
+        region, or leave a 0 VP draw with no reason at all. Anything measuring
+        how often a game goes the distance has to ask this, not the reason.
+        """
+        return self._final_scoring_ran
+
     def serialize(self) -> dict:
         return {
             "seed": self._seed,
@@ -267,6 +280,8 @@ class Engine:
             "decision_stack": [_encode_decision(d) for d in self._decision_stack],
             "winner": self._winner.value if self._winner is not None else None,
             "game_over_reason": self._game_over_reason,
+            # Only once it has, so earlier recorded states compare equal.
+            **({"final_scoring_ran": True} if self._final_scoring_ran else {}),
             # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
@@ -313,6 +328,7 @@ class Engine:
         engine._decision_stack = [_decode_decision(d) for d in data["decision_stack"]]
         engine._winner = Side(data["winner"]) if data["winner"] is not None else None
         engine._game_over_reason = data["game_over_reason"]
+        engine._final_scoring_ran = data.get("final_scoring_ran", False)
         # -- full-game state (absent in board-only logs: fall back to the sandbox) --
         engine.phase = data.get("phase", "idle")
         engine.include_optional = data.get("include_optional", False)
@@ -688,6 +704,7 @@ class Engine:
         Final scoring reuses the same board mechanic as the scoring cards, so
         every region contributes its Presence/Domination/Control tier once.
         """
+        self._final_scoring_ran = True
         # Europe first, whatever order `Region` happens to list it in:
         # Control of Europe is an automatic victory at Final Scoring too, and
         # it takes precedence over VP scored anywhere else.
@@ -1970,72 +1987,46 @@ class Engine:
 
     def _scoring_overrides(self, region: Region) -> tuple[frozenset[str], frozenset[str]]:
         """Per-scoring board adjustments set by events, as
-        (extra_battlegrounds, ignored) for `region`.
+        (extra_battlegrounds, ignored) for `region`. The derivation is
+        `Board.scoring_overrides`; what belongs here is which events are in
+        force and the one that a scoring consumes.
 
-        - Formosan Resolution: while active and the US controls Taiwan, Taiwan
-          scores as a Battleground in Asia. (Persistent until the China Card is
-          played; not consumed here.)
-        - Shuttle Diplomacy: at the *next* scoring of the Middle East or Asia,
-          one USSR-controlled Battleground is not counted; the effect is
-          consumed (whichever region scores first).
+        - Formosan Resolution: persistent until the China Card is played, so
+          it is not consumed here.
+        - Shuttle Diplomacy: spent at the *next* scoring of the Middle East
+          or Asia, whichever comes first -- consumed even when the USSR holds
+          no Battleground there for it to drop.
         """
-        extra_battlegrounds: set[str] = set()
-        ignored: set[str] = set()
-        if (
-            region is Region.ASIA
-            and self.game_effects.get("formosan_resolution")
-            and self.board.control("Taiwan") is Side.US
-        ):
-            extra_battlegrounds.add("Taiwan")
-        if region in (Region.MIDDLE_EAST, Region.ASIA) and self.game_effects.get(
-            "shuttle_diplomacy"
-        ):
-            dropped = self._first_ussr_battleground(region)
-            if dropped is not None:
-                ignored.add(dropped)
+        shuttle = bool(self.game_effects.get("shuttle_diplomacy")) and region in (
+            Region.MIDDLE_EAST,
+            Region.ASIA,
+        )
+        overrides = self.board.scoring_overrides(
+            region,
+            formosan_resolution=bool(self.game_effects.get("formosan_resolution")),
+            shuttle_diplomacy=shuttle,
+        )
+        if shuttle:
             self.game_effects.pop("shuttle_diplomacy", None)  # consumed
-        return frozenset(extra_battlegrounds), frozenset(ignored)
-
-    def _first_ussr_battleground(self, region: Region) -> str | None:
-        """A USSR-controlled Battleground in `region` (canonical order), or
-        None. Shuttle Diplomacy drops exactly one from the USSR tally."""
-        for cid, info in self.board.countries.items():
-            if (
-                info.region is region
-                and info.battleground
-                and self.board.control(cid) is Side.USSR
-            ):
-                return cid
-        return None
+        return overrides
 
     def _score_region_net(self, region: Region) -> int:
         extra_bg, ignored = self._scoring_overrides(region)
-        presence, domination, control = RULES["scoring"][region.name]
+        _, _, control = RULES["scoring"][region.name]
         # Europe alone has no Control value in the scoring table, because
         # Control of Europe is not a VP award: "If either side Controls
         # Europe, that side wins when the Europe Scoring card is played."
         # Control here is the scoring tier -- all Battleground countries plus
         # more countries than the opponent -- and NOT control of every country
         # in the region, which is a stricter thing a side may never reach.
+        # `score_region` raises rather than guess a number for it, so this
+        # check has to come first.
         if control is None:
             for side in (Side.US, Side.USSR):
                 if self.board.region_tier(side, region, extra_bg, ignored) is ScoringTier.CONTROL:
                     self._win(side, "europe_control")
                     return 0
-        tier_value = {
-            ScoringTier.NONE: 0,
-            ScoringTier.PRESENCE: presence,
-            ScoringTier.DOMINATION: domination,
-        }
-
-        def value_for(s: Side) -> int:
-            tier = self.board.region_tier(s, region, extra_bg, ignored)
-            base = control if tier is ScoringTier.CONTROL else tier_value[tier]
-            # 10.1.2: +1 VP per Battleground Controlled in the region, +1 VP
-            # per country Controlled there adjacent to the enemy superpower.
-            return base + self.board.region_bonus_vp(s, region, extra_bg, ignored)
-
-        return value_for(Side.US) - value_for(Side.USSR)
+        return self.board.score_region(region, extra_bg, ignored)
 
     def _score_southeast_asia(self) -> int:
         # Physical card text: +2 VP for control of Thailand, +1 VP per other

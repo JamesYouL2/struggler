@@ -46,6 +46,18 @@ CARDS = load_cards()
 LOSS = -1_000_000.0
 
 
+def scoring_flags(game_effects) -> tuple[bool, bool]:
+    """Which per-scoring board adjustments are in force, as (Formosan
+    Resolution, Shuttle Diplomacy). Both are public board state, so a bot
+    reads them from the observation rather than inferring them.
+
+    Shuttle Diplomacy is one-shot and spent by whichever of the Middle East
+    and Asia scores first; the value function does not know which that will
+    be, so it credits the discount in both. See docs/LIMITATIONS.md."""
+    return (bool(game_effects.get('formosan_resolution')),
+            bool(game_effects.get('shuttle_diplomacy')))
+
+
 class SandboxUnsupported(RuntimeError):
     """The event sandbox knowingly gave up on an event.
 
@@ -241,6 +253,8 @@ class StrategicPlayer:
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
         self._urgency = None
+        # (Formosan Resolution, Shuttle Diplomacy) as of `self._obs`.
+        self._scoring_flags = (False, False)
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         ranked = self.rank_actions(observation)
@@ -286,6 +300,7 @@ class StrategicPlayer:
         self._position.sync(self.board)
         self._obs = observation
         self._urgency = self._urgency_for(observation)
+        self._scoring_flags = scoring_flags(observation.game_effects)
 
     def _urgency_for(self, obs: Observation) -> tuple[float, ...]:
         """Every country's scoring weight, in terrain order. It is a function
@@ -325,6 +340,46 @@ class StrategicPlayer:
         """The prepared scoring weights, or all ones for a bare evaluation
         (no observation: every country counts for its printed value)."""
         return self._urgency if self._urgency is not None else ev.ones(self._terrain)
+
+    def _shuttle_region(self) -> Region:
+        """Where a whole-board value spends Shuttle Diplomacy.
+
+        The card drops one USSR Battleground from *one* scoring: whichever of
+        the Middle East and Asia is scored first. A position value sums both
+        regions, so crediting the discount in each would book a one-shot
+        twice -- and it is not a rounding error, since dropping a Battleground
+        can cost a whole tier. It goes to the region whose scoring is nearer,
+        which is the bot's best guess at which one spends it; ties go to the
+        Middle East, the smaller region, where one Battleground is the larger
+        share of the tier."""
+        urgency, t = self._urgency_vector(), self._terrain
+        return max((Region.MIDDLE_EAST, Region.ASIA),
+                   key=lambda r: urgency[t.members[r][0]])
+
+    def _overrides_for(self, region: Region, pos: ev.Position, flags=None):
+        """The scoring adjustments `region` scores under, as the index sets
+        `evaluator.region_vp` takes.
+
+        They are a function of control, so they are derived per call rather
+        than frozen at `prepare`: taking Taiwan is what turns Formosan
+        Resolution on, and the bot has to see that in the placement that does
+        it. `flags` overrides the observation's events, for pricing a sandbox
+        that has just turned one of them on."""
+        formosan, shuttle = self._scoring_flags if flags is None else flags
+        if not (formosan or shuttle):
+            return ev.NO_OVERRIDES
+        return ev.scoring_overrides(
+            self._terrain, pos, region,
+            formosan_resolution=formosan,
+            shuttle_diplomacy=shuttle and region is self._shuttle_region())
+
+    def _overrides_map(self, pos: ev.Position, flags=None):
+        """`_overrides_for` for every region, or None when nothing is in
+        force -- which is what `evaluator.board_value` wants."""
+        formosan, shuttle = self._scoring_flags if flags is None else flags
+        if not (formosan or shuttle):
+            return None
+        return {r: self._overrides_for(r, pos, (formosan, shuttle)) for r in Region}
 
     def _position_for(self, board: Board) -> ev.Position:
         """A snapshot of `board`, brought up to date first.
@@ -421,7 +476,8 @@ class StrategicPlayer:
     def region_score(self, board: Board, region: Region, side: Side) -> float:
         """Net VP from scoring `region` now. Europe's control tier has no
         scoring value, so it stands in as +/-100 (see `evaluator.region_vp`)."""
-        net = ev.region_vp(self._terrain, self._position_for(board), region)
+        pos = self._position_for(board)
+        net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos))
         return net if side is Side.US else -net
 
     def region_margin(self, board: Board, region: Region, side: Side) -> float:
@@ -515,9 +571,11 @@ class StrategicPlayer:
         Call `value` directly only for a bare, context-free reading of a
         board, or after `prepare`. `evaluator.board_value` takes the context
         explicitly and is the honest form of this call."""
-        return ev.board_value(self._terrain, self._position_for(board), ev.SIDE_INDEX[side],
+        pos = self._position_for(board)
+        return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
-                              self._obs.defcon if self._obs is not None else 5)
+                              self._obs.defcon if self._obs is not None else 5,
+                              self._overrides_map(pos))
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score, discounted by
@@ -578,8 +636,11 @@ class StrategicPlayer:
         # mid-ranking must clear `_base_regions`.
         base = self._base_regions
         net_before = None if base is None else base.get(region)
+        # The scoring overrides in force are a function of control, which the
+        # trial change below can move, so they are derived on both sides of it.
+        overrides = self._overrides_for(region, pos)
         if net_before is None:
-            net_before = ev.region_vp(t, pos, region)
+            net_before = ev.region_vp(t, pos, region, *overrides)
             if base is not None:
                 base[region] = net_before
         region_before = sign * net_before
@@ -600,8 +661,11 @@ class StrategicPlayer:
         try:
             # Partial influence and overprotection cannot change regional VP;
             # the margin term (progress toward presence) can move on either.
+            # No control change in the region means no tier change and no
+            # change to the overrides, which read control too.
             region_after = (region_before if pos.control[i] == controller
-                            else sign * ev.region_vp(t, pos, region))
+                            else sign * ev.region_vp(
+                                t, pos, region, *self._overrides_for(region, pos)))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
             return (ev.country_value(t, pos, i, s, w, vector, defcon)
@@ -888,10 +952,18 @@ class StrategicPlayer:
         vector = self._urgency_vector()
         defcon = self._obs.defcon if self._obs is not None else 5
         position = ev.Position(t).sync(engine.board)
+        # Read the sandbox's own effects, not the observation's: an event that
+        # turns Formosan Resolution or Shuttle Diplomacy on is worth exactly
+        # the scoring it changes, and that is only visible from after it fired.
+        flags = scoring_flags(engine.game_effects)
+        changed_regions |= {r for r in Region
+                            if self._overrides_for(r, position, flags)
+                            != self._overrides_for(r, position, self._scoring_flags)}
         after = sum(ev.country_value(t, position, t.index[c], side, w, vector, defcon)
                     if c in affected else v for c, v in countries.items())
-        after += w.region * sum(sign * ev.region_vp(t, position, r) if r in changed_regions else v
-                                for r, v in regions.items())
+        after += w.region * sum(
+            sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
+            if r in changed_regions else v for r, v in regions.items())
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before

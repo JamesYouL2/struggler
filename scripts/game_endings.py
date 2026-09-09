@@ -41,7 +41,12 @@ def report(games, out=sys.stdout) -> list[float]:
     odds = []
     for turn in range(1, LAST_TURN + 1):
         alive = [g for g in games if g['turn'] >= turn]
-        final = sum(1 for g in alive if g.get('reason') == 'final_vp')
+        # `final_scoring`, not reason == 'final_vp': Final Scoring can end the
+        # game at 'europe_control' or 'vp' before the last region is scored,
+        # or leave a draw with no reason at all. Reports written before the
+        # engine recorded the flag fall back to the reason, which undercounts.
+        final = sum(1 for g in alive
+                    if g.get('final_scoring', g.get('reason') == 'final_vp'))
         nxt = sum(1 for g in games if g['turn'] >= turn + 1)
         odds.append(final / len(alive))
         survival = f'{nxt / len(alive):.3f}' if turn < LAST_TURN else '-'

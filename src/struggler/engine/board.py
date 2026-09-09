@@ -225,35 +225,59 @@ class Board:
             return ScoringTier.PRESENCE
         return ScoringTier.NONE
 
-    def region_bonus_vp(
+    def scoring_overrides(
         self,
-        side: Side,
+        region: Region,
+        *,
+        formosan_resolution: bool = False,
+        shuttle_diplomacy: bool = False,
+    ) -> tuple[frozenset[str], frozenset[str]]:
+        """The (extra_battlegrounds, ignored) this board yields for `region`
+        under the named events -- a pure query, consuming nothing.
+
+        - Formosan Resolution: while active and the US Controls Taiwan,
+          Taiwan scores as a Battleground in Asia.
+        - Shuttle Diplomacy: one USSR-Controlled Battleground in the Middle
+          East or Asia is not counted. The one-shot applies to whichever of
+          the two regions scores first, so the caller owns both the choice
+          and the consumption.
+        """
+        extra_battlegrounds: set[str] = set()
+        ignored: set[str] = set()
+        if (
+            formosan_resolution
+            and region is Region.ASIA
+            and self.control("Taiwan") is Side.US
+        ):
+            extra_battlegrounds.add("Taiwan")
+        if shuttle_diplomacy and region in (Region.MIDDLE_EAST, Region.ASIA):
+            dropped = self.first_battleground_of(Side.USSR, region)
+            if dropped is not None:
+                ignored.add(dropped)
+        return frozenset(extra_battlegrounds), frozenset(ignored)
+
+    def first_battleground_of(self, side: Side, region: Region) -> str | None:
+        """A Battleground in `region` that `side` Controls, in canonical
+        country order, or None. Shuttle Diplomacy drops exactly one."""
+        for cid in self.countries_in(region):
+            if self.countries[cid].battleground and self.control(cid) is side:
+                return cid
+        return None
+
+    def score_region(
+        self,
         region: Region,
         extra_battlegrounds: frozenset[str] = frozenset(),
         ignored: frozenset[str] = frozenset(),
     ) -> int:
-        """Additional VP `side` scores in `region` on top of its Presence/
-        Domination/Control tier (10.1.2): +1 VP per Battleground country it
-        Controls there, plus +1 VP per country it Controls there that is
-        adjacent to the enemy superpower. `extra_battlegrounds`/`ignored`
-        mirror region_tier's scoring overrides."""
-        bonus = 0
-        for cid in self.countries_in(region):
-            if cid in ignored:
-                continue
-            if self.control(cid) is not side:
-                continue
-            if self.countries[cid].battleground or cid in extra_battlegrounds:
-                bonus += 1
-            if self.is_adjacent(side.opponent.value, cid):
-                bonus += 1
-        return bonus
-
-    def score_region(self, region: Region) -> int:
         """Net VP swing from scoring `region` now (positive favors US,
         negative favors USSR): each side's Presence/Domination/Control tier
         value, plus its 10.1.2 bonuses (+1 VP per Battleground Controlled,
-        +1 VP per country Controlled adjacent to the enemy superpower)."""
+        +1 VP per country Controlled adjacent to the enemy superpower).
+
+        `extra_battlegrounds`/`ignored` are the per-scoring adjustments from
+        `scoring_overrides`, and mean here exactly what they mean in
+        `region_tier`."""
         presence_vp, domination_vp, control_vp = RULES["scoring"][region.name]
         tier_value = {
             ScoringTier.NONE: 0,
@@ -266,16 +290,19 @@ class Board:
         controllers = {cid: self.control(cid) for cid in country_ids}
         counts = {Side.US: [0, 0, 0], Side.USSR: [0, 0, 0]}  # controlled, bg, bonus
         total_bg = 0
+        # Overrides are rare and this walk is the bots' hottest loop, so the
+        # empty case never pays for a set lookup.
+        promoted, dropped = bool(extra_battlegrounds), bool(ignored)
         for cid in country_ids:
-            info = self.countries[cid]
-            total_bg += info.battleground
-            holder = controllers[cid]
+            is_bg = self.countries[cid].battleground or (promoted and cid in extra_battlegrounds)
+            total_bg += is_bg
+            holder = None if (dropped and cid in ignored) else controllers[cid]
             if holder is None:
                 continue
             tally = counts[holder]
             tally[0] += 1
-            tally[1] += info.battleground
-            tally[2] += info.battleground + self.is_adjacent(holder.opponent.value, cid)
+            tally[1] += is_bg
+            tally[2] += is_bg + self.is_adjacent(holder.opponent.value, cid)
 
         def value_for(side: Side) -> int:
             side_count, side_bg, bonus = counts[side]

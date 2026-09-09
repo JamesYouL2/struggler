@@ -133,8 +133,8 @@ def test_score_region_rulebook_worked_example_10_1_2():
     board.influence["Guatemala"]["US"] = board.countries["Guatemala"].stability
 
     assert board.region_tier(Side.USSR, Region.CENTRAL_AMERICA) is ScoringTier.DOMINATION
-    assert board.region_bonus_vp(Side.USSR, Region.CENTRAL_AMERICA) == 2  # Battleground + adjacency
-    assert board.region_bonus_vp(Side.US, Region.CENTRAL_AMERICA) == 0
+    assert board.region_tier(Side.US, Region.CENTRAL_AMERICA) is ScoringTier.PRESENCE
+    # USSR 3 + 2 bonus (Battleground Cuba, Cuba adjacent to the US); US 1 + 0.
     assert board.score_region(Region.CENTRAL_AMERICA) == 1 - 5
 
 

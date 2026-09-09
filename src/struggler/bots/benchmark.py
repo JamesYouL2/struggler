@@ -220,7 +220,7 @@ def play(job: tuple) -> dict:
     return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal, **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
                 winner=None if winner is None else winner.value, reason=engine.game_over_reason,
-                turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
+                final_scoring=engine.final_scoring_ran, turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
                 value=round(value, 2), seconds=round(time.time() - start, 1),
                 searches=int(searches), search_seconds=round(search_seconds, 1),
                 result=None if not engine.is_terminal else 0.5 if winner is None else float(winner is side))

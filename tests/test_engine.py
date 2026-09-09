@@ -75,6 +75,39 @@ def test_final_scoring_gives_europe_control_precedence_over_vp_elsewhere():
     assert engine.game_over_reason == "europe_control"
 
 
+def test_final_scoring_is_recorded_even_when_it_ends_on_another_reason():
+    """How often a game goes the distance is a calibration input (it sets
+    `public_cards.FINAL_SCORING_ODDS`), and it was read off the end reason.
+    But Final Scoring can end the game at 'vp' or 'europe_control' partway
+    through the regions, or leave a draw with no reason at all, and each of
+    those is a game that reached Final Scoring and was not counted."""
+    from struggler.engine import Engine, Region, Side
+
+    engine = Engine(seed=1)
+    engine.turn = 10
+    engine.vp = 19  # one region away from the 20 VP auto-victory
+    for cid, info in engine.board.countries.items():
+        if info.region is not Region.EUROPE:
+            engine.board.influence[cid]["US"] = info.stability
+    engine._finish_game()
+    assert engine.winner is Side.US
+    assert engine.game_over_reason == "vp", "ended before the last region was scored"
+    assert engine.final_scoring_ran
+
+    # A draw ends with no reason at all, and still reached Final Scoring.
+    drawn = Engine(seed=1)
+    drawn.turn = 10
+    drawn._finish_game()
+    assert drawn.is_terminal and drawn.winner is None and drawn.game_over_reason is None
+    assert drawn.final_scoring_ran
+
+    # A game that never got there says so, through a serialize round trip.
+    unfinished = Engine(seed=1)
+    assert not unfinished.final_scoring_ran
+    assert "final_scoring_ran" not in unfinished.serialize()
+    assert Engine.deserialize(engine.serialize()).final_scoring_ran
+
+
 def test_scoring_europe_below_control_still_pays_vp():
     """The fix must not turn every Europe scoring into a win: one Battleground
     short of Control is Domination, and pays."""

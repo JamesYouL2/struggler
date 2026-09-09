@@ -388,9 +388,31 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon:
     return value
 
 
-def region_vp(t: Terrain, pos: Position, region: Region) -> int:
+def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
+                      formosan_resolution: bool = False,
+                      shuttle_diplomacy: bool = False) -> tuple[frozenset[int], frozenset[int]]:
+    """`Board.scoring_overrides` over the snapshot: the (extra_battlegrounds,
+    ignored) index sets `region` scores under, given the named events."""
+    extra: frozenset[int] = frozenset()
+    ignored: frozenset[int] = frozenset()
+    if formosan_resolution and region is Region.ASIA:
+        taiwan = t.index['Taiwan']
+        if pos.control[taiwan] == US:
+            extra = frozenset((taiwan,))
+    if shuttle_diplomacy and region in (Region.MIDDLE_EAST, Region.ASIA):
+        for i in t.members[region]:
+            if t.battleground[i] and pos.control[i] == USSR:
+                ignored = frozenset((i,))
+                break
+    return extra, ignored
+
+
+def region_vp(t: Terrain, pos: Position, region: Region,
+              extra_battlegrounds: frozenset[int] = frozenset(),
+              ignored: frozenset[int] = frozenset()) -> int:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
-    the snapshot's control vector.
+    the snapshot's control vector, with the same scoring overrides (as country
+    indices rather than names).
 
     Europe's Control tier has no scoring value (controlling all of Europe is
     an immediate win, not a card outcome), so it stands in as +/-100, which is
@@ -401,10 +423,13 @@ def region_vp(t: Terrain, pos: Position, region: Region) -> int:
     control, battleground, home = pos.control, t.battleground, t.home
     counts = ([0, 0, 0], [0, 0, 0])  # controlled, battlegrounds, 10.1.2 bonus
     total_bg = 0
+    # Overrides are rare and this walk is the value function's hottest loop,
+    # so the empty case never pays for a set lookup.
+    promoted, dropped = bool(extra_battlegrounds), bool(ignored)
     for i in t.members[region]:
-        is_bg = battleground[i]
+        is_bg = battleground[i] or (promoted and i in extra_battlegrounds)
         total_bg += is_bg
-        holder = control[i]
+        holder = NOBODY if (dropped and i in ignored) else control[i]
         if holder == NOBODY:
             continue
         tally = counts[holder]
@@ -535,12 +560,21 @@ def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
     return _credit(adjusted, unit, live, gap, w)
 
 
-def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int) -> float:
+NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
+
+
+def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
+                overrides=None) -> float:
     """Every country, every region score, every region margin, for side `s`.
+
+    `overrides` maps a region to its `scoring_overrides` pair; regions absent
+    from it (and every region when it is None) score with none in force.
 
     Summed with `sum()`, not with an accumulator loop: CPython compensates
     float summation inside `sum()`, so the two disagree in the last bit."""
     sign = 1 if s == US else -1
+    ov = (lambda r: NO_OVERRIDES) if overrides is None else (
+        lambda r: overrides.get(r, NO_OVERRIDES))
     return (sum(country_value(t, pos, i, s, w, urgency, defcon) for i in range(len(t.ids)))
-            + w.region * sum(sign * region_vp(t, pos, region) for region in Region)
+            + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)
             + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))

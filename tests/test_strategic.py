@@ -3,6 +3,7 @@ import dataclasses
 
 import pytest
 
+from struggler.bots import evaluator as ev
 from struggler.bots.strategic import CARDS, StrategicPlayer, StrategicWeights
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
 from struggler.bots.train import evaluate, mutate
@@ -614,6 +615,66 @@ def test_first_mover_and_contested_reach():
     exclusive = bot._access(board, 'Israel', Side.USSR)
     assert contested < exclusive
     assert egypt > 0
+
+
+def _asia_scoring_engine(seed=4000, steps=160):
+    """A mid-game engine with the USSR holding an Asian Battleground, so the
+    scoring overrides have something to act on."""
+    engine = Engine.new_game(seed=seed, setup_bonus=True)
+    for _ in range(steps):
+        if engine.is_terminal:
+            break
+        d = engine.pending_decision
+        engine.step(d.options[0])
+    return engine
+
+
+def test_the_bot_scores_asia_the_way_the_engine_will_under_shuttle_diplomacy():
+    """The bot's region score is a second implementation of the engine's, and
+    for a long time it was the one that did not know about the per-scoring
+    overrides: with Shuttle Diplomacy in force it read Asia one tier off from
+    what playing Asia Scoring would actually award."""
+    from struggler.engine import Region
+
+    engine = _asia_scoring_engine()
+    assert engine.board.first_battleground_of(Side.USSR, Region.ASIA) is not None
+    engine.game_effects['shuttle_diplomacy'] = True
+    obs = engine.observe(Side.US)
+
+    bot = StrategicPlayer(StrategicWeights())
+    bot.prepare(obs)
+    # Whichever of the two regions the bot spends the one-shot on, that is the
+    # region the engine is asked to score, so the two must agree exactly.
+    region = bot._shuttle_region()
+    expected = engine._score_region_net(region)  # consumes the effect
+    assert 'shuttle_diplomacy' not in engine.game_effects
+    assert bot.region_score(bot.board, region, Side.US) == expected
+
+    # And without it, the plain score -- which is what makes the effect worth
+    # something to price at all.
+    plain = Engine.deserialize(engine.serialize())
+    assert plain._score_region_net(region) != expected
+
+
+def test_shuttle_diplomacy_is_credited_to_one_region_not_both():
+    """It drops a Battleground from a single scoring, so a whole-board value
+    that booked it in the Middle East *and* Asia would count a one-shot twice
+    -- and dropping a Battleground can cost a full tier, so the error is
+    tiers, not rounding."""
+    from struggler.engine import Region
+
+    engine = _asia_scoring_engine()
+    engine.game_effects['shuttle_diplomacy'] = True
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer(StrategicWeights())
+    bot.prepare(obs)
+
+    spent = bot._shuttle_region()
+    assert spent in (Region.MIDDLE_EAST, Region.ASIA)
+    other = Region.ASIA if spent is Region.MIDDLE_EAST else Region.MIDDLE_EAST
+    pos = bot._position
+    assert any(bot._overrides_for(spent, pos))
+    assert bot._overrides_for(other, pos) == ev.NO_OVERRIDES
 
 
 def test_region_margin_incremental_matches_full_recompute():

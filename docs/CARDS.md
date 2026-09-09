@@ -237,9 +237,16 @@ Battleground is dropped at the next Middle East/Asia scoring, then
 consumed), North Sea Oil (OPEC becomes ineligible game-long; the US plays
 one extra action round this turn), Arms Race (scores off the Military
 Operations track), Ussuri River Skirmish (take the China Card from the
-USSR, or +4 Influence in Asia). `board.region_tier` takes optional
-`extra_battlegrounds`/`ignored` sets so these adjustments are additive and
-leave every other caller unchanged.
+USSR, or +4 Influence in Asia). `Board.region_tier` and
+`Board.score_region` take optional `extra_battlegrounds`/`ignored` sets so
+these adjustments are additive and leave every other caller unchanged, and
+`Board.scoring_overrides` derives the pair for a region and a set of active
+events. `Engine._scoring_overrides` is now only "which events are in force,
+and which one this scoring spends" -- Formosan Resolution persists, Shuttle
+Diplomacy is consumed by the first Middle East or Asia scoring, whether or
+not the USSR held a Battleground for it to drop. The strategic bot reads the
+same derivation through `evaluator.scoring_overrides`, so these two are the
+only flag events it can price; see docs/STRATEGIC_AI.md.
 
 **A reactive hook consulted from board mechanics.** NORAD
 (`game_effects["norad"]`, checked in `Engine._change_defcon`): while Canada
@@ -335,6 +342,8 @@ at 126 rather than as the certain win it was.
 
 `Board.score_region` still raises rather than returning a number for that
 tier, since there is no number to return; ask `Board.region_tier` instead.
+That is why `Engine._score_region_net` checks for Europe Control before it
+asks `score_region` for a number at all.
 `Board.controls_all_of_europe` is gone: it encoded the wrong condition and is
 what the engine was reading.
 

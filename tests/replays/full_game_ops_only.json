@@ -8185,6 +8185,7 @@
         "decision_stack": [],
         "winner": "US",
         "game_over_reason": "final_vp",
+        "final_scoring_ran": true,
         "phase": "complete",
         "include_optional": false,
         "draw_pile": [

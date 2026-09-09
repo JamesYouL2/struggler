@@ -53,8 +53,12 @@ action = bot.choose_action(observation, history)
   1.0 is a small-sample observation, not a guarantee. This selected cohort
   includes different bids and held-card losses, and needs broader validation.
   `scripts/game_endings.py` remains a bot-report diagnostic, not the source
-  of this table. Its `final_vp` filter misses draws and VP/Europe wins
-  during the engine's final-scoring procedure.
+  of this table. It used to filter on the end reason `final_vp`, which
+  missed draws and the VP/Europe wins that land partway through the
+  engine's final-scoring procedure; the engine now records
+  `Engine.final_scoring_ran` and serializes it, the benchmark writes it per
+  game as `final_scoring`, and the script counts that (falling back to the
+  old filter for reports written before the flag existed).
 - The opening setup is a book, not a search (`OPENING_BOOK`): USSR
   East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
   European Unrest; Austria reaches Italy and West Germany); US West
@@ -84,8 +88,23 @@ action = bot.choose_action(observation, history)
   event raises, chance takes its middle roll, and an event the sandbox
   cannot drive falls back to the 0.8 x Ops estimate. Before this only 23
   events were simulated, and De-Stalinization was priced at 4.8, below its
-  Ops. Flag-only events (NATO, Warsaw Pact, Formosan Resolution, NORAD)
-  move no influence and so value 0; that is a known gap.
+  Ops. Flag-only events (NATO, Warsaw Pact, NORAD, Nuclear Subs, Quagmire,
+  Bear Trap) move no influence and so value 0; that is a known gap.
+- The two flag events that change *scoring* rather than influence are
+  priced, because region scoring takes the same per-scoring overrides the
+  engine applies. `Board.scoring_overrides` derives them -- Formosan
+  Resolution promoting a US-held Taiwan to a Battleground in Asia, Shuttle
+  Diplomacy dropping one USSR-held Battleground from the Middle East or
+  Asia -- and `evaluator.scoring_overrides` mirrors it in index space. The
+  bot reads which are in force from `observation.game_effects`
+  (`strategic.scoring_flags`), and the event sandbox reads them from the
+  sandbox engine after the event fires, which is what makes an event whose
+  only effect is turning one on worth something. Overrides are derived per
+  call rather than frozen at `prepare`, because they read control: taking
+  Taiwan is what switches Formosan Resolution on, and the placement that
+  does it has to see that. Shuttle Diplomacy is one-shot across two
+  regions, so a whole-board value spends it once, on the region whose
+  scoring is nearer (`_shuttle_region`); see docs/LIMITATIONS.md.
 - Access is the battlegrounds a stake lets its side reach (`_access`),
   each worth its control value over its stability: full weight when this
   holding alone reaches one, `access_redundant` when another holding
@@ -186,6 +205,12 @@ Scoring urgency is the third input, passed as a vector. It depends on the
 observation and never on the board, so `prepare` computes it once per
 decision instead of memoising it country by country mid-search.
 
+The scoring overrides are the fourth, and they are *not* a vector: they read
+control, so `region_vp` takes them per call as index sets, and
+`board_value` takes a region-keyed map of them. `None` and an empty map mean
+what an unmodified board means, which is why every caller that does not know
+about Formosan Resolution or Shuttle Diplomacy is unaffected.
+
 **The one rule.** `StrategicPlayer.board` and `StrategicPlayer._position`
 describe the same position, and every write goes through `_set_influence` or
 `_add_influence` (or through `prepare`, which reloads both). A write straight
@@ -206,6 +231,19 @@ reachable. The radius lives beside the terms that set it, and
 `test_value_dependents_covers_every_country_a_change_can_move` moves one
 country and checks that nothing outside the claimed set moved with it. With
 `wipe` on the radius is the whole board, since `coup_targets` counts it.
+
+**One scoring implementation.** The engine no longer has its own: region
+scoring is `Board.score_region`, with the per-scoring overrides from
+`Board.scoring_overrides`, and `Engine._score_region_net` adds only the two
+things that are the engine's business -- which events are in force, and the
+Europe Control automatic victory, which has no VP for either implementation
+to return. `Board.region_bonus_vp` is gone with it; it existed to let the
+engine assemble a score out of parts `score_region` already assembles.
+`evaluator.region_vp` remains a second implementation, in index space and on
+purpose, and `test_region_vp_matches_the_engine_under_every_scoring_override`
+holds it to the first over every combination of overrides. `region_tier` is a
+third partial one, kept because callers want the tier itself; a corpus test
+pins it to `score_region` too.
 
 This structure exists because the evaluator twice shipped a memo keyed on
 less state than the terms actually read. `_access` reads influence two hops
