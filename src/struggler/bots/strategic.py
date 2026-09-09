@@ -202,6 +202,7 @@ class StrategicPlayer:
         self._planner = None
         self._event_basis = None
         self._base_regions = None
+        self._base_margins = None
         self._obs = None
         self._scoring_weights = None
 
@@ -225,6 +226,7 @@ class StrategicPlayer:
         self._event_basis = None
         self._region_cache = {}
         self._base_regions = {}
+        self._base_margins = {}
         self._country_cache = {}
         self._ops_values = {}
         self._relocation_gain = None
@@ -242,7 +244,7 @@ class StrategicPlayer:
             return sorted(((self.safety_key(observation, a), a) for a in decision.options),
                           key=lambda pair: pair[0], reverse=True)
         finally:
-            self._base_regions = None  # callers may move the board after ranking
+            self._base_regions = self._base_margins = None  # callers may move the board after ranking
 
     def _log_choice(self, obs, decision, ranked):
         """Explain the ranking: forced losses at WARNING, accepted risk at INFO, everything at DEBUG."""
@@ -392,6 +394,17 @@ class StrategicPlayer:
         # domination gap is in presence units.
         return w.battleground * sw, sw >= w.margin_live, (domination_vp - presence_vp) / presence_vp
 
+    @staticmethod
+    def _margin_bg_total(fractions: dict) -> float:
+        """Sum the per-member battleground fractions in member order. The
+        full walk adds a 0.0 for every other member and `x + 0.0 == x`, so
+        this is bitwise identical to it, which keeps a swapped aggregate from
+        reordering near-ties against a freshly computed one."""
+        total = 0.
+        for _, value in sorted(fractions.items()):
+            total += value
+        return total
+
     def _margin_credit(self, agg, unit: float, live: bool, gap: float) -> float:
         """Net US credit from the aggregates {side: [countries, battlegrounds, best progress]}."""
         w = self.weights
@@ -412,48 +425,79 @@ class StrategicPlayer:
         unit, live, gap = self._margin_unit(region, members)
         inf = board.influence
         agg = {Side.US: [0, 0., 0.], Side.USSR: [0, 0., 0.]}
-        for cid in members:
+        fractions = {Side.US: {}, Side.USSR: {}}
+        for index, cid in enumerate(members):
             v = inf[cid]
             for side, (c, bgf, prog) in zip((Side.US, Side.USSR), self._margin_contribution(board.countries[cid], v['US'], v['USSR'])):
                 a = agg[side]
                 a[0] += c
                 a[1] += bgf
+                if bgf:
+                    fractions[side][index] = bgf
                 if prog > a[2]:
                     a[2] = prog
-        return self._margin_credit(agg, unit, live, gap), agg, unit, live, gap
+        return self._margin_credit(agg, unit, live, gap), agg, unit, live, gap, fractions, members
 
-    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
-        """The region margin with `cid`'s influence changed from `before` to
-        the board's current values, from the cached aggregates of the
-        pre-change board: one country's contribution swapped, no region
-        loop (falls back to a full pass only when the best progress may
-        have been this country's)."""
-        members = self._region_members.get(region) if hasattr(self, '_region_members') else board.countries_in(region)
-        cache = getattr(self, '_region_cache', None)
-        if cache is None or board is not self.board:
-            return self.region_margin(board, region, side)
-        current = dict(board.influence[cid])
-        board.influence[cid].update(before)
-        try:
-            key = ('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, members)))
-            hit = cache.get(key)
-            if hit is None:
-                hit = cache[key] = self._region_margin_uncached(board, region, members)
-        finally:
-            board.influence[cid].update(current)
-        _, agg, unit, live, gap = hit
+    def _margin_basis(self, board: Board, region: Region):
+        """The region margin's aggregates for the board as this ranking found
+        it: `(net, aggregates, unit, live, gap)`. Cached per region under the
+        same contract as `_base_regions` (a caller that commits a change
+        mid-ranking clears both), so the hot path neither walks the region
+        nor builds an influence-keyed cache entry."""
+        base = self._base_margins
+        hit = None if base is None else base.get(region)
+        if hit is None:
+            members = self._region_members.get(region) if hasattr(self, '_region_members') \
+                else board.countries_in(region)
+            hit = self._region_margin_uncached(board, region, members)
+            if base is not None:
+                base[region] = hit
+        return hit
+
+    def _margin_swapped(self, basis, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
+        """The region margin after `cid` moved from `before` to the board's
+        current influence, by swapping that one country's contribution into
+        `basis`'s aggregates. Falls back to a full pass only when the country
+        may have held the region's best progress toward presence."""
+        _, agg, unit, live, gap, fractions, members = basis
         info = board.countries[cid]
+        current = board.influence[cid]
+        index = members.index(cid)
         old = self._margin_contribution(info, before['US'], before['USSR'])
         new = self._margin_contribution(info, current['US'], current['USSR'])
         adjusted = {}
         for s_, o, n in zip((Side.US, Side.USSR), old, new):
             a = agg[s_]
             if o[2] > 0 and o[2] >= a[2] and n[2] < o[2]:
-                net = self.region_margin(board, region, side)  # this country held the best progress
-                return net
-            adjusted[s_] = [a[0] - o[0] + n[0], a[1] - o[1] + n[1], max(a[2], n[2])]
+                return self.region_margin(board, region, side)
+            if n[1] == o[1]:
+                bg_total = a[1]  # unchanged, and exactly as the walk summed it
+            else:
+                swapped = dict(fractions[s_])
+                if n[1]:
+                    swapped[index] = n[1]
+                else:
+                    swapped.pop(index, None)
+                bg_total = self._margin_bg_total(swapped)
+            adjusted[s_] = [a[0] - o[0] + n[0], bg_total, max(a[2], n[2])]
         net = self._margin_credit(adjusted, unit, live, gap)
         return net if side is Side.US else -net
+
+    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
+        """`_margin_swapped` against the pre-change board's own aggregates.
+        Kept for callers (and the parity test) that do not hold a basis."""
+        cache = getattr(self, '_region_cache', None)
+        if cache is None or board is not self.board:
+            return self.region_margin(board, region, side)
+        current = dict(board.influence[cid])
+        board.influence[cid].update(before)
+        try:
+            members = self._region_members.get(region) if hasattr(self, '_region_members') \
+                else board.countries_in(region)
+            basis = self._region_margin_uncached(board, region, members)
+        finally:
+            board.influence[cid].update(current)
+        return self._margin_swapped(basis, board, region, side, cid, before)
 
     def country_value(self, board: Board, cid: str, side: Side) -> float:
         w = self.weights
@@ -695,7 +739,12 @@ class StrategicPlayer:
             region_before = self.region_score(board, region, side)
             if base is not None:
                 base[region] = region_before
-        margin_before = self.region_margin(board, region, side)
+        # The margin's aggregates for the unchanged board, cached per region
+        # for this ranking exactly like `region_before` above: the trial
+        # change below then swaps this one country's contribution, so no
+        # call here walks the region or builds a per-influence cache key.
+        basis = self._margin_basis(board, region)
+        margin_before = basis[0] if side is Side.US else -basis[0]
         before = self.country_value(board, cid, side) + self.weights.region * urgency * region_before + margin_before
         controller = board.control(cid)
         original = dict(board.influence[cid])
@@ -706,7 +755,7 @@ class StrategicPlayer:
             # the margin term (progress toward presence) can move on either.
             region_after = (region_before if board.control(cid) is controller else
                             self.region_score(board, region, side))
-            margin_after = self.region_margin_after(board, region, side, cid, original)
+            margin_after = self._margin_swapped(basis, board, region, side, cid, original)
             return (self.country_value(board, cid, side) + self.weights.region * urgency * region_after
                     + margin_after - before)
         finally:
@@ -818,10 +867,12 @@ class StrategicPlayer:
                     total += gain * cost
                     board.influence[c][side.value] += 1
                 self._base_regions = {} if self._base_regions is not None else None
+                self._base_margins = {} if self._base_margins is not None else None
         finally:
             for c, inf in original.items():
                 board.influence[c].update(inf)
             self._base_regions = {} if self._base_regions is not None else None
+            self._base_margins = {} if self._base_margins is not None else None
         return total
 
     def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:

@@ -428,7 +428,12 @@ def test_region_margin_incremental_matches_full_recompute():
             fast = bot.region_margin_after(board, region, Side.USSR, cid, original)
             bot._region_cache.pop(('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, bot._region_members[region]))), None)
             full = bot.region_margin(board, region, Side.USSR)
-            assert abs(fast - full) < 1e-9, (cid, own, opp, fast, full)
+            # Bitwise, not within a tolerance: a swapped aggregate that is
+            # only close reorders near-ties against a freshly computed one,
+            # and `_investment`'s strict `>` then picks a different point
+            # count. The swap re-sums the per-member battleground fractions
+            # in member order, which is exactly what the full walk does.
+            assert fast == full, (cid, own, opp, fast, full)
         finally:
             board.influence[cid].update(original)
 
