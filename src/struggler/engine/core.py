@@ -681,12 +681,11 @@ class Engine:
                 self._award_vp(side.opponent, deficit)
                 if self.is_terminal:
                     return
-        # We Will Bury You: the USSR scores 3 VP at the end of the turn unless
-        # the US cancelled it (by playing UN Intervention, see _handle_play_mode).
-        if self.turn_effects.get("we_will_bury_you"):
-            self._award_vp(Side.USSR, 3)
-            if self.is_terminal:
-                return
+        # We Will Bury You is settled in the US Action Round it named
+        # (_settle_we_will_bury_you), not here. A flag still standing at end
+        # of turn means that round never came -- the US had none left when the
+        # card was played -- and the FAQ is explicit that the VP are then not
+        # awarded at all. It lapses with the rest of turn_effects below.
         # DEFCON recovers by one at the end of every turn.
         self._change_defcon(+1, caused_by=Side.US)
         # A China Card passed this turn becomes available to its new owner.
@@ -744,6 +743,8 @@ class Engine:
         Final scoring reuses the same board mechanic as the scoring cards, so
         every region contributes its Presence/Domination/Control tier once.
         """
+        # Set before the first region is scored, not after: _scoring_overrides
+        # reads it to keep Shuttle Diplomacy out of Final Scoring.
         self._final_scoring_ran = True
         # Europe first, whatever order `Region` happens to list it in:
         # Control of Europe is an automatic victory at Final Scoring too, and
@@ -1101,6 +1102,13 @@ class Engine:
         otherwise its ordinary card play."""
         trap_key = self._trap_key_for(side)
         if trap_key is not None:
+            # A trapped round is spent on the discard and the roll, so no card
+            # is played and UN Intervention cannot be either: We Will Bury You
+            # settles here rather than waiting for a _handle_play_mode that
+            # will never come.
+            self._settle_we_will_bury_you(side)
+            if self.is_terminal:
+                return
             self._push_trap_step(side, trap_key)
         else:
             self._push_action_round_play(side)
@@ -1183,6 +1191,14 @@ class Engine:
 
     def _handle_missile_envy_forced_play(self, side: Side, cid: str) -> None:
         self.game_effects.pop("missile_envy_forced", None)
+        # This path bypasses _handle_play_mode entirely (there is no mode to
+        # choose: the card must be used for Operations), so We Will Bury You
+        # has to be settled here too. A forced Missile Envy play is exactly
+        # the case the FAQ walks through -- "Missile Envy has to be his next
+        # play" -- and it is not UN Intervention, so the VP are earned.
+        self._settle_we_will_bury_you(side)
+        if self.is_terminal:
+            return
         self._file_card(side, cid, fired=False)
         self._push_ops_type(side, self._effective_ops(side, self.cards[cid]))
 
@@ -1236,15 +1252,25 @@ class Engine:
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")
-        # UN Intervention: if this is an opponent's (implemented, eligible) event
-        # card and the player is holding UN Intervention, they may play the card
-        # for Ops with its event cancelled (discarding UN Intervention).
+        # UN Intervention: if this is an opponent's event card and the player
+        # is holding UN Intervention, they may play the card for Ops with its
+        # event cancelled (discarding UN Intervention).
+        #
+        # The card must be "an opponent's associated Event, defined as a Red
+        # or White Star (Rule 2.2.2) *regardless of whether the Event can
+        # occur or not under Rule 5.2*" (FAQ, card #32) -- so no eligibility
+        # check here. An ineligible event fires nothing when the card is
+        # played for plain Ops either, which makes the two modes look
+        # interchangeable; they are not. Spending UN Intervention is how the
+        # US cancels We Will Bury You, and requiring a *live* Soviet event to
+        # pair it with was denying the US a cancellation the FAQ describes
+        # ("if he is able to discard a soviet event along with it he would be
+        # able to cancel the victory points").
         if (
             self.events_enabled
             and cid != RULES["un_intervention_id"]
             and self._is_opponent_event(side, card)
             and self._has_event(cid)
-            and EVENTS[cid].eligible(self, side)
             and self._holds_un_intervention(side, cid)
         ):
             modes.append("un_intervention")
@@ -1276,6 +1302,43 @@ class Engine:
             return open_slots > 0
         return un_id in self.hands[side.value]
 
+    def _we_will_bury_you_window_is_now(self) -> bool:
+        """Whether the play now being resolved is the US Action Round that We
+        Will Bury You named -- the one round in which UN Intervention can
+        cancel it."""
+        return (
+            "we_will_bury_you" in self.turn_effects
+            and self.turn_effects.get("we_will_bury_you_window") == self._ars_played - 1
+        )
+
+    def _settle_we_will_bury_you(self, side: Side) -> None:
+        """Award We Will Bury You's 3 VP the moment the US spends its named
+        Action Round on anything other than UN Intervention.
+
+        The card reads "Unless UN Intervention is played as an Event on the US
+        player's next Action Round, USSR gains 3 VP prior to any US VP award",
+        and the FAQ turns that clause into two rules this settles:
+
+        - The VP land *before* whatever the US is about to play, so a USSR
+          player on 17 VP wins outright even if the US round would have paid
+          them 2 VP back: "the text of We Will Bury You was played prior to
+          Duck and Cover, its text must be resolved first."
+        - There has to be a named Action Round at all. "What happens if the US
+          player plays We Will Bury You as his last Action before Final
+          Scoring? A. No, there has to be a next Action Round for the VP to be
+          awarded" -- `_we_will_bury_you` leaves the window unset in that
+          case, and the flag is then simply dropped at end of turn.
+
+        Settling it at end of turn instead got both wrong: the required
+        military operations award (and any other US VP that round) would land
+        first, which is precisely the ordering the FAQ works through.
+        """
+        if side is not Side.US or not self._we_will_bury_you_window_is_now():
+            return
+        self.turn_effects.pop("we_will_bury_you", None)
+        self.turn_effects.pop("we_will_bury_you_window", None)
+        self._award_vp(Side.USSR, 3)
+
     def _handle_play_mode(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = decision.context["card"]
@@ -1286,6 +1349,13 @@ class Engine:
             self.turn, self.action_round, side.value, cid, card.side.value, card.ops, mode,
             self.defcon, len(self.hands[side.value]),
         )
+
+        # "USSR gains 3 VP prior to any US VP award" -- so this is settled
+        # before the play resolves, not after it and not at end of turn.
+        if mode != "un_intervention":
+            self._settle_we_will_bury_you(side)
+            if self.is_terminal:
+                return
 
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
@@ -1318,8 +1388,7 @@ class Engine:
             # Action Round, the USSR receives 3 VP" -- that Action Round and
             # no other. Any US play later in the turn used to defuse it, so
             # the US could wait for a convenient opponent card to pair with.
-            if side is Side.US and \
-                    self.turn_effects.get("we_will_bury_you_window") == self._ars_played - 1:
+            if side is Side.US and self._we_will_bury_you_window_is_now():
                 self.turn_effects.pop("we_will_bury_you", None)
                 self.turn_effects.pop("we_will_bury_you_window", None)
             if self.turn_effects.pop("u2_incident", None):
@@ -2052,9 +2121,20 @@ class Engine:
 
         # -1 per defender-controlled country adjacent to the target, plus the
         # target itself when the war counts it (e.g. Arab-Israeli War).
+        #
+        # 2.1.5: the two superpower spaces "provide the same benefits as
+        # 'adjacent controlled countries' for the purposes of events, and
+        # realignments". They are nodes in the adjacency graph but `control`
+        # returns None for them, so they have to be asked for separately --
+        # exactly as `_realignment_bonus` already does. The FAQ calls this
+        # out under Brush War as a reversal of an earlier ruling: a US Brush
+        # War on Afghanistan, or a USSR one on Mexico, is -1 for the
+        # superpower next door.
         penalty = sum(
             1 for n in self.board.neighbors(target) if self.board.control(n) is defender
         )
+        if self.board.is_adjacent(defender.value, target):
+            penalty += 1
         if ctx["count_target_control"] and self.board.control(target) is defender:
             penalty += 1
 
@@ -2088,11 +2168,18 @@ class Engine:
           it is not consumed here.
         - Shuttle Diplomacy: spent at the *next* scoring of the Middle East
           or Asia, whichever comes first -- consumed even when the USSR holds
-          no Battleground there for it to drop.
+          no Battleground there for it to drop. Printed text: "Does not count
+          for Final Scoring at the end of Turn 10" (quoted in the FAQ under
+          card #73), so a copy still in force when the game ends simply never
+          takes effect. That is the opposite of Formosan Resolution, whose
+          Deluxe text adds "or during Final Scoring at the end of Turn 10" --
+          the two sit next to each other here because it is easy to assume
+          one rule covers both.
         """
-        shuttle = bool(self.game_effects.get("shuttle_diplomacy")) and region in (
-            Region.MIDDLE_EAST,
-            Region.ASIA,
+        shuttle = (
+            bool(self.game_effects.get("shuttle_diplomacy"))
+            and not self._final_scoring_ran
+            and region in (Region.MIDDLE_EAST, Region.ASIA)
         )
         overrides = self.board.scoring_overrides(
             region,

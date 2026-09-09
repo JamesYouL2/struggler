@@ -1304,8 +1304,10 @@ def _cuban_missile_crisis_defuse_choice(
 
 @event("We_Will_Bury_You")
 def _we_will_bury_you(engine: "Engine", side: Side) -> None:
-    # Degrade DEFCON one level; the USSR scores 3 VP at end of turn unless the US
-    # plays UN Intervention (which clears the flag, see _handle_play_mode). The
+    # Degrade DEFCON one level; the USSR scores 3 VP in the US's next Action
+    # Round unless the US spends it on UN Intervention (settled by
+    # Engine._settle_we_will_bury_you, which is also where the "no next Action
+    # Round means no VP at all" half of the ruling lives). The
     # DEFCON degrade is blamed on whoever played the card (`side`), like every
     # other event-driven DEFCON change (Olympic Games, Summit, Salt
     # Negotiations, Cuban Missile Crisis, ...) -- NOT on the card's own
@@ -1315,7 +1317,8 @@ def _we_will_bury_you(engine: "Engine", side: Side) -> None:
     if not engine.is_terminal:
         engine.turn_effects["we_will_bury_you"] = True
         # The window is the US's *next* Action Round, fixed now. None when
-        # the US has none left this turn, which makes it uncancellable.
+        # the US has none left this turn -- and with no window there is no
+        # round in which the VP can be earned, so the flag simply lapses.
         window = engine._next_play_index_for(Side.US)
         if window is not None:
             engine.turn_effects["we_will_bury_you_window"] = window

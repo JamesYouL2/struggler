@@ -58,6 +58,15 @@ code disagrees with the game, and several were defects until recently.
 | Formosan Resolution's Taiwan promotion applies during Final Scoring, not only to the Asia Scoring card. | FAQ, card #35 | `Board.scoring_overrides` |
 | Southeast Asia "is scored normally as part of the Asian scoring card"; the Southeast Asia Scoring card scores only that subregion. | FAQ | `_score_southeast_asia` |
 | A Realignment needs at least one enemy Influence in the target: "Despite previous rulings, at least one enemy influence must be present." | FAQ | `_usable_coup_realign_target` |
+| The two superpower spaces "provide the same benefits as 'adjacent controlled countries' for the purposes of events, and realignments". So a war roll is -1 for the defender's own superpower next to the target, not only for its countries. The FAQ flags this under Brush War as "a REVERSAL of a previous ruling due to a change in the rules". | Rules §2.1.5; FAQ, Brush War | `_handle_war_roll`, `_realignment_bonus` |
+| Shuttle Diplomacy "does not count for Final Scoring at the end of Turn 10", and does not affect Summit or Kitchen Debates. Formosan Resolution is the opposite: its Deluxe text adds "or during Final Scoring at the end of Turn 10". | FAQ, cards #73 and #35 | `_scoring_overrides`, `_finish_game` |
+| We Will Bury You: "Unless UN Intervention is played as an Event on the US player's next round, USSR gains 3 VP **prior to any US VP award**." The FAQ works the auto-victory case through — "the text of We Will Bury You was played prior to Duck and Cover, its text must be resolved first" — and rules out the no-window case: "there has to be a next Action Round for the VP to be awarded." | Card face; FAQ #50 | `_settle_we_will_bury_you` |
+| UN Intervention must be paired with "an opponent's associated Event, defined as a Red or White Star (Rule 2.2.2) regardless of whether the Event can occur or not under Rule 5.2". | FAQ, card #32 | `_play_modes` |
+| Ops granted *by an event* (ABM Treaty, CIA Created, Lone Gunman, Glasnost) are not modified: "The reduction is for any use of Ops, including Space Race. Ops from events are not affected." Nor may they be spent on the Space Race: "players must play a card in order to advance". | FAQ, Red Scare/Purge and §6.4 | `push_event_operations`, `_ops_type_options` |
+| Chernobyl bars only Influence placed with Operations. "Realignments do not add influence, so the USSR player could still make a Realignment roll. Coups are also allowed... the Soviet player could also add Influence in the selected region through the play of events." | FAQ, card #94 | `_chernobyl_blocks` |
+| Truman Doctrine's "uncontrolled" means controlled by neither power, not merely un-Soviet. | FAQ, card #19 | `push_event_influence(requires_uncontrolled=True)` |
+| Rule 9.5: the China Card may not be played as a discard required by an event, so it is never a Quagmire/Bear Trap or Blockade candidate. It is not in `hands`, which is what keeps it out. | Rules §9.5; FAQ, card #6 | `_trap_discard_candidates`, `_payable_cards` |
+| Forcing yourself to discard a scoring card is legal — "The illegal act would be holding the scoring card" — which is why Five Year Plan draws from the whole hand. | FAQ §5.0 and card #5 | `push_random_discard` |
 | The Chinese Civil War space is the **optional variant** of rules section 12. Within it the space "does not affect any scoring card" and the US "may not use Operations or events of any kind" on it. This engine does not implement the variant, and the space is not on its map. | Rules §12.1 | `data/countries.json` |
 
 ## Reading the sources for defects
@@ -70,6 +79,15 @@ different answer. Two shapes accounted for most of what was found —
   Containment's ceiling was not; the Military Operations track had neither.
 - **A conditional clause dropped.** U-2 Incident's second VP, Tear Down This
   Wall's "prevents" as well as "cancels", AWACS setting a flag nothing read.
+- **A rule read as if it only covered the ordinary case.** Rule 2.1.5's
+  superpower adjacency was implemented for Realignments and not for war
+  rolls, because `Board.control` returns `None` for the superpower nodes and
+  the war code asked it the obvious question. Nothing looked wrong.
+- **An effect that outlives the clause bounding it.** Shuttle Diplomacy is
+  consumed by the next Middle East or Asia scoring, so it usually never
+  reaches Final Scoring — until no such scoring card comes up. We Will Bury
+  You's 3 VP were banked to end of turn, which is the right *amount* on the
+  wrong *tick*, and only auto-victory can tell the difference.
 
 And a warning: a comment claiming a rule is "not modelled" is not evidence
 that it does not matter. The China Card + Vietnam Revolts stack was dismissed

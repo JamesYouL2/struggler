@@ -106,7 +106,14 @@ Saudis.
 
 **War family** (attacker chosen, seeded CHANCE roll). Korean War and
 Arab-Israeli War have fixed targets; Indo-Pakistani War, Iran-Iraq War and
-Brush War let the attacker pick via `WAR_TARGET`.
+Brush War let the attacker pick via `WAR_TARGET`. The roll is -1 per
+defender-Controlled country adjacent to the target, and the defender's own
+superpower space counts as one of those (rule 2.1.5, and see
+docs/RULES_SOURCES.md): a US Brush War on Afghanistan or a USSR one on
+Mexico is a point harder than the neighbours alone suggest. Military
+Operations come from the Event text, not the card's Ops value (8.2.3), and
+go to the card's own side even when the opponent played it for Ops
+(8.2.4).
 
 **Events that conduct Operations** (`push_event_operations`). CIA Created,
 Lone Gunman, ABM Treaty. Glasnost (4 Ops if The Reformer is active) and
@@ -250,8 +257,12 @@ flags also gate Arab-Israeli War (Camp David), Socialist Governments (Iron
 Lady) and Solidarity (John Paul II).
 
 **Rule-modifiers.** UN Intervention — a `un_intervention` play mode that
-spends the held UN Intervention card to use an opponent's (implemented,
-eligible) event card for Ops with its event cancelled. UN Intervention
+spends the held UN Intervention card to use an opponent's event card for
+Ops with its event cancelled. The partner card need only be
+opponent-associated: the mode is offered "regardless of whether the Event
+can occur or not" (FAQ card #32), because spending UN Intervention is also
+how the US cancels We Will Bury You, and pairing it with a Soviet event
+that happens to be dead is a real line. UN Intervention
 itself has no standalone event, so `_play_modes` excludes it from the
 `"event"` mode (alongside the China Card) when it is the card being
 played directly — it is Ops-only in that case, and the combo only
@@ -277,8 +288,11 @@ the flagged side loses the game, checked in `_handle_coup_roll`; the
 at-risk side may defuse — Cuba for the USSR, West Germany or Turkey for the
 US — offered fresh at the start of each of its action rounds for the rest
 of the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
-−1; USSR +3 VP at end of turn unless the US plays UN Intervention, which
-clears the `we_will_bury_you` turn effect).
+−1; the USSR's 3 VP are settled in the US Action Round the card named, by
+`Engine._settle_we_will_bury_you`, *before* whatever the US plays there —
+"USSR gains 3 VP prior to any US VP award" — unless that play is UN
+Intervention. If the US had no Action Round left when the card fired there
+is no window and no VP at all; the flag lapses at end of turn).
 
 **"Discard a 3+-Ops card or suffer" branch.** The modified Ops value, not
 the printed one (FAQ 7.4; see docs/RULES_SOURCES.md). Blockade and Latin
@@ -288,9 +302,11 @@ Ask Not… does.
 **Scoring-time modifiers and extra rounds** (`_scoring_overrides`,
 `_total_action_rounds`/`_side_for_play_index`). Formosan Resolution (Taiwan
 scores as an Asian Battleground while the US controls it; nullified once
-the US plays the China Card), Shuttle Diplomacy (one USSR-controlled
-Battleground is dropped at the next Middle East/Asia scoring, then
-consumed), North Sea Oil (OPEC becomes ineligible game-long; the US plays
+the US plays the China Card, and unlike Shuttle Diplomacy it *does* apply
+to Final Scoring), Shuttle Diplomacy (one USSR-controlled Battleground is
+dropped at the next Middle East/Asia scoring, then consumed; "does not
+count for Final Scoring at the end of Turn 10", so a copy still in force
+when the game ends never takes effect), North Sea Oil (OPEC becomes ineligible game-long; the US plays
 one extra action round this turn), Arms Race (scores off the Military
 Operations track), Ussuri River Skirmish (take the China Card from the
 USSR, or +4 Influence in Asia). `Board.region_tier` and
@@ -318,9 +334,11 @@ Influence to a country where it already has some, via
 `_push_norad_influence`. A stable DEFCON 2 does not refire it, and Quagmire
 nullifies it.
 
-**Immediate conditionals.** Nixon Plays the China Card (eligible only while
-the USSR holds the China Card; the USSR either discards a non-scoring card
-to keep it, or the US takes it face down and unusable this turn).
+**Immediate conditionals.** Nixon Plays the China Card — two exhaustive,
+unconditional branches, matching the printed card: if the US already holds
+the China Card, +2 VP for the US; otherwise the US takes it, face down and
+unusable this turn (card text overriding rule 9.4's face-up default). There
+is no discard-to-keep option and no eligibility condition.
 
 **A hidden peek at the draw pile.** Our Man in Tehran. The examined cards
 live in `Engine._our_man_queue`/`_our_man_kept` — plain serialized state

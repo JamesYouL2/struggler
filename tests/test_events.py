@@ -1210,6 +1210,51 @@ def test_iran_contra_penalises_only_us_realignment():
     assert engine._realignment_modifier(Side.USSR) == 0
 
 
+def _resolve_war_roll(engine: Engine, attacker: Side, target: str, value: int,
+                      win_from: int = 3, vp: int = 1) -> None:
+    """Drive a war roll against `target` with a fixed die `value` (bypassing
+    the RNG), the way `_resolve_coup_roll` does for coups."""
+    engine._push(
+        Side.CHANCE, DecisionKind.WAR_ROLL,
+        (Action(DecisionKind.WAR_ROLL, {"value": value}),),
+        {"card": "Brush_War", "attacker": attacker.value, "target": target,
+         "win_from": win_from, "vp": vp, "count_target_control": True},
+    )
+    engine.step(Action(DecisionKind.WAR_ROLL, {"value": value}))
+
+
+def test_war_roll_counts_the_defender_superpower_as_an_adjacent_controlled_country():
+    """2.1.5: the superpower spaces "provide the same benefits as 'adjacent
+    controlled countries' for the purposes of events, and realignments". The
+    FAQ spells it out under Brush War, as a reversal of an earlier ruling. A
+    US Brush War on Afghanistan is -1 for the USSR next door, so a raw 3 --
+    otherwise a win on Brush War's modified 3-6 -- fails."""
+    engine = _bare()
+    engine.board.influence["Afghanistan"] = {"US": 0, "USSR": 0}
+    _resolve_war_roll(engine, Side.US, "Afghanistan", value=3)
+    assert engine.vp == 0, "3 - 1 for the USSR space is below Brush War's 3"
+
+    # One higher clears it, which pins the penalty at exactly 1.
+    won = _bare()
+    won.board.influence["Afghanistan"] = {"US": 0, "USSR": 0}
+    _resolve_war_roll(won, Side.US, "Afghanistan", value=4)
+    assert won.vp == 1
+
+
+def test_war_roll_superpower_penalty_is_only_the_defender_own_superpower():
+    """Mexico is adjacent to the US space, so it costs a USSR attacker -- and
+    a US one nothing."""
+    us = _bare()
+    us.board.influence["Mexico"] = {"US": 0, "USSR": 0}
+    _resolve_war_roll(us, Side.US, "Mexico", value=3)
+    assert us.vp == 1, "the US space is the attacker's own, not a penalty"
+
+    ussr = _bare()
+    ussr.board.influence["Mexico"] = {"US": 0, "USSR": 0}
+    _resolve_war_roll(ussr, Side.USSR, "Mexico", value=3)
+    assert ussr.vp == 0
+
+
 def test_flower_power_scores_ussr_when_us_plays_a_war_card():
     engine = _bare()
     engine.game_effects["flower_power"] = True
@@ -1937,16 +1982,12 @@ def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
     assert engine.is_terminal and engine.winner is Side.US
 
 
-def test_we_will_bury_you_degrades_defcon_and_scores_at_end_of_turn():
+def test_we_will_bury_you_degrades_defcon_and_arms_its_window():
     engine = Engine.new_game(seed=2, events=True)
     engine.defcon = 5
     engine._fire_event(Side.USSR, "We_Will_Bury_You")
     assert engine.defcon == 4
     assert engine.turn_effects.get("we_will_bury_you") is True
-    engine.military_ops = {"US": 9, "USSR": 9}  # silence the required-military-Ops VP
-    vp0 = engine.vp
-    engine._end_of_turn()
-    assert engine.vp == vp0 - 3  # 3 VP to the USSR (negative on the US-positive track)
 
 
 def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
@@ -1992,6 +2033,80 @@ def test_we_will_bury_you_is_not_defused_by_a_later_action_round():
     engine.hands["US"] = ["Fidel", "UN_Intervention"]
     _play_card_for(engine, Side.US, "Fidel", "un_intervention")
     assert engine.turn_effects.get("we_will_bury_you") is True, 'the window had passed'
+
+
+def test_we_will_bury_you_scores_before_the_us_play_that_failed_to_cancel_it():
+    """The FAQ's worked example: the USSR is on 17 VP and the US answers with
+    Duck and Cover's 2 VP. "Since the text of We Will Bury You was played
+    prior to Duck and Cover, its text must be resolved first. Therefore, the
+    USSR player wins an automatic victory." Settling the 3 VP at end of turn
+    instead let the US's 2 VP land first and the auto-victory never happened.
+    """
+    engine = _we_will_bury_you_in_play(_bare(), ars_played=1)
+    engine.defcon = 5
+    engine.vp = -17  # the track is US-positive, so the USSR leads by 17
+    engine._ars_played = 2  # the US's play at index 1 is now under way
+    engine.hands["US"] = ["Duck_and_Cover"]
+    _play_card_for(engine, Side.US, "Duck_and_Cover", "event")
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.vp == -20
+
+
+def test_we_will_bury_you_scores_in_its_window_not_at_end_of_turn():
+    engine = _we_will_bury_you_in_play(_bare(), ars_played=1)
+    engine.defcon = 5
+    engine._ars_played = 2
+    engine.hands["US"] = ["Fidel"]
+    vp0 = engine.vp
+    _play_card_for(engine, Side.US, "Fidel", "ops")
+    assert engine.vp == vp0 - 3, "3 VP to the USSR, in the round the card named"
+    assert "we_will_bury_you" not in engine.turn_effects
+
+    engine.military_ops = {"US": 9, "USSR": 9}  # silence the required-military-Ops VP
+    vp1 = engine.vp
+    engine._end_of_turn()
+    assert engine.vp == vp1, "and not a second time at end of turn"
+
+
+def test_we_will_bury_you_scores_nothing_without_a_next_action_round():
+    """"What happens if the US player plays We Will Bury You as his last
+    Action before Final Scoring? A. No, there has to be a next Action Round
+    for the VP to be awarded." With no window there is no round in which the
+    condition can be tested, so the flag simply lapses."""
+    engine = _bare()
+    engine.defcon = 5
+    engine.turn = 1
+    engine.phase = "action_rounds"
+    engine._ars_played = engine._total_action_rounds()  # the turn's last play
+    engine._fire_event(Side.USSR, "We_Will_Bury_You")
+    assert "we_will_bury_you_window" not in engine.turn_effects
+
+    engine.military_ops = {"US": 9, "USSR": 9}
+    vp0 = engine.vp
+    engine._end_of_turn()
+    assert engine.vp == vp0
+
+
+def test_un_intervention_pairs_with_an_opponent_event_that_cannot_occur():
+    """FAQ, card #32: the partner must be "an opponent's associated Event,
+    defined as a Red or White Star (Rule 2.2.2) regardless of whether the
+    Event can occur or not under Rule 5.2." Requiring a live event was denying
+    the US the We Will Bury You cancellation the FAQ describes -- "if he is
+    able to discard a soviet event along with it he would be able to cancel
+    the victory points from We Will Bury You."
+    """
+    engine = _bare()
+    engine.game_effects["camp_david"] = True  # Arab-Israeli War can no longer occur
+    assert not EVENTS["Arab_Israeli_War"].eligible(engine, Side.US)
+    engine.hands["US"] = ["Arab_Israeli_War", "UN_Intervention"]
+    modes = engine._play_modes(Side.US, "Arab_Israeli_War")
+    assert "un_intervention" in modes
+
+
+def test_un_intervention_still_needs_an_opponent_associated_card():
+    engine = _bare()
+    engine.hands["US"] = ["Duck_and_Cover", "UN_Intervention"]  # a US card
+    assert "un_intervention" not in engine._play_modes(Side.US, "Duck_and_Cover")
 
 
 def test_un_intervention_cannot_be_headlined():
@@ -2049,6 +2164,23 @@ def test_shuttle_diplomacy_drops_one_ussr_battleground_then_expires():
     assert "shuttle_diplomacy" not in engine.game_effects  # consumed at first scoring
     _, ignored_again = engine._scoring_overrides(Region.ASIA)
     assert ignored_again == frozenset()  # gone for later scorings
+
+
+def test_shuttle_diplomacy_does_not_apply_to_final_scoring():
+    """Printed text: "Does not count for Final Scoring at the end of Turn 10."
+    A copy still in force when the game ends never takes effect -- unlike
+    Formosan Resolution, whose Deluxe text explicitly *adds* Final Scoring."""
+    engine = _bare()
+    engine.game_effects["shuttle_diplomacy"] = True
+    target = next(
+        cid for cid, info in engine.board.countries.items()
+        if info.region is Region.MIDDLE_EAST and info.battleground
+    )
+    engine.board.influence[target] = {"US": 0, "USSR": 9}
+    engine._final_scoring_ran = True  # as _finish_game sets it, before it scores
+    _, ignored = engine._scoring_overrides(Region.MIDDLE_EAST)
+    assert ignored == frozenset()
+    assert engine.game_effects["shuttle_diplomacy"] is True  # not consumed either
 
 
 def test_north_sea_oil_blocks_opec_and_grants_us_an_extra_action_round():
@@ -2616,3 +2748,19 @@ def test_event_that_ends_the_game_mid_resolution_leaves_no_pending_decision():
     engine._fire_event(Side.USSR, 'Pershing_II_Deployed')
     assert engine.is_terminal and engine.winner is Side.USSR
     assert engine.pending_decision is None and engine.legal_actions() == ()
+
+
+def test_we_will_bury_you_scores_when_the_us_window_round_is_spent_in_a_trap():
+    """A Quagmired US spends its round on the discard and the roll: no card is
+    played, so UN Intervention cannot be, and the VP are earned. The award has
+    to happen at dispatch, because no PLAY_MODE decision ever arrives."""
+    engine = _we_will_bury_you_in_play(_bare(), ars_played=1)
+    engine.defcon = 5
+    engine.game_effects["quagmire"] = True
+    engine.hands["US"] = ["Fidel"]  # 2+ Ops, so the trap step has a discard
+    engine._ars_played = 2  # the US's play at index 1 is now under way
+    vp0 = engine.vp
+    engine._dispatch_action_round(Side.US)
+    assert engine.pending_decision.kind is DecisionKind.QUAGMIRE_DISCARD
+    assert engine.vp == vp0 - 3
+    assert "we_will_bury_you" not in engine.turn_effects
