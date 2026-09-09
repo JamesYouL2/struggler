@@ -83,6 +83,10 @@ class StrategicWeights:
     control: float = 0.0
     battleground: float = 5.0
     progress: float = 2.8
+    # A flat reserve per spare point past control, up to two. Slated for
+    # removal once the wipe term below is on: removing it with wipe at 0 lost the gate outright (0.328 against
+    # the previous commit, one nuclear loss), so spare points matter.
+    reserve: float = 0.35
     # Wipe risk: the chance the opponent's coup (3 or 4 Ops, where DEFCON
     # allows a coup in that region, one coup a turn shared over their
     # targets) removes every point we hold. What that costs depends on
@@ -323,6 +327,8 @@ class StrategicPlayer:
             value -= self._wipe_risk(board, cid, info, side, own, opp, importance)
         if opp > 0 and w.wipe > 0:
             value += self._wipe_risk(board, cid, info, side.opponent, opp, own, importance)
+        guard = w.reserve * importance
+        value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         if info.battleground and (own > 0) != (opp > 0):
             # Tempo is worth most where control is cheap: per stability,
             # like every other per-Op term (a 4-stability contest is the

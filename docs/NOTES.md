@@ -195,7 +195,7 @@ Every term should be one of those. As of Sept 2026:
 | Exact region score | `region` | scoring | Keep. Step 3 adds the margin toward the next tier. |
 | Linear progress toward control | `progress` | progress | Keep. `progress_curve` stays 1 (convexity lost 0.33 without lookahead). |
 | Wipe risk / backing | `wipe`, `wipe_backed` | progress (what a coup takes back) | Keep once calibrated; off now. Replaces `reserve`. |
-| Reserve (flat per spare point) | `reserve`, `reserve_stability` | progress | Removed Sept 2026 (was 0.35). |
+| Reserve (flat per spare point) | `reserve` | progress | Keep until wipe is on: removing it with wipe at 0 lost the gate (0.328, one nuclear loss). |
 | Access: reach into unowned battlegrounds, redundant, chained, contested | `access`, `access_redundant`, `access_chain`, `access_contested` | reach | Keep. This is what non-battlegrounds are for. |
 | First mover per stability | `first_mover` | reach | Keep. |
 | Non-battleground control tier | `control` | scoring | Removed (0): domination is the region score's job. |

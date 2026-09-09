@@ -190,11 +190,8 @@ def test_influence_value_is_linear_and_spare_points_are_not_a_flat_reserve():
     # control's own term -- the option-value stand-in.
     empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
     assert one - empty > bot.weights.battleground
-    # No flat reserve: with the wipe term off, a spare point past control is
-    # worth nothing (its value is what it does to the coup odds, priced by
-    # `wipe` when that is on).
-    assert value_at('Angola', 2) == value_at('Angola', 1)
-    assert value_at('Pakistan', 3) == value_at('Pakistan', 2)
+    # A flat reserve per spare point, until the wipe term replaces it.
+    assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2) > 0
     # Convex shape is still available as a knob: well under half of control
     # for a lone point.
     bot = StrategicPlayer(StrategicWeights(progress_curve=2.0))
