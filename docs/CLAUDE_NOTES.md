@@ -380,11 +380,20 @@ empty: MCTS searches only turns with a scoring card in hand, so the
 opening position fell back to the policy. If you want a search profile
 on turn 1, name a position with a scoring card or I will construct one.
 
-**Running now**: an experiment on whether MCTS searching every
-action-round play (new `search_all` option, `STRUGGLER_MCTS_SEARCH_ALL=1`)
-changes strength or time against the plain policy, seeds 4000-4003 both
-seatings, versus the current scoring-turns-only MCTS on the same seeds.
-Results will be recorded here.
+**MCTS on every turn, measured** (`search_all`, `STRUGGLER_MCTS_SEARCH_ALL=1`;
+seeds 4000-4003 both seatings, 24 simulations, vs the plain policy, 8
+games each so +/-0.15):
+
+| MCTS mode | score | mean total | s / game |
+| --- | ---: | ---: | ---: |
+| scoring-card turns only (current) | 0.75 | +8.7 | 164 |
+| every action-round play | 0.50 | +1.5 | 714 |
+
+Searching every turn is 4.4x slower and no stronger, worse on this
+sample. The option stays off. The more interesting number is the control
+row: with the three semantic fixes in, scoring-turn MCTS beat the plain
+policy 0.75 on 8 games where the pre-fix baseline was 0.53 +/- 0.06 on
+64. That wants a 32-seed run before anyone believes it (about 25 min).
 
 **Plan**: `docs/RUST_PORT_PLAN.md` revision 3 carries your order and the
 consolidated leftovers. `scripts/gate.sh` now snapshots HEAD into a
