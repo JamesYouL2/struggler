@@ -8,23 +8,19 @@ STATES = ('hand', 'unseen', 'discard', 'removed', 'future')
 LAST_TURN = 10  # Engine._advance_past_turn_boundary finishes the game after it
 
 
-# P(the game reaches final scoring | it is still running on this turn), by
-# turn. Measured over 192 bot-vs-bot games with `scripts/game_endings.py`;
-# rerun it to recalibrate.
-#
-# Final scoring is NOT guaranteed, which is the thing worth knowing here. Only
-# 24.5% of those games reached it: 67.2% ended early on the 20 VP auto-victory
-# and 7.3% on Wargames, and a DEFCON-1 loss ends one too. Nor does the chance
-# climb toward certainty as the game runs on -- 0.42 at turn 9, 0.47 at turn
-# 10 -- because a game still alive that late is usually alive precisely
-# because it is close, and close games still get decided on VP during turn 10.
-# `0.8 ** (10 - turn)`, which is what treating it as certain and discounting
-# it like everything else would give, is more than double the real odds from
-# turn 8 on.
-#
-# These are bot games, and a generous proxy: strong human players push for the
-# 20 VP win harder than this bot does, so the true odds are lower still.
-FINAL_SCORING_ODDS = (0.24, 0.24, 0.24, 0.25, 0.27, 0.29, 0.32, 0.37, 0.42, 0.47)
+# P(final scoring | reaching the start of turn t), a provisional human prior.
+# Source: https://twstourney.wordpress.com/2026-round-4/ (checked 2026-09-09).
+# Six of 27 listed games ended at FS (games 2, 3, 8, 10, 15, 19). Ending-turn
+# counts T1..T10, with FS mapped to T10: (1, 0, 1, 3, 6, 1, 2, 5, 2, 6).
+# Each denominator below is the number reaching that turn. Keep all listed
+# games, including held-card losses and differing bids; this is not a pure
+# US+2 cohort. WBC aggregate percentages cannot supply these denominators.
+# Only six games reached T10, all ending at FS: the empirical 1.0 is NOT a
+# guarantee for a new position. This small, selected tournament round needs
+# broader validation; the prior ignores VP, board state and action round.
+# scripts/game_endings.py currently counts reason='final_vp', which misses
+# some engine final-scoring endings; its output is not directly comparable.
+FINAL_SCORING_ODDS = (6/27, 6/26, 6/26, 6/25, 6/22, 6/16, 6/15, 6/13, 6/8, 6/6)
 
 
 def turns_to_final_scoring(obs: Observation) -> int:

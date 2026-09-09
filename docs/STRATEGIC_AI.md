@@ -46,11 +46,15 @@ action = bot.choose_action(observation, history)
   be true: a reshuffle two turns off on turn 9 predicted a scoring on turn 11,
   and the end-of-game scoring was missing, so the weight came out flat on
   every turn of the game. Final scoring is not a certainty to put in its
-  place: over 192 measured games only 24.5% reached it, 67.2% ended early on
-  the 20 VP auto-victory and 7.3% on Wargames, and the odds barely rise as the
-  game runs on, because a game still alive on turn 9 is usually alive because
-  it is close. `scripts/game_endings.py` recomputes the table from any
-  benchmark report.
+  place. The provisional prior now uses the
+  [BPA 2026 round-4 results](https://twstourney.wordpress.com/2026-round-4/):
+  six of 27 games reached final scoring, divided by the number reaching
+  each turn. Only six reached turn 10, all scoring finally; the resulting
+  1.0 is a small-sample observation, not a guarantee. This selected cohort
+  includes different bids and held-card losses, and needs broader validation.
+  `scripts/game_endings.py` remains a bot-report diagnostic, not the source
+  of this table. Its `final_vp` filter misses draws and VP/Europe wins
+  during the engine's final-scoring procedure.
 - The opening setup is a book, not a search (`OPENING_BOOK`): USSR
   East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
   European Unrest; Austria reaches Italy and West Germany); US West

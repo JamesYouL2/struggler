@@ -192,11 +192,16 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
         # The end-of-game scoring is worth its odds, so no country is worth
         # nothing while the game is live.
         assert bot.scoring_weight(now, 'Iran') >= final_scoring_odds(now)
-    # Those odds stay odds. Treating final scoring as certain and discounting
-    # it like a card scoring would put turn 10 at 1.0 and turn 8 at 0.64, both
-    # more than double what the games actually do.
-    assert max(FINAL_SCORING_ODDS) < 0.5
-    assert FINAL_SCORING_ODDS[9] < 2 * FINAL_SCORING_ODDS[0]
+    # BPA 2026 round 4: FS games 2, 3, 8, 10, 15, 19. Reconstruct the
+    # conditional odds from the source rows, not a constraint on curve shape.
+    ending_turns = (5, 10, 10, 9, 8, 8, 6, 10, 7, 10, 7, 4, 5, 5,
+                    10, 8, 8, 1, 10, 5, 8, 4, 5, 9, 3, 4, 5)
+    expected = tuple(6 / sum(end >= turn for end in ending_turns)
+                     for turn in range(1, 11))
+    assert FINAL_SCORING_ODDS == pytest.approx(expected)
+    assert all(0 <= p <= 1 for p in FINAL_SCORING_ODDS)
+    assert final_scoring_odds(dataclasses.replace(obs, turn=0)) == expected[0]
+    assert final_scoring_odds(dataclasses.replace(obs, turn=11)) == expected[-1]
     # A region whose card is gone still has the end of the game to play for,
     # and nothing else.
     dead = dataclasses.replace(obs, turn=9, discard_pile=('Middle_East_Scoring',),
