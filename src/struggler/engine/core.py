@@ -655,6 +655,19 @@ class Engine:
         )
         self.log.debug("TURN %d hands: US=%s USSR=%s", self.turn, self.hands["US"], self.hands["USSR"])
 
+    def _add_military_ops(self, side: Side, amount: int) -> None:
+        """Advance `side` on the Military Operations track, which stops at 5.
+
+        The track is 0-5 and Ops past the top are simply not recorded. That
+        matters because Arms Race compares the two sides' positions: an
+        uncapped track reads 8 against 5 as a lead where the board shows 5
+        against 5, a tie, and pays 3 VP for it. It does not affect the
+        end-of-turn requirement, which only ever asks whether a side fell
+        short of DEFCON.
+        """
+        self.military_ops[side.value] = min(RULES["military_ops_max"],
+                                            self.military_ops[side.value] + amount)
+
     def _end_of_turn(self) -> None:
         # Required military operations: a side that spent fewer military Ops
         # (coups) than the current DEFCON hands the deficit to its opponent.
@@ -1274,9 +1287,14 @@ class Engine:
         if mode == "un_intervention":
             # Cancel the opponent card's event; use it purely for its Ops. UN
             # Intervention itself is spent to the discard pile. Playing it also
-            # defuses We Will Bury You's end-of-turn VP for the US.
+            # defuses We Will Bury You's end-of-turn VP for the US, and pays
+            # U-2 Incident's rider: "if UN Intervention is played later this
+            # turn as an event, the USSR receives an additional 1 VP" -- either
+            # side playing it, since the card names none.
             if side is Side.US:
                 self.turn_effects.pop("we_will_bury_you", None)
+            if self.turn_effects.pop("u2_incident", None):
+                self._award_vp(Side.USSR, 1)
             un_id = RULES["un_intervention_id"]
             # Mirrors _file_card's own declare-then-remove sequence: for the
             # physical side this is still a HIDDEN_CARD placeholder, not the
@@ -1398,7 +1416,7 @@ class Engine:
             # Coups count toward the turn's required military operations. A
             # region-bonus coup gets its +1 only against a target in that region
             # (resolved at target selection, in _handle_coup_target).
-            self.military_ops[side.value] += ops
+            self._add_military_ops(side, ops)
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
             # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
@@ -1963,7 +1981,7 @@ class Engine:
     ) -> None:
         """Start a war event: it always counts toward the attacker's required
         military operations, then a logged CHANCE roll decides the outcome."""
-        self.military_ops[attacker.value] += military_ops
+        self._add_military_ops(attacker, military_ops)
         self._push(
             Side.CHANCE,
             DecisionKind.WAR_ROLL,
@@ -2407,7 +2425,7 @@ class Engine:
         # a South East Asian target under both earns two).
         extra = self._bonus_ops(country, decision.context.get("bonus"))
         ops += extra
-        self.military_ops[side.value] += extra
+        self._add_military_ops(side, extra)
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,

@@ -392,8 +392,12 @@ def _evil_empire(engine: "Engine", side: Side) -> None:
 
 @event("U2_Incident")
 def _u2_incident(engine: "Engine", side: Side) -> None:
-    # (The extra VP if UN Intervention is later played this turn is not modeled.)
+    # "USSR receives 1 VP. If UN Intervention is played later this turn as an
+    # event, the USSR receives an additional 1 VP." The rider is paid where UN
+    # Intervention is played, next to the one it already defuses (We Will Bury
+    # You); the flag lapses with the turn.
     engine._award_vp(Side.USSR, 1)
+    engine.turn_effects["u2_incident"] = True
 
 
 @event("Cultural_Revolution")
@@ -782,7 +786,7 @@ def _how_i_learned(engine: "Engine", side: Side) -> None:
 def _how_i_learned_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     engine.set_defcon(int(choice), caused_by=side)
     if not engine.is_terminal:
-        engine.military_ops[side.value] += 5
+        engine._add_military_ops(side, 5)
 
 
 # -- influence then an optional free operation (Junta) ----------------------

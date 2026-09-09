@@ -140,6 +140,24 @@ chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I
 Learned to Stop Worrying takes the set-DEFCON branch (`set_defcon` plus 5
 military Ops).
 
+**The Military Operations track stops at 5** (`_add_military_ops`,
+`rules.json` "military_ops_max"), because the printed track has no square
+above it and Ops past the top are simply not recorded. Every advance goes
+through that method -- coups, the region bonus, How I Learned to Stop
+Worrying. It was unbounded, and 19.5% of side-turns in a sample of
+benchmark games ended above 5. The end-of-turn requirement is unaffected,
+since it only asks whether a side fell short of DEFCON and DEFCON never
+exceeds 5; the consequence is Arms Race, which compares the two sides'
+positions, and read eight against five as a lead where the board shows a
+tie at five.
+
+**Conditional riders paid elsewhere.** U-2 Incident gives the USSR 1 VP and
+1 more if UN Intervention is played as an event later that turn
+(`turn_effects["u2_incident"]`, paid in the `un_intervention` play branch
+beside the We Will Bury You rider that branch already defused). Either side
+playing UN Intervention pays it, since the card names none, and the flag
+lapses with the turn.
+
 **Persistent game-long triggers** (`game_effects`). Yuri and Samantha (USSR
 +1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2 VP per US
 war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).

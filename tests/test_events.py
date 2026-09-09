@@ -401,6 +401,76 @@ def test_un_intervention_cancels_an_opponent_event_played_for_ops():
     assert engine.pending_decision.kind is DecisionKind.OPS_TYPE  # used for Ops
 
 
+def test_military_operations_track_stops_at_five():
+    """The track is 0-5 and Ops past the top are not recorded. It was
+    unbounded, and Arms Race compares the two sides' positions -- so eight
+    against five read as a lead and paid 3 VP where the board shows five
+    against five, a tie."""
+    engine = _bare()
+    engine.defcon = 5
+    engine._add_military_ops(Side.US, 4)
+    engine._add_military_ops(Side.US, 4)
+    engine._add_military_ops(Side.USSR, 5)
+    assert engine.military_ops == {"US": 5, "USSR": 5}
+
+    before = engine.vp
+    engine._fire_event(Side.US, "Arms_Race")
+    assert engine.vp == before, 'a tie on the track pays nothing'
+
+    # A genuine lead still pays, and the requirement is still met at DEFCON.
+    engine.military_ops["USSR"] = 3
+    engine._fire_event(Side.US, "Arms_Race")
+    assert engine.vp == before + 3
+
+    # How I Learned to Stop Worrying's +5 is capped like any other advance.
+    fresh = _bare()
+    fresh._add_military_ops(Side.USSR, 2)
+    fresh._fire_event(Side.USSR, "How_I_Learned_to_Stop_Worrying")
+    while fresh.pending_decision is not None and \
+            fresh.pending_decision.kind is DecisionKind.EVENT_CHOICE:
+        fresh.step(fresh.pending_decision.options[-1])
+    assert fresh.military_ops["USSR"] == 5
+
+
+def test_u2_incident_pays_its_rider_when_un_intervention_follows_it():
+    """"USSR receives 1 VP. If UN Intervention is played later this turn as
+    an event, the USSR receives an additional 1 VP." Only the first VP was
+    paid -- and the same UN Intervention branch already implemented the
+    card's *other* rider, defusing We Will Bury You."""
+    engine = _bare()
+    engine.defcon = 5
+    engine._fire_event(Side.USSR, "U2_Incident")
+    assert engine.vp == -1  # US-positive VP: 1 to the USSR
+    assert engine.turn_effects.get("u2_incident") is True
+
+    engine.hands["USSR"] = ["Duck_and_Cover", "UN_Intervention"]
+    _play_card_for(engine, Side.USSR, "Duck_and_Cover", "un_intervention")
+    assert engine.vp == -2, 'the rider was not paid'
+    assert "u2_incident" not in engine.turn_effects, 'it pays once'
+
+
+def test_u2_incident_rider_is_paid_whoever_plays_un_intervention():
+    """The card names no side, so a US player cancelling a USSR event with UN
+    Intervention still hands the USSR the extra VP."""
+    engine = _bare()
+    engine.defcon = 5
+    engine._fire_event(Side.USSR, "U2_Incident")
+    engine.hands["US"] = ["Fidel", "UN_Intervention"]  # Fidel is a USSR event
+    _play_card_for(engine, Side.US, "Fidel", "un_intervention")
+    assert engine.vp == -2
+
+
+def test_u2_incident_rider_lapses_with_the_turn():
+    """"...later this turn". A UN Intervention next turn pays nothing."""
+    engine = _bare()
+    engine.defcon = 5
+    engine._fire_event(Side.USSR, "U2_Incident")
+    engine.turn_effects.clear()  # what _end_of_turn does
+    engine.hands["USSR"] = ["Duck_and_Cover", "UN_Intervention"]
+    _play_card_for(engine, Side.USSR, "Duck_and_Cover", "un_intervention")
+    assert engine.vp == -1
+
+
 def test_un_intervention_not_offered_without_the_card_or_for_own_event():
     engine = _bare()
     engine.hands["USSR"] = ["Duck_and_Cover"]  # no UN Intervention held

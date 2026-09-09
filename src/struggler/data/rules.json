@@ -37,6 +37,7 @@
     "7": { "ops": 3, "roll_max": 3, "vp_first": 4, "vp_second": 2 },
     "8": { "ops": 4, "roll_max": 2, "vp_first": 2, "vp_second": 0 }
   },
+  "military_ops_max": 5,
   "space_race_max_box": 8,
   "space_race_ability_keys": {
     "2": "space_race_double_attempt_holder",

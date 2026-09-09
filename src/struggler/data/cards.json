@@ -731,7 +731,7 @@
       "remove_after_event": true,
       "optional": false,
       "in_deck": true,
-      "event_summary": "USSR +1 VP."
+      "event_summary": "USSR +1 VP, and 1 more if UN Intervention is played as an event later this turn."
     },
     "OPEC": {
       "number": 61,
