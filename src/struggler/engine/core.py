@@ -2899,13 +2899,15 @@ class Engine:
         # must still be played.
         if self.physical_mode and side is self.physical_side:
             # Unlike `payable` (which only ever feeds a genuine operator
-            # decision), `source`'s hidden_pool candidates might not
+            # decision), `_physical_hand_candidates`' hidden_pool entries might not
             # actually be in THIS hand at all -- so, unlike the bot branch
             # below, we must not auto-file one of them. Offer them as an
             # explicit choice instead (plus "none"), so the physical
             # player -- who can see their own hand -- confirms which, if
             # any, applies.
-            scoring_candidates = [cid for cid in source if self.cards[cid].scoring]
+            scoring_candidates = [
+                cid for cid in self._physical_hand_candidates(side) if self.cards[cid].scoring
+            ]
             if scoring_candidates:
                 options = tuple(
                     Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid})

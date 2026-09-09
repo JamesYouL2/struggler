@@ -471,3 +471,28 @@ def test_random_physical_mode_game_terminates_with_invariants(seed, driver_seed,
         assert steps < 20000, "a full game should terminate well before this"
     assert engine.pending_decision is None
     assert engine.winner in (Side.US, Side.USSR, None)
+
+
+def test_trap_step_offers_a_scoring_card_when_the_physical_hand_cannot_pay():
+    """A trapped physical side with no 2+ Ops card still has to play any
+    scoring card it holds -- and the engine cannot auto-file one, because a
+    `hidden_pool` candidate may not be in *this* hand at all. It offers the
+    choice instead.
+
+    This path raised `NameError: name 'source' is not defined` for one
+    commit: extracting `_trap_discard_candidates` out of `_push_trap_step`
+    took the local with it and left the reference behind. Only physical mode
+    reaches the line, and only when the trapped hand cannot pay, so nothing
+    in the deterministic suite touched it.
+    """
+    engine = _bare_physical(Side.US, seed=1)
+    engine.game_effects["quagmire"] = True
+    engine.hidden_pool = ["Asia_Scoring", "Truman_Doctrine"]  # 0 Ops and 1 Ops
+    engine.hands["US"] = [HIDDEN_CARD]
+    assert engine._trap_discard_candidates(Side.US) == []  # nothing at 2+ Ops
+
+    engine._push_trap_step(Side.US, "quagmire")
+    decision = engine.pending_decision
+    assert decision is not None and decision.kind is DecisionKind.QUAGMIRE_DISCARD
+    assert decision.context["forced_scoring"] is True
+    assert {a.payload["card"] for a in decision.options} == {"Asia_Scoring", "none"}
