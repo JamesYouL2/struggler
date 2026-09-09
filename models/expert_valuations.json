@@ -186,7 +186,7 @@
     ]
   ],
   "placement_rank": {
-    "_note": "Rank the battlegrounds a seat can place a first Op into on the opening board, best first. Every pair out of the bot's order counts as a miss. Bot's order at 6cf91c7 is in _bot_US / _bot_USSR for reference.",
+    "_note": "Rank the countries a seat can place a first Op into on the opening board, best first. Every pair out of the bot's order counts as a miss. Bot's order at 6cf91c7 is in _bot_US / _bot_USSR for reference. Angola is left unranked by the expert. Lebanon (non-battleground) is ranked for the USSR: definitely above Israel, probably up with Iraq. Israel is bad for the USSR because the US takes Egypt first.",
     "_bot_US": [
       "Egypt",
       "Pakistan",
@@ -207,7 +207,25 @@
       "Saudi_Arabia",
       "Iraq"
     ],
-    "US": [],
-    "USSR": []
+    "US": [
+      "France",
+      "Pakistan",
+      "Egypt",
+      "Iraq",
+      "Panama",
+      "South_Korea",
+      "Israel",
+      "Japan",
+      "South_Africa",
+      "Mexico",
+      "Cuba"
+    ],
+    "USSR": [
+      "Iraq",
+      "Lebanon",
+      "South_Korea",
+      "Saudi_Arabia",
+      "Israel"
+    ]
   }
 }
