@@ -664,3 +664,282 @@ the parity corpus, the hash-seed regression, the full suite, fixed MCTS root
 statistics, and a fresh 32-seed gate before landing it. If precomputation
 does not beat the new sorted implementation end to end, revert that slice
 and proceed to pure-function extraction instead.
+
+## 2026-09-09 — Architecture, technical and strategic audit
+
+Read-only audit anchored to committed `7cb9fbe` (which removed the stale
+country/access memos). An untracked `src/struggler/bots/evaluator.py` and
+changes to `strategic.py` were being edited concurrently. Observations about
+that extraction are provisional integration risks, not findings against a
+finished implementation. No implementation files were changed for this
+audit. Numerical event findings below were reproduced with focused runtime
+probes; the broader assessment is based on code inspection, not a new full
+suite or strength tournament.
+
+Overall assessment: the architecture has a solid foundation, but evaluation
+consistency is currently a bigger constraint than search speed. Increasing
+MCTS depth before resolving that consistency risks searching more deeply
+with misleading values.
+
+### Architecture
+
+**The observation boundary is sound in the inspected paths.** StrategicPlayer
+selects from supplied legal actions and reconstructs simulations from public
+observations. No direct access to the live opponent's hand or RNG was found.
+Keeping legality in the engine and DEFCON survival in a separate planner are
+good boundaries. This was not an exhaustive hidden-information audit.
+
+**High priority — explicit evaluation context and state contract.** The
+committed player mixes observation preparation, board mutation, evaluation,
+event simulation and policy selection. `value(board, side)` also depends on
+the player's previously prepared observation. Consequently a local-looking
+change can alter distant callers. Numerical kernels should receive explicit
+position, weights and context, with cache ownership and lifetime defined at
+the boundary.
+
+The pure evaluator extraction is promising, but the inspected wrapper keeps
+both `board.influence` and an indexed position. Every mutation must update
+both. At inspection time, `RolloutPolicy._placement_plan()` still wrote
+influence directly; cached-ranking synchronization paths also deserve an
+audit. These callers must be checked before accepting the new snapshot
+representation. A pure kernel does not by itself make its stateful wrapper
+correct.
+
+**High priority — benchmark isolation after extraction.** `scripts/gate.sh`
+extracts only the baseline's `strategic.py` and imports it inside the
+candidate's package environment. Once both versions import `evaluator.py`,
+the baseline can silently use the candidate evaluator. Compare complete
+revision-specific implementations, including evaluator dependencies, rather
+than a single historical source file.
+
+### Technical correctness
+
+**High — event valuation omits indirect board changes.**
+`StrategicPlayer._resolve_sandbox()` refreshes only countries whose influence
+changed, although `country_value()` reads neighboring influence and, when
+wipe weights are enabled, global coup-target counts. Removing the old memos
+does not repair this separate reuse of the event basis.
+
+Reproduction on `7cb9fbe`: an engine with US influence 2 in Egypt, 1 in
+Israel and 1 in Mexico, with a US placement observation, values Nasser at
+**-67.8296875** through `_public_event_value()`. Full before/after board
+recomputation gives **-65.8890625**. Israel's **+1.940625** change is omitted
+because its own influence did not change. This can misrank events against
+Ops. Recompute the full affected dependency set, or use full board
+recomputation as a correctness reference before optimizing it.
+
+**Medium — event helpers retain old weights.** `_event_helper()` constructs
+its policy once using the parent's weights. Replacing `bot.weights` leaves
+the helper on the previous weights, so simulated choices and their
+evaluation can use different weights. This was reproduced by creating the
+helper, replacing the parent's weights, and checking the helper's weights.
+The existing weight-change regression does not exercise that helper. This
+affects reused players whose weights change, rather than every normal game.
+
+**Medium — unexpected simulation failures are hidden by generic estimates.**
+`event_value()` catches every `Exception`, logs at debug level and substitutes
+an allegiance/Ops estimate. A programming error can therefore produce a
+plausible number instead of a visible failure. Distinguish expected
+unsupported simulations from implementation errors, and make fallback use
+observable in diagnostics and validation.
+
+**High — gate completion is not gate acceptance.** `gate.sh` reports scores
+but does not enforce strength or nuclear-loss acceptance thresholds. A zero
+exit status establishes successful execution, not strategic acceptance.
+The earlier handoff's statement that the region-margin gate "passed" was
+too strong: the 32-seed run completed with the recorded neutral results,
+which still require interpretation. Define explicit acceptance criteria and
+compare expert-check changes before describing a candidate as passing.
+
+### Strategic quality
+
+**High — persistent effects are systematically undervalued.** Flag-only
+events commonly receive zero. This is an acknowledged limitation in
+`docs/STRATEGIC_AI.md`, not a newly introduced regression, but it matters
+strategically. In a probe with US-controlled Taiwan and USSR-controlled
+Thailand, Formosan Resolution and Shuttle Diplomacy both received event
+value **0**, while improving immediate Asia scoring by **1 VP** and **4 VP**
+respectively. Prioritize high-impact effects whose benefits can be evaluated
+from public state.
+
+**High — scoring urgency has an incomplete horizon model.**
+`public_cards.scoring_schedule()` treats unseen scoring cards as scoring now
+and again after an estimated reshuffle. It does not cap those predictions
+at game end or explicitly include final scoring. Late-game investments can
+therefore be priced against opportunities that never occur. Use a bounded
+remaining-game horizon and distinguish current-cycle uncertainty from
+mandatory final scoring.
+
+**Medium — card and operations selection use different placement models.**
+`ops_value()` uses a greedy multi-country spend; the influence branch of
+`score(OPS_TYPE)` extrapolates the best single-country investment across all
+Ops. A card can be selected based on one allocation estimate, followed by an
+operations-mode choice based on another. Align the spend evaluator used by
+these decisions while keeping the engine's legal actions authoritative.
+
+**Medium — local gains miss sequencing and counterplay.** Average gain per
+Op cannot fully capture combinations, defensive timing or the opponent's
+next response. This is intentional tactical scope, not an implementation
+defect. Weight tuning alone cannot solve it. Targeted continuation search
+for consequential decisions is more promising than a blanket increase in
+simulation count.
+
+**Medium — repeated benchmark reuse encourages overfitting.** Selecting
+successive changes on the same seeds against recent predecessors can favor
+narrow improvements. Keep paired seeds for debugging and attribution, but
+reserve untouched seeds and multiple opponent styles for promotion. This is
+a methodological risk, not proof that any particular improvement overfit.
+
+### Recommended order
+
+1. Finish the evaluator state contract and audit every rollout/sandbox
+   mutation and synchronization path.
+2. Correct event recomputation and expose unexpected simulation failures;
+   update event-helper weights when the parent changes.
+3. Repair full-revision benchmark isolation and define explicit gate
+   acceptance criteria.
+4. Correct scoring horizons and price the highest-impact persistent
+   effects.
+5. Evaluate targeted MCTS improvements on held-out seeds at equal wall time.
+
+This audit supersedes the prior handoff's recommendation to immediately
+optimize `_access`: the subsequent memo-removal commit and concurrent
+evaluator extraction change the baseline, and correctness/integration now
+take priority. Earlier timing numbers describe their named revisions only.
+
+## 2026-09-09 — Preferred architecture for an 8-core personal laptop
+
+The user endorsed this practical direction:
+
+> Exact engine -> lightweight hand sampling -> selective tactical search
+> -> fast handcrafted or small learned value.
+
+Keep the engine authoritative for legality and chance. Sample hidden hands
+consistently with public information, and give each simulated player only
+information available to that seat. Spend search on consequential card
+choices, scoring timing and a few competing investment plans; use cheap
+continuations for routine atomic placements.
+
+The recommended progression is:
+
+1. Finish the deterministic evaluator: correct event values, scoring
+   horizons and state synchronization before optimizing measured hot paths.
+2. Improve search candidates and remove redundant branches before simply
+   increasing simulation count.
+3. Parallelize independent games first. Start around 4-6 workers and measure
+   throughput and thermal throttling; eight busy workers need not be fastest
+   on a laptop. Run timing benchmarks separately from training workloads.
+4. Test a small CPU-friendly learned value model before learning a policy.
+   Collect outcome-labeled self-play positions, with varied opponents, and
+   compare prediction quality against the handcrafted evaluator on held-out
+   games. Split data by whole game and seed, not individual positions.
+5. Integrate the learned value only if it improves search at equal wall
+   time. Compare heuristic search and learned-value search directly; retain
+   the handcrafted evaluator as a baseline and diagnostic tool.
+
+Defer full belief-state CFR, large neural networks, learning from scratch,
+and sophisticated learned hand beliefs. Student of Games and ReBeL are
+architectural references, not proposed laptop training recipes. Strategic
+can supply initial competence and training opponents without defining every
+future rollout and leaf value.
+
+This is a preferred experimental direction, not a demonstrated strength
+gain or a hardware performance guarantee. Game-generation throughput,
+held-out results and equal-time playing strength decide whether learning
+earns a place. The eight-core constraint changes the scale and order of
+experiments; it does not require abandoning selective search.
+
+## 2026-09-09 — Audit reassessment after the evaluator commits
+
+Reviewed through `9d9890f`, including `ec99a5f` (pure evaluator extraction)
+and `9d9890f` (event-value dependencies). The only working-tree change was
+this notes file. This section updates the earlier architecture/technical/
+strategic audit; the earlier text is retained as a historical assessment,
+not a list of defects all still present. No implementation changes were
+made during this reassessment.
+
+### What is fixed or materially improved
+
+- **Indirect event-value recomputation: resolved for the reported defect.**
+  `StrategicPlayer._value_dependents` now includes the evaluator's dependency
+  radius, rather than only countries whose influence changed. With the
+  global `wipe` term enabled it conservatively includes the entire board.
+  This addresses the Nasser/Israel omission. Tests check dependency coverage
+  and compare reused event values with full country recomputation across
+  the public events supported by a fixture. This is not proof of complete
+  event valuation: both paths still use the same limited evaluation context,
+  and that test skips events the fixture cannot simulate.
+- **Evaluator architecture: substantially improved, not fully closed.**
+  `evaluator.py` now provides pure terms with explicit terrain, position,
+  weights, urgency and DEFCON inputs. Strategic is a policy/context wrapper
+  around those terms. Rollout trial placements use synchronized mutation
+  helpers; even cached rankings refresh the position snapshot. Snapshot
+  consistency tests cover strategic and rollout mutations. The earlier
+  warning about those direct rollout writes is obsolete. However, the
+  public `StrategicPlayer.value(board, side)` wrapper still takes urgency
+  and DEFCON from previously prepared state. Document/enforce that wrapper
+  contract or use explicit core inputs for independent evaluation. Two
+  representations remain a maintenance obligation, not a demonstrated
+  current synchronization failure.
+- **Baseline evaluator contamination: resolved for the extracted pair.**
+  The gate snapshots both `strategic.py` and its revision's `evaluator.py`;
+  the benchmark loader binds that sibling evaluator and restores the
+  candidate's module afterward. Regression tests cover the binding and
+  restoration. The original concrete contamination finding should no
+  longer be treated as an outstanding blocker. This is still not complete
+  revision isolation: other imported modules come from the candidate
+  environment. Comparisons spanning changes in those dependencies need
+  broader isolation or an explicit shared-dependency qualification.
+
+### What still applies
+
+- **Event helper weights (medium):** `_event_helper` creates its cached
+  policy once and does not update it when the parent's weights object is
+  replaced. The finding remains conditional on such replacement.
+- **Silent simulation fallback (medium):** `event_value` still catches all
+  exceptions, logs only at debug level and substitutes a generic estimate.
+  Unexpected defects can therefore look like supported approximations.
+- **Gate acceptance criteria (high):** `scripts/gate.sh` prints benchmark
+  summaries but does not enforce strength or regression thresholds. Its
+  anchor run remains opt-in. Successful execution is not a strength pass.
+- **Persistent effects (high):** the event sandbox's final value still
+  measures influence-derived terms and immediate VP, not the future value
+  of flag-only effects. The earlier Formosan Resolution/Shuttle Diplomacy
+  concern remains; fixing influence dependencies does not price those
+  effects. The earlier numerical probes were not rerun in this reassessment.
+- **Scoring horizon (high):** `public_cards.scoring_schedule` still uses
+  current-cycle/reshuffle estimates without final scoring or a turn-10
+  horizon cap. The extraction preserves this approximation.
+- **Operations consistency (medium):** card-level `ops_value` uses a greedy
+  multi-country spend, while the influence branch of `OPS_TYPE` still uses
+  the best single-country average gain multiplied by the operation count.
+- **Sequencing and counterplay (medium):** local investment values remain
+  approximations, not a replacement for selective tactical search.
+- **Benchmark reuse (medium):** held-out seeds and varied opponents remain
+  necessary for promotion; the loader fix does not address selection bias.
+  This remains a methodological risk, not demonstrated overfitting.
+
+The positive observation-boundary assessment is unchanged in the inspected
+paths; this was not a fresh exhaustive hidden-information audit.
+
+### Revised next steps and verification
+
+Do not redo the evaluator extraction or the Nasser fix. First synchronize
+helper weights and make unexpected sandbox failures visible; clarify the
+prepared-state wrapper contract. Add explicit benchmark acceptance rules
+and isolate any shared dependencies that changed between compared versions.
+Then address scoring horizons and high-impact persistent effects, and align
+the two operations estimates. Broaden regression fixtures across late-game
+states, nondefault weights and event contexts as those areas change.
+
+The eight-core architecture direction above still applies, and the pure
+evaluator is a useful step toward it. Nothing in these commits establishes
+that MCTS, hand sampling or a learned value now improves equal-time strength.
+Those remain experiments after the remaining correctness work.
+
+Verification: `.venv/bin/python -m pytest tests/test_evaluator.py
+tests/test_rollout.py tests/test_benchmark.py tests/test_strategic.py -q`
+completed with **46 passed in 17.12s**. No full strength gate or new playing-
+strength claim was made. The review resolves the concrete dependency and
+baseline-evaluator bugs, narrows the architecture finding, and leaves most
+strategic/modeling findings applicable.
