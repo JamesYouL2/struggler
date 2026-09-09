@@ -141,6 +141,78 @@ About two weeks of focused work, with the first three steps useful on
 their own. Rust knowledge on the user's side is not required: the module
 is a few hundred lines with the Python path kept as the oracle.
 
+## Data layout (the contract both sides compile against)
+
+- Country order: the key order of `data/countries.json`, fixed; `N` = 86.
+  `struggler_native.COUNTRY_ORDER` is exported and checked at import
+  against the Python board so a data change cannot silently skew indices.
+- Influence: two `uint8[N]` arrays, US then USSR. Never negative; the
+  engine caps well under 255.
+- Static per-country: `stability: u8[N]`, `battleground: bool[N]`,
+  `region: u8[N]` (index into the region table, in `Region` enum order),
+  `coup_min_defcon: u8[N]`, `adjacency: Vec<Vec<u16>>`, `home_us` and
+  `home_ussr: Vec<u16>`.
+- Region table: `members: Vec<Vec<u16>>`, `presence/domination/control
+  VP: i16` (control `-1` for Europe's non-numeric tier).
+- Card table (for the DEFCON solve only): `side: u8` (0 US, 1 USSR, 2
+  neutral), `ops: u8`, `scoring: bool`, `war: bool`, indexed by the card
+  order of `cards.json`.
+- Context per decision: `weights: f64[K]` in the field order of
+  `StrategicWeights` (K is asserted equal on both sides), `scoring_weight:
+  f64[N]`, `defcon: u8`, `side: u8`, `ops_scale: f64[5]` (the concave Ops
+  scale the evaluator already computes).
+- Returns: `Vec<f64>` or `Vec<(f64, u8)>`; errors are Python exceptions
+  raised by PyO3 for shape mismatches, never silent defaults.
+
+## Build, packaging and CI
+
+- `rust/Cargo.toml` (crate `struggler_native`, `cdylib`, PyO3 with the
+  `extension-module` feature, `abi3-py312`); `rust/pyproject.toml` for
+  maturin. Development: `uv run maturin develop --release -m
+  rust/pyproject.toml` installs into the project venv. Release: `maturin
+  build --release` produces a wheel; the wheel is committed nowhere, the
+  build is reproducible from source.
+- The Python package imports the module inside `try`; absence or
+  `STRUGGLER_NATIVE=0` selects the Python path and logs once at INFO. No
+  test depends on the native module being present.
+- CI matrix: the suite with `STRUGGLER_NATIVE=0` (always) and `=1` (when
+  the toolchain is available), plus `tests/test_native_parity.py`, which
+  loads the frozen corpus and asserts rankings equal and values within
+  tolerance for every snapshot.
+- The gate script gains a `NATIVE=0|1` knob so both paths can be gated on
+  the same snapshot.
+
+## Risks and how each is handled
+
+| Risk | Handling |
+| --- | --- |
+| Floating-point summation order changes tie-breaks between near-equal placements | Parity is on rankings after rounding to 1e-9; the corpus test lists every position whose top action differs, and each is inspected. Summation order in Rust follows the Python loop order where cheap. |
+| Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed by the pure-function prerequisite (step 3); the Python fallback is that pure function, so both paths share one contract. |
+| Boundary cost dominating if the granularity is wrong | `evaluate_placements` takes all candidates at once; measured whole-decision wall time including conversion is the acceptance metric. |
+| Behaviour drift from an "accidental" fix while porting | Algorithm changes and acceleration never share a commit; the corpus is regenerated only by an explicit, reviewed commit. |
+| Maintenance with no Rust on the user's side | Module under ~600 lines, one file per call, Python oracle kept indefinitely, `STRUGGLER_NATIVE=0` restores the old behaviour in one environment variable. |
+| Engine hot path emerging once the evaluator is fast | Profile again after step 4 before deciding; the engine stays in Python until it is the measured bottleneck. |
+
+## Acceptance criteria
+
+1. Parity: identical action rankings on every corpus position; values
+   within 1e-9 relative; identical per-game VP on the gate seeds between
+   `NATIVE=0` and `NATIVE=1` (`benchmark` score exactly 0.5).
+2. Speed: at least 10x on `evaluate_placements` in isolation and at
+   least 3x on a full strategic game, measured on the gate snapshot with
+   nothing else running. Below that, the boundary is wrong and the plan
+   returns to the granularity question.
+3. Strength: MCTS at the wall-time budget of today's 24 simulations,
+   with the corrected semantics, beats the plain strategic policy by more
+   than two standard errors at 64 seeds. This is the point of the port;
+   speed without it is not a result.
+
+## Ownership
+
+Claude writes the Rust, the Python refactors and the corpus; Astra
+audits the boundary, the parity evidence and the profiles; the user
+decides the acceptance calls and runs nothing but the gate script.
+
 ## Open questions for the reviewer
 
 1. Is the `evaluate_placements` boundary the right granularity, or should

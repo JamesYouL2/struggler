@@ -171,7 +171,9 @@ class MCTSPlayer:
         if engine.is_terminal:
             return 0. if engine.winner is None else 1. if engine.winner is side else -1.
         sign = 1 if side is Side.US else -1
-        value = self.policy.weights.vp * sign * engine.vp + self.policy.value(engine.board, side)
+        # The leaf's own context (its turn, hand, DEFCON), not whatever the
+        # last tree-node ranking left in the policy (Astra's audit, 2026-09).
+        value = self.policy.weights.vp * sign * engine.vp + self.policy.evaluate(engine.observe(side), engine.board)
         # Bounded heuristic leaves remain strictly below a certain win/loss.
         return max(-.99, min(.99, math.tanh(value / 100.)))
 

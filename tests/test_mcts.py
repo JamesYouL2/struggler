@@ -113,3 +113,24 @@ def test_incomplete_inventory_falls_back_to_strategic():
     obs = engine.observe(Side.US)
     assert bot.choose_action(obs, []) == bot.policy.choose_action(obs, [])
     assert bot.last_search is None
+
+
+def test_leaf_value_does_not_depend_on_what_was_ranked_before():
+    """Astra's audit: an identical leaf returned three different values
+    depending on which position the shared policy had ranked last, because
+    value() read the previous ranking's scoring weights and caches. The
+    leaf is now evaluated in its own observation's context."""
+    engine = scoring_position()
+    fresh = MCTSPlayer().leaf_return(engine, Side.US)
+    bot = MCTSPlayer()
+    bot.policy.rank_actions(engine.observe(Side.US))
+    after_same = bot.leaf_return(engine, Side.US)
+    other = scoring_position()
+    other.hands['US'].remove('Central_America_Scoring')
+    other.discard_pile.append('Central_America_Scoring')
+    bot.policy.rank_actions(other.observe(Side.US))
+    after_other = bot.leaf_return(engine, Side.US)
+    assert fresh == after_same == after_other
+    # And the leaf context differs from the ranking context when it should:
+    # the same board with the scoring card gone from hand values differently.
+    assert MCTSPlayer().leaf_return(other, Side.US) != fresh

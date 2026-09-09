@@ -170,7 +170,9 @@ branch:
    uncontrolled battleground counting fractionally (stepwise linear:
    progress, the control step, then `reserve` for over-protection), and
    `control` 1.5 (a plain country a quarter to a third of a battleground,
-   per Op between a 4- and a 3-stability battleground). 25 misses. The
+   per Op between a 4- and a 3-stability battleground). 25 misses. Clean
+   gate (1a03954 vs c5446e0, 32 seeds): 0.672, mean total +6.4, the
+   session's first clear gain. Landed. The
    first version on the region score's VP scale (1.3 raw per VP) could not
    move anything. Original item: country-count margin toward domination in `region_score`: the exact
    tier score sees nothing until a tier flips, so UK 5 -> 3 is worth 1.6,
@@ -267,6 +269,16 @@ c5446e0 is therefore suspect, including 873d9d9's 0.328 failure.
 `scripts/gate.sh` now checks HEAD out into a temporary worktree and runs
 from it; the anchor run is off unless GATE_ANCHOR=1; defaults are 32
 seeds, 8 workers, base HEAD~1. The chain was re-gated cleanly after.
+
+## Astra's MCTS findings (docs/ASTRA_NOTES.md)
+
+1. Leaf evaluation inheriting the last ranking's context: fixed.
+   `StrategicPlayer.evaluate(observation, board)` evaluates in the
+   observation's own context (its scoring weights, DEFCON, fresh caches)
+   and restores the ranking context after; `MCTSPlayer.leaf_return` uses
+   it. Regression: `tests/test_mcts.py::test_leaf_value_does_not_depend_on_what_was_ranked_before`.
+2. Served placement plans suppressing MCTS targets: open (Astra).
+3. Rollout ranking cache not syncing the board: open (Astra).
 
 ## How to look at things
 

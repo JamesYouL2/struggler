@@ -598,6 +598,37 @@ class StrategicPlayer:
             importance *= weights.get(cid) if cid in weights else self.scoring_weight(self._obs, cid)
         return importance
 
+    def evaluate(self, observation: Observation, board: Board | None = None) -> float:
+        """The board value for `observation`'s side in that observation's own
+        context: scoring weights from its turn, hand and discards, DEFCON
+        from its board, fresh caches. Use this for search leaves. `value()`
+        alone evaluates in whatever context the last `rank_actions` left
+        behind, which made an identical leaf return three different values
+        depending on which position had been ranked before it."""
+        saved = (self._obs, self._scoring_weights, self._country_cache if hasattr(self, '_country_cache') else None,
+                 self._access_cache if hasattr(self, '_access_cache') else None,
+                 self._region_cache if hasattr(self, '_region_cache') else None)
+        if board is None:
+            _sync_board(self.board, observation)
+            board = self.board
+        self._obs = observation
+        self._scoring_weights = {}
+        self._country_cache = {}
+        self._access_cache = {}
+        self._region_cache = {}
+        if not hasattr(self, '_region_members'):
+            self._region_members = {r: self.board.countries_in(r) for r in Region}
+        try:
+            return self.value(board, observation.side)
+        finally:
+            self._obs, self._scoring_weights, country, access, region = saved
+            if country is not None:
+                self._country_cache = country
+            if access is not None:
+                self._access_cache = access
+            if region is not None:
+                self._region_cache = region
+
     def value(self, board: Board, side: Side) -> float:
         return sum(self.country_value(board, c, side) for c in board.countries) \
             + self.weights.region * sum(self.region_score(board, r, side) for r in Region) \
