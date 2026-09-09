@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
-from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side, Subregion
+from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side
 from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.core import RULES, SANDBOX_LOG, SCORING_CARD_REGION
@@ -75,18 +75,13 @@ PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
 
 @dataclass(frozen=True)
 class StrategicWeights:
-    # Country importance tiers: battlegrounds >> Southeast Asia
-    # non-battlegrounds >> other non-battlegrounds. Battleground Ops score
-    # domination and control (or deny them); the cheap SEA countries keep
-    # Asia from being dominated and score later; the rest are worth little.
+    # Country importance: a battleground is worth `battleground` (times
+    # what its region will still score); a plain country is worth nothing
+    # of its own (`control` 0): its control only moves the domination
+    # tally, which the region score computes exactly, and what it is for is
+    # reach, priced by the access terms below.
     control: float = 0.0
     battleground: float = 5.0
-    southeast_asia: float = 2.0
-    # A plain non-battleground counts for nothing of its own: its control
-    # only moves the domination tally, which the region score computes
-    # exactly. What is left is leverage: a controlled country gives +1 on
-    # realignments against each adjacent enemy battleground, and reach.
-    leverage: float = 1.0
     progress: float = 2.8
     reserve: float = 0.35
     # Wipe risk: a holding is priced down by the chance the opponent's coup
@@ -354,11 +349,6 @@ class StrategicPlayer:
                 value += w.first_mover * importance / info.stability
             elif opp > 0 and board.is_reachable(side, cid):
                 value -= w.first_mover * importance / info.stability
-        # Realignment leverage: control next to the enemy's battlegrounds.
-        if margin >= info.stability:
-            value += w.leverage * self._leverage(board, cid, side)
-        elif margin <= -info.stability:
-            value -= w.leverage * self._leverage(board, cid, side.opponent)
         guard = w.reserve * importance / info.stability ** w.reserve_stability
         value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         # First footholds open nearby battlegrounds on a later action round:
@@ -416,22 +406,6 @@ class StrategicPlayer:
             cache[key] = n
         return n
 
-
-    def _leverage(self, board: Board, cid: str, side: Side) -> float:
-        """Adjacent battlegrounds the opponent controls, weighted by how
-        cheap they are to shake: +1 on every realignment roll there."""
-        cache = getattr(self, '_access_cache', None)
-        key = ('leverage', board, cid, side)
-        if cache is not None and key in cache:
-            return cache[key]
-        total = 0.
-        for n in board.neighbors(cid):
-            info = board.countries.get(n)
-            if info is not None and info.battleground and board.control(n) is side.opponent:
-                total += 1 / info.stability
-        if cache is not None:
-            cache[key] = total
-        return total
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
         """Reach a holding here gives: the adjacent battlegrounds we do not
@@ -510,13 +484,8 @@ class StrategicPlayer:
         return total
 
     def importance(self, info) -> float:
-        """The country's tier: battleground, Southeast Asia non-battleground,
-        or other non-battleground."""
-        if info.battleground:
-            return self.weights.battleground
-        if Subregion.SOUTHEAST_ASIA in info.subregions:
-            return self.weights.southeast_asia
-        return self.weights.control
+        """The country's tier: battleground or not."""
+        return self.weights.battleground if info.battleground else self.weights.control
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         board, side = self.board, obs.side

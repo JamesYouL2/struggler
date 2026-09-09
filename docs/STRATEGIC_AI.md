@@ -91,16 +91,12 @@ action = bot.choose_action(observation, history)
   candidate, and only it is valued as a space play when choosing a card.
   Decolonization (-75) is spaced ahead of Fidel (-23); before, both
   collapsed to the same space value and the tie broke on hand order.
-- Country importance is tiered: battlegrounds (`battleground`) >>
-  Southeast Asia non-battlegrounds (`southeast_asia`) >> other
-  non-battlegrounds (`control`). Battleground Ops are what score
-  domination and control, or deny them to the opponent; the cheap
-  Southeast Asia countries keep Asia from being dominated and score
-  later; everything else is worth little. There is no turn-specific rule:
-  a turn-1 rule that zeroed non-battleground Ops was tried, flipped
-  `logs/game-check/3003-strategic-event_value.turn1-rule.info.log` to a
-  US win, and measured 0.47 ± 0.09 on the 16-seed A/B; the tiering is
-  meant to produce the same opening from the value function itself.
+- Country importance is battleground or not (`battleground`, `control`=0):
+  a plain country is worth nothing of its own, since its control only moves
+  the domination tally the region score computes exactly; what it is for is
+  reach, priced by the access and first-mover terms. The Southeast Asia
+  tier and the realignment-leverage term were removed in Sept 2026: the
+  scoring weights and access express both.
 - Coups and realignments are priced on the same board change as placing
   influence (`delta`), then multiplied by `coup_discount` (0.9): they are
   the less Ops-efficient route to the same result (a coup on a

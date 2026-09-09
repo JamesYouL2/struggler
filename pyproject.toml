@@ -22,3 +22,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 struggler = ["data/*.json"]
 "struggler.bots.llm" = ["*.json"]
+
+[dependency-groups]
+dev = [
+    "maturin>=1.15.0",
+]

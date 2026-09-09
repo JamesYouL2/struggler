@@ -215,9 +215,12 @@ def test_country_tiers_and_coup_discount():
             return bot.country_value(board, cid, Side.US)
         finally:
             board.influence[cid]['US'] = 0
-    # Battleground >> Southeast Asia non-battleground >> other non-battleground.
-    assert control_value('Thailand') > control_value('Malaysia') > control_value('Spain_Portugal')
-    assert bot.importance(board.countries['Malaysia']) == bot.weights.southeast_asia
+    # A battleground is worth its tier; a plain country nothing of its own
+    # (reach is priced separately, and the region score carries domination).
+    assert control_value('Thailand') > max(control_value('Malaysia'), control_value('Spain_Portugal'))
+    assert bot.importance(board.countries['Malaysia']) == bot.weights.control == 0
+    # What a plain country is still worth is its reach (Malaysia -> Thailand).
+    assert control_value('Malaysia') > 0
     # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)
     from struggler.bots.greedy import _sync_board

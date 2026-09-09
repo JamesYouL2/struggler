@@ -177,6 +177,32 @@ event-exposure design for `bots/event_value/` (0.53 +/- 0.06 vs strategic,
 indistinguishable); the trainer's dead greedy opponent and its 32-game
 standard error of 0.06.
 
+## The value function's terms, and which to keep
+
+On the board a position is worth one of three things: what it scores,
+progress toward scoring, or the right to fight for a country at all
+(reach and first-mover advantage: whoever fills an empty country first
+wins the Ops-efficiency battle, or is the only one who gets to fight it).
+Every term should be one of those. As of Sept 2026:
+
+| Term | Weight(s) | Kind | Keep? |
+| --- | --- | --- | --- |
+| Battleground control x what the region still scores | `battleground`, scoring weights (`scoring_hand`, `scoring_discount`) | scoring | Keep: the core. |
+| Exact region score | `region` | scoring | Keep. Step 3 adds the margin toward the next tier. |
+| Linear progress toward control | `progress` | progress | Keep. `progress_curve` stays 1 (convexity lost 0.33 without lookahead). |
+| Wipe risk / backing | `wipe`, `wipe_backed` | progress (what a coup takes back) | Keep once calibrated; off now. Replaces `reserve`. |
+| Reserve (flat per spare point) | `reserve`, `reserve_stability` | progress | Remove when wipe is on. |
+| Access: reach into unowned battlegrounds, redundant, chained, contested | `access`, `access_redundant`, `access_chain`, `access_contested` | reach | Keep. This is what non-battlegrounds are for. |
+| First mover per stability | `first_mover` | reach | Keep. |
+| Non-battleground control tier | `control` | scoring | Removed (0): domination is the region score's job. |
+| Southeast Asia tier, realignment leverage | `southeast_asia`, `leverage` | scoring / reach | Removed Sept 2026. |
+| VP, Ops scale, military Ops, coup discount | `vp`, `ops`, `military`, `coup_discount` | conversions, not board terms | Keep: they put VP, Ops and dice on one scale. `event` (1.0) multiplies a card's event when chosen over Ops and can go. |
+
+So the board evaluator to port is seven terms over arrays: battleground x
+scoring weight, region score, progress, wipe, access, first mover, and
+the region-margin term to come. Everything else is a conversion or a
+card-level estimate that stays in Python.
+
 ## Architecture, as of Sept 2026
 
 What the strategic bot is: a one-action-lookahead policy over a
