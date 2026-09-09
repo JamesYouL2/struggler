@@ -431,3 +431,32 @@ def test_region_margin_incremental_matches_full_recompute():
             assert abs(fast - full) < 1e-9, (cid, own, opp, fast, full)
         finally:
             board.influence[cid].update(original)
+
+
+def test_sandbox_prices_a_die_event_at_its_expectation():
+    """A war is worth the average over the six faces, not the middle roll."""
+    from struggler.engine import Side
+    from struggler.engine.core import Engine
+    from struggler.engine import Action
+    from dataclasses import replace
+    engine = _opening_board()
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    expected = bot.event_value(obs, 'Arab_Israeli_War')
+    # Force each face on a fresh sandbox and value the outcome.
+    _, countries, regions, margins, before = bot._event_basis
+    outcomes = []
+    for face in range(1, 7):
+        sandbox = bot.public_engine(obs)
+        sandbox._fire_event(Side.US, 'Arab_Israeli_War')
+        d = sandbox.pending_decision
+        assert d.actor is Side.CHANCE and d.kind.name.endswith('_ROLL')
+        (key,) = d.options[0].payload
+        faces = tuple(Action(d.kind, {key: v}) for v in range(1, 7))
+        sandbox._decision_stack[-1] = replace(d, options=faces)
+        sandbox.step(faces[face - 1])
+        outcomes.append(bot._resolve_sandbox(sandbox, obs, 'Arab_Israeli_War', countries, regions, margins,
+                                             before, bot._event_helper(), rolls=9))
+    assert min(outcomes) < expected < max(outcomes)
+    assert abs(expected - sum(outcomes) / 6) < 1e-6

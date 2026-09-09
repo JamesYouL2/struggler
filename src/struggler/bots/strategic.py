@@ -923,13 +923,36 @@ class StrategicPlayer:
             self._event_basis = (basis_key, countries, regions, margins, before)
         _, countries, regions, margins, before = self._event_basis
         engine._fire_event(obs.side, cid)
-        policy = self._event_helper()
+        return self._resolve_sandbox(engine, obs, cid, countries, regions, margins, before, self._event_helper())
+
+    def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions, margins,
+                         before, policy, rolls: int = 0) -> float:
+        """Drive the sandbox to rest and value the board change. A die
+        (`*_ROLL` chance decision) is not sampled: every face is followed
+        on a forked engine and the results averaged, so a war event is
+        worth its expected outcome, not a certain success. Other chance
+        decisions (reveals, deals) take their middle option."""
         for _ in range(64):
             if engine.is_terminal or engine.pending_decision is None:
                 break
             d = engine.pending_decision
             if d.actor is Side.CHANCE:
-                engine.step(d.options[len(d.options) // 2])  # the middle roll
+                if d.kind.name.endswith('_ROLL') and rolls < 2:
+                    # Outside physical mode the engine exposes only the face
+                    # its RNG drew; the sandbox wants all six.
+                    faces = d.options
+                    if len(faces) == 1:
+                        (key,) = d.options[0].payload
+                        faces = tuple(Action(d.kind, {key: v}) for v in range(1, 7))
+                    total = 0.
+                    for option in faces:
+                        fork = Engine.deserialize(engine.serialize())
+                        fork.log = SANDBOX_LOG
+                        fork._decision_stack[-1] = replace(fork.pending_decision, options=faces)
+                        fork.step(option)
+                        total += self._resolve_sandbox(fork, obs, cid, countries, regions, margins, before, policy, rolls+1)
+                    return total / len(faces)
+                engine.step(d.options[len(d.options) // 2])  # the middle option
             else:
                 engine.step(policy.choose_action(engine.observe(d.actor), []))
         else:
