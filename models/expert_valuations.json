@@ -4,55 +4,173 @@
   "unit": "US Ops, from the US seat: positive is good for the US, a USSR event is negative. The bot's values are converted with its own Ops scale (ops_value), interpolated.",
   "tolerance_ops": 0.5,
   "cards": {
-    "Marshall_Plan":          {"ops": 3.2,  "note": "3 battleground points (WG/Italy cushions, France's first step) >= 2 Ops; 4 non-BG points + NATO ~1 Op. Measured on the wrong board: holding it you spread the opening."},
-    "Suez_Crisis":            {"ops": -2.5, "note": "Knocks the US out of the Middle East (Israel), Europe domination replacement, UK repair. Above Arab-Israeli War."},
-    "Arab_Israeli_War":       {"ops": null, "note": "Below Suez: a die roll, and no UK."},
-    "US_Japan_Mutual_Defense_Pact": {"ops": null, "note": "Below Marshall at the start."},
-    "Romanian_Abdication":    {"ops": 0.0,  "note": "Nothing until the USSR has the Europe battleground lead."},
-    "Independent_Reds":       {"ops": 0.0,  "note": "As Romania."},
-    "Truman_Doctrine":        {"ops": null, "note": "Near zero on the opening board?"},
-    "De_Stalinization":       {"ops": null, "note": "Worth everything: getting to battlegrounds first."},
-    "Decolonization":         {"ops": null},
-    "Nasser":                 {"ops": null},
-    "Socialist_Governments":  {"ops": null},
-    "De_Gaulle_Leads_France": {"ops": null},
-    "Korean_War":             {"ops": null},
-    "Vietnam_Revolts":        {"ops": null},
-    "Fidel":                  {"ops": null},
-    "COMECON":                {"ops": null},
-    "East_European_Unrest":   {"ops": null},
-    "Special_Relationship":   {"ops": null},
-    "Blockade":               {"ops": null, "note": "US view: the value of the USSR holding it, assuming the US pays a 3-Ops card."},
-    "NATO":                   {"ops": null, "note": "Table says 0: flag-only events are a known gap."},
-    "Warsaw_Pact_Formed":     {"ops": null},
-    "Containment":            {"ops": null},
-    "Red_Scare_Purge":        {"ops": null},
-    "Five_Year_Plan":         {"ops": null},
-    "Duck_and_Cover":         {"ops": null},
-    "Nuclear_Test_Ban":       {"ops": null},
-    "Olympic_Games":          {"ops": null},
-    "Indo_Pakistani_War":     {"ops": null},
-    "Captured_Nazi_Scientist": {"ops": null},
-    "CIA_Created":            {"ops": null},
-    "Defectors":              {"ops": null},
-    "Formosan_Resolution":    {"ops": null},
-    "NORAD":                  {"ops": null},
-    "UN_Intervention":        {"ops": null},
-    "The_Cambridge_Five":     {"ops": null}
+    "Marshall_Plan": {
+      "ops": 3.2,
+      "note": "3 battleground points (WG/Italy cushions, France's first step) >= 2 Ops; 4 non-BG points + NATO ~1 Op. Measured on the wrong board: holding it you spread the opening."
+    },
+    "Suez_Crisis": {
+      "ops": -2.5,
+      "note": "Knocks the US out of the Middle East (Israel), Europe domination replacement, UK repair. Above Arab-Israeli War."
+    },
+    "Arab_Israeli_War": {
+      "ops": null,
+      "note": "Below Suez: a die roll, and no UK."
+    },
+    "US_Japan_Mutual_Defense_Pact": {
+      "ops": null,
+      "note": "Below Marshall at the start."
+    },
+    "Romanian_Abdication": {
+      "ops": 0.0,
+      "note": "Nothing until the USSR has the Europe battleground lead."
+    },
+    "Independent_Reds": {
+      "ops": 0.0,
+      "note": "As Romania."
+    },
+    "Truman_Doctrine": {
+      "ops": null,
+      "note": "Near zero on the opening board?"
+    },
+    "De_Stalinization": {
+      "ops": -7.0,
+      "note": "Empty board to Thailand + Angola + Chile + Venezuela is easily 12 Mid War VP even if Thailand gets couped (counter-coup with China). Call it 7 Ops."
+    },
+    "Decolonization": {
+      "ops": -5.5
+    },
+    "Nasser": {
+      "ops": -2.5,
+      "note": "As an event."
+    },
+    "Socialist_Governments": {
+      "ops": -3.0,
+      "note": "Replacement is ~3 Ops, and against any play the USSR either coups Italy at 1 or takes it free and forces the US to coup back (~0.5 Op)."
+    },
+    "De_Gaulle_Leads_France": {
+      "ops": -2.0,
+      "note": "Against an empty France: the adjacency."
+    },
+    "Korean_War": {
+      "ops": -1.0,
+      "note": "Not much, because of adjacency."
+    },
+    "Vietnam_Revolts": {
+      "ops": -4.0,
+      "note": "A ton on an empty Thailand."
+    },
+    "Fidel": {
+      "ops": -0.65,
+      "note": "Bot's -0.65 accepted."
+    },
+    "COMECON": {
+      "ops": null
+    },
+    "East_European_Unrest": {
+      "ops": null
+    },
+    "Special_Relationship": {
+      "ops": null
+    },
+    "Blockade": {
+      "ops": null,
+      "note": "US view: the value of the USSR holding it, assuming the US pays a 3-Ops card."
+    },
+    "NATO": {
+      "ops": null,
+      "note": "Table says 0: flag-only events are a known gap."
+    },
+    "Warsaw_Pact_Formed": {
+      "ops": null
+    },
+    "Containment": {
+      "ops": null
+    },
+    "Red_Scare_Purge": {
+      "ops": null
+    },
+    "Five_Year_Plan": {
+      "ops": null
+    },
+    "Duck_and_Cover": {
+      "ops": null
+    },
+    "Nuclear_Test_Ban": {
+      "ops": null
+    },
+    "Olympic_Games": {
+      "ops": null
+    },
+    "Indo_Pakistani_War": {
+      "ops": null
+    },
+    "Captured_Nazi_Scientist": {
+      "ops": null
+    },
+    "CIA_Created": {
+      "ops": null
+    },
+    "Defectors": {
+      "ops": null
+    },
+    "Formosan_Resolution": {
+      "ops": null
+    },
+    "NORAD": {
+      "ops": null
+    },
+    "UN_Intervention": {
+      "ops": null
+    },
+    "The_Cambridge_Five": {
+      "ops": null
+    }
   },
   "footholds": {
     "_note": "The US Ops the country's current US position is worth on the opening board (country_value from the US seat, converted).",
-    "Israel":       {"ops": 1.0,  "note": "At least an Op: the only Middle East position, Egypt then Libya."},
-    "Japan":        {"ops": null, "note": "Below the Philippines: US/Japan exists and South Korea is already held; worth something only as insurance for losing South Korea."},
-    "Philippines":  {"ops": null},
-    "Panama":       {"ops": null, "note": "Worth a bit."},
-    "South_Africa": {"ops": null, "note": "Worth a bit."},
-    "Iran":         {"ops": null, "note": "Table says the most valuable US country, above controlled West Germany, for Pakistan/Afghanistan/India reach."},
-    "UK":           {"ops": null, "note": "Table says ~0: the domination-count gap."}
+    "Israel": {
+      "ops": 1.0,
+      "note": "At least an Op: the only Middle East position, Egypt then Libya."
+    },
+    "Japan": {
+      "ops": null,
+      "note": "Below the Philippines: US/Japan exists and South Korea is already held; worth something only as insurance for losing South Korea."
+    },
+    "Philippines": {
+      "ops": null
+    },
+    "Panama": {
+      "ops": null,
+      "note": "Worth a bit."
+    },
+    "South_Africa": {
+      "ops": null,
+      "note": "Worth a bit."
+    },
+    "Iran": {
+      "ops": null,
+      "note": "Table says the most valuable US country, above controlled West Germany, for Pakistan/Afghanistan/India reach."
+    },
+    "UK": {
+      "ops": null,
+      "note": "Table says ~0: the domination-count gap."
+    }
   },
   "order": [
-    ["Suez_Crisis", "worse_for_us_than", "Arab_Israeli_War"],
-    ["Marshall_Plan", "better_for_us_than", "US_Japan_Mutual_Defense_Pact"],
-    ["foothold:Philippines", "better_for_us_than", "foothold:Japan"]
+    [
+      "Suez_Crisis",
+      "worse_for_us_than",
+      "Arab_Israeli_War"
+    ],
+    [
+      "Marshall_Plan",
+      "better_for_us_than",
+      "US_Japan_Mutual_Defense_Pact"
+    ],
+    [
+      "foothold:Philippines",
+      "better_for_us_than",
+      "foothold:Japan"
+    ]
   ]
 }
