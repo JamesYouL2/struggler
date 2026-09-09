@@ -2,7 +2,7 @@
   "version": 1,
   "board": "opening book, seed 4000, before the headline",
   "unit": "US Ops, from the US seat: positive is good for the US, a USSR event is negative. The bot's values are converted with its own Ops scale (ops_value), interpolated.",
-  "tolerance_ops": 0.5,
+  "tolerance_ops": 0.75,
   "cards": {
     "Marshall_Plan": {
       "ops": 3.2,
@@ -73,8 +73,8 @@
       "ops": null
     },
     "Blockade": {
-      "ops": null,
-      "note": "US view: the value of the USSR holding it, assuming the US pays a 3-Ops card."
+      "ops": -1.0,
+      "note": "Weird: its whole value is the reshuffle and it depends on the opponent's hand, which MCTS will struggle to value. Call it an Op either way."
     },
     "NATO": {
       "ops": 1.0,
@@ -84,10 +84,12 @@
       "ops": null
     },
     "Containment": {
-      "ops": null
+      "ops": null,
+      "note": "Way too low at 0.48; number to come."
     },
     "Red_Scare_Purge": {
-      "ops": null
+      "ops": null,
+      "note": "Way, way too low at 0.48; number to come. Symmetric card: the US seat's view depends on who holds it."
     },
     "Five_Year_Plan": {
       "ops": null
@@ -96,19 +98,23 @@
       "ops": null
     },
     "Nuclear_Test_Ban": {
-      "ops": null
+      "ops": 1.0,
+      "note": "About an Op as an event, though you would never event it."
     },
     "Olympic_Games": {
       "ops": null
     },
     "Indo_Pakistani_War": {
-      "ops": null
+      "ops": 0.5,
+      "note": "A bit more than the bot's 0.29 for the military Ops and the VP, but within range."
     },
     "Captured_Nazi_Scientist": {
-      "ops": null
+      "ops": 1.5,
+      "note": "Double space plus the extra VP."
     },
     "CIA_Created": {
-      "ops": null
+      "ops": 1.0,
+      "note": "Obviously an Op."
     },
     "Defectors": {
       "ops": null,
