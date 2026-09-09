@@ -16,8 +16,11 @@ from dataclasses import dataclass
 from struggler.engine import DecisionKind as K, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.bots.public_cards import card_state
+from struggler.engine.board import Board
 from struggler.bots.rollout import RolloutPolicy, information_key
 from struggler.bots.strategic import CARDS, StrategicPlayer
+
+STRATEGIC_BOARD = Board()  # static map data (stability, adjacency) for observation-side checks
 
 log = logging.getLogger('struggler.bots.mcts')
 
@@ -124,12 +127,21 @@ class MCTSPlayer:
         return result
 
     def continuation(self, obs, target=None):
-        ranked = self.rollout_policy.rank_actions(obs)
+        d = obs.pending_decision
+        # A target still worth steering to: one we do not control, judged
+        # from the observation itself, not from the policy's board (which a
+        # cached ranking may not have synced: Astra's audit, finding 3).
+        steer = target is not None and not self._controls(obs, obs.side, target)
+        if steer and d.kind is K.PLACE_INFLUENCE:
+            # The served plan answers a placement with its one planned
+            # country, so the target could never be found in it (finding 2).
+            ranked = self.rollout_policy.rank_for_target(obs, target)
+        else:
+            ranked = self.rollout_policy.rank_actions(obs)
         safety = ranked[0][0][:2]
         safe = [a for key, a in ranked if key[:2] == safety]
         chosen = safe[0]
-        if target is not None and self.rollout_policy.board.control(target) is not obs.side:
-            d = obs.pending_decision
+        if steer:
             for action in safe:
                 if (d.kind is K.PLAY_MODE and action.payload.get('mode') == 'ops'
                     or d.kind is K.OPS_TYPE and action.payload.get('type') == 'influence'
@@ -137,6 +149,13 @@ class MCTSPlayer:
                     chosen = action
                     break
         return chosen
+
+    @staticmethod
+    def _controls(obs, side, country):
+        info = STRATEGIC_BOARD.countries[country]
+        inf = obs.influence[country]
+        margin = inf[side.value] - inf[side.opponent.value]
+        return margin >= info.stability
 
     def advance_move(self, engine, move, side, turn, remaining):
         move_round = engine.action_round

@@ -4,6 +4,7 @@ import random
 
 from conftest import bare_engine, assert_invariants
 from struggler.bots.mcts import MCTSPlayer
+from struggler.bots.rollout import RolloutPolicy
 from struggler.bots.strategic import CARDS
 from struggler.engine import Side
 from struggler.engine.cards import entry_turn
@@ -134,3 +135,48 @@ def test_leaf_value_does_not_depend_on_what_was_ranked_before():
     # And the leaf context differs from the ranking context when it should:
     # the same board with the scoring card gone from hand values differently.
     assert MCTSPlayer().leaf_return(other, Side.US) != fresh
+
+
+def _ops_position(italy_us=1, ops=4):
+    engine = bare_engine()
+    engine.phase = 'action_rounds'
+    engine.defcon = 4
+    engine.board.influence['Italy']['US'] = italy_us
+    engine._push_ops_type(Side.US, ops)
+    return engine
+
+
+def test_targeted_continuation_places_in_the_target_not_the_served_plan():
+    """Astra's audit, finding 2: the served placement plan answers with its
+    one planned country, so a France target was never found and the point
+    went to Italy. The continuation now re-ranks for the target."""
+    engine = _ops_position()
+    bot = MCTSPlayer()
+    bot.rollout_policy.reset()
+    ops_type = bot.continuation(engine.observe(Side.US), 'France')
+    assert ops_type.payload['type'] == 'influence'
+    engine.step(ops_type)
+    placed = bot.continuation(engine.observe(Side.US), 'France')
+    assert placed.payload['country'] == 'France'
+    # The steering check reads the observation, not the policy board.
+    engine2 = _ops_position(italy_us=3)
+    assert MCTSPlayer._controls(engine2.observe(Side.US), Side.US, 'Italy')
+    assert not MCTSPlayer._controls(engine.observe(Side.US), Side.US, 'France')
+
+
+def test_rollout_ranking_cache_hit_syncs_the_board():
+    """Astra's audit, finding 3: a cached ranking restored plans but left
+    the policy board at whatever position was ranked last."""
+    engine_a = _ops_position()
+    obs_a = engine_a.observe(Side.US)
+    engine_b = _ops_position()
+    engine_b.board.influence['France']['US'] = 10
+    obs_b = engine_b.observe(Side.US)
+    policy = RolloutPolicy()
+    policy.reset()
+    policy.rank_actions(obs_a)
+    policy.rank_actions(obs_b)
+    assert policy.board.influence['France']['US'] == 10
+    policy.rank_actions(obs_a)  # cache hit
+    assert policy.hits == 1
+    assert policy.board.influence['France']['US'] == 0

@@ -15,7 +15,7 @@ from dataclasses import fields
 
 from struggler.engine import DecisionKind as K
 from struggler.bots.defcon import DefconPlanner
-from struggler.bots.strategic import LOSS, StrategicPlayer, _coup_risks_defcon, _in_bonus_region
+from struggler.bots.strategic import LOSS, StrategicPlayer, _coup_risks_defcon, _in_bonus_region, _sync_board
 
 
 def _freeze(value):
@@ -101,6 +101,7 @@ class RolloutPolicy(StrategicPlayer):
         if cached is not None:
             self.hits += 1
             ranked, self._plan, self._placements = cached
+            _sync_board(self.board, obs)  # callers read the board after a hit too
             return ranked
         ranked = self._served(obs) if self.serve_plans else None
         if ranked is not None:
@@ -113,6 +114,21 @@ class RolloutPolicy(StrategicPlayer):
                 chosen = ranked[0][1].payload['type']
                 self._plan = (obs.side, obs.turn, obs.action_round, chosen, self._targets.get(chosen))
         self._rankings[key] = (ranked, self._plan, self._placements)
+        return ranked
+
+    def rank_for_target(self, obs, target):
+        """A full ranking for a placement decision the search wants steered
+        to `target`: the served plan (one planned country) cannot contain
+        it, so re-rank as the parent would and drop the plan, since the
+        rest of this spend must follow the target, not the plan."""
+        d = obs.pending_decision
+        if d is None or d.kind is not K.PLACE_INFLUENCE or not any(a.payload.get('country') == target for a in d.options):
+            return self.rank_actions(obs)
+        self._placements = None
+        self.misses += 1
+        self._targets = {}
+        ranked = super().rank_actions(obs)
+        self._rankings[information_key(obs)] = (ranked, self._plan, None)
         return ranked
 
     def _served(self, obs):

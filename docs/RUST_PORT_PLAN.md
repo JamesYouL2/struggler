@@ -42,9 +42,9 @@ Conclusions the plan rests on:
   recursive planner's workload differs from the opening (Astra).
 - Before any acceleration is measured, the three MCTS correctness findings
   in Astra's audit (leaf context inherited from the last ranking, served
-  plans suppressing targets, the ranking cache not syncing the board) must
-  be fixed and pinned by regressions, or speed and semantics changes will
-  be confounded.
+  plans suppressing targets, the ranking cache not syncing the board) had
+  to be fixed and pinned by regressions, or speed and semantics changes
+  would be confounded. Done, Sept 2026 (98cdc1f and the commit after).
 
 ## Boundary
 
@@ -101,7 +101,7 @@ Weights keep their names; the array order is defined in one place.
 
 ## Prerequisites in Python (do first, each a gated no-op)
 
-1. Fix and pin Astra's three MCTS findings.
+1. Fix and pin Astra's three MCTS findings (done).
 2. Index the evaluator: countries as indices, influence as two arrays,
    adjacency as index lists, cards as a struct table. This alone should
    remove most of the enum and dict overhead (12 % + part of 25 %).
@@ -130,7 +130,7 @@ Weights keep their names; the array order is defined in one place.
 
 | Step | Size | Depends on |
 | --- | --- | --- |
-| MCTS fixes and regressions | 1-2 days | none |
+| MCTS fixes and regressions | done | none |
 | Indexing refactor | 1-2 days | none |
 | Pure-function evaluator + corpus | 1-2 days | indexing |
 | `evaluate_placements` + `board_value` in Rust, parity | 3-5 days | corpus |
