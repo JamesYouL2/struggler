@@ -147,10 +147,16 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
-    # scored one only after the reshuffle; a Mid War region from turn 4.
+    # scored one only after the reshuffle; a Mid War region from turn 4. Every
+    # region also has the end of the game to play for, at its measured odds,
+    # so a scored region is not worth nothing.
+    from struggler.bots.public_cards import final_scoring_odds
     d = bot.weights.scoring_discount
-    assert bot.scoring_weight(live, 'Iran') > 1 > bot.scoring_weight(dead, 'Iran')
-    assert bot.scoring_weight(dataclasses.replace(live, turn=1), 'Brazil') == d ** 3
+    live_iran, dead_iran = (bot.scoring_weight(o, 'Iran') for o in (live, dead))
+    assert live_iran - dead_iran == pytest.approx(1.)  # the gap is exactly this cycle
+    assert dead_iran > final_scoring_odds(dead)
+    turn1 = dataclasses.replace(live, turn=1)
+    assert bot.scoring_weight(turn1, 'Brazil') == pytest.approx(d ** 3 + final_scoring_odds(turn1))
     assert bot.scoring_weight(dataclasses.replace(live, turn=5), 'Brazil') > 1
     # Southeast Asia Scoring reaches Thailand but not Japan, even with Asia Scoring dead.
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
@@ -160,6 +166,46 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     live_value = bot.delta(live, 'Iran', own=3)
     bot.prepare(dead)
     assert bot.delta(dead, 'Iran', own=3) < live_value
+
+
+def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring():
+    """The schedule used to promise scorings that never happen and to ignore
+    the one that sometimes does. A reshuffle two turns away on turn 9 predicted
+    a scoring on turn 11, and the end-of-game scoring of every region was
+    missing entirely, so the weight came out flat at 1.800 on every turn.
+
+    Final scoring is not certain either: most games end before it, on the 20 VP
+    auto-victory, so it is priced at its measured odds rather than treated as
+    a scheduled scoring."""
+    from struggler.bots.public_cards import (FINAL_SCORING_ODDS, final_scoring_odds,
+                                             scoring_schedule, turns_to_final_scoring)
+    engine = Engine(seed=0)
+    bot = StrategicPlayer()
+    obs = engine.observe(Side.US)
+    for turn in range(1, 11):
+        now = dataclasses.replace(obs, turn=turn)
+        horizon = turns_to_final_scoring(now)
+        assert horizon == 10 - turn
+        # Nothing is predicted for a turn the game cannot reach.
+        for card in ('Middle_East_Scoring', 'Asia_Scoring', 'Africa_Scoring'):
+            assert all(t <= horizon for t in scoring_schedule(now, card)), (turn, card)
+        # The end-of-game scoring is worth its odds, so no country is worth
+        # nothing while the game is live.
+        assert bot.scoring_weight(now, 'Iran') >= final_scoring_odds(now)
+    # Those odds stay odds. Treating final scoring as certain and discounting
+    # it like a card scoring would put turn 10 at 1.0 and turn 8 at 0.64, both
+    # more than double what the games actually do.
+    assert max(FINAL_SCORING_ODDS) < 0.5
+    assert FINAL_SCORING_ODDS[9] < 2 * FINAL_SCORING_ODDS[0]
+    # A region whose card is gone still has the end of the game to play for,
+    # and nothing else.
+    dead = dataclasses.replace(obs, turn=9, discard_pile=('Middle_East_Scoring',),
+                               draw_pile_size=40)
+    assert scoring_schedule(dead, 'Middle_East_Scoring') == ()  # no reshuffle in time
+    assert bot.scoring_weight(dead, 'Iran') == pytest.approx(final_scoring_odds(dead))
+    # Zeroing the weight restores the old shape, minus the phantom scorings.
+    off = StrategicPlayer(StrategicWeights(scoring_final=0.0))
+    assert off.scoring_weight(dead, 'Iran') == 0.0
 
 
 def test_mutation_can_be_restricted_to_named_weights():

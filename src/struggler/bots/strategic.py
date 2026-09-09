@@ -23,7 +23,8 @@ from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG
 from struggler.bots import evaluator as ev
-from struggler.bots.public_cards import card_state, scoring_cards_for, scoring_schedule
+from struggler.bots.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
+                                         scoring_schedule)
 from struggler.engine.player import Event
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
 
@@ -179,6 +180,11 @@ class StrategicWeights:
     # the moment.
     scoring_hand: float = 1.2
     scoring_discount: float = 0.8
+    # What the end-of-game scoring of every region is worth, times its
+    # measured odds of happening (public_cards.FINAL_SCORING_ODDS). 0 restores
+    # the old behaviour, which priced the last turns as if the game ran for
+    # ever and then stopped without scoring.
+    scoring_final: float = 1.0
     # progress_curve is the exponent on (margin/stability). It stays linear:
     # progress_curve=2 scored 0.33 +/- 0.09 against this shape (see
     # docs/STRATEGIC_AI.md); option value needs lookahead, not a curve.
@@ -523,6 +529,14 @@ class StrategicPlayer:
             held = card in obs.hand
             for turns in scoring_schedule(obs, card):
                 total += w.scoring_discount ** turns * (w.scoring_hand if held and turns == 0 else 1.)
+        # Every region is scored once more at the end of the last turn, if the
+        # game gets there. Most do not: two thirds end early on the 20 VP
+        # auto-victory. So this is priced at its measured odds
+        # (`public_cards.FINAL_SCORING_ODDS`) rather than discounted like a
+        # scheduled card scoring, which would put it at more than double.
+        # Without the term at all, the Late War priced a region whose card had
+        # just been played as dead ground, in the era that decides the game.
+        total += w.scoring_final * final_scoring_odds(obs)
         return total
 
     def importance(self, info) -> float:

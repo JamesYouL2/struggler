@@ -40,6 +40,17 @@ action = bot.choose_action(observation, history)
   an unscored Early War region is worth about 2.5x one in a region just
   scored, and Mid War battlegrounds grow in value as turn 4 approaches.
   The same schedule drives the checkpoint benchmark's projection.
+- The schedule stops at the end of the game, and every region is scored once
+  more there, at its measured odds of the game getting that far
+  (`public_cards.FINAL_SCORING_ODDS`, times `scoring_final`). Neither used to
+  be true: a reshuffle two turns off on turn 9 predicted a scoring on turn 11,
+  and the end-of-game scoring was missing, so the weight came out flat on
+  every turn of the game. Final scoring is not a certainty to put in its
+  place: over 192 measured games only 24.5% reached it, 67.2% ended early on
+  the 20 VP auto-victory and 7.3% on Wargames, and the odds barely rise as the
+  game runs on, because a game still alive on turn 9 is usually alive because
+  it is close. `scripts/game_endings.py` recomputes the table from any
+  benchmark report.
 - The opening setup is a book, not a search (`OPENING_BOOK`): USSR
   East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
   European Unrest; Austria reaches Italy and West Germany); US West

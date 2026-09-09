@@ -28,7 +28,7 @@ from multiprocessing import Pool
 from struggler.engine import Engine, Region, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.replay import HistoryBuilder
-from struggler.bots.public_cards import scoring_schedule
+from struggler.bots.public_cards import scoring_schedule, turns_to_final_scoring
 from struggler.bots.strategic import StrategicPlayer
 
 # Checkpoint projection: how many more times each region is expected to
@@ -55,9 +55,11 @@ def region_bg_diff(board, side: Side) -> dict[str, int]:
 
 def scoring_weights(engine, side: Side) -> dict[str, float]:
     """Expected, turn-discounted number of further scorings per region
-    (the bots' `scoring_schedule`, with SEA_WEIGHT for Southeast Asia)."""
+    (the bots' `scoring_schedule`, with SEA_WEIGHT for Southeast Asia, plus
+    the final scoring every region gets at the end of the last turn)."""
     obs = engine.observe(side)
-    weights = {region.value: sum(TURN_DISCOUNT ** t for t in scoring_schedule(obs, card))
+    final = TURN_DISCOUNT ** turns_to_final_scoring(obs)
+    weights = {region.value: final + sum(TURN_DISCOUNT ** t for t in scoring_schedule(obs, card))
                for card, region in SCORING_CARD_REGION.items()}
     weights['SOUTHEAST_ASIA'] = SEA_WEIGHT * sum(TURN_DISCOUNT ** t for t in scoring_schedule(obs, 'Southeast_Asia_Scoring'))
     return weights
