@@ -83,17 +83,15 @@ class StrategicWeights:
     control: float = 0.0
     battleground: float = 5.0
     progress: float = 2.8
-    reserve: float = 0.35
-    # Wipe risk: a holding is priced down by the chance the opponent's coup
-    # (3 or 4 Ops, where DEFCON allows a coup in that region, one coup a
-    # turn shared over their targets) removes every point of it, times what
-    # the position is worth (control plus progress). Unbacked, no neighbour
-    # holds our influence, so a wipe is a lockout, we cannot place there
-    # again: `wipe` of the stake, above 1 for the turns lost. Backed, it
-    # costs the points back at an Op each: `wipe_backed` of the stake.
-    # Off until calibrated (see docs/NOTES.md, plan step 2): the expert's
-    # anchor is that a controlled Thailand backed from Malaysia is worth
-    # about twice the unbacked one while the USSR can coup there.
+    # Wipe risk: the chance the opponent's coup (3 or 4 Ops, where DEFCON
+    # allows a coup in that region, one coup a turn shared over their
+    # targets) removes every point we hold. What that costs depends on
+    # backing. Unbacked (no neighbour holds our influence, no superpower
+    # adjacency) and the couper can get there first, a wipe flips the
+    # battleground: we lose our position and they take the country, so the
+    # stake is both. Backed, they still have to flip it to control on their
+    # side: the stake is our position, `wipe_backed` of it. `wipe` scales
+    # the flip. Off until calibrated (docs/NOTES.md plan step 2).
     wipe: float = 0.0
     wipe_backed: float = 0.0
     # First mover: presence in a battleground the opponent has none in but
@@ -110,7 +108,6 @@ class StrategicWeights:
     region: float = 1.3
     vp: float = 3.0
     military: float = 2.0
-    event: float = 1.0
     ops: float = 2.0
     # A country is worth what its region will still score: the sum over its
     # scoring cards' expected future plays of scoring_discount ** (turns
@@ -122,17 +119,10 @@ class StrategicWeights:
     # the moment.
     scoring_hand: float = 1.2
     scoring_discount: float = 0.8
-    # Influence value is not linear in principle: control is what scores,
-    # uncontrolled influence only has option value, and over-protection
-    # matters mostly where a cheap coup can undo it. progress_curve is the
-    # exponent on (margin/stability); reserve_stability divides the reserve
-    # term by stability ** that. The defaults stay at the linear/flat shape
-    # because a one-action-lookahead evaluator needs the linear term to
-    # stand in for option value: progress_curve=2 with reserve_stability=1
-    # scored 0.33 +/- 0.09 against this shape on seeds 4000-4015 (see
-    # docs/STRATEGIC_AI.md). Option value needs lookahead, not a curve.
+    # progress_curve is the exponent on (margin/stability). It stays linear:
+    # progress_curve=2 scored 0.33 +/- 0.09 against this shape (see
+    # docs/STRATEGIC_AI.md); option value needs lookahead, not a curve.
     progress_curve: float = 1.0
-    reserve_stability: float = 0.0
     # A coup or realignment is priced on the same board change as placing
     # influence, then discounted: it is the less Ops-efficient route to the
     # same result (a coup on a 2-stability country loses a point of margin
@@ -328,19 +318,11 @@ class StrategicPlayer:
         # worth well under half of a controlled one.
         fraction = max(-1.0, min(1.0, margin / info.stability))
         value += w.progress * importance * math.copysign(abs(fraction) ** w.progress_curve, fraction)
-        # Wipe risk (see StrategicWeights.wipe) and first-mover tempo. The
-        # stake is the side's own position: control plus progress.
-        if own > 0:
-            stake = importance * (1 + w.progress * min(1., own / info.stability)) if margin >= info.stability \
-                else w.progress * importance * min(1., max(0., margin) / info.stability) + \
-                w.progress * importance * min(1., own / info.stability) * (margin <= 0)
-            value -= self._wipe_risk(board, cid, info, side, own) * stake
-        if opp > 0:
-            omargin = -margin
-            stake = importance * (1 + w.progress * min(1., opp / info.stability)) if omargin >= info.stability \
-                else w.progress * importance * min(1., max(0., omargin) / info.stability) + \
-                w.progress * importance * min(1., opp / info.stability) * (omargin <= 0)
-            value += self._wipe_risk(board, cid, info, side.opponent, opp) * stake
+        # Wipe risk (see StrategicWeights.wipe): the couper's expected take.
+        if own > 0 and w.wipe > 0:
+            value -= self._wipe_risk(board, cid, info, side, own, opp, importance)
+        if opp > 0 and w.wipe > 0:
+            value += self._wipe_risk(board, cid, info, side.opponent, opp, own, importance)
         if info.battleground and (own > 0) != (opp > 0):
             # Tempo is worth most where control is cheap: per stability,
             # like every other per-Op term (a 4-stability contest is the
@@ -349,8 +331,6 @@ class StrategicPlayer:
                 value += w.first_mover * importance / info.stability
             elif opp > 0 and board.is_reachable(side, cid):
                 value -= w.first_mover * importance / info.stability
-        guard = w.reserve * importance / info.stability ** w.reserve_stability
-        value += guard * (min(2, max(0, margin-info.stability)) - min(2, max(0, -margin-info.stability)))
         # First footholds open nearby battlegrounds on a later action round:
         # a stake is worth the uncontrolled battlegrounds it alone lets us
         # reach. Nothing for ground we already reach (a fourth point in
@@ -361,14 +341,19 @@ class StrategicPlayer:
             cache[key] = value
         return value
 
-    def _wipe_risk(self, board: Board, cid: str, info, holder: Side, held: int) -> float:
-        """The chance a 3- or 4-Ops coup removes every point `holder` has
-        here (roll + Ops - 2 x stability >= held), where DEFCON allows a coup
-        in this region; scaled to 1 when unbacked (no neighbour holds our
-        influence and no superpower adjacency: a wipe locks us out) and to
-        `wipe_backed` when a neighbour does."""
+    def _wipe_risk(self, board: Board, cid: str, info, holder: Side, held: int, other: int,
+                   importance: float) -> float:
+        """Expected loss to `holder` from the opponent's coup wiping this
+        country: the chance a 3- or 4-Ops coup removes every point (roll +
+        Ops - 2 x stability >= held), where DEFCON allows a coup here,
+        shared over the opponent's coupable targets, times the stake.
+        Unbacked and the couper gets there first (adjacent already, or the
+        coup's excess leaves them influence): the battleground flips, so
+        the stake is holder's position plus the country's control value.
+        Backed: the stake is holder's position, times `wipe_backed`."""
         if held <= 0:
             return 0.
+        w = self.weights
         obs = self._obs
         defcon = obs.defcon if obs is not None else 5
         if defcon < RULES['coup_min_defcon'].get(info.region.name, 2):
@@ -377,13 +362,20 @@ class StrategicPlayer:
         p = wipes / 12
         if p == 0:
             return 0.
+        margin = held - other
+        position = importance * (1 if margin >= info.stability else 0) \
+            + w.progress * importance * max(0., min(1., margin / info.stability))
         key = holder.value
         inf = board.influence
         backed = cid in board._adjacency.get(key, ()) or any(
             inf[n][key] > 0 for n in board.neighbors(cid) if n in inf)
-        # One coup a turn: the opponent picks a target, so the risk is
-        # shared out over the battlegrounds they could wipe, not summed.
-        return p * (self.weights.wipe_backed if backed else self.weights.wipe) / max(1, self._coup_targets(board, holder, defcon))
+        if backed:
+            stake = w.wipe_backed * position
+        else:
+            couper = holder.opponent
+            first = board.is_reachable(couper, cid) or 6 + 4 - 2 * info.stability > held
+            stake = w.wipe * (position + (importance * (1 + w.progress) if first else 0.))
+        return p * stake / max(1, self._coup_targets(board, holder, defcon))
 
     def _coup_targets(self, board: Board, holder: Side, defcon: int) -> int:
         """How many battlegrounds `holder` has influence in that the
@@ -903,7 +895,7 @@ class StrategicPlayer:
             event = self.event_value(obs, cid)
             ops = _effective_ops_estimate(CARDS[cid], obs, obs.side)
             if p['mode'] == 'event':
-                return event * self.weights.event
+                return event
             if p['mode'] == 'space_race':
                 return self.space_value(obs, ops) + 1
             return self.ops_value(obs, ops) + (min(0, event) if p['mode'] != 'un_intervention' and CARDS[cid].side.value == obs.side.opponent.value else 0)

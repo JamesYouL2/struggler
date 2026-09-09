@@ -144,8 +144,12 @@ branch:
    this one. Two framings tried: risk x importance (weight 8) orders the
    USSR list but prices a lone controlled Thailand negative; risk x stake
    (weight 1.5) is bounded but makes a second Iraq point look worse
-   (more at stake, less wipe chance). The stake framing plus the Thailand
-   2x anchor is the one to finish. A holding is backed when a neighbour holds our
+   (more at stake, less wipe chance). The expert's formula, now coded:
+   an unbacked wipe where the couper gets there first flips the
+   battleground (stake = our position + the country's control value); a
+   backed one they still have to flip to control (stake = our position x
+   `wipe_backed`). Thailand is special (the China counter-coup), so the 2x
+   anchor is an upper bound, not the target. Weights still 0. A holding is backed when a neighbour holds our
    influence (or home adjacency). Price every held country by the chance
    the opponent's best coup wipes it (roll + Ops - 2 x stability >= our
    points, gated by the DEFCON coup rule), times a lockout multiplier
@@ -191,12 +195,12 @@ Every term should be one of those. As of Sept 2026:
 | Exact region score | `region` | scoring | Keep. Step 3 adds the margin toward the next tier. |
 | Linear progress toward control | `progress` | progress | Keep. `progress_curve` stays 1 (convexity lost 0.33 without lookahead). |
 | Wipe risk / backing | `wipe`, `wipe_backed` | progress (what a coup takes back) | Keep once calibrated; off now. Replaces `reserve`. |
-| Reserve (flat per spare point) | `reserve`, `reserve_stability` | progress | Remove when wipe is on. |
+| Reserve (flat per spare point) | `reserve`, `reserve_stability` | progress | Removed Sept 2026 (was 0.35). |
 | Access: reach into unowned battlegrounds, redundant, chained, contested | `access`, `access_redundant`, `access_chain`, `access_contested` | reach | Keep. This is what non-battlegrounds are for. |
 | First mover per stability | `first_mover` | reach | Keep. |
 | Non-battleground control tier | `control` | scoring | Removed (0): domination is the region score's job. |
 | Southeast Asia tier, realignment leverage | `southeast_asia`, `leverage` | scoring / reach | Removed Sept 2026. |
-| VP, Ops scale, military Ops, coup discount | `vp`, `ops`, `military`, `coup_discount` | conversions, not board terms | Keep: they put VP, Ops and dice on one scale. `event` (1.0) multiplies a card's event when chosen over Ops and can go. |
+| VP, Ops scale, military Ops, coup discount | `vp`, `ops`, `military`, `coup_discount` | conversions, not board terms | Keep: they put VP, Ops and dice on one scale. `event` (1.0, a no-op multiplier) removed Sept 2026. |
 
 So the board evaluator to port is seven terms over arrays: battleground x
 scoring weight, region score, progress, wipe, access, first mover, and

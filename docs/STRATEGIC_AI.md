@@ -83,9 +83,13 @@ action = bot.choose_action(observation, history)
   stability (a 4-stability contest is the least valuable Op on the board).
 - Wipe risk (`wipe`, `wipe_backed`, `_wipe_risk`): the chance a 3- or
   4-Ops coup removes every point we hold, where DEFCON allows and shared
-  over the opponent's coupable targets, times the position at stake;
-  unbacked (no neighbour holds our influence) it is a lockout. Coded, off
-  by default until calibrated: see docs/NOTES.md plan step 2.
+  over the opponent's coupable targets, times the stake. Unbacked (no
+  neighbour holds our influence) and the couper gets there first, the
+  battleground flips: the stake is our position plus the country's control
+  value. Backed, they still have to flip it to control on their side: the
+  stake is our position times `wipe_backed`. Coded, off by default until
+  calibrated: see docs/NOTES.md plan step 2. The flat `reserve` per spare
+  point it replaces was removed in Sept 2026.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
   candidate, and only it is valued as a space play when choosing a card.
