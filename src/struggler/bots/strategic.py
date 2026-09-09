@@ -76,11 +76,13 @@ PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
 @dataclass(frozen=True)
 class StrategicWeights:
     # Country importance: a battleground is worth `battleground` (times
-    # what its region will still score); a plain country is worth nothing
-    # of its own (`control` 0): its control only moves the domination
-    # tally, which the region score computes exactly, and what it is for is
-    # reach, priced by the access terms below.
-    control: float = 0.0
+    # what its region will still score); a plain country a quarter to a
+    # third of that. Per Op, a battleground is its tier over its stability
+    # (1.25 at stability 4, 1.67 at 3); the expert puts a 1-stability
+    # non-battleground between those, so `control` 1.5. Its control also
+    # moves the domination tally, which the region score and margin carry,
+    # and gives reach, priced by the access terms below.
+    control: float = 1.5
     battleground: float = 5.0
     progress: float = 2.8
     # A flat reserve per spare point past control, up to two. Slated for
@@ -95,7 +97,7 @@ class StrategicWeights:
     # battleground: we lose our position and they take the country, so the
     # stake is both. Backed, they still have to flip it to control on their
     # side: the stake is our position, `wipe_backed` of it. `wipe` scales
-    # the flip. Off until calibrated (docs/NOTES.md plan step 2).
+    # the flip. Off until calibrated (docs/CLAUDE_NOTES.md plan step 2).
     wipe: float = 0.0
     wipe_backed: float = 0.0
     # First mover: presence in a battleground the opponent has none in but
@@ -114,9 +116,17 @@ class StrategicWeights:
     # control value in the region), not the region score's VP scale:
     # margin_presence 1 makes a finished first presence worth one
     # battleground control.
-    margin_presence: float = 3.0
-    margin_battleground: float = 0.5
+    # Presence credit counts only where the region is live (its scoring
+    # weight at least `margin_live`: scores this cycle), so the bot does
+    # not scatter footholds toward presence in regions that will not score
+    # for turns (presence 3.0 everywhere lost 0.375 against its base).
+    # Battleground margin is stepwise linear: progress toward an
+    # uncontrolled battleground counts toward the margin at the linear
+    # rate, control is the step, over-protection is the `reserve`.
+    margin_presence: float = 1.0
+    margin_battleground: float = 0.25
     margin_country: float = 0.05
+    margin_live: float = 1.0
     access: float = 1.5
     access_redundant: float = 0.35
     access_chain: float = 0.4
@@ -334,58 +344,94 @@ class StrategicPlayer:
             cache[key] = result
         return result[0]
 
-    def _region_margin_frozen(self, board: Board, region: Region, cid: str, controller) -> bool:
-        """Whether a change of influence in `cid` that leaves its controller
-        as `controller` can move the region margin: only if a side has no
-        presence there yet (progress toward presence counts)."""
+    @staticmethod
+    def _margin_contribution(info, us: int, su: int):
+        """One country's share of the region aggregates: per side
+        (controlled countries, fractional battlegrounds, progress)."""
+        margin = us - su
+        if margin >= info.stability:
+            return (1, float(info.battleground), 1.), (0, 0., 0.)
+        if -margin >= info.stability:
+            return (0, 0., 0.), (1, float(info.battleground), 1.)
+        if us > 0 and margin > 0:
+            frac = margin / info.stability
+            return (0, info.battleground * frac, frac), (0, 0., 0.)
+        if su > 0 and margin < 0:
+            frac = -margin / info.stability
+            return (0, 0., 0.), (0, info.battleground * frac, frac)
+        return (0, 0., 0.), (0, 0., 0.)
+
+    def _margin_unit(self, region: Region, members) -> tuple[float, bool, float]:
+        w = self.weights
+        presence_vp, domination_vp, _ = RULES['scoring'][region.name]
+        sw = (self._scoring_weights.get(members[0]) if self._scoring_weights and members[0] in self._scoring_weights
+              else self.scoring_weight(self._obs, members[0]) if self._scoring_weights is not None else 1.)
+        # One battleground's control value in this region is the unit; the
+        # domination gap is in presence units.
+        return w.battleground * sw, sw >= w.margin_live, (domination_vp - presence_vp) / presence_vp
+
+    def _margin_credit(self, agg, unit: float, live: bool, gap: float) -> float:
+        """Net US credit from the aggregates {side: [countries, battlegrounds, best progress]}."""
+        w = self.weights
+        net = 0.
+        for side, sign in ((Side.US, 1), (Side.USSR, -1)):
+            mine, theirs = agg[side], agg[side.opponent]
+            credit = 0.
+            if live and mine[0] == 0:
+                credit += w.margin_presence * mine[2]
+            bg_margin = max(-2., min(2., mine[1] - theirs[1]))
+            c_margin = max(-2, min(2, mine[0] - theirs[0]))
+            credit += gap * (w.margin_battleground * bg_margin + w.margin_country * c_margin)
+            net += sign * credit * unit
+        return net
+
+    def _region_margin_uncached(self, board: Board, region: Region, members):
+        """Returns (net US credit, aggregates, unit, live, gap)."""
+        unit, live, gap = self._margin_unit(region, members)
+        inf = board.influence
+        agg = {Side.US: [0, 0., 0.], Side.USSR: [0, 0., 0.]}
+        for cid in members:
+            v = inf[cid]
+            for side, (c, bgf, prog) in zip((Side.US, Side.USSR), self._margin_contribution(board.countries[cid], v['US'], v['USSR'])):
+                a = agg[side]
+                a[0] += c
+                a[1] += bgf
+                if prog > a[2]:
+                    a[2] = prog
+        return self._margin_credit(agg, unit, live, gap), agg, unit, live, gap
+
+    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str, before: dict) -> float:
+        """The region margin with `cid`'s influence changed from `before` to
+        the board's current values, from the cached aggregates of the
+        pre-change board: one country's contribution swapped, no region
+        loop (falls back to a full pass only when the best progress may
+        have been this country's)."""
         members = self._region_members.get(region) if hasattr(self, '_region_members') else board.countries_in(region)
         cache = getattr(self, '_region_cache', None)
-        if cache is not None and board is self.board:
+        if cache is None or board is not self.board:
+            return self.region_margin(board, region, side)
+        current = dict(board.influence[cid])
+        board.influence[cid].update(before)
+        try:
             key = ('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, members)))
             hit = cache.get(key)
             if hit is None:
                 hit = cache[key] = self._region_margin_uncached(board, region, members)
-            us_present, ussr_present = hit[1], hit[2]
-        else:
-            _, us_present, ussr_present = self._region_margin_uncached(board, region, members)
-        return us_present and ussr_present and board.control(cid) is controller
-
-    def _region_margin_uncached(self, board: Board, region: Region, members) -> tuple[float, bool, bool]:
-        w = self.weights
-        presence_vp, domination_vp, _ = RULES['scoring'][region.name]
-        # One battleground's control value in this region: the unit.
-        unit = w.battleground * (self._scoring_weights.get(members[0]) if self._scoring_weights and members[0] in self._scoring_weights
-                                 else self.scoring_weight(self._obs, members[0]) if self._scoring_weights is not None else 1.)
-        gap = (domination_vp - presence_vp) / presence_vp  # in presence units
-        inf = board.influence
-        counts = {Side.US: [0, 0], Side.USSR: [0, 0]}  # controlled countries, battlegrounds
-        best_progress = {Side.US: 0., Side.USSR: 0.}
-        for cid in members:
-            info = board.countries[cid]
-            us, su = inf[cid]['US'], inf[cid]['USSR']
-            margin = us - su
-            if margin >= info.stability:
-                counts[Side.US][0] += 1
-                counts[Side.US][1] += info.battleground
-            elif -margin >= info.stability:
-                counts[Side.USSR][0] += 1
-                counts[Side.USSR][1] += info.battleground
-            else:
-                if us > 0:
-                    best_progress[Side.US] = max(best_progress[Side.US], max(0., margin) / info.stability)
-                if su > 0:
-                    best_progress[Side.USSR] = max(best_progress[Side.USSR], max(0., -margin) / info.stability)
-        net = 0.
-        for side, sign in ((Side.US, 1), (Side.USSR, -1)):
-            mine, theirs = counts[side], counts[side.opponent]
-            credit = 0.
-            if mine[0] == 0:
-                credit += w.margin_presence * best_progress[side]
-            bg_margin = max(-2, min(2, mine[1] - theirs[1]))
-            c_margin = max(-2, min(2, mine[0] - theirs[0]))
-            credit += gap * (w.margin_battleground * bg_margin + w.margin_country * c_margin)
-            net += sign * credit * unit
-        return net, counts[Side.US][0] > 0, counts[Side.USSR][0] > 0
+        finally:
+            board.influence[cid].update(current)
+        _, agg, unit, live, gap = hit
+        info = board.countries[cid]
+        old = self._margin_contribution(info, before['US'], before['USSR'])
+        new = self._margin_contribution(info, current['US'], current['USSR'])
+        adjusted = {}
+        for s_, o, n in zip((Side.US, Side.USSR), old, new):
+            a = agg[s_]
+            if o[2] > 0 and o[2] >= a[2] and n[2] < o[2]:
+                net = self.region_margin(board, region, side)  # this country held the best progress
+                return net
+            adjusted[s_] = [a[0] - o[0] + n[0], a[1] - o[1] + n[1], max(a[2], n[2])]
+        net = self._margin_credit(adjusted, unit, live, gap)
+        return net if side is Side.US else -net
 
     def country_value(self, board: Board, cid: str, side: Side) -> float:
         w = self.weights
@@ -608,8 +654,7 @@ class StrategicPlayer:
             # the margin term (progress toward presence) can move on either.
             region_after = (region_before if board.control(cid) is controller else
                             self.region_score(board, region, side))
-            margin_after = (margin_before if self._region_margin_frozen(board, region, cid, controller)
-                            else self.region_margin(board, region, side))
+            margin_after = self.region_margin_after(board, region, side, cid, original)
             return (self.country_value(board, cid, side) + self.weights.region * urgency * region_after
                     + margin_after - before)
         finally:

@@ -215,9 +215,9 @@ def test_country_tiers_and_coup_discount():
     # A battleground is worth its tier; a plain country nothing of its own
     # (reach is priced separately, and the region score carries domination).
     assert control_value('Thailand') > max(control_value('Malaysia'), control_value('Spain_Portugal'))
-    assert bot.importance(board.countries['Malaysia']) == bot.weights.control == 0
-    # What a plain country is still worth is its reach (Malaysia -> Thailand).
-    assert control_value('Malaysia') > 0
+    # A plain country is a quarter to a third of a battleground.
+    assert bot.importance(board.countries['Malaysia']) == bot.weights.control
+    assert 0 < bot.weights.control < bot.weights.battleground / 2
     # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)
     from struggler.bots.greedy import _sync_board
@@ -407,3 +407,27 @@ def test_first_mover_and_contested_reach():
     exclusive = bot._access(board, 'Israel', Side.USSR)
     assert contested < exclusive
     assert egypt > 0
+
+
+def test_region_margin_incremental_matches_full_recompute():
+    """delta() swaps one country's contribution into cached aggregates; it
+    must equal a full pass over the region for every trial placement."""
+    from struggler.engine import Side
+    import itertools
+    engine = _opening_board()
+    obs = engine.observe(Side.USSR)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    board = bot.board
+    for cid, own, opp in itertools.product(('Iraq', 'Israel', 'Lebanon', 'Saudi_Arabia', 'Iran', 'France', 'Egypt', 'Thailand'), (0, 1, 2, 3), (0, 1)):
+        original = dict(board.influence[cid])
+        board.influence[cid]['USSR'] += own
+        board.influence[cid]['US'] += opp
+        region = board.countries[cid].region
+        try:
+            fast = bot.region_margin_after(board, region, Side.USSR, cid, original)
+            bot._region_cache.pop(('margin', region, tuple((v['US'], v['USSR']) for v in map(board.influence.__getitem__, bot._region_members[region]))), None)
+            full = bot.region_margin(board, region, Side.USSR)
+            assert abs(fast - full) < 1e-9, (cid, own, opp, fast, full)
+        finally:
+            board.influence[cid].update(original)

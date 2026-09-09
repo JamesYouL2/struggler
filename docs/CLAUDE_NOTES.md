@@ -1,4 +1,4 @@
-# Working notes for the next model
+# Claude working notes (Fable)
 
 A scratchpad for whoever picks this up (Astra, or another model): the
 strategy principles the maintainer has stated, what the bots do about
@@ -160,13 +160,19 @@ branch:
    an Italy coup on an unbacked board as a lockout and an Iran coup as a
    normal wipe. Test cases: the opening-setup table above, Italy after De
    Gaulle + Suez, Israel's point at ~1 Op.
-3. Done (region margin, fitted: presence 3.0, battleground 0.5, country
-   0.05 on the importance scale; 31 -> 26 misses, Iraq first for the USSR;
-   the first version on the region score's VP scale, 1.3 raw per VP, could
-   not move anything). Still open inside it: France's first US point is
-   4th, not 1st, because progress toward a battleground that would flip
-   domination earns no margin credit until it is controlled. Original
-   item: country-count margin toward domination in `region_score`: the exact
+3. Region margin. First fit (presence 3.0 everywhere, battleground 0.5)
+   went 31 -> 26 misses and lost its clean gate 0.375: a presence weight
+   of 3 makes a first point in any empty region worth three battleground
+   units of progress, so the bot scatters footholds that die (the lone
+   points failure again; the fixture only sees the opening board). Retry:
+   presence credit only in live regions (scoring weight >= `margin_live`
+   1.0), presence 1.0, battleground margin 0.25 with progress toward an
+   uncontrolled battleground counting fractionally (stepwise linear:
+   progress, the control step, then `reserve` for over-protection), and
+   `control` 1.5 (a plain country a quarter to a third of a battleground,
+   per Op between a 4- and a 3-stability battleground). 25 misses. The
+   first version on the region score's VP scale (1.3 raw per VP) could not
+   move anything. Original item: country-count margin toward domination in `region_score`: the exact
    tier score sees nothing until a tier flips, so UK 5 -> 3 is worth 1.6,
    Marshall's seven countries are worth nothing collectively, and Suez's
    "domination replacement" cost is unpriced. Price the margin in
@@ -266,7 +272,8 @@ seeds, 8 workers, base HEAD~1. The chain was re-gated cleanly after.
 
 The gate for any value-function change is `scripts/gate.sh [base-ref]`
 (runs from a snapshot of HEAD; base defaults to HEAD~1; the anchor run
-needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands):
+needs GATE_ANCHOR=1 and is parked until the Rust speed-up lands). The
+Rust plan is `docs/RUST_PORT_PLAN.md`, for Astra to audit:
 the turn-1 event-value table (`python -m struggler.bots.benchmark
 --table`, read it by eye against your own judgement), the expert
 valuation diff (`--expert models/expert_valuations.json`: the expert's

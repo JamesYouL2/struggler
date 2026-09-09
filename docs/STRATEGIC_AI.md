@@ -97,7 +97,7 @@ action = bot.choose_action(observation, history)
   battleground flips: the stake is our position plus the country's control
   value. Backed, they still have to flip it to control on their side: the
   stake is our position times `wipe_backed`. Coded, off by default until
-  calibrated: see docs/NOTES.md plan step 2. The flat `reserve` per spare
+  calibrated: see docs/CLAUDE_NOTES.md plan step 2. The flat `reserve` per spare
   point it replaces was removed in Sept 2026.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
