@@ -813,14 +813,36 @@ class StrategicPlayer:
             return -LOSS if engine.winner is obs.side else LOSS
         changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
         changed_regions = {engine.board.countries[c].region for c in changed}
-        after = sum(self.country_value(engine.board, c, obs.side) if c in changed else v
-                    for c, v in countries.items())
-        after += self.weights.region * sum(self.region_score(engine.board, r, obs.side)
-                                            if r in changed_regions else v for r, v in regions.items())
-        after += sum(self.region_margin(engine.board, r, obs.side) if r in changed_regions else v
+        affected = self._value_dependents(changed)
+        t, w, side = self._terrain, self.weights, ev.SIDE_INDEX[obs.side]
+        sign = 1 if side == ev.US else -1
+        vector = self._urgency_vector()
+        defcon = self._obs.defcon if self._obs is not None else 5
+        position = ev.Position(t).sync(engine.board)
+        after = sum(ev.country_value(t, position, t.index[c], side, w, vector, defcon)
+                    if c in affected else v for c, v in countries.items())
+        after += w.region * sum(sign * ev.region_vp(t, position, r) if r in changed_regions else v
+                                for r, v in regions.items())
+        after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before
         return result + self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+
+    def _value_dependents(self, changed) -> set[str]:
+        """Every country whose `country_value` can move when the influence in
+        `changed` moves.
+
+        Not just `changed` itself: `country_value` reads out to
+        `evaluator.VALUE_RADIUS` hops, so a country keeps its basis value only
+        when nothing that close to it moved. With `wipe` on, `_coup_targets`
+        counts the whole board and nothing keeps its value. Reusing the basis
+        for `changed` alone priced Nasser at -67.83 where a full recomputation
+        gives -65.89, the whole 1.94 being Israel, whose own influence the
+        event never touched."""
+        if self.weights.wipe > 0:
+            return set(self.board.countries)
+        t = self._terrain
+        return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed})}
 
     def event_value(self, obs: Observation, cid: str) -> float:
         if cid in self._events:

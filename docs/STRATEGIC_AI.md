@@ -177,6 +177,16 @@ compare; two tests use it to pin the write sites, in `test_strategic.py` and
 diagnostic entry points (`country_value`, `region_score`, `region_margin`,
 `value`) stay correct for callers that write to the board directly.
 
+**Reusing a basis.** Every whitelisted event at one decision starts from the
+same board, so the sandbox values that board once and re-values only what the
+event moved. What it moved is not the set of countries whose influence
+changed: `country_value` reads out to `evaluator.VALUE_RADIUS` hops, because
+`access` walks a neighbour's neighbours and then asks whether *those* are
+reachable. The radius lives beside the terms that set it, and
+`test_value_dependents_covers_every_country_a_change_can_move` moves one
+country and checks that nothing outside the claimed set moved with it. With
+`wipe` on the radius is the whole board, since `coup_targets` counts it.
+
 This structure exists because the evaluator twice shipped a memo keyed on
 less state than the terms actually read. `_access` reads influence two hops
 out but was memoised on `(board, cid, side)`, so a trial placement in a

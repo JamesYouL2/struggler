@@ -104,3 +104,30 @@ def test_the_terms_price_a_bare_board_without_an_observation():
     plain = StrategicPlayer(w)
     assert ev.board_value(t, pos, ev.US, w, urgency, 5) == plain.value(board, Side.US)
     assert ev.board_value(t, pos, ev.USSR, w, urgency, 5) == -plain.value(board, Side.US)
+
+
+def test_value_dependents_covers_every_country_a_change_can_move():
+    """`VALUE_RADIUS` is what lets the event sandbox reuse a basis instead of
+    re-valuing the board per event, so it has to be at least as wide as the
+    terms actually read. Move one country and check that nothing outside the
+    claimed set moved with it."""
+    board = _played_board()
+    t = ev.terrain()
+    w, urgency = StrategicWeights(), ev.ones(t)
+    pos = ev.Position(t).sync(board)
+    everywhere = range(len(t.ids))
+
+    def values():
+        return [ev.country_value(t, pos, j, ev.US, w, urgency, 5) for j in everywhere]
+
+    for cid in ('Israel', 'Iran', 'Poland', 'Zaire', 'Chile', 'Thailand'):
+        i = t.index[cid]
+        for us, ussr in ((3, 0), (0, 3), (1, 1), (0, 0)):
+            base = values()
+            was = pos.place(i, us, ussr)
+            moved = {j for j, (now, then) in enumerate(zip(values(), base)) if now != then}
+            pos.place(i, *was)
+            claimed = ev.dependents(t, {i})
+            assert moved <= claimed, (cid, us, ussr, sorted(t.ids[j] for j in moved - claimed))
+    # And the radius is not simply the whole board: a change stays local.
+    assert len(ev.dependents(t, {t.index['Chile']})) < len(t.ids)

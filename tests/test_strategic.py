@@ -369,6 +369,41 @@ def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
     assert bot._position.matches(bot.board)
 
 
+def test_event_basis_reuse_matches_a_full_board_recomputation(monkeypatch):
+    """Every whitelisted event at one decision starts from the same board, so
+    the basis is computed once and only the affected countries re-valued. That
+    set is not the countries the event moved: `country_value` reads access and
+    reachability two hops out, so Nasser used to price at -67.83 where a full
+    pass gives -65.89, the whole 1.94 being Israel, which the event never
+    touched. Reuse must equal the full pass for every event, or a card is
+    misranked against Ops."""
+    from struggler.bots import strategic
+    from struggler.bots.strategic import PUBLIC_EVENTS
+    engine = Engine(seed=0)
+    engine.board.influence['Egypt']['US'] = 2
+    engine.board.influence['Israel']['US'] = 1
+    engine.board.influence['Mexico']['US'] = 1
+    engine.board.influence['Iran']['USSR'] = 2
+    engine._maybe_push_place_influence(Side.US, 3)
+    obs = engine.observe(Side.US)
+
+    def priced(bot):
+        bot.rank_actions(obs)
+        out = {}
+        for cid in sorted(PUBLIC_EVENTS):
+            try:
+                out[cid] = bot._public_event_value(obs, cid)
+            except Exception:  # events this board cannot drive are priced elsewhere
+                continue
+        return out
+
+    reused = priced(StrategicPlayer())
+    assert sum(1 for v in reused.values() if v) > 20, 'the fixture should price real events'
+    monkeypatch.setattr(strategic.StrategicPlayer, '_value_dependents',
+                        lambda self, changed: set(self.board.countries))
+    assert priced(StrategicPlayer()) == reused  # bitwise: these decide card choice
+
+
 def test_un_intervention_is_kept_for_the_worst_opponent_card():
     from struggler.engine import Side
     engine = _opening_board()

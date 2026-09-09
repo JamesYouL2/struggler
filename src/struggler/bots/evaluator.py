@@ -323,6 +323,31 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     return total
 
 
+# How far `country_value` reads. `access` walks a neighbour's neighbours and
+# then asks whether *those* are reachable, which is one hop further again, so
+# a country keeps its value only when nothing within three steps of it moved.
+# This lives next to the terms because it is a property of them: change what
+# `access` walks and this has to change with it, which
+# `test_value_dependents_covers_every_country_a_change_can_move` enforces.
+VALUE_RADIUS = 3
+
+
+def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
+    """The countries whose `country_value` can move when `changed` moves.
+
+    Purely geometric, and true only while `wipe` is off: with it on,
+    `wipe_risk` divides by `coup_targets`, which counts the whole board, and
+    no country keeps its value. Callers handle that case."""
+    affected = set(changed)
+    frontier = set(changed)
+    for _ in range(radius):
+        frontier = {n for i in frontier for n in t.neighbors[i]} - affected
+        if not frontier:
+            break
+        affected |= frontier
+    return affected
+
+
 def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon: int) -> float:
     """What country `i` is worth to side `s` on this board."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
