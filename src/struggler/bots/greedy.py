@@ -58,7 +58,7 @@ from struggler.engine import (
 )
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.core import SCORING_CARD_REGION, effective_ops
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
 
@@ -228,15 +228,11 @@ def _realignment_modifier(observation: Observation, side: Side) -> float:
 
 
 def _effective_ops_estimate(card, observation: Observation, side: Side) -> int:
-    ops = card.ops
-    te = observation.turn_effects
-    if te.get("containment") and side is Side.US:
-        ops += 1
-    if te.get("brezhnev") and side is Side.USSR:
-        ops += 1
-    if te.get("red_scare") == side.value:
-        ops -= 1
-    return max(1, ops)
+    """The Ops `card` is worth to `side`, from the observation's public turn
+    effects. The same function the engine applies, not a second copy of it:
+    this one used to be a copy, and both were missing the Containment and
+    Brezhnev ceiling."""
+    return effective_ops(card.ops, observation.turn_effects, side)
 
 
 def _space_race_expected_vp(observation: Observation, side: Side) -> float:

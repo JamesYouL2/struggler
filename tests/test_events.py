@@ -166,6 +166,42 @@ def test_containment_boosts_us_ops_only():
     assert engine._effective_ops(Side.USSR, duck) == 3  # opponent unaffected
 
 
+def test_containment_and_brezhnev_stop_at_the_printed_ceiling_of_four():
+    """"...increased by one, to a maximum of 4." The floor on Red Scare was
+    implemented and the ceiling on these two was not, so a 4-Ops card under
+    Containment was worth 5 -- in the engine, and in the bot's copy of the
+    same arithmetic."""
+    engine = _bare()
+    engine._fire_event(Side.US, "Containment")
+    marshall = engine.cards["Marshall_Plan"]  # 4 ops
+    assert marshall.ops == 4
+    assert engine._effective_ops(Side.US, marshall) == 4
+    assert engine._effective_ops(Side.US, engine.cards["Duck_and_Cover"]) == 4  # 3 -> 4 still
+
+    ussr = _bare()
+    ussr._fire_event(Side.USSR, "Brezhnev_Doctrine")
+    assert ussr._effective_ops(Side.USSR, marshall) == 4
+
+    # Red Scare on the same side cancels the boost rather than capping twice.
+    engine.turn_effects["red_scare"] = Side.US.value
+    assert engine._effective_ops(Side.US, marshall) == 4
+    assert engine._effective_ops(Side.US, engine.cards["Duck_and_Cover"]) == 3
+
+
+def test_the_region_bonus_is_added_after_the_ceiling_not_under_it():
+    """The China Card's "+1 if every Op is spent in Asia" is not one of the
+    modifiers the maximum of 4 applies to: the engine adds it at the
+    placement step, so China under Containment is 4 here and 5 on the board,
+    not 6."""
+    from struggler.engine.core import effective_ops
+
+    engine = _bare()
+    china = engine.cards[RULES["china_card_id"]]
+    assert china.ops == 4
+    assert effective_ops(china.ops, {"containment": True}, Side.US) == 4
+    assert engine._ops_bonus_region(Side.US, china=True) == "asia"
+
+
 def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
     engine = _bare()
     engine._fire_event(Side.US, "Red_Scare_Purge")  # US plays it -> hurts USSR

@@ -56,6 +56,32 @@ SCORING_CARD_REGION: dict[str, Region] = {
 }
 
 
+OPS_FLOOR, OPS_CEILING = 1, 4
+
+
+def effective_ops(ops: int, turn_effects, side: Side) -> int:
+    """A card's Ops value for `side` after the persistent per-turn modifiers:
+    Containment and Brezhnev Doctrine +1, Red Scare/Purge -1.
+
+    Both bounds are printed on the cards -- Red Scare "to a minimum of 1",
+    Containment and Brezhnev "to a maximum of 4" -- and only the floor used
+    to be applied, so a 4-Ops card under Containment was worth 5. No card has
+    a printed value above 4, so the ceiling only ever caps a modifier.
+
+    The "+1 Op if every Op is spent in this region" bonus (the China Card in
+    Asia, Vietnam Revolts in South East Asia) is *not* one of these: it is
+    added later, at the placement or coup step, and so is not capped by this.
+    That is why the China Card under Containment is 4 in Asia rather than 6.
+    """
+    if turn_effects.get("containment") and side is Side.US:
+        ops += 1
+    if turn_effects.get("brezhnev") and side is Side.USSR:
+        ops += 1
+    if turn_effects.get("red_scare") == side.value:
+        ops -= 1
+    return max(OPS_FLOOR, min(OPS_CEILING, ops))
+
+
 class Engine:
     def __init__(self, seed: int, board: Board | None = None) -> None:
         self.board = board if board is not None else Board()
@@ -1436,16 +1462,9 @@ class Engine:
         return Side(card.side.value) is side.opponent
 
     def _effective_ops(self, side: Side, card: Card) -> int:
-        """The card's Ops value for `side` after persistent per-turn modifiers
-        (Containment/Brezhnev +1, Red Scare -1). Never below 1."""
-        ops = card.ops
-        if self.turn_effects.get("containment") and side is Side.US:
-            ops += 1
-        if self.turn_effects.get("brezhnev") and side is Side.USSR:
-            ops += 1
-        if self.turn_effects.get("red_scare") == side.value:
-            ops -= 1
-        return max(1, ops)
+        """The card's Ops value for `side` after the per-turn modifiers
+        (see `effective_ops`)."""
+        return effective_ops(card.ops, self.turn_effects, side)
 
     def _fire_event(self, side: Side, cid: str) -> None:
         """Resolve `cid`'s event for the phasing `side`. Unimplemented events

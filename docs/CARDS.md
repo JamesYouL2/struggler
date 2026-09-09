@@ -182,11 +182,20 @@ up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 2 each).
 
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
-Scare/Purge — consulted via `_effective_ops`, cleared at end of turn.
+Scare/Purge — consulted via `_effective_ops`, cleared at end of turn. Both
+printed bounds apply: Red Scare "to a minimum of 1", Containment and
+Brezhnev "to a maximum of 4". Only the floor used to be implemented, so a
+4-Ops card under Containment was worth 5. The arithmetic is
+`core.effective_ops`, which the bot's `_effective_ops_estimate` calls rather
+than copying — it was a copy, and both copies were missing the ceiling. The
+"+1 Op if every Op is spent in this region" bonus (the China Card in Asia,
+Vietnam Revolts in South East Asia) is not one of these and is not capped by
+it: the engine adds it later, at the placement or coup step, so the China
+Card under Containment is 4 Ops and 5 in Asia, not 6.
 
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,
-or Brush War US-controlled Europe, via `Engine._nato_protects`), De Gaulle
+or Brush War US-controlled Europe, via `Board.nato_protects`), De Gaulle
 and Willy Brandt (each lift NATO for one country), US/Japan Mutual Defense
 Pact (locks Japan), The Reformer (bars USSR coups in Europe). Enforced in
 `_usable_coup_realign_target`, which distinguishes coup from realignment
