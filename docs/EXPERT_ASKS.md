@@ -18,7 +18,7 @@ Current coverage, playable cards only:
 | --- | ---: | ---: | ---: |
 | Early War | 35 | 27 | 8 |
 | Mid War | 45 | 33 | 12 |
-| **Late War** | **22** | **0** | **22** |
+| **Late War** | **22** | **4** | **18** |
 
 Games end on turn 8.4 on average and half reach turn 10, so the period
 with no coverage at all is one the bot plays in most games.
@@ -39,24 +39,21 @@ board where nothing is that decisive. And **two of the four are
 conditional**, base versus bonus, which the fixture format and the bot
 both lack any way to express.
 
-The rest of the hole. Format is the existing one -- US Ops, signed from
-the US seat, so a USSR-favourable event is negative -- and rough is fine;
-the tolerance is 0.75 Ops.
+The rest of the hole. Format is **seat-own Ops** -- positive is good for
+the side holding the card, so a strong USSR event is a positive number
+under USSR, matching the Mid War file rather than the US-signed opening
+board one. Rough is fine; tolerance is 0.75.
 
 | Ops | Side | Card |
 | ---: | --- | --- |
-| 4 | USSR | Glasnost |
 | 4 | US | Soviets Shoot Down KAL-007 |
 | 4 | NEUTRAL | Wargames |
-| 3 | USSR | Aldrich Ames Remix |
 | 3 | US | An Evil Empire |
 | 3 | US | Chernobyl |
 | 3 | USSR | Iranian Hostage Crisis |
 | 3 | US | North Sea Oil |
-| 3 | USSR | Pershing II Deployed |
 | 3 | US | Tear Down This Wall |
 | 3 | US | The Iron Lady |
-| 3 | USSR | The Reformer |
 | 2 | USSR | Iran-Contra Scandal |
 | 2 | NEUTRAL | Iran-Iraq War |
 | 2 | USSR | Latin American Debt Crisis |
