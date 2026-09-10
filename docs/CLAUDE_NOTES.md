@@ -2508,9 +2508,28 @@ firing, so it returns at every reshuffle. For the US the conclusion is
 categorical rather than per-country: **there is no such thing as
 overprotecting a Middle East Battleground other than Israel**, because the
 Influence can be removed entire without the USSR spending an Op on the
-board. That also makes AWACS Sale to Saudis — which cancels it — worth
-considerably more than a 3-Ops US card, and AWACS is currently on the
-unpriced Mid War list.
+board.
+
+**Correction, and the same mistake for the third time.** I concluded from
+this that AWACS Sale to Saudis, which cancels Muslim Revolution, must be
+worth well more than a 3-Ops US card. The maintainer: Muslim Revolution's
+event is very strong on the board but "the marginal value of it over Ops
+is only 1" — it is a 4-Ops card, so playing it as an event beats simply
+spending the four Ops by about one. Cancelling it is therefore worth
+around half an Op, and AWACS matters mainly as a way to defuse Muslim
+Revolution as a hand trap in the Late War. **A card is worth its event
+minus its own printed Ops, and a denial card is worth the opponent's
+margin, not the event's board effect.** Third recurrence of shape 6, "a
+number on the wrong scale", and the same error as Warsaw Pact Formed.
+
+Israel is not the safe harbour the Muslim Revolution list makes it look,
+either. **Arab-Israeli War targets Israel specifically**, is not removed
+after firing, and a won war does not wipe: `core.py:2157` **seizes**,
+moving the defender's Influence to the attacker, so it is a 2-for-1 swing
+rather than a removal. Camp David is the only thing that blocks it. The
+maintainer's own ranking puts Israel seventh of eleven and Egypt third —
+Israel's worth to the US is access to Lebanon, Egypt and Libya, not the
+Battleground itself.
 
 **Asia has no wipe card at all.** Nothing in the list above touches Asia,
 in any period. Every Asian Battleground can be lost only to a Coup, a
@@ -2599,3 +2618,78 @@ in the data files, and assumes nothing about how hard each is to hold
 against a USSR that wants it. Asia's freedom from wipe cards is partly
 offset by how cheaply the USSR reaches it once Decolonization and
 Afghanistan are out.
+
+### Threat is effect minus printed Ops, and it inverts the whole wipe table
+
+The maintainer, on why Muslim Revolution matters less than it looks:
+"war cards are 2 Ops, Muslim is 4. If Muslim were 2 Ops, it would
+actually affect VP values more."
+
+That is the general rule, and it is the same one that corrects the AWACS
+claim above. **The threat a card poses is its effect minus its own
+printed Ops**, because the opponent's alternative is always to spend
+those Ops on the board. Ranking the wipe class that way inverts it
+almost completely:
+
+| Card | Ops | What it does | Threat per Op |
+| --- | ---: | --- | --- |
+| Sadat Expels Soviets | **1** | wipes USSR from Egypt entirely | highest in the class |
+| Blockade | **1** | wipes US from West Germany unless they burn a 3+ | highest |
+| Nasser | **1** | halves US in Egypt, +2 USSR | high |
+| Truman Doctrine | **1** | wipes USSR from an uncontrolled Europe country | high |
+| Korean War | **2** | **seizes** South Korea, +2 VP, +2 MilOps | very high |
+| Arab-Israeli War | **2** | **seizes** Israel, +2 VP | very high |
+| Indo-Pakistani War | **2** | **seizes** India or Pakistan, +2 VP | very high |
+| Iran-Iraq War | **2** | **seizes** Iran or Iraq, +2 VP | very high |
+| Marine Barracks Bombing | 2 | wipes Lebanon, removes 2 more in the ME | medium |
+| Ortega | 2 | wipes Nicaragua, free Coup | medium |
+| De Gaulle Leads France | 3 | −2 US in France, +1 USSR | medium |
+| Iranian Hostage Crisis | 3 | wipes US from Iran, +2 USSR | medium |
+| The Iron Lady | 3 | wipes USSR from UK | low |
+| Warsaw Pact Formed | 3 | wipes US from 4 Eastern Europe countries | low — the maintainer prices it 0.5 |
+| **Muslim Revolution** | **4** | wipes US from 2 of 8 Middle East countries | **lowest in the class** |
+
+So the card the previous section built its conclusion on is the least
+threatening one in the table, and the war cards — which the question
+excluded — are the most, because seizure is a 2-for-1 swing bought for
+two Ops.
+
+This makes the per-country table above *derivable* rather than a list of
+constants. A country's discount is the sum, over the cards still live,
+of **(what the card does there − the card's printed Ops)**. It predicts
+the maintainer's own numbers: Egypt takes −2 because Sadat costs 1 Op and
+Nasser 1, the two cheapest in the class, and only a little more from
+Muslim Revolution at 4; South Korea, Israel, India, Pakistan and Iran each
+take −1 from a 2-Ops seizure.
+
+### Wipe exposure is a variance term, not a discount — and turn 1 is not turn 4
+
+Two corrections that fit together. The maintainer: "turn 1 is obviously
+super different than turn 4", and "on turn 4, France by a mile;
+Iraq/Pakistan/Iran/Egypt are only important **because of** wipes."
+
+The second reads at first like the opposite of the discount table, and it
+is not. The two statements are about different terms:
+
+- **The marginal Influence point** in a wipeable country is worth little,
+  because a card can remove the whole stack without the opponent spending
+  an Op on the board. That is the discount, and it is what "you cannot
+  overprotect the Middle East" means.
+- **Whether you hold the country at scoring time** is worth as much as
+  ever, and in a wipeable country that outcome is decided by which card
+  turns up rather than by who spent Ops. That is what makes Iraq,
+  Pakistan, Iran and Egypt *important* at turn 4 with every scoring card
+  still in the deck: they are where the VP actually moves.
+
+So wipe exposure lowers the value of the marginal point while leaving —
+arguably raising — the value of the tier swing the country participates
+in. **Those are different terms in the region-margin function and the bot
+conflates them into one.** It has no notion of variance at all, which is
+why it cannot express either half.
+
+On the periods: the Ops-to-reach ordering in the previous section is a
+turn-1 instrument and says nothing about turn 4, where the setup is long
+gone and the Mid War region weights have risen from 0.51 to 1.64. France
+leads both, and at turn 4 "by a mile" — which is what Europe Control at
+40 plus forced defensive spend predicts. The rest of the turn-1 order does
+not carry over.
