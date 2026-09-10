@@ -5,20 +5,10 @@ import random
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from conftest import assert_core_invariants
 from struggler.engine import Engine, Side
 
 MAX_INT32 = 2**31 - 1
-
-
-def _assert_invariants(engine: Engine) -> None:
-    assert 1 <= engine.defcon <= 5
-    for values in engine.board.influence.values():
-        assert values["US"] >= 0
-        assert values["USSR"] >= 0
-    if not engine.is_terminal:
-        decision = engine.pending_decision
-        if decision is not None:
-            assert len(decision.options) > 0  # never deadlock on a live decision
 
 
 @settings(max_examples=25, deadline=None)
@@ -44,7 +34,7 @@ def test_random_legal_sequences_keep_state_valid(seed, ops, driver_seed, operati
         options = engine.legal_actions()
         assert len(options) > 0
         engine.step(driver.choice(options))
-        _assert_invariants(engine)
+        assert_core_invariants(engine)
         steps += 1
 
 

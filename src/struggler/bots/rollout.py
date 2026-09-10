@@ -11,7 +11,6 @@ Observation-only, like its parent: it never receives a live engine.
 """
 from __future__ import annotations
 
-from dataclasses import fields
 
 from struggler.engine import DecisionKind as K
 from struggler.bots.defcon import DefconPlanner

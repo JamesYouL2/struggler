@@ -91,16 +91,6 @@ class Board:
         # as decisions, not here). Absent in minimal test data -> empty.
         self.setup_influence: dict[str, dict[str, int]] = {cid: dict(v) for cid, v in setup.items()}
 
-    def _validate_symmetric(self) -> None:
-        broken = []
-        for node, neighbors in self._adjacency.items():
-            for neighbor in neighbors:
-                if node not in self._adjacency.get(neighbor, set()):
-                    broken.append((node, neighbor))
-        if broken:
-            pairs = ", ".join(f"{a}->{b}" for a, b in broken)
-            raise ValueError(f"Asymmetric adjacency in board data: {pairs}")
-
     # -- adjacency / reachability -------------------------------------------------
 
     def is_adjacent(self, a: str, b: str) -> bool:

@@ -17,7 +17,7 @@ operator console: it answers every dice roll and card-deal decision
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from struggler.engine.types import Action, Decision, Observation, Side
 

@@ -1,10 +1,9 @@
 """Hand survival, escape resources, and observed nuclear-loss regressions."""
-from dataclasses import replace
 
 import pytest
 
 from conftest import bare_engine
-from struggler.engine import Side, Action, Decision, DecisionKind as K
+from struggler.engine import Side, Action, DecisionKind as K
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.defcon import DefconPlanner, SurvivalPrior
 

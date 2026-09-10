@@ -8,11 +8,9 @@ model, and nothing else would notice.
 
 from __future__ import annotations
 
-import re
 
 from struggler.bots.llm import card_playbook
-from struggler.bots.llm.prompt import build_user_turn
-from struggler.engine import Engine, Side
+from struggler.engine import Side
 from struggler.engine.cards import load_cards
 
 

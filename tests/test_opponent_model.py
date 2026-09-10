@@ -1,17 +1,16 @@
 """Learned opponent priors: public features, real labels, and planner wiring."""
-import dataclasses
 import json
 import random
 
 import pytest
 
 from conftest import bare_engine
-from struggler.bots.defcon import DefconPlanner, SurvivalPrior
+from struggler.bots.defcon import SurvivalPrior
 from struggler.bots.opponent_model import (
     FEATURE_NAMES, HEADS, Labeler, OpponentModel, collect_rows, encode, metrics,
 )
 from struggler.bots.strategic import StrategicPlayer
-from struggler.engine import Engine, Side
+from struggler.engine import Side
 
 
 def test_features_are_public_information_only():

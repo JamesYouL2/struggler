@@ -7,7 +7,6 @@ AI, not full-game minimax or a pretrained neural network.
 """
 from __future__ import annotations
 
-import copy
 import itertools
 import json
 import logging
@@ -27,7 +26,7 @@ from struggler.bots import evaluator as ev
 from struggler.bots.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
-from struggler.bots.defcon import DefconPlanner, SurvivalPrior, RAISERS, ASK, US_PAYABLE_DISCARDS
+from struggler.bots.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
 RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARNING
@@ -540,10 +539,6 @@ class StrategicPlayer:
             for key, action in shown[1:]:
                 log.log(logging.INFO if decision.kind in narrated else logging.DEBUG,
                         '%s:   also %s', prefix, describe(key, action))
-
-    def survival_features(self, observation):
-        """Named features usable by a future win-probability model, without retraining VP weights."""
-        return self.planner_for(observation).features()
 
     def planner_for(self, obs: Observation) -> DefconPlanner:
         return DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)

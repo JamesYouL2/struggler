@@ -5,13 +5,10 @@ from __future__ import annotations
 
 import dataclasses
 
-import pytest
 
 from struggler.bots.greedy import GreedyPlayer, GreedyWeights, board_value
-from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Action, Decision, DecisionKind, Engine, Side
 from struggler.engine.board import Board
-from struggler.runner import play_game
 
 
 def test_board_value_zero_with_no_influence_anywhere():

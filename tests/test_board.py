@@ -2,7 +2,6 @@
 
 from struggler.engine import Region, ScoringTier, Side
 from struggler.engine.board import Board
-from struggler.engine.rules import RULES
 
 
 def test_control_requires_margin_at_least_stability():

@@ -50,7 +50,7 @@ def test_scoring_europe_at_control_wins_outright_without_all_of_europe():
     card is played." Control is the scoring tier -- all Battlegrounds plus
     more countries -- and the engine used to demand control of every country
     in the region, scoring this position as Domination for 10 VP instead."""
-    from struggler.engine import Region, Side
+    from struggler.engine import Side
     engine = _europe_control_board()
     engine._resolve_scoring_card("Europe_Scoring")
     assert engine.is_terminal

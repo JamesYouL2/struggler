@@ -79,9 +79,6 @@ class Terrain:
     france: int
     west_germany: int
 
-    def side_of(self, cid: str) -> int:
-        return self.index[cid]
-
 
 @functools.lru_cache(maxsize=1)
 def terrain() -> Terrain:

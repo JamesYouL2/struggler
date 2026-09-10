@@ -2,7 +2,7 @@
 import pytest
 
 from conftest import bare_engine, headline_setup
-from struggler.engine import Action, DecisionKind as K, Engine, Side
+from struggler.engine import DecisionKind as K, Engine, Side
 
 
 def choose(engine, **payload):

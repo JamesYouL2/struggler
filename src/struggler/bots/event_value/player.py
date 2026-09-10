@@ -39,22 +39,3 @@ class EventValuePlayer(StrategicPlayer):
         finally:
             self._set_influence(cid, original['US'], original['USSR'])
         return base + self.vp_value(obs)*(after-before)
-
-    def country_values(self, observation):
-        """Explain +1 friendly influence's regional VP change, before Ops cost.
-
-        These are marginal changes, not an additive allocation of all board VP.
-        """
-        from .features import score
-        self._corrections.clear()
-        self.prepare(observation)
-        result = {}
-        for cid, info in self.board.countries.items():
-            before = score(self.board, observation, info.region) + self._correction(observation, info.region)
-            self._add_influence(cid, observation.side, 1)
-            try:
-                after = score(self.board, observation, info.region) + self._correction(observation, info.region)
-            finally:
-                self._add_influence(cid, observation.side, -1)
-            result[cid] = after-before
-        return result

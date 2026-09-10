@@ -286,7 +286,7 @@ def test_country_tiers_and_coup_discount():
 
 
 def test_opening_book_plays_the_standard_setup_and_the_handicap():
-    from struggler.engine import Engine, Side
+    from struggler.engine import Engine
     engine = Engine.new_game(seed=9, setup_bonus=True)
     bot = StrategicPlayer()
     placed = []
@@ -758,7 +758,6 @@ def test_region_margin_incremental_matches_full_recompute():
 def test_sandbox_prices_a_die_event_at_its_expectation():
     """A war is worth the average over the six faces, not the middle roll."""
     from struggler.engine import Side
-    from struggler.engine.core import Engine
     from struggler.engine import Action
     from dataclasses import replace
     engine = _opening_board()
@@ -1039,7 +1038,6 @@ def test_grain_sales_returns_a_soviet_event_and_takes_a_us_one():
     """The shown card is played in full by the US, so a Soviet event's harm
     is in its hold value and it goes back for the 2 Ops; a US card is taken.
     Both choices scored 0 before, and "take" won by option order."""
-    from struggler.engine import Action, DecisionKind as K
     engine = _midwar_us_engine()
     engine.defcon = 2
     engine.hands['USSR'] = ['We_Will_Bury_You']  # its DEFCON drop is nuclear war, on the US's action

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from struggler.engine import Engine, Period
+from struggler.engine import Engine
 from struggler.engine.cards import ENTRY_TURN, cards_entering
 from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.rules import RULES
@@ -73,13 +73,30 @@ def expected_in_play(engine: Engine) -> set[str]:
     return ids
 
 
-def assert_invariants(engine: Engine) -> None:
+def assert_core_invariants(engine: Engine) -> None:
+    """The checks that hold for *any* engine, including a bare one that was
+    never dealt a deck.
+
+    Split out so the property tests, which drive a bare `Engine(seed=...)`
+    through single operations, can share one definition with the full-game
+    checker below instead of keeping a near-copy. A near-duplicate invariant
+    checker is exactly what once let a real defect hide for weeks (CLAUDE.md),
+    and the copy that existed here was silently the weaker of the two.
+    """
     assert 1 <= engine.defcon <= 5
     for values in engine.board.influence.values():
         assert values["US"] >= 0 and values["USSR"] >= 0
+    if not engine.is_terminal and engine.pending_decision is not None:
+        assert len(engine.legal_actions()) > 0  # never deadlock on a live decision
+
+
+def assert_invariants(engine: Engine) -> None:
+    """Everything above, plus what only holds for a real game from
+    `Engine.new_game`: a bare engine has no cards, so card conservation and
+    "there is always a decision" are not its properties to keep."""
+    assert_core_invariants(engine)
     if not engine.is_terminal:
         assert engine.pending_decision is not None
-        assert len(engine.legal_actions()) > 0  # never deadlock on a live decision
 
     # No card is ever in two places at once, and The China Card is tracked
     # separately (never in a hand or pile).

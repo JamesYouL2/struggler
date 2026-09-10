@@ -2353,15 +2353,15 @@ class Engine:
     def _roll_d6(self) -> int:
         return self._rng.randint(1, 6)
 
-    def _d6_actions(self, kind: DecisionKind, payload_key: str = "value") -> tuple[Action, ...]:
+    def _d6_actions(self, kind: DecisionKind) -> tuple[Action, ...]:
         """The CHANCE options for a single d6 roll. Physical mode has no
         die to draw from `self._rng` — every possible outcome (1-6) is
         exposed instead, and the operator picks the one that matches the
         real physical roll (mandate #3: chance is still fully exposed as a
         decision, just resolved by a human instead of the seeded RNG)."""
         if self.physical_mode:
-            return tuple(Action(kind, {payload_key: v}) for v in range(1, 7))
-        return (Action(kind, {payload_key: self._roll_d6()}),)
+            return tuple(Action(kind, {"value": v}) for v in range(1, 7))
+        return (Action(kind, {"value": self._roll_d6()}),)
 
     def declare_physical_card(self, side: Side, cid: str) -> None:
         """A card leaving `hidden_pool` for good, the instant its identity is

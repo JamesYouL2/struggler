@@ -20,7 +20,6 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from conftest import assert_invariants as _assert_invariants
 from conftest import bare_engine as _bare
 from conftest import headline_setup as _headline_setup
 from struggler.engine import Action, Decision, DecisionKind, Engine, Region, Side, Subregion
@@ -942,7 +941,6 @@ def test_salt_negotiations_defcon_coup_penalty_and_reclaim():
 def test_salt_coup_penalty_applies_to_both_sides():
     engine = _bare(seed=1)
     engine.turn_effects["salt"] = True
-    from struggler.engine.board import CountryInfo  # info object carries region/battleground
     info = engine.board.countries["Cuba"]
     assert engine._coup_roll_modifier(Side.US, info) == -1
     assert engine._coup_roll_modifier(Side.USSR, info) == -1

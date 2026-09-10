@@ -307,6 +307,6 @@ def test_acceptance_counts_a_seed_once_not_once_per_seat():
     """Both seats of a seed play the same deal, so they are one observation.
     Counting them separately halves the standard error and makes noise look
     like a result."""
-    from struggler.bots.benchmark import acceptance, seed_scores
+    from struggler.bots.benchmark import seed_scores
     games = _report(range(4000, 4032), 0.5)['games']
     assert len(games) == 64 and len(seed_scores(games)) == 32
