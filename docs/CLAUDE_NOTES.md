@@ -582,6 +582,46 @@ that demanded proof of improvement would block all of them.
 Mind the exit status when you invoke it: `scripts/gate.sh | tail` gives you
 tail's status, not the gate's. Read the printed verdict.
 
+## Early stopping, shadow-validated (2026-09-09)
+
+Codex asked for the gate's early stopping to be checked against completed
+gates rather than trusted, and compared with simply playing a fixed number
+of games (docs/CODEX_NOTES.md). `scripts/validate_early_stopping.py` does
+it offline, so it costs no games; rerun it as gates accumulate.
+
+Only 8 of the 16 recorded gates can serve as references. The other 8
+stopped early, and what they stopped is exactly the evidence needed to
+check them -- worth knowing before assuming a validation like this can be
+done retrospectively at any time.
+
+Over those 8 (all accepts) plus 600 gates resampled from their seeds with
+the true score tilted across the line:
+
+| |margin| | predictive f.rej | f.acc | fixed 160 f.rej | f.acc |
+| --- | ---: | ---: | ---: | ---: |
+| <0.01 | 0.0% | 0.0% | 1.7% | 0.0% |
+| 0.01-0.03 | 3.5% | 0.0% | 7.9% | 0.0% |
+| 0.03-0.06 | 0.0% | **9.7%** | 0.7% | **26.4%** |
+| 0.06-0.10 | 0.0% | 4.8% | 0.0% | 6.1% |
+| >=0.10 | 0.0% | 0.0% | 0.0% | 0.0% |
+
+Predictive stopping saves 10.2% of games against the fixed design's 16.7%,
+and is better in every bucket -- so the answer to Codex's "retain it only
+if its measured tradeoff is better" is yes, keep it.
+
+The finding that matters more is the column both share. Stopping early
+accepts gates it should reject, at up to 9.7%, concentrated where the true
+score sits 0.03-0.10 below the line. That is not a bug: fewer seeds means a
+wider one-sided interval, the rule accepts when the upper bound reaches
+0.500, and a run stops when its data happens to look decisive. Raising
+`min_games` buys it back about one for one (176 games: 2.0% false accepts
+for 4.2% saved), which is not a trade worth making blind.
+
+So the floor stays at 150 and the honest consequence is recorded instead:
+**a stopped ACCEPT is weaker evidence than a completed one**, and a gate
+landing within 0.06 of 0.500 is worth rerunning with `GATE_DECIDE=0`.
+Every gate this session that mattered was inside that band.
+
 The nuclear-loss rule started as "any is a blocker" and was wrong. It
 rejected the scoring-horizon commit on one loss, and the recorded gate
 games say that is variance: 3 candidate losses in 4226 games, 0.071%, across
