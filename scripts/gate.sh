@@ -52,7 +52,18 @@ snapshot() {  # snapshot <ref> <dir>
   rm -rf "$2"
   mkdir -p "$2"
   git archive "$1" src/struggler/bots | tar -x -C "$2" --strip-components=3
-  [ -e "$2/strategic/policy.py" ] || { echo "GATE FAILED: $1 has no strategic/policy.py -- it predates the package split, so it cannot be a baseline for this HEAD."; exit 4; }
+  if [ ! -e "$2/strategic/policy.py" ]; then
+    # Pre-split: the bot was `strategic.py`, not `strategic/policy.py`, so
+    # `--opponent strategic@.../strategic/policy.py` cannot resolve. Fatal for
+    # the base, which decides the verdict; only disabling for the optional
+    # anchor, whose default ref is older than the split.
+    if [ "${3:-required}" = required ]; then
+      echo "GATE FAILED: base $1 has no strategic/policy.py -- it predates the package split, so it cannot be a baseline for this HEAD."
+      exit 4
+    fi
+    echo "note: anchor ref $1 predates the package split; step 3c disabled."
+    ANCHOR_OK=0
+  fi
 }
 # A rules change to the engine is not a strength change, and this script
 # cannot see it. Only `src/struggler/bots` is snapshotted -- the engine is
@@ -70,7 +81,8 @@ if [ -z "$(git diff --name-only "$BASE"..HEAD -- src/struggler/bots)" ]; then
   echo "      smoke test; the rules tests are what validate an engine change."
 fi
 snapshot "$BASE" "$OUT/base"
-snapshot "$OLD" "$OUT/old"
+ANCHOR_OK=1
+snapshot "$OLD" "$OUT/old" optional
 SNAP=$(mktemp -d)
 git worktree add -q --detach "$SNAP" HEAD
 trap 'git worktree remove --force "$SNAP"' EXIT
@@ -107,7 +119,7 @@ DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
-if [ "${GATE_ANCHOR:-0}" = "1" ]; then
+if [ "${GATE_ANCHOR:-0}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
   echo "== 3c. full games vs pre-session $OLD"
   $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
 fi
