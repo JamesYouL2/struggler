@@ -49,5 +49,22 @@
     "ASIA": 0.53,
     "MIDDLE_EAST": 0.44,
     "_finding": "Europe leads by 3.5x, which settles that its premium is structural. Below Europe the metric does NOT reproduce the maintainer's order -- it puts Africa second where they put it fourth and Central America third where they put it last, which is close to the bot's own wrong order. Efficiency measures the cost of taking and ignores the cost of keeping; Africa's 1-stability Battlegrounds are bought back for what they cost. Durability is the missing term, and it is the same one the wipe-exposure work arrived at."
+  },
+  "tier_fit": {
+    "_unit": "VP received at a tier against the average Ops of stability needed to reach it uncontested, 18 points over 3 tiers x 6 regions, Europe Control at its printed 7.",
+    "best_simple": "VP = 1.00 * Ops",
+    "mean_abs_error_vp": 1.42,
+    "two_parameter": "VP = 1.76 + 0.83 * Ops, mean abs error 1.11",
+    "power_exponent": 0.94,
+    "_note": "Near-linear. An earlier fit on MINIMUM Ops looked strongly concave (3.30*sqrt(Ops)); the maintainer corrected it to average Ops and the curvature vanished, because taking the cheapest country makes the low tiers look artificially cheap. Reconciles with the 2-Ops-per-VP rate: these are uncontested costs, so a contested game paying roughly double lands on the familiar rate.",
+    "europe_ratio_to_curve": 1.02,
+    "_europe": "At its printed Control value Europe sits ON the curve like every other region (0.92x to 1.18x across all six). Its premium is entirely the automatic victory. Pricing Control at 40 is 3.6x the curve; the maintainer's figure for what it is worth to CHASE is about 1.67x, implying an effective Europe Control near 15 VP rather than 40."
+  },
+  "per_country": {
+    "Cuba": {
+      "adjustment_vp": -1.5,
+      "at": "start of turn 4",
+      "why": "-1 VP for Fidel (wipes US Influence in Cuba outright) and -0.5 for Ortega, whose free Coup reaches Cuba because Cuba is adjacent to Nicaragua (verified in countries.json). Deck-conditional like every other per-country adjustment."
+    }
   }
 }
