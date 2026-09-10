@@ -105,10 +105,22 @@ def is_certain(value: float) -> bool:
 # worth, so that risk can be traded against value instead of ranking ahead
 # of it at any price. The expert's number.
 GAME_SWING_VP = 40.0
-# What holding The China Card is worth, in Ops, charged against playing it.
-# The maintainer's figure: the floor is a 2 VP swing, already 4 Ops at the
-# Late War rate of 2 Ops per VP, and it is basically always worth more.
-CHINA_HOLD_OPS = 5.0
+# The charge against playing The China Card, in RAW BOARD UNITS -- not Ops,
+# whatever the maintainer's figure is denominated in. It is subtracted from
+# `card_play_value`, which is on the Ops scale where one Op is worth 80-odd
+# raw, so this 5.0 is about 0.06 Ops. The name said Ops and a test pinned it
+# "at the expert's floor" of 4; both were wrong, and the bare `value -= 4`
+# it replaced at least claimed nothing.
+#
+# It is left at its measured behaviour rather than multiplied by 30, because
+# the naive correction is worse than the bug: 5 Ops converted honestly is
+# ~187 raw against a 4-Op card worth ~149, so China would never be played at
+# all. The maintainer's 5 Ops is what *holding* it is worth, and playing it
+# transfers that to the opponent rather than burning it -- so the charge is
+# some function of the two, not the hold value itself. That needs their
+# answer and a gate, not a rescale at the constant.
+# See docs/CLAUDE_NOTES.md, "The China charge is in the wrong units".
+CHINA_HOLD_RAW = 5.0
 # Decisions whose `score` is in raw board units, and can therefore be blended
 # with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
 # their own ad-hoc scales and keep risk as a separate, prior key.
@@ -1952,12 +1964,8 @@ class StrategicPlayer:
                 # and it only shows up in games, never in a fixture.
                 return value
             if cid == 'The_China_Card':
-                # What holding it is worth, charged against playing it. The
-                # maintainer puts the floor at a 2 VP swing, which is already
-                # 4 Ops at the Late War rate, and says it is basically always
-                # worth more; 5 is their figure. Still a constant where the
-                # truth is option value over the rest of the game.
-                value -= CHINA_HOLD_OPS
+                # A nudge, not the maintainer's 5 Ops: see CHINA_HOLD_RAW.
+                value -= CHINA_HOLD_RAW
             if cid == 'UN_Intervention' and self.un_card(obs):
                 # Played alone it is a 1-Op card; it is worth keeping for
                 # the card it neutralises. If that card's event is certain

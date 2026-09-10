@@ -1357,12 +1357,25 @@ def test_a_certain_card_value_takes_none_of_the_small_nudges():
         assert isinstance(value, float)  # no TypeError from a nudged sentinel
 
 
-def test_holding_the_china_card_is_charged_at_the_experts_floor():
-    """`CHINA_HOLD_OPS` is what holding the card is worth, charged against
-    playing it. The maintainer's floor is a 2 VP swing, which is already 4
-    Ops at the Late War rate of 2 Ops per VP, and they judge it basically
-    always worth more. Pinned so the constant cannot drift back below the
-    floor it was reasoned from."""
-    from struggler.bots.strategic.policy import CHINA_HOLD_OPS
-    assert CHINA_HOLD_OPS >= 4.0, 'below the 2-VP-swing floor'
-    assert CHINA_HOLD_OPS == 5.0
+def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
+    """The charge is subtracted from `card_play_value`, which is in raw
+    board units where one Op is worth 80-odd -- so 5.0 is about 0.06 Ops,
+    not the maintainer's 5 Ops.
+
+    An earlier version of this test asserted the opposite, pinning the
+    constant "at the expert's floor of 4 Ops" against a number that was
+    never in Ops. A test that encodes the defect as the contract is shape 8
+    in `docs/CLAUDE_NOTES.md`, and this is its second recurrence. What is
+    pinned now is the discrepancy itself, so that closing it is a deliberate
+    act with a gate behind it rather than a silent 30x.
+    """
+    from struggler.bots.strategic.policy import CHINA_HOLD_RAW
+    assert CHINA_HOLD_RAW == 5.0
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    bot = StrategicPlayer()
+    obs = engine.observe(Side.US)
+    bot.rank_actions(obs)
+    one_op = bot.ops_value(obs, 1)
+    assert CHINA_HOLD_RAW < 0.2 * one_op, (
+        'the charge has become a real price; if that is intended, it needs '
+        'the maintainer\'s number for what *playing* China costs and a gate')
