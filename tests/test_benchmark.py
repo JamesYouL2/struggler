@@ -247,24 +247,38 @@ def test_acceptance_requires_disjoint_seeds_and_enough_of_them():
 
 
 def test_acceptance_measures_nuclear_losses_against_their_rate():
-    """Losing to DEFCON 1 is rare, not impossible: 3 candidate losses in the
-    4226 recorded gate games, across three commits, two of which landed.
-    Demanding zero would reject one gate in eight on variance alone, so one is
-    a warning naming the seed to replay and two is a failure -- which the same
-    rate puts at under one gate in a hundred."""
-    from struggler.bots.benchmark import acceptance
+    """The cap is a rate above any human-plausible policy, not this bot's own
+    near-zero rate. WBC play ends in nuclear war in 5.4-11.7% of games, so a
+    policy taking human-like DEFCON risk expects 5-11 losses in a 192-game
+    gate; a cap of 1 rejected all of those, enforcing the bot's 38x-to-82x
+    over-caution instead of testing it. A loss still warns and names its seed
+    to replay."""
+    from struggler.bots.benchmark import acceptance, nuclear_cap
     ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
                             ('held-out', _report(range(5000, 5048), 0.5))])
     assert ok, lines
     warning = next(line for line in lines if 'WARN nuclear' in line)
     assert 'seed 4000' in warning  # named so it can be replayed
-    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=2)),
+
+    # A human-like rate passes where the old cap of 1 rejected it.
+    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=5)),
+                            ('held-out', _report(range(5000, 5048), 0.5, nuclear=5))])
+    assert ok, lines
+
+    # Past the rate -- where the strength score would catch it anyway -- fails.
+    over = nuclear_cap(192) + 1
+    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=over)),
                             ('held-out', _report(range(5000, 5048), 0.5))])
     assert not ok and any('FAIL nuclear' in line for line in lines), lines
-    # Split across samples counts the same way.
-    ok, _ = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
-                        ('held-out', _report(range(5000, 5048), 0.5, nuclear=1))])
-    assert not ok
+
+
+def test_the_nuclear_cap_scales_with_the_gate_and_never_fails_a_small_one():
+    """A fixed count means different things at 76 seeds and 96. The floor
+    keeps a small gate from failing on one or two."""
+    from struggler.bots.benchmark import nuclear_cap
+    assert nuclear_cap(192) == 19
+    assert nuclear_cap(152) == 15
+    assert nuclear_cap(10) == 3  # the floor, not 1
 
 
 def test_an_opponent_nuclear_defeat_is_not_a_candidate_nuclear_loss():
