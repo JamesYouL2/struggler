@@ -45,6 +45,17 @@ from struggler.bots.greedy import (
 
 CARDS = load_cards()
 LOSS = -1_000_000.0
+# What winning or losing the game is worth, in VP: the whole track, -20 to
+# +20. `LOSS` stays the sentinel for a *certain* outcome, which no amount of
+# board value should buy; this is the finite figure a *probabilistic* one is
+# worth, so that risk can be traded against value instead of ranking ahead
+# of it at any price. The expert's number.
+GAME_SWING_VP = 40.0
+# Decisions whose `score` is in raw board units, and can therefore be blended
+# with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
+# their own ad-hoc scales and keep risk as a separate, prior key.
+_RAW_SCORE_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE,
+                    K.COUP_TARGET, K.OPS_TYPE)
 
 
 def coup_bans(game_effects) -> ev.Prohibitions:
@@ -489,7 +500,27 @@ class StrategicPlayer:
         return DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
 
     def safety_key(self, obs, action):
-        """Certain immediate defeat and conditional turn risk precede trainable VP scores."""
+        """Certain defeat is refused outright; conditional risk is priced
+        against the game (`game_value`) rather than ranked ahead of it."""
+        kind = action.kind
+        immediate, risk = self.action_risk(obs, action)
+        score = self.score(obs, action)
+        certain = -int(immediate >= 1 or score <= LOSS)
+        if kind in _RAW_SCORE_KINDS:
+            # Risk priced, not ranked. As a separate key element ahead of
+            # score it was lexicographic: a risk of 1e-8 lost to a risk of 0
+            # whatever was on the table, so nothing could ever be bought with
+            # risk. That is the likeliest reason this bot loses to DEFCON 1
+            # 38x to 82x less often than a human tournament field.
+            return (certain, 0.0, (1 - risk) * score - risk * self.game_value(obs))
+        return (certain, -round(risk, 8), score)
+
+    def action_risk(self, obs, action) -> tuple[float, float]:
+        """`(immediate, risk)` for `action`: the chance its event ends the
+        game as it fires, and the chance the turn is lost from where it
+        leaves us. Split out so the key is not the only way to read them --
+        the tests used to recover the risk from the key's second element,
+        which stopped meaning that once risk was priced into the score."""
         kind, p = action.kind, action.payload
         planner = self._planner
         immediate = risk = 0.
@@ -527,8 +558,7 @@ class StrategicPlayer:
             # Blockade / Debt Crisis: pay a 3+ Ops card (no event) or take the board hit.
             choice = p['choice']
             risk = planner.discard_risk(None if choice == 'refuse' else choice)
-        score = self.score(obs, action)
-        return (-int(immediate >= 1 or score <= LOSS), -round(risk, 8), score)
+        return immediate, risk
 
     def region_score(self, board: Board, region: Region, side: Side,
                      snapshot: ev.Position | None = None) -> float:
@@ -813,6 +843,11 @@ class StrategicPlayer:
         net = (engine.vp - obs.vp) * (1 if obs.side is Side.US else -1)
         return net * self.vp_value(obs)
 
+    def game_value(self, obs: Observation) -> float:
+        """What the game itself is worth here, in the same raw units as
+        everything else: the whole VP track at this turn's price per VP."""
+        return GAME_SWING_VP * self.vp_value(obs)
+
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
         (StrategicWeights.vp_early/mid/late) times what one Op buys on this
@@ -1050,7 +1085,15 @@ class StrategicPlayer:
         else:
             raise SandboxUnsupported('event %s did not reach rest in 64 steps' % cid)
         if engine.is_terminal:
-            return -LOSS if engine.winner is obs.side else LOSS
+            # `rolls` counts the dice this branch is one face of. At zero the
+            # event ends the game outright and the sentinel is right: nothing
+            # on the board buys it back. Inside a fork it is one face of an
+            # average, and the sentinel makes the average meaningless -- a
+            # Summit at DEFCON 2 priced at 0.4167 * LOSS, which is 15/36 of a
+            # number chosen to be unreachable rather than 15/36 of what losing
+            # actually costs. A probabilistic ending is worth the game.
+            end = -LOSS if rolls == 0 else self.game_value(obs)
+            return end if engine.winner is obs.side else -end
         changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
         changed_regions = {engine.board.countries[c].region for c in changed}
         affected = self._value_dependents(changed)
@@ -1157,7 +1200,10 @@ class StrategicPlayer:
         # Opponent-granted operations may coup a battleground at DEFCON 2.
         planner = self._planner or self.planner_for(obs)
         risk = planner.event_risk(cid)
-        result = (1-risk)*result + risk*LOSS
+        if risk >= 1:
+            result = LOSS  # certain: the sentinel, not a price
+        elif risk:
+            result = (1-risk)*result - risk*self.game_value(obs)
         self._events[cid] = result
         return result
 

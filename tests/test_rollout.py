@@ -45,7 +45,11 @@ def hazard_position(defcon):
 
 
 def risks(policy, obs):
-    return {a.payload['card']: -key[1] for key, a in policy.rank_actions(obs)}
+    """Turn-loss risk per card. Read from `action_risk`, not from the ranking
+    key: risk is priced into the score for card plays rather than carried as
+    a separate element, so the key no longer exposes it."""
+    ranked = policy.rank_actions(obs)
+    return {a.payload['card']: policy.action_risk(obs, a)[1] for _, a in ranked}
 
 
 def influence_position():

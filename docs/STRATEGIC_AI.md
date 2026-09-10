@@ -194,6 +194,26 @@ action = bot.choose_action(observation, history)
   the tiers are discontinuous and a near-miss is worth nothing. Ask Not's
   discard choice prices a scoring card as the exact negation of that: dump
   the regions that would score against us, keep the ones that would not.
+- **Prices risk rather than ranking it.** `safety_key` refuses certain
+  defeat outright, then folds the turn-loss risk into the score as
+  `(1-risk)*score - risk*game_value`, where `game_value` is the whole VP
+  track (`GAME_SWING_VP` = 40) at this turn's price per VP -- about 8 cards
+  on turn 2, 22 on turn 6, 43 on turn 9, so a 10% risk costs one to four
+  cards. It used to be a separate key element *ahead* of the score, which
+  made safety lexicographic: a risk of 1e-8 lost to a risk of 0 whatever
+  was on the table, and nothing could ever be bought with risk at any
+  price. That is the likeliest reason this bot lost to DEFCON 1 38x to 82x
+  less often than a human tournament field. `LOSS` stays the sentinel for a
+  *certain* outcome; a probabilistic one is worth the game and no more.
+  `action_risk` exposes both numbers, since the key no longer does.
+  Decisions whose score is not in raw board units (`EVENT_CHOICE`'s
+  per-card rules) keep risk as a prior key element, because blending an
+  ad-hoc scale with `game_value` would swamp it.
+- The sandbox averages a die over its faces, so a game-ending face is one
+  outcome of an average and carries `game_value`, not the sentinel: Summit
+  at DEFCON 2 priced at 0.4167 * LOSS, which is 15/36 of a number chosen to
+  be unreachable. It is now -0.65 games. An event that ends the game
+  without a die still returns the sentinel.
 - Plays for the kill, not only against its own defeat. Nuclear war costs
   the *phasing* player the game (8.1.3) -- whoever played the card, not
   whoever is spending the Operations. So when an opponent's event hands us
