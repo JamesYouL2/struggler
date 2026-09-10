@@ -97,6 +97,14 @@ of others. You have already priced NATO at ~1 Op and NORAD at 1.5. The
 remaining five, plus a rule of thumb for "a flag that denies the opponent
 a whole line of play", would close the class.
 
+**Add DEFCON improvements to this item.** The maintainer's rule: acting
+immediately after improving DEFCON in the Mid to Late War is worth about
+an Op, because it re-opens a region to Coups and you move first. The
+sandbox measures influence and VP, so it prices that at 0 today. Same
+cause as the flags, same fix, and it touches Glasnost, Salt Negotiations,
+Summit's raise branch and every Coup declined in a region just unlocked.
+They judge it a constant rather than a parameter.
+
 ## 5. Event branch choices the bot decides by tuple order
 
 These offer a choice the bot scores at 0 on every branch, so it takes
