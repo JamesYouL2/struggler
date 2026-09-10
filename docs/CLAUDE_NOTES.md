@@ -2440,3 +2440,162 @@ are to be defined there, which is exactly where all six regions first
 weigh the same (Africa, Central and South America go 0.51 -> 0.80 ->
 1.64 across turns 1, 3 and 4, matching Europe/Asia/Middle East). Turn 4
 is the one board on which a single flat table is even coherent.
+
+### Per-country adjustments, and the class of card that makes overprotection useless
+
+The maintainer's per-country notes, calibrated at **start of turn 4** like
+the region table above. These are adjustments to the per-Battleground
+value, not replacements for it.
+
+| Country | Adjustment | Because |
+| --- | --- | --- |
+| Thailand | **up**, to ~6 VP + the Asia Battleground | Southeast Asia Scoring counts it twice. The biggest non-Europe country on the map at start of turn 4 |
+| India, Pakistan | −1 VP each | Indo-Pakistani War in the deck |
+| South Korea | −1 VP | Korean War in the deck |
+| Egypt | −2 VP | Sadat Expels Soviets in the deck. Muslim Revolution also bites |
+| Israel | −1 VP | Arab-Israeli War in the deck |
+| Iran | −1 VP each | Iranian Hostage Crisis, Iran-Iraq War |
+| every South American country | **+1 VP** | Realignment is far swingier there |
+| 1-stability African Battlegrounds | discount to **1/4 – 1/3** | Less stable than the 2-stability ones and jammable by a 4-Ops play. Still better value per Op, just not by the ratio the stability numbers imply |
+
+**Every one of these is conditional on the card still being live**, which
+makes the whole table implementable: `public_cards.card_state` already
+distinguishes `removed` / `discard` / `future` / `unseen` without breaking
+mandate #4. The discount is simply not applied once the card is `removed`.
+
+And the removal flags decide whether a discount ever lifts:
+
+| Card | Removed after firing | So the discount |
+| --- | --- | --- |
+| Korean War | yes | lifts permanently once it fires |
+| Sadat Expels Soviets | yes | lifts, for its half of Egypt |
+| Iranian Hostage Crisis, Iran-Iraq War | yes | lift |
+| **Arab-Israeli War** | **no** | never lifts (except via Camp David, which blocks it) |
+| **Indo-Pakistani War** | **no** | never lifts |
+| **Muslim Revolution** | **no** | never lifts (except via AWACS, which cancels it) |
+
+So Israel, India, Pakistan and the Middle East carry a *standing* discount,
+while South Korea and Iran carry one that expires. The bot currently
+applies neither.
+
+### The Middle East cannot be overprotected, and Asia cannot be wiped
+
+Asked which non-war cards can erase a whole country's Influence, here is
+the complete list the engine implements (`whole=True`, or a named
+`remove_all_influence`):
+
+| Card | Period | Wipes | Where |
+| --- | --- | --- | --- |
+| Truman Doctrine | Early | USSR | one *uncontrolled* Europe country |
+| Warsaw Pact Formed | Early | US | 4 Eastern Europe countries |
+| Blockade | Early | US | West Germany, unless the US discards 3+ Ops |
+| Nasser | Early | US | Egypt — half, rounded up |
+| De Gaulle Leads France | Early | US | France — 2, not a wipe |
+| **Muslim Revolution** | **Mid** | **US** | **2 of Sudan, Iran, Iraq, Egypt, Libya, Saudi Arabia, Syria, Jordan** |
+| Sadat Expels Soviets | Mid | USSR | Egypt |
+| Marine Barracks Bombing | Late | US | Lebanon, plus 2 elsewhere in the Middle East |
+| Iranian Hostage Crisis | Late | US | Iran |
+| The Iron Lady | Late | USSR | UK |
+| Ortega Elected in Nicaragua | Late | US | Nicaragua |
+
+Two things fall out, and both are larger than the Egypt note that prompted
+the question.
+
+**Muslim Revolution reaches five of the six Middle East Battlegrounds.**
+Libya, Egypt, Iraq, Iran and Saudi Arabia are all on its list; only
+**Israel** is not. It is a 4-Ops USSR card that is *not* removed after
+firing, so it returns at every reshuffle. For the US the conclusion is
+categorical rather than per-country: **there is no such thing as
+overprotecting a Middle East Battleground other than Israel**, because the
+Influence can be removed entire without the USSR spending an Op on the
+board. That also makes AWACS Sale to Saudis — which cancels it — worth
+considerably more than a 3-Ops US card, and AWACS is currently on the
+unpriced Mid War list.
+
+**Asia has no wipe card at all.** Nothing in the list above touches Asia,
+in any period. Every Asian Battleground can be lost only to a Coup, a
+Realignment, or the two war cards. That is the exact inverse of the Middle
+East, and it is a reason to prefer Asian Battlegrounds at equal VP that
+neither the region table nor the country table above expresses.
+
+The asymmetry within the list is worth noting too: of the eleven cards,
+**eight wipe US Influence and three wipe USSR Influence**. Overprotection
+is a US problem far more than a USSR one.
+
+Adjacent to the class, and the reason the question was framed as
+"overprotection": **Shuttle Diplomacy** (Mid, US, not removed after
+firing) drops one USSR-controlled Battleground from the next Middle East
+or Asia scoring. It removes nothing from the board, but it makes the
+marginal Battleground worthless at exactly the moment it would have been
+counted.
+
+### Turn-1 Battleground importance for the US, priced in Ops-to-reach
+
+The maintainer's proposal was Egypt / Pakistan / France at the top, on
+wipe and adjacency, with Malaysia-for-Thailand as roughly the fourth place
+Ops go. Three of those four are *second-hop* Battlegrounds, so the honest
+comparison is total Ops from the setup, which the board file settles.
+
+The US controls exactly two countries at setup: **UK** (5 Influence,
+stability 5) and **Australia** (4, stability 4). Everything reachable on
+turn 1 follows from those two plus the countries the US already occupies:
+
+| Line | Ops to control | Battlegrounds bought |
+| --- | ---: | --- |
+| UK → **France** | 3 | 1 |
+| Iran (1) → **Pakistan** (2) | 3 | 2 (Iran is itself a Battleground) |
+| Australia → Malaysia (2) → **Thailand** (2) | 4 | 1, but Thailand counts twice in Southeast Asia Scoring |
+| Israel (3) → **Egypt** (2) | 5 | 2 |
+
+Overlaying the wipe exposure from the section above changes the order:
+
+- **France, 3 Ops.** One Early War card takes 2 back (De Gaulle) and
+  nothing in the Mid or Late War touches it. Five adjacencies — UK, West
+  Germany, Spain/Portugal, Italy, Algeria — the most of any reachable
+  Battleground. And it is the only one of the four that carries Europe's
+  forced-defensive-spend multiplier. First, clearly.
+- **Iran → Pakistan, 3 Ops for two Battlegrounds.** Cheapest by a
+  distance, and the most perishable: Iran is the single most exposed
+  country the US holds (Muslim Revolution standing, Iranian Hostage
+  Crisis, Iran-Iraq War), and Pakistan carries the Indo-Pakistani discount
+  that never lifts.
+- **Thailand, 4 Ops.** Zero wipe exposure — Asia has no card in the class
+  — and the USSR cannot reach Malaysia or Thailand at all on turn 1; its
+  entire turn-1 Asian reach is the two Koreas. The only ways to lose it are
+  a Coup (stability 2, so cheap) and Brush War.
+- **Egypt, 5 Ops.** The most expensive to reach and the most exposed
+  Battleground on the map: Nasser, Muslim Revolution and Sadat all name
+  it, and Sadat *hands it to the US for free*.
+
+So: **France, then the Iran-Pakistan line, then Thailand, then Egypt** —
+Egypt last, because its wipe exposure is a reason to spend turn-1 Ops
+elsewhere, not there. You pay three Ops for Israel before Egypt is even
+reachable, to buy the one country the USSR can be evicted from later at
+the cost of a 1-Ops US card.
+
+**This is not a disagreement with the maintainer — it is a disagreement
+with the bot, and the maintainer already recorded the answer.**
+`models/expert_valuations.json` ranks US opening placement **France,
+Pakistan, Egypt, Iraq, …**, which matches the derivation above on all
+three. The bot's order is **Egypt > Pakistan > Iraq > France**, and it is
+one of the five recorded US placement inversions in the expert fixture.
+
+That inversion has a shape: the bot puts both Muslim Revolution targets
+(Egypt, Iraq) above France, and France last of the four. **Both
+structural terms the maintainer described today would move it the right
+way** — Europe's forced defensive spend raises France, and wipe exposure
+lowers Egypt and Iraq. Two independently-motivated terms predicting the
+same five recorded misses is the strongest evidence so far that they are
+real terms and not just good commentary, and it makes the US placement
+inversions a cheap way to test them before spending a gate.
+
+Thailand is not in the fixture because it is not a legal turn-1
+placement — it is second-hop, behind Malaysia — so its third place here
+is an addition to the recorded ranking rather than a check against it.
+
+What this reasoning cannot see, and the maintainer can: contest
+probability. It prices Ops-to-reach and card exposure, both of which are
+in the data files, and assumes nothing about how hard each is to hold
+against a USSR that wants it. Asia's freedom from wipe cards is partly
+offset by how cheaply the USSR reaches it once Decolonization and
+Afghanistan are out.
