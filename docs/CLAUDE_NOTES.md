@@ -1800,3 +1800,43 @@ One thing not established: the flat, undiscounted version was never gated.
 It was rejected on the fixture alone (23 misses to 26). So the evidence
 says the discounted form works; it does not prove the discount is *why*.
 If that matters later, gate the flat form as an ablation.
+
+### Correction: most of the seed 4015 write-up above is wrong
+
+The maintainer's correction, and it holds up against the log. Read the
+section above with this one; I got the same game wrong twice.
+
+**You cannot Space Lone Gunman.** Every Space Race box requires at least
+2 Ops (`rules.json`, boxes 1-4 need 2, 5-7 need 3, box 8 needs 4) and Lone
+Gunman is a 1-Ops card, so `_can_space_race` refuses it in every position
+the game can reach. `space_card` already filters on exactly that check, so
+the "the space slot ignores lethality" defect **does not exist**. I
+proposed a fix for a rule I had not read.
+
+**Death on turn 8 holding Lone Gunman, to Terrorism or Aldrich Ames
+Remix, is not a bug.** It is hand pressure, which the maintainer says is a
+normal way to lose and which Codex's tournament notes already record as a
+real cause of DEFCON defeats. The log shows exactly that shape: at AR6 the
+US held Lone Gunman and The Reformer and correctly played neither of the
+lethal lines -- its ranking marks Lone Gunman `lost=1`, so **the planner
+does see the card** -- and then the USSR played Terrorism at AR7, which
+discarded The Reformer and left Lone Gunman alone. The escape was taken
+away, not thrown away.
+
+So the claim that "the planner never saw a trap seven rounds away" is
+wrong twice over: it sees the card, and on turn 8 there was no line that
+avoids the loss once Terrorism lands. Turn 8 offered the bot nothing.
+
+**What is left, and it is a question rather than a finding.** Lone Gunman
+was in the US hand for the whole of turn 7 at DEFCON 5, then 4, then 3,
+where playing it is harmless -- the USSR gets one Op. The bot played five
+other cards and carried it into turn 8, where DEFCON 2 made it unplayable
+all turn. Whether dumping a low-Ops opponent event early, while DEFCON is
+still high, is real discipline or hindsight is a judgement call, and I
+have now been wrong about this game twice, so it goes to the maintainer
+rather than into a term. The repo already has a name for the shape
+("self-trapping dumps", in the principles table).
+
+The general lesson is the cheap one: check the rule before designing
+around it. Whether a card *can* take the Space Race slot is a one-line
+lookup, and it would have deleted half of the previous section.
