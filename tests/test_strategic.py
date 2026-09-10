@@ -823,3 +823,72 @@ def test_event_partition_names_are_real_cards():
     unknown = sorted(c for c in set(HIDDEN_INFO_EVENTS) | set(OPS_MODIFIER_EVENTS)
                      if c not in CARDS)
     assert unknown == []
+
+
+def _midwar_us_engine():
+    engine = Engine(seed=1)
+    engine.events_enabled = True
+    engine.turn = 6
+    engine.phase = 'action_rounds'
+    engine.action_round = 6
+    engine._ars_played = 11
+    return engine
+
+
+def _event_value_for(engine, side, cid):
+    engine.hands[side.value] = engine.hands[side.value] or ['Duck_and_Cover']
+    engine._push_action_round_play(side)
+    obs = engine.observe(side)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    return bot.event_value(obs, cid), bot.ops_value(obs, 1)
+
+
+def test_five_year_plan_is_a_gift_when_the_ussr_hand_is_only_a_scoring_card_that_hurts():
+    """The end-of-turn play: holding Five Year Plan and a scoring card that
+    scores for the US, the USSR plays Five Year Plan and the random discard
+    can only take the scoring card. Losing a card with negative hold value
+    is a gain, and it falls out of `hold_value` rather than a special case."""
+    engine = _midwar_us_engine()
+    for cid in ('France', 'West_Germany', 'Italy', 'UK', 'Poland', 'East_Germany'):
+        engine.board.influence[cid] = {'US': 9, 'USSR': 0}  # Europe scores heavily for the US
+    engine.hands['USSR'] = ['Five_Year_Plan', 'Europe_Scoring']
+    value, one_op = _event_value_for(engine, Side.USSR, 'Five_Year_Plan')
+    assert value > one_op, 'dumping a scoring card that would score against you is worth more than an Op'
+
+    # With a card worth holding instead, the same event is a loss.
+    engine2 = _midwar_us_engine()
+    engine2.hands['USSR'] = ['Five_Year_Plan', 'Decolonization']
+    value2, _ = _event_value_for(engine2, Side.USSR, 'Five_Year_Plan')
+    assert value2 < 0
+
+
+def test_aldrich_ames_is_a_gift_when_the_us_holds_only_cards_it_wants_gone():
+    engine = _midwar_us_engine()
+    for cid in ('France', 'West_Germany', 'Italy', 'UK', 'Poland', 'East_Germany'):
+        engine.board.influence[cid] = {'US': 0, 'USSR': 9}  # Europe scores heavily for the USSR
+    engine.hands['US'] = ['Aldrich_Ames_Remix', 'Europe_Scoring']
+    value, _ = _event_value_for(engine, Side.US, 'Aldrich_Ames_Remix')
+    assert value > 0, 'the USSR must discard the one card, and it is the one the US wanted gone'
+
+
+def test_hand_attack_values_are_seat_antisymmetric_in_sign():
+    """Each term is a gain to the card's beneficiary, returned from our seat,
+    so its sign flips with the seat for a card whose beneficiary is fixed."""
+    from struggler.bots.strategic import HAND_ATTACK_EVENTS
+    fixed = {'CIA_Created': 1, 'Lone_Gunman': -1, 'Grain_Sales_to_Soviets': 1,
+             'Aldrich_Ames_Remix': -1, 'Five_Year_Plan': 1}
+    for cid, us_sign in fixed.items():
+        assert cid in HAND_ATTACK_EVENTS
+        us, _ = _event_value_for(_midwar_us_engine(), Side.US, cid)
+        ussr, _ = _event_value_for(_midwar_us_engine(), Side.USSR, cid)
+        assert us * us_sign > 0, (cid, us)
+        assert ussr * us_sign < 0, (cid, ussr)
+
+
+def test_grain_sales_is_worth_at_least_its_two_ops_to_the_us():
+    engine = _midwar_us_engine()
+    value, _ = _event_value_for(engine, Side.US, 'Grain_Sales_to_Soviets')
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer(); bot.rank_actions(obs)
+    assert value >= bot.ops_value(obs, 2) * (1 - bot._planner.event_risk('Grain_Sales_to_Soviets')) - 1e-9

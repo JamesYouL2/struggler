@@ -194,6 +194,24 @@ action = bot.choose_action(observation, history)
   the tiers are discontinuous and a near-miss is worth nothing. Ask Not's
   discard choice prices a scoring card as the exact negation of that: dump
   the regions that would score against us, keep the ones that would not.
+- Prices the hidden-information cards from what a card in a hand is worth
+  (`hold_value`: a scoring card scores its region, anything else is played,
+  so an opponent event carries its harm and a card you would rather not
+  hold is *negative*). Ask Not is the sum of the chosen upgrades over our
+  hand, capped at the Action Rounds left (`_hand_upgrade_value`); Five Year
+  Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,
+  Grain Sales the better of 2 Ops and the shown card, Missile Envy the
+  opponent's best card swapped for a 2, Star Wars the best US or neutral
+  event in the discard pile, CIA Created and Lone Gunman one Op
+  (`_hand_attack_value`, `HAND_ATTACK_EVENTS`). Our own hand is exact; the
+  opponent's is unseen (mandate #4), so those terms use an Ops-only proxy
+  over the unseen cards (`_unseen_holds`) and the hand size we can see. A
+  discard from a hand whose cards all have negative hold value is a gain to
+  the victim -- the end-of-turn Five Year Plan dumping a scoring card -- and
+  it falls out of the arithmetic. Salt Negotiations and Our Man In Tehran
+  stay on the generic estimate, which is `0.8 * ops_value(card.ops)` -- on
+  the same Ops scale as every other term, after a long spell at a raw
+  `weights.ops` that priced them near zero.
 
 All decisions use only `Observation`; history is currently ignored. The event
 sandbox is constructed from public fields with an independent fixed RNG and

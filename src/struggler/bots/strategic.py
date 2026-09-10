@@ -116,6 +116,13 @@ Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
 Our_Man_In_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
 # Duration effects priced by the marginal Ops they add to or take from the hands they touch.
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
+# Hidden-information cards whose value is nonetheless derivable from what a
+# card in a hand is worth (`hold_value`): priced by `_hand_attack_value`
+# rather than the generic estimate. Salt Negotiations and Our Man In Tehran
+# stay on the estimate.
+HAND_ATTACK_EVENTS = frozenset(('Five_Year_Plan', 'Terrorism', 'Aldrich_Ames_Remix',
+                                'Grain_Sales_to_Soviets', 'Star_Wars', 'CIA_Created',
+                                'Lone_Gunman', 'Missile_Envy'))
 # For the docs and tests: what the sandbox is asked to simulate. Every name
 # above must be a real card id -- `Our_Man_in_Tehran` (lowercase i) matched
 # nothing, so the card stayed in PUBLIC_EVENTS and was simulated in a sandbox
@@ -303,6 +310,8 @@ class StrategicPlayer:
         self._base_regions = {}
         self._base_margins = {}
         self._ops_values = {}
+        self._unseen_hold_values = {}
+        self._events_in_progress = set()
         self._placement_values = {}
         self._relocation_gain = None
         self._space_card = None
@@ -582,15 +591,18 @@ class StrategicPlayer:
         # interrupted ranking's Ops from a board it never saw.
         saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
                  self.__dict__.get('_placement_values'),
+                 self.__dict__.get('_unseen_hold_values'),
                  {c: dict(v) for c, v in self.board.influence.items()})
         self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
         self._placement_values = {}
+        self._unseen_hold_values = {}  # per position too: it reads card states and scoring
         try:
             return self.value(self.board, observation.side)
         finally:
-            self._obs, self._urgency, ops_values, placements, influence = saved
-            for name, value in (('_ops_values', ops_values), ('_placement_values', placements)):
+            self._obs, self._urgency, ops_values, placements, unseen, influence = saved
+            for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
+                                ('_unseen_hold_values', unseen)):
                 if value is not None:
                     setattr(self, name, value)
             for c, v in influence.items():
@@ -1055,6 +1067,19 @@ class StrategicPlayer:
             return self._events[cid]
         card = CARDS[cid]
         sign = -1 if card.side.value == obs.side.opponent.value else 1
+        if cid in self._events_in_progress:
+            # A hand term is valuing this card through a hand that holds it:
+            # Ask Not prices the hand, which holds Five Year Plan, which
+            # prices the hand, which holds Ask Not. The inner reference gets
+            # the shallow Ops estimate; the outer call is the one that counts.
+            return sign * self.ops_value(obs, card.ops) * 0.8
+        self._events_in_progress.add(cid)
+        try:
+            return self._event_value_uncached(obs, cid, card, sign)
+        finally:
+            self._events_in_progress.discard(cid)
+
+    def _event_value_uncached(self, obs: Observation, cid: str, card, sign: int) -> float:
         result = None
         if cid in OPS_MODIFIER_EVENTS:
             result = self._ops_modifier_value(obs, cid)
@@ -1073,6 +1098,8 @@ class StrategicPlayer:
                 self.sandbox_failures[cid] = '%s: %s' % (type(exc).__name__, exc)
         elif cid == ASK:
             result = self._hand_upgrade_value(obs)
+        elif cid in HAND_ATTACK_EVENTS:
+            result = self._hand_attack_value(obs, cid)
         if result is None:
             # Explicit approximation for events beyond the public simulator:
             # the card's Ops on this board, discounted -- and on the same
@@ -1090,6 +1117,152 @@ class StrategicPlayer:
         result = (1-risk)*result + risk*LOSS
         self._events[cid] = result
         return result
+
+    def hold_value(self, obs: Observation, cid: str) -> float:
+        """What having `cid` in hand is worth to `obs.side`: a scoring card
+        scores its region, anything else gets played (`card_play_value`, so
+        an opponent event carries its harm). Negative for a card you would
+        rather not hold -- which is what makes losing it a gift.
+
+        A scoring card that would end the game is clamped to a full VP track
+        rather than the win/loss sentinel: this is a value term, and the
+        sentinel is `safety_key`'s to use."""
+        card = CARDS[cid]
+        if card.scoring:
+            value = self.scoring_card_value(obs, cid)
+            cap = 20 * self.vp_value(obs)
+            return max(-cap, min(cap, value))
+        return self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side),
+                                    self.event_value(obs, cid))
+
+    def _unseen_holds(self, obs: Observation, side: Side) -> list[float]:
+        """A hold value for every unseen card, from `side`'s seat, on Ops
+        alone (valuing ~100 unseen events would cost more than the decision).
+        Scoring cards are the exception and are exact: their region nets the
+        same VP whoever plays them, so `side`'s hold is ours or its negation."""
+        cached = self._unseen_hold_values.get(side)
+        if cached is not None:
+            return cached  # the same pool for every hand-attack card in one ranking
+        holds = []
+        for card in CARDS.values():
+            if card_state(obs, card.id) != 'unseen':
+                continue
+            if card.scoring:
+                value = self.hold_value(obs, card.id)
+                holds.append(value if side is obs.side else -value)
+            else:
+                holds.append(self.ops_value(obs, _effective_ops_estimate(card, obs, side)))
+        self._unseen_hold_values[side] = holds
+        return holds
+
+    @staticmethod
+    def _expected_max(values: list[float], n: int) -> float:
+        """The expected largest of `n` draws without replacement from
+        `values`, by the order-statistic rule of thumb: the top 1/(n+1)
+        quantile."""
+        if not values:
+            return 0.
+        ranked = sorted(values, reverse=True)
+        return ranked[min(len(ranked) - 1, len(ranked) // (max(1, n) + 1))]
+
+    def _hand_attack_value(self, obs: Observation, cid: str) -> float:
+        """The hidden-information cards that take, discard or reveal cards,
+        priced by what the cards involved are worth to whoever holds them.
+
+        Every term below is "gain to the card's beneficiary", returned from
+        our seat. Where the affected hand is ours it is priced exactly through
+        `hold_value`; where it is the opponent's it is unseen (mandate #4), so
+        the term uses `_unseen_holds` and the hand size we can see.
+
+        Two consequences worth knowing. A random or chosen discard from a
+        hand whose cards all have *negative* hold value is a gain to the
+        victim -- which is the end-of-turn Five Year Plan play, dumping a
+        scoring card that would score against you, and it falls out of the
+        arithmetic rather than being special-cased. And the generic estimate
+        these replace priced all of them at 0.8 of their own Ops, which for
+        Missile Envy against a hand of 4s is short by a factor of five.
+        """
+        me = obs.side
+        card = CARDS[cid]
+        player = me  # event_value is asked for a card we hold, so we would be playing it
+        own_hand = [c for c in obs.hand if c != cid]
+
+        def seat(gain: float, beneficiary: Side) -> float:
+            return gain if beneficiary is me else -gain
+
+        if cid in ('CIA_Created', 'Lone_Gunman'):
+            beneficiary = Side.US if cid == 'CIA_Created' else Side.USSR
+            # One Op of Operations for the beneficiary; the hand reveal is
+            # information only, unpriced.
+            return seat(self.ops_value(obs, 1), beneficiary)
+
+        if cid in ('Five_Year_Plan', 'Terrorism'):
+            # The victim loses a uniformly random card. Five Year Plan's
+            # "a US event fires" rider is not priced.
+            victim = Side.USSR if cid == 'Five_Year_Plan' else player.opponent
+            if victim is me:
+                holds = [self.hold_value(obs, c) for c in own_hand]
+            else:
+                holds = self._unseen_holds(obs, victim)
+            loss = sum(holds) / len(holds) if holds else 0.
+            if cid == 'Terrorism' and player is Side.USSR and obs.game_effects.get('iranian_hostage'):
+                loss *= 2  # two discards after the Iranian Hostage Crisis
+            return seat(loss, victim.opponent)
+
+        if cid == 'Aldrich_Ames_Remix':
+            # The USSR sees the US hand and discards the card the US values most.
+            if me is Side.US:
+                best = max((self.hold_value(obs, c) for c in own_hand), default=0.)
+            else:
+                best = self._expected_max(self._unseen_holds(obs, Side.US), obs.opponent_hand_size)
+            return seat(best, Side.USSR)
+
+        if cid == 'Missile_Envy':
+            # The player takes the opponent's highest-Ops card, and the
+            # opponent must spend their next round on Missile Envy's 2 Ops.
+            # The player gains that card's Ops; the opponent swaps their best
+            # card for a 2.
+            victim = player.opponent
+            unseen = [c for c in CARDS.values() if card_state(obs, c.id) == 'unseen' and not c.scoring]
+            if unseen:
+                best_ops = self._expected_max(
+                    [_effective_ops_estimate(c, obs, victim) for c in unseen], obs.opponent_hand_size)
+            else:
+                best_ops = 2
+            taken = self.ops_value(obs, int(best_ops))
+            gain = taken + (taken - self.ops_value(obs, 2))
+            return seat(gain, player)
+
+        if cid == 'Grain_Sales_to_Soviets':
+            # A random USSR card is shown; the US plays it or hands it back
+            # for 2 Ops. A Soviet card goes back (its event would fire); any
+            # other is worth its Ops to the US plus the card the USSR loses,
+            # if that beats the 2. Scoring cards net the same whoever plays
+            # them, so they count as a return.
+            floor = self.ops_value(obs, 2)
+            options = []
+            for c in CARDS.values():
+                if card_state(obs, c.id) != 'unseen' or c.scoring or c.side.value == 'USSR':
+                    options.append(floor if card_state(obs, c.id) == 'unseen' else None)
+                    continue
+                take = (self.ops_value(obs, _effective_ops_estimate(c, obs, Side.US))
+                        + self.ops_value(obs, _effective_ops_estimate(c, obs, Side.USSR)))
+                options.append(max(floor, take))
+            options = [o for o in options if o is not None]
+            gain = sum(options) / len(options) if options else floor
+            return seat(gain, Side.US)
+
+        if cid == 'Star_Wars':
+            # The US plays the event of any non-scoring card in the discard
+            # pile. Public, so exact -- over the dozen highest-Ops US or
+            # neutral candidates, each an event simulation.
+            pool = [c for c in obs.discard_pile
+                    if not CARDS[c].scoring and CARDS[c].side.value != 'USSR']
+            pool.sort(key=lambda c: -CARDS[c].ops)
+            best = max((self.event_value(obs, c) for c in pool[:12]), default=0.)
+            return seat(max(0., best), Side.US)
+
+        return None
 
     def _hand_upgrade_value(self, obs: Observation) -> float:
         """Ask Not...: what replacing the worst of a hand is worth.
