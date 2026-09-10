@@ -15,16 +15,11 @@ recorded baseline; this pins them against each other, which is the part
 that catches a stale cache the moment it is introduced rather than at the
 next corpus regeneration.
 
-**What this does not yet cover.** The probe re-establishes the VP price
-first, the way `rank_actions` does, so it asserts order independence *given
-the context a decision starts with*. Asked with genuinely cold caches the
-values are still order-dependent -- `coup -> vp_value -> ops_value -> coup`
-gives one Op as 24.02 or 26.03 at seed 4000 T3 AR6 US -- because
-`ops_value(1)` is computed twice with different VP prices and whichever
-lands in the cache wins. Removing the `_vp_price` memo does not make this
-test fail, which is the honest measure of its reach: warming the one-Op
-value is what makes the rest agree, not the memo. Breaking that cycle at
-its source is the follow-up; then the cold case can be asserted too.
+The probe runs with **cold caches** and establishes no context first, so
+it asserts the strong property: the numbers are a function of the
+position and nothing else. That only became assertable once the
+`coup -> vp_value -> ops_value -> coup` cycle was broken; before that one
+Op was worth 24.02 or 26.03 at seed 4000 T3 AR6 US by traversal alone.
 
 See `docs/CLAUDE_NOTES.md`, "The bugs this repo actually gets".
 """
@@ -100,15 +95,10 @@ def _clear_caches(bot, obs):
             f'updated deliberately, not left silently weaker')
         current = getattr(bot, name)
         setattr(bot, name, {} if isinstance(current, dict) else None)
-    # Re-establish the one piece of context `rank_actions` fixes up front,
-    # exactly as it does: the price of a VP, computed once from a cold cache
-    # so it cannot depend on which arm of the ranking asks for it. Without
-    # this the probe is not reproducing production -- it is asking what
-    # happens with *no* context, where `coup -> vp_value -> ops_value ->
-    # coup` genuinely does resolve two ways (seed 4000 T3 AR6 US: one Op is
-    # 24.02 or 26.03). That fragility is real and recorded, but it is not
-    # what this test is for, and pinning it here would pin the wrong thing.
-    bot.vp_value(obs)
+    # Nothing is re-established: the probe runs genuinely cold. It could
+    # not, until the `coup -> vp_value -> ops_value -> coup` cycle was
+    # broken by pricing a VP off the placement spend; before that, one Op
+    # came out 24.02 or 26.03 at seed 4000 T3 AR6 US by traversal alone.
 
 
 def _values(record, order):

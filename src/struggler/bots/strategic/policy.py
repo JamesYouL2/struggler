@@ -933,30 +933,30 @@ class StrategicPlayer:
 
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
-        (StrategicWeights.vp_early/mid/late) times what one Op buys on this
-        board, so VP and Ops stay on one scale as the board's Ops value moves."""
+        (`vp_early`/`vp_mid`/`vp_late`) times what one Op buys on this
+        board, so VP and Ops stay on one scale as the board's Ops value
+        moves.
+
+        The Op is priced by the *placement* spend, not by `ops_value`,
+        which takes the better of a placement and a Coup. Two reasons, and
+        the second is why this changed. A Coup is priced with the Military
+        Operations credit, which is priced in VP, so asking `ops_value`
+        what an Op is worth closed the cycle `coup -> vp_value ->
+        ops_value -> coup`; it was broken by a reentrancy guard that
+        substituted a flat 20 raw per Op, which meant the one-Op value
+        came out 24.02 or 26.03 at seed 4000 T3 AR6 US depending purely on
+        which arm of the ranking asked first. And a numeraire should not
+        move with whether a Coup target happens to be reachable: "what an
+        Op buys" is the generic spend. No cycle now, so no guard.
+        """
         w = self.weights
         per_vp = w.vp_early if obs.turn <= 3 else w.vp_mid if obs.turn <= 7 else w.vp_late
         fixed = self.__dict__.get('_vp_price')
-        if fixed is not None:
-            return per_vp * fixed
-        cached = self._ops_values.get(1) if hasattr(self, '_ops_values') else None
-        if cached is not None:
-            return per_vp * cached
-        # ops_value prices coups and placements, either of which may price VP
-        # (Yuri and Samantha, wars, the neural correction): while the one-Op
-        # value is itself being computed, a VP is priced at a flat 20 raw per
-        # Op, the opening board's order of magnitude.
-        if getattr(self, '_vp_reentrant', False):
-            return per_vp * 20.
-        self._vp_reentrant = True
-        try:
-            one_op = self.ops_value(obs, 1)
-        finally:
-            self._vp_reentrant = False
-        if hasattr(self, '_ops_values'):
-            self._vp_price = one_op
-        return per_vp * one_op
+        if fixed is None:
+            fixed = self._placement_ops_value(obs, 1)
+            if hasattr(self, '_ops_values'):
+                self._vp_price = fixed
+        return per_vp * fixed
 
     def ops_value(self, obs: Observation, ops: int) -> float:
         """What `ops` Operations are worth here: the best influence spend
