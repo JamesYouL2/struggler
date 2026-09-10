@@ -82,12 +82,6 @@ def build_player(
         return RandomPlayer(seed=seed)
     if kind == "greedy":
         return GreedyPlayer()
-    if kind == "event-value":
-        from struggler.bots.event_value import EventValuePlayer, ValueNetwork
-        path = os.environ.get("STRUGGLER_EVENT_VALUE_MODEL")
-        if not path:
-            raise ValueError("event-value requires STRUGGLER_EVENT_VALUE_MODEL=<checkpoint.json>")
-        return EventValuePlayer(ValueNetwork.load(path), opponent_model=load_opponent_model())
     if kind == "strategic":
         model = os.environ.get("STRUGGLER_STRATEGIC_MODEL")
         return StrategicPlayer(StrategicWeights.load(model) if model else None,
@@ -122,7 +116,7 @@ def build_player(
             log_path=log_path,
             resume=resume,
         )
-    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/mcts/event-value/llm)")
+    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/strategic/mcts/llm)")
 
 
 def configure_logging(level: str, path: str | None = None) -> None:

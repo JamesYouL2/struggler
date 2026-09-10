@@ -52,8 +52,7 @@ directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `bots/naive.py`, `GreedyPlayer` from `bots/greedy.py`, `LLMPlayer` from
 `bots/llm/player.py` — the `"llm"` branch also picks a provider client via
 `STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`, and passes through
-`plan_turns` from `--no-turn-plan`; the `"strategic"` and `"event-value"`
-branches read `STRUGGLER_OPPONENT_MODEL` for the learned survival priors
+`plan_turns` from `--no-turn-plan`; the `"strategic"` branch reads `STRUGGLER_OPPONENT_MODEL` for the learned survival priors
 described in [STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)). Adding a new bot means
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
@@ -237,8 +236,8 @@ What each level reports:
   risk numbers and whole-hand search size, and every ranked option of
   every decision.
 
-Engines the bots build to evaluate what-ifs (`StrategicPlayer.public_engine`,
-the event-value feature encoder and trainer) attach
+Engines the bots build to evaluate what-ifs (`StrategicPlayer.public_engine`)
+attach
 `engine.core.SANDBOX_LOG` (`struggler.engine.sandbox`, pinned to
 `CRITICAL`) instead of the live `struggler.engine` logger, so a simulated
 event never reads as a real one. Lower that logger's level explicitly if
@@ -522,10 +521,6 @@ its linear evaluation weights through evolutionary policy optimization.
 This implements a lightweight self-play training path alongside the existing
 roadmap; full-game search and deep reinforcement learning remain future work.
 See [STRATEGIC_AI.md](STRATEGIC_AI.md) for usage and measured results.
-
-The experimental [`event_value`](../src/struggler/bots/event_value/README.md)
-package adds a small neural regional-VP correction, trained cheaply from engine
-event scenarios with explicit card-availability and scoring-timing priors.
 
 ## Experimental search player
 

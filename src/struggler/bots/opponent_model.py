@@ -18,7 +18,7 @@ Train from the checked-in game logs:
         --output models/opponent-model-v1.json
 
 Use it: STRUGGLER_OPPONENT_MODEL=models/opponent-model-v1.json for the
-`strategic` and `event-value` players.
+`strategic` player.
 
 A model describes the opponents in its logs. Bot-vs-bot games rarely event
 Grain Sales, Aldrich Ames, or Terrorism; strong humans always event the

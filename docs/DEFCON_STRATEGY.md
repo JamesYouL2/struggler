@@ -264,8 +264,9 @@ Engine items 1–5 below are now fixed; item 6 remains a bot limitation.
    1200/1201 ended in early nuclear losses. The inspected USSR losses
    against StrategicPlayer played Duck and Cover for Ops at DEFCON 2. A
    mode-level penalty is too late if earlier choices consumed the last
-   escape and left only losing options. These outcomes are recorded in
-   [event-value-match-check.json](../models/event-value-match-check.json).
+   escape and left only losing options. Those outcomes were recorded in
+   `models/event-value-match-check.json`, deleted with the neural bot; the
+   finding stands and the file is recoverable from git history.
    `StrategicPlayer` now ranks every card, mode, event-choice, and discard
    decision by `bots/defcon.py`'s whole-hand survival search before its VP
    score (see [STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)). The
