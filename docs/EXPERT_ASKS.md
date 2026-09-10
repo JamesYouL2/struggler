@@ -65,7 +65,7 @@ board one. Rough is fine; tolerance is 0.75.
 | 2 | NEUTRAL | Terrorism |
 | 2 | USSR | Yuri and Samantha |
 
-## 2. Expected VP of a Battleground, by region
+## 2. Expected VP of a Battleground, by region -- ANSWERED as structure
 
 The core term (`battleground` times the region's scoring weight) is fitted
 to nothing. The only figures available are third-hand, from the Sankt
@@ -73,11 +73,12 @@ compilation, credited to someone else: Europe's 3rd Battleground worth
 6-10 VP and its **4th only 2**, Asia ~5, Middle East a little under, Latin
 America ~5, Africa ~4.
 
-The non-linearity is the valuable part and the additive per-country
-function cannot represent it. Your numbers, even as a rough table, become
-the target the `margin_*` terms are fitted against. A sentence on how it
-moves with how many Battlegrounds you already hold would be worth more
-than the numbers alone.
+**Answered**, and as rules rather than constants: Europe Control is 40 VP;
+Domination turns on a one-Battleground differential; Control matters only
+one away because it needs every Battleground; Presence only if you hold
+none; ignore country count outside Asia. See `docs/CLAUDE_NOTES.md`, "The
+Battleground table, answered as structure". Outstanding: the turn-1 and
+turn-4 Mid War calibration positions the maintainer offered.
 
 ## 3. When is a region ready to score?
 
