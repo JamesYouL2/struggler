@@ -1840,3 +1840,47 @@ rather than into a term. The repo already has a name for the shape
 The general lesson is the cheap one: check the rule before designing
 around it. Whether a card *can* take the Space Race slot is a one-line
 lookup, and it would have deleted half of the previous section.
+
+### The DEFCON prior gate, and a speed claim that was measurement error
+
+`7ba14f0` against `425ac9e`: pooled **0.506 +/- 0.028** over 77 seeds
+(tuning 0.469, held out 0.533), **ACCEPTED** and honestly neutral. Two
+candidate nuclear losses, flagged for replay (seed 4001 USSR T9, seed 4019
+USSR T4), which is the expected direction: a planner that no longer
+expects DEFCON to fall every round takes more DEFCON risk. Within the cap.
+
+Keep it anyway. The old 0.75 was seven times a rate that had already been
+measured and written down in this repo, and neutral games are not a reason
+to keep a number that is known to be wrong. But the *reason* to keep it is
+correctness, not strength, and not speed either:
+
+**The speed claim in `7ba14f0`'s commit message is wrong.** It says an
+ordinary mid-war decision goes 0.191s to 0.052s. Measured properly --
+same process, same corpus positions, the two prior values interleaved so
+drift cancels, five repetitions, best of each:
+
+| Position | prior 0.75 | prior 0.15 | speedup |
+| --- | ---: | ---: | ---: |
+| opening T1 | 0.003s | 0.003s | 1.02x |
+| mid-war T5-7 | 0.054s | 0.051s | 1.07x |
+| late T8+ | 0.146s | 0.146s | 1.00x |
+
+Nothing. The 3.7x came from comparing two `frozen_bench` runs taken at
+*different revisions* and attributing the whole difference to the last
+change; everything between them, the Military Ops work included, was in
+that gap. The same error produced the claim that the hazardous position's
+whole-hand risk fell from 0.469 to 0.081: `frozen_bench` selects the
+highest-risk late position *from the corpus*, the corpus was regenerated
+in between, so those two numbers describe **different positions**.
+
+And the gate's own timings say the opposite again -- 8.95 s/turn before,
+11.31 after -- because those two gates ran under different machine load.
+Three measurements, three answers, and only the interleaved in-process one
+is worth anything.
+
+This is the same mistake the file already warns about ("never time
+anything while a gate runs"), in a new dress. The warning needs widening:
+**a timing is only evidence when the two things being compared run in one
+process, interleaved, on the same inputs.** Two runs of the same script at
+two revisions is not an A/B, it is two anecdotes. Neither is a per-game
+average from two gates that shared the machine with different work.
