@@ -411,6 +411,7 @@ class StrategicPlayer:
         self._event_basis = None
         self._base_regions = None
         self._base_margins = None
+        self._base_country = None
         self._obs = None
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
@@ -440,6 +441,7 @@ class StrategicPlayer:
         self._event_basis = None
         self._base_regions = {}
         self._base_margins = {}
+        self._base_country = {}
         self._ops_values = {}
         # One VP's price, fixed once per decision. `military_credit` needs it
         # inside `coup`, which `ops_value` calls, which `vp_value` calls --
@@ -472,7 +474,7 @@ class StrategicPlayer:
             return sorted(((self.safety_key(observation, a), a) for a in decision.options),
                           key=lambda pair: pair[0], reverse=True)
         finally:
-            self._base_regions = self._base_margins = None  # callers may move the board after ranking
+            self._base_regions = self._base_margins = self._base_country = None  # callers may move the board after ranking
 
     def prepare(self, observation: Observation) -> None:
         """Point the player at `observation`: the board, the snapshot of it,
@@ -916,8 +918,27 @@ class StrategicPlayer:
         # call here walks the region or builds a per-influence cache key.
         basis = self._margin_basis(region)
         margin_before = sign * basis[0]
-        before = (ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
-                  + w.region * urgency * region_before + margin_before)
+        # `country_value` on the *unchanged* board, under exactly the
+        # contract `_base_regions` and `_margin_basis` already run under:
+        # every caller enters with the board as synced. `_placement_ops_value`
+        # asks for one country at one, two, three and four points, so this
+        # half is computed four times for one answer.
+        #
+        # `Position.digest` is what makes the contract checkable rather than
+        # merely asserted in a comment -- see the base-digest check below,
+        # which is what six historical stale-cache bugs would have tripped.
+        cache = self._base_country
+        key = (i, s)
+        own_before = None if cache is None else cache.get(key)
+        if own_before is None:
+            own_before = ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
+            if cache is not None:
+                cache[key] = own_before
+        elif CHECK_SNAPSHOT:
+            assert own_before == ev.country_value(t, pos, i, s, w, vector, defcon,
+                                                  self._coup_bans), \
+                f'base country value for {cid} moved while cached'
+        before = own_before + w.region * urgency * region_before + margin_before
         controller = pos.control[i]
         was_us, was_ussr = pos.inf[ev.US][i], pos.inf[ev.USSR][i]
         if s == ev.US:
@@ -1108,11 +1129,13 @@ class StrategicPlayer:
                     self._add_influence(c, side, 1)
                 self._base_regions = {} if self._base_regions is not None else None
                 self._base_margins = {} if self._base_margins is not None else None
+                self._base_country = {} if self._base_country is not None else None
         finally:
             for c, inf in original.items():
                 self._set_influence(c, inf['US'], inf['USSR'])
             self._base_regions = {} if self._base_regions is not None else None
             self._base_margins = {} if self._base_margins is not None else None
+            self._base_country = {} if self._base_country is not None else None
         if cache is not None:
             cache[ops] = total
         return total

@@ -36,6 +36,8 @@ from __future__ import annotations
 
 import functools
 import math
+import os
+import random
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -115,6 +117,62 @@ def terrain() -> Terrain:
     )
 
 
+# -- content hashing, so that a memo key can be correct by construction ----
+#
+# The commonest defect in this repo, six times over, is a cached value keyed
+# on less state than it reads: `_access` was keyed on one country and reads
+# influence two hops out, so a trial placement left it stale and 39 of 598
+# corpus rankings moved when the memo was bypassed.
+#
+# The fix is not more careful key-writing, which is what failed six times.
+# It is to give the position itself an identity: `Position.digest` is a
+# 64-bit Zobrist hash of the influence vectors, maintained in O(1) by the
+# one method that writes them. Two positions with equal influence have equal
+# digests, and any change to any country changes it -- so a memo keyed on
+# `(pos.digest, ...)` cannot go stale no matter how far the term reads.
+#
+# It is also equal again after an undo -- the trial-placement loops put the
+# board back between candidates, and a monotonic counter would miss every
+# one of those.
+#
+# **It is off by default, and that is a measurement, not caution.**
+# Maintaining it costs 6.4% of bot time (20.2s to 21.5s over three
+# five-turn games), and the memo it was built to enable is worth 2.3%: the
+# base-board half of `delta` repeats only 1.7 times on average, not the four
+# the placement loop's shape suggests. Paying 6.4% to save 2.3% is a loss,
+# so the digest earns its place as a *correctness* instrument rather than a
+# performance one -- it is what turns "the board has not moved" from a
+# comment above a cache into something a test can check. Set
+# STRUGGLER_CHECK_SNAPSHOT=1 to maintain it.
+DIGEST = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
+_ZOBRIST_MAX = 64  # influence per side per country; above this, values fold
+
+
+def _fold(count: int) -> int:
+    """An influence count as a table index.
+
+    Counts above `_ZOBRIST_MAX` wrap rather than raising: they do not occur
+    in a legal game -- the largest seen in the corpus is well under ten --
+    but a digest that raises on a strange board would turn a cosmetic
+    problem into a crash. Wrapping can only cause a collision, and a
+    collision is caught by `test_evaluator_digest.py`, which checks the
+    digest against the influence vectors it claims to summarise."""
+    return count % (_ZOBRIST_MAX + 1) if count > _ZOBRIST_MAX or count < 0 else count
+
+
+@functools.lru_cache(maxsize=4)
+def _zobrist_table(n: int) -> tuple[tuple[tuple[int, ...], ...], ...]:
+    """Fixed random 64-bit keys per (side, country, count).
+
+    Seeded, so a digest means the same thing in every process -- otherwise a
+    value cached against one would be meaningless in the next, and a test
+    could not pin it."""
+    rng = random.Random(0x57C0FFEE)
+    return tuple(tuple(tuple(rng.getrandbits(64) for _ in range(_ZOBRIST_MAX + 1))
+                       for _ in range(n))
+                 for _ in range(2))
+
+
 class Position:
     """One board's influence and the vectors derived from it.
 
@@ -125,13 +183,21 @@ class Position:
     part of reachability that a change at a *neighbour* can move.
     """
 
-    __slots__ = ('terrain', 'inf', 'control', 'reach', 'near')
+    __slots__ = ('terrain', 'inf', 'control', 'reach', 'near', 'digest', '_zobrist')
 
     def __init__(self, t: Terrain | None = None):
         t = t if t is not None else terrain()
         n = len(t.ids)
         self.terrain = t
         self.inf = ([0] * n, [0] * n)
+        self._zobrist = _zobrist_table(n)
+        # An empty board's digest: every country at zero on both sides.
+        self.digest = 0
+        if DIGEST:
+            for s in (US, USSR):
+                keys = self._zobrist[s]
+                for i in range(n):
+                    self.digest ^= keys[i][0]
         self.control = [NOBODY] * n
         self.reach = ([False] * n, [False] * n)
         self.near = ([0] * n, [0] * n)
@@ -152,6 +218,12 @@ class Position:
             v = influence[cid]
             us[i] = v['US']
             ussr[i] = v['USSR']
+        if DIGEST:
+            keys = self._zobrist
+            digest = 0
+            for i in range(len(us)):
+                digest ^= keys[US][i][_fold(us[i])] ^ keys[USSR][i][_fold(ussr[i])]
+            self.digest = digest
         control, stability = self.control, t.stability
         for i in range(len(control)):
             margin = us[i] - ussr[i]
@@ -184,6 +256,16 @@ class Position:
                 self.place(i, new_us, new_ussr)
         return self
 
+    def _rehash(self, i: int, was: tuple[int, int], us: int, ussr: int) -> None:
+        """Move `digest` from `was` to the new counts at country `i`."""
+        keys = self._zobrist
+        if was[US] != us:
+            k = keys[US][i]
+            self.digest ^= k[_fold(was[US])] ^ k[_fold(us)]
+        if was[USSR] != ussr:
+            k = keys[USSR][i]
+            self.digest ^= k[_fold(was[USSR])] ^ k[_fold(ussr)]
+
     def place(self, i: int, us: int, ussr: int) -> tuple[int, int]:
         """Set country `i`'s influence; return what it was.
 
@@ -194,6 +276,15 @@ class Position:
         t = self.terrain
         inf = self.inf
         was = (inf[US][i], inf[USSR][i])
+        # Digest first, while the old values are still readable: XOR the
+        # country's old contribution out and its new one in. O(1), and
+        # exactly reversible, so undoing a trial placement restores the
+        # digest bit for bit.
+        # Almost every placement moves one side only, so each is tested
+        # separately rather than XORing four table lookups unconditionally.
+        if DIGEST:
+            self._rehash(i, was, us, ussr)
+
         inf[US][i] = us
         inf[USSR][i] = ussr
         margin = us - ussr
