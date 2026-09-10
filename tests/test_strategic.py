@@ -1328,3 +1328,30 @@ def test_training_does_not_switch_on_a_deliberately_disabled_weight():
     assert set(TUNABLE_WEIGHTS).isdisjoint(UNTUNED_WEIGHTS)
     assert set(TUNABLE_WEIGHTS) | set(UNTUNED_WEIGHTS) == {
         f.name for f in dataclasses.fields(StrategicWeights)}
+
+
+def test_a_certain_card_value_takes_none_of_the_small_nudges():
+    """`score`'s card branch adjusts a play value by the China charge, the
+    Five Year Plan tie-break and the space slot. Those are adjustments
+    between comparable prices; a certain outcome is not one, and
+    `value -= 4` on the sentinel is arithmetic on an unreachable number.
+
+    This escaped every test and every fixture and only appeared in real
+    games -- it crashed a 64-game benchmark once `LOSS` began refusing
+    arithmetic, having silently returned a wrong number before that."""
+    engine = Engine(seed=3)
+    engine.defcon = 2
+    engine.turn, engine.action_round = 8, 6
+    engine.hands['US'] = ['The_China_Card', 'Lone_Gunman']
+    engine.china_card_owner = Side.US
+    engine._maybe_push_place_influence(Side.US, 1)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    for cid in ('The_China_Card', 'Five_Year_Plan', 'Lone_Gunman'):
+        action = Action(K.ACTION_ROUND_PLAY, {'card': cid})
+        try:
+            value = bot.score(obs, action)
+        except KeyError:
+            continue  # not a legal card in this fixture
+        assert isinstance(value, float)  # no TypeError from a nudged sentinel

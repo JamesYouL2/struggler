@@ -1925,6 +1925,14 @@ class StrategicPlayer:
             if kind is K.HEADLINE_PLAY:
                 return event - 0.5 * self.ops_value(obs, ops)
             value = self.card_play_value(obs, cid, ops, event)
+            if is_certain(value):
+                # A certain outcome takes none of the nudges below -- the
+                # China charge, the Five Year Plan tie-break, the space
+                # slot. They are small adjustments between comparable
+                # prices, and the flag is not one: subtracting 4 from
+                # certain defeat is arithmetic on an unreachable number,
+                # and it only shows up in games, never in a fixture.
+                return value
             if cid == 'The_China_Card':
                 value -= 4
             if cid == 'UN_Intervention' and self.un_card(obs):

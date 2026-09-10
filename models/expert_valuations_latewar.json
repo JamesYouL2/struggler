@@ -26,17 +26,73 @@
       "Pershing_II_Deployed": {
         "ops": 2.5,
         "note": "Claude's estimate was 2.0, close."
+      },
+      "Iranian_Hostage_Crisis": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "US controls Iran": 6.0,
+          "Iran uncontrolled": "3 / 2 / 1, by the Ops still needed to fill it",
+          "USSR controls Iran": 0.0
+        },
+        "note": "Not a constant: it is the Iran flip. ~0 when the USSR already controls Iran, because the Middle East is not worth over-protecting. The sandbox already simulates the influence swing, so the bot can in principle derive this -- the value of the row is as a check on whether it does. Claude's estimate was a flat 2.0, which is the wrong shape rather than the wrong number."
+      },
+      "Terrorism": {
+        "ops": 1.75,
+        "note": "1.5 is liked, 2 is slightly better; swingy on win percentage and stronger for the US. Recorded at 1.75 as the midpoint of a stated range, not a precise figure. Claude's estimate was 1.5."
       }
     }
   },
   "US": {
-    "cards": {}
+    "cards": {
+      "Chernobyl": {
+        "ops": 2.0,
+        "note": "Highly dependent on what Europe control is still possible. Claude's estimate was 2.0, right."
+      },
+      "Star_Wars": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "ahead in space (active)": "5+, the max of the discard pile",
+          "not active": 0.0
+        },
+        "note": "Its value is the best card in the discard pile, so it cannot be a constant. Claude's estimate was a flat 2.0 -- wrong shape and low."
+      }
+    }
   },
   "_pending": [
-    "Chernobyl", "Star_Wars", "Terrorism", "Wargames", "An_Evil_Empire",
-    "Iranian_Hostage_Crisis", "North_Sea_Oil", "Solidarity", "Tear_Down_This_Wall",
-    "The_Iron_Lady", "Soviets_Shoot_Down_KAL_007", "Iran_Contra_Scandal",
-    "Iran_Iraq_War", "Latin_American_Debt_Crisis", "Marine_Barracks_Bombing",
-    "Ortega_Elected_in_Nicaragua", "Reagan_Bombs_Libya", "Yuri_and_Samantha"
-  ]
+    "An_Evil_Empire",
+    "North_Sea_Oil",
+    "Solidarity",
+    "Tear_Down_This_Wall",
+    "The_Iron_Lady",
+    "Soviets_Shoot_Down_KAL_007",
+    "Iran_Contra_Scandal",
+    "Iran_Iraq_War",
+    "Latin_American_Debt_Crisis",
+    "Marine_Barracks_Bombing",
+    "Ortega_Elected_in_Nicaragua",
+    "Reagan_Bombs_Libya",
+    "Yuri_and_Samantha"
+  ],
+  "_late_war_note": "The maintainer: Late War values are the most conditional on **win probability** of any period. A card's worth depends on whether you are ahead, behind, or close, more than on the board it acts on. The bot has no notion of win probability at all -- it has banked VP, board value and a flat GAME_SWING_VP -- so a single number per Late War card is the wrong shape for most of them, and the fixture should expect schedules or conditions rather than constants.",
+  "NEUTRAL": {
+    "cards": {
+      "Cuban_Missile_Crisis": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "USSR has no Cuba, or US has no West Germany / Turkey": 5.0,
+          "otherwise": 2.0
+        },
+        "note": "Mid War card, kept here with the other conditionals. Claude's estimate was 2.0, which is the floor case."
+      },
+      "Wargames": {
+        "ops": null,
+        "board_dependent": true,
+        "formula": "1 - win_pct if live, otherwise 0",
+        "note": "Recorded verbatim. Claude could not confirm the direction: the card hands the opponent 6 VP, so it reads as a card you play when *ahead*, which would make its value rise with win probability rather than fall. Ask before encoding. Claude's estimate was 0.0 flat, which at least had the 'not a constant' part right."
+      }
+    }
+  }
 }
