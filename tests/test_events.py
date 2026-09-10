@@ -2395,7 +2395,8 @@ def test_glasnost_scores_and_grants_ops_only_after_the_reformer():
 # -- headline-cancellation interaction, and a persistent operating lock -----
 
 
-def _norad_armed(engine: Engine) -> Engine:
+def _norad_armed(engine: Engine, phase: str = "action_rounds") -> Engine:
+    engine.phase = phase
     engine.defcon = 5
     engine._fire_event(Side.US, "NORAD")
     engine.board.influence["Canada"]["US"] = 4  # "If Canada is US-controlled"
@@ -2436,6 +2437,18 @@ def test_norad_placement_is_pushed_by_the_director_between_action_rounds():
     d = engine.pending_decision
     assert d is not None and d.kind is DecisionKind.EVENT_INFLUENCE and d.actor is Side.US
     assert engine._ars_played == 1, "the next round has not begun yet"
+
+
+def test_norad_does_not_apply_to_a_headline_that_reaches_defcon_2():
+    """"...any Action Round in which the DEFCON Status was placed on 2." A
+    headline is not an Action Round, and the ruling is that NORAD does not
+    apply when DEFCON reaches 2 during the Headline Phase: nothing is armed,
+    so the first Action Round does not open with a placement either."""
+    engine = _norad_armed(_bare(), phase="headline")
+    assert engine.defcon == 2
+    assert "norad_pending" not in engine.turn_effects
+    engine.phase = "action_rounds"
+    assert engine._push_pending_norad() is False
 
 
 def test_norad_rechecks_canada_at_the_moment_it_places():

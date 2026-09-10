@@ -340,7 +340,9 @@ DEFCON moved put it inside the round that caused the move, so a USSR play
 that degraded DEFCON with its Event and still had Operations left could
 answer the US placement with them. Whether Canada is still US-controlled,
 and whether Quagmire has nullified NORAD since, are re-checked at the
-placement, not at the arming. A stable DEFCON 2 does not arm it.
+placement, not at the arming. A stable DEFCON 2 does not arm it, and
+neither does a headline that reaches 2: "it does not apply if DEFCON goes
+to 2 during the headline".
 
 **Immediate conditionals.** Nixon Plays the China Card — two exhaustive,
 unconditional branches, matching the printed card: if the US already holds

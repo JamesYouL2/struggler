@@ -38,14 +38,6 @@ full model of the opponent; see the strategic bot's limits.
   Wars could in principle retrieve it slightly earlier than the physical
   game allows, but the effect it would re-apply is idempotent, so this has
   no actual gameplay consequence.
-- **NORAD armed during the Headline Phase places its Influence as the
-  action rounds open**, rather than not at all. The card says "at the
-  conclusion of any Action Round in which the DEFCON Status was placed on
-  2", and a headline is not an Action Round — but a headline that reaches
-  DEFCON 2 is common enough (We Will Bury You, Cuban Missile Crisis) that
-  silently dropping the placement is as much of a guess as keeping it, and
-  no source here rules on the case. The round-timing itself is correct: see
-  `Engine._push_pending_norad`.
 - **Shuttle Diplomacy's dropped Battleground is picked by the engine**
   (`Board.first_battleground_of`), not by the US player, who chooses it in
   the real game. The choice is almost always immaterial — the countries are

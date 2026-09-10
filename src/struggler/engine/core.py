@@ -3089,7 +3089,11 @@ class Engine:
         # during it. Whether the US still controls Canada, and whether NORAD is
         # still in effect at all, are questions for the moment the Influence is
         # actually placed.
-        if self.defcon == 2 and before != 2 and self.game_effects.get("norad"):
+        # "...any Action Round in which the DEFCON Status was placed on 2":
+        # a headline is not an Action Round, and the ruling is that NORAD
+        # does not apply when DEFCON reaches 2 during the Headline Phase.
+        if (self.defcon == 2 and before != 2 and self.game_effects.get("norad")
+                and self.phase == "action_rounds"):
             self.turn_effects["norad_pending"] = True
 
     def _push_pending_norad(self) -> bool:
@@ -3106,8 +3110,8 @@ class Engine:
 
         Called from `_advance_once` at the top of the action-round branch,
         which is where a drained decision stack means "the previous round has
-        concluded". A flag armed during the Headline Phase therefore resolves
-        as the action rounds open; see docs/LIMITATIONS.md.
+        concluded". Nothing is armed during the Headline Phase (see
+        `_change_defcon`), so the first Action Round never opens with one.
         """
         if not self.turn_effects.pop("norad_pending", False):
             return False
