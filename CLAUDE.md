@@ -42,9 +42,14 @@ the tests.
   - `engine/` — the rules engine itself: state, board, cards, events,
     replay, and the `Player`/`HumanPlayer` contract that bots plug into.
   - `bots/` — the automated `Player` implementations, wired up by
-    `src/main.py`'s `build_player`, plus `evaluator.py`: the board-value
-    terms as pure functions over an indexed snapshot, which the strategic
-    policy calls and a native port would receive as-is.
+    `src/main.py`'s `build_player`. `strategic/` is the main bot as a
+    package of four: `evaluator.py` (the board-value terms as pure
+    functions over an indexed snapshot, which a native port would receive
+    as-is), `public_cards.py` (the deck's public schedule), `defcon.py`
+    (the whole-hand survival search), and `policy.py` (everything
+    stateful). Beside it: `greedy.py`/`naive.py` baselines, `mcts.py` and
+    `rollout.py`, `opponent_model.py`, `llm/`, `train.py`, and
+    `benchmark.py`, which is the gate.
   - `data/` — the game's JSON facts (`cards.json`, `countries.json`,
     `rules.json`).
 
