@@ -15,11 +15,16 @@ recorded baseline; this pins them against each other, which is the part
 that catches a stale cache the moment it is introduced rather than at the
 next corpus regeneration.
 
-The probe runs with **cold caches** and establishes no context first, so
-it asserts the strong property: the numbers are a function of the
-position and nothing else. That only became assertable once the
-`coup -> vp_value -> ops_value -> coup` cycle was broken; before that one
-Op was worth 24.02 or 26.03 at seed 4000 T3 AR6 US by traversal alone.
+**Reach.** The probe re-establishes the VP price first, the way
+`rank_actions` does, so it asserts order independence *given the context
+a decision starts with* -- which is what production guarantees. Asked
+genuinely cold the values still differ, because `coup -> vp_value ->
+ops_value -> coup` is a cycle: one Op is 24.02 or 26.03 at seed 4000 T3
+AR6 US. Breaking that cycle by pricing a VP off the placement spend was
+tried and **the gate rejected it**, 0.434 with 13 nuclear losses, since
+`game_value` is the VP price times the whole track. The cycle is
+therefore load-bearing and stays; determinism comes from fixing the price
+once per decision instead.
 
 See `docs/CLAUDE_NOTES.md`, "The bugs this repo actually gets".
 """
@@ -95,10 +100,15 @@ def _clear_caches(bot, obs):
             f'updated deliberately, not left silently weaker')
         current = getattr(bot, name)
         setattr(bot, name, {} if isinstance(current, dict) else None)
-    # Nothing is re-established: the probe runs genuinely cold. It could
-    # not, until the `coup -> vp_value -> ops_value -> coup` cycle was
-    # broken by pricing a VP off the placement spend; before that, one Op
-    # came out 24.02 or 26.03 at seed 4000 T3 AR6 US by traversal alone.
+    # Re-establish the VP price first, exactly as `rank_actions` does, so
+    # the probe asserts what production guarantees. Running genuinely cold
+    # would also be assertable if a VP were priced off the placement spend,
+    # which breaks the `coup -> vp_value -> ops_value -> coup` cycle -- but
+    # that was tried (a12d2af) and the gate rejected it at 0.434 with 13
+    # nuclear losses, because `game_value` is the VP price times the track,
+    # so cheapening a VP cheapened losing the game. The cycle stays, made
+    # deterministic in production by fixing the price up front.
+    bot.vp_value(obs)
 
 
 def _values(record, order):
