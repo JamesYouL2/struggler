@@ -43,8 +43,16 @@ mkdir -p "$OUT"
 # runs on its own code. Snapshotting `strategic.py` alone compared a
 # `public_cards.py` change against itself and reported a dead heat.
 snapshot() {  # snapshot <ref> <dir>
+  # Wipe first. `tar -x` overlays, it does not replace, so re-running a gate
+  # at the same HEAD against a different base used to leave both revisions'
+  # files side by side -- and the layout has changed shape at least once
+  # (`strategic.py` became the `strategic/` package), so the leftovers are
+  # not always shadowed by the new ones. That is a baseline made of two
+  # revisions, which is the contamination this snapshot exists to prevent.
+  rm -rf "$2"
   mkdir -p "$2"
   git archive "$1" src/struggler/bots | tar -x -C "$2" --strip-components=3
+  [ -e "$2/strategic/policy.py" ] || { echo "GATE FAILED: $1 has no strategic/policy.py -- it predates the package split, so it cannot be a baseline for this HEAD."; exit 4; }
 }
 # A rules change to the engine is not a strength change, and this script
 # cannot see it. Only `src/struggler/bots` is snapshotted -- the engine is
