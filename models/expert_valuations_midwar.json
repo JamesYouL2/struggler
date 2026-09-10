@@ -71,6 +71,10 @@
       "Brezhnev_Doctrine": {
         "ops": null,
         "note": "Same logic as Containment, and already priced that way: both are in OPS_MODIFIER_EVENTS and valued as the marginal Ops over the cards the beneficiary will still play this turn."
+      },
+      "Latin_American_Death_Squads": {
+        "ops": 1.0,
+        "note": "Generally about 1. Neutral, so it never fires against you on an Ops play."
       }
     }
   },
@@ -141,6 +145,10 @@
       },
       "U2_Incident": {
         "ops": null
+      },
+      "Latin_American_Death_Squads": {
+        "ops": 1.0,
+        "note": "Generally about 1. Neutral, so it never fires against you on an Ops play."
       }
     }
   },

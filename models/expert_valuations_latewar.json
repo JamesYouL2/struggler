@@ -42,13 +42,10 @@
         "note": "1.5 is liked, 2 is slightly better; swingy on win percentage and stronger for the US. Recorded at 1.75 as the midpoint of a stated range, not a precise figure. Claude's estimate was 1.5."
       },
       "Latin_American_Debt_Crisis": {
-        "ops": null,
-        "board_dependent": true,
-        "schedule": {
-          "a country can be flipped": 2.5,
-          "otherwise": 0.0
-        },
-        "note": "Often basically 0. Claude's estimate was a flat 2.5, i.e. the best case as the base."
+        "ops": 1.0,
+        "ops_with_bonus": 3.0,
+        "condition": "it flips a South American Battleground",
+        "note": "Supersedes the earlier 2.5/0 reading."
       },
       "Ortega_Elected_in_Nicaragua": {
         "ops": 0.5,
@@ -66,6 +63,14 @@
       "Yuri_and_Samantha": {
         "ops": 1.5,
         "note": "Claude's estimate was 1.5, right."
+      },
+      "Iran_Contra_Scandal": {
+        "ops": 2.0,
+        "note": "'Depends quite a bit', ~2 at the start of a turn -- a rounds-remaining quantity like the Ops modifiers."
+      },
+      "South_African_Unrest": {
+        "ops": 2.5,
+        "note": "Maintainer's figure."
       }
     }
   },
@@ -120,6 +125,12 @@
           "otherwise": "unquantified"
         },
         "note": "Conditional on John Paul II and on actually breaking Poland."
+      },
+      "Reagan_Bombs_Libya": {
+        "ops": null,
+        "board_dependent": true,
+        "formula": "2 x the VP it can actually score (USSR Influence in Libya // 2)",
+        "note": "Pure board arithmetic, which the sandbox can already derive."
       }
     }
   },
@@ -150,6 +161,10 @@
         },
         "formula": "(1 - win_pct) * game_value when ahead by 7+, else 0",
         "note": "It ends the game and hands the opponent 6 VP, so at +7 you finish at +1 and win. Its worth is therefore the *remaining uncertainty it removes*, which is what the maintainer's original '1 - win pct' meant. Claude read that as a contradiction and asked for confirmation; the maintainer was right and the reading was wrong. Note the condition is entirely public -- VP margin and DEFCON 2 -- so this is highly conditional but *cheap* to evaluate, which is why it is easy to play well."
+      },
+      "Iran_Iraq_War": {
+        "ops": 3.0,
+        "note": "Neutral, so it never fires against you on an Ops play."
       }
     }
   },
@@ -174,7 +189,8 @@
       },
       "Nuclear_Subs": {
         "ops": null,
-        "note": "Still unpriced."
+        "vp": 4.0,
+        "note": "'Like 4 VP, degraded.' Recorded in VP as given; the Ops conversion depends on the era rate."
       }
     }
   },
@@ -188,5 +204,6 @@
     "note": "The bot prices box VP times roll odds and the abilities at zero. These two are the ones Sankt calls decisive."
   },
   "_military_ops_rule": "When to eat the penalty is 'basically just a VP calculation' -- there is no judgement layer above the arithmetic. That validates pricing a closed Op of deficit at one VP; the open question stays the rounds-remaining discount, not the rate.",
-  "_safe_windows": "Any card that lets the opponent make a Battleground Coup -- CIA Created is the type case, Lone Gunman the one that cost seed 4015. The bot can detect this class: events that grant the opponent Ops or a Coup. Also: basically never event Grain Sales as the USSR, since the US can almost always return it; worth it only when holding a 1-Op card that is worse, which is roughly just CIA Created."
+  "_safe_windows": "Cards that can lose the game when you are forced to play them at DEFCON 2. The maintainer's list: We Will Bury You, Tear Down This Wall, Soviets Shoot Down KAL-007, CIA Created, Lone Gunman, Duck and Cover, Ortega, Star Wars. Only opponent cards qualify. **The planner catches five and scores three at exactly 0.00 risk: CIA Created, Star Wars and Ortega.** The five it catches degrade DEFCON directly so simulating the event shows the loss; the three it misses hand the opponent Ops or a free Coup and the simulation stops before the opponent acts. Same shape as seed 4015. Lone Gunman is itself conditional -- it does not degrade DEFCON unconditionally -- but the US almost always has a Coup target so it may as well, while the USSR often does not.",
+  "_neutral_cards_are_never_traps": "Only an *opponent's* event fires when a card is played for Ops (engine/core.py `_is_opponent_event`). A neutral card's event fires only if you choose it, so a neutral card can always be played for Ops safely -- Junta, Olympic Games, Summit and Iran-Iraq War are not traps. Claude proposed adding all four; the maintainer was right and the engine agrees."
 }
