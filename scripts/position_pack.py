@@ -32,6 +32,7 @@ import pathlib
 import sys
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.defcon import SurvivalPrior
 from struggler.engine import Engine, Region, Side
 
@@ -95,94 +96,90 @@ def scoring_left(engine: Engine) -> list[str]:
     return [c for c in SCORING if c not in gone]
 
 
-def battleground_values(engine: Engine, side: Side) -> dict:
-    """Every Battleground's value to `side`, converted to VP.
+def battleground_importance(engine: Engine, side: Side) -> tuple[dict, float]:
+    """Each Battleground's *importance* in VP, by region.
 
-    `country_value` is in board units where one Op is worth roughly 28, so
-    it is divided by the bot's price of a VP to land on a scale a person can
-    answer in.
+    Not `country_value`, which is the country's current signed contribution
+    to a side -- positive when that side is ahead there. Ordering a group of
+    those is a badly posed question, as the maintainer spotted immediately.
+    `importance` is what the Battleground is worth irrespective of who holds
+    it, which is the quantity every valuation in this project has been
+    stated in, and the one the region-margin function needs.
+
+    It is `w.battleground * urgency[i]`, so **every Battleground in a region
+    is identical by construction** -- there is no per-country term at all.
     """
     obs = engine.observe(side)
     bot = StrategicPlayer(StrategicWeights())
     bot.rank_actions(obs)
     vp = bot.vp_value(obs) or 1.0
+    terrain, urgency = bot._terrain, bot._urgency_vector()
     out = {}
     for region in REGION_ORDER:
         for cid, info in engine.board.countries.items():
             if info.region is region and info.battleground:
-                out[cid] = (bot.country_value(bot.board, cid, side) / vp, region)
-    return out
-
-
-def _slice(engine: Engine, countries) -> list[str]:
-    """The board, but only the countries a question is about -- so the
-    question can be answered without scrolling back to a 60-line board."""
-    rows = []
-    for cid in countries:
-        info = engine.board.countries[cid]
-        inf = engine.board.influence[cid]
-        ctrl = engine.board.control(cid)
-        who = 'US' if ctrl is Side.US else 'USSR' if ctrl is Side.USSR else 'nobody'
-        rows.append(f'  {cid:18} {info.region.name.title().replace("_"," "):16} '
-                    f'US {inf["US"]}  SU {inf["USSR"]}  stab {info.stability}  '
-                    f'held by {who}')
-    return rows
+                imp = ev.importance(terrain, bot.weights, urgency,
+                                    terrain.index[cid]) / vp
+                out.setdefault(region, {})[cid] = imp
+    return out, vp
 
 
 def calibration_questions(engine: Engine, side: Side) -> list[str]:
-    """Specific questions, not a table.
+    """Six numbers, not a table.
 
-    The first version of Part A asked for a VP number against all 26
-    Battlegrounds on a full board. The maintainer: "super, super hard, too
-    much to take a look at. Need more specific questions there." They were
-    right, and the fix is not a shorter table -- it is a different question.
+    Part A began as a VP figure against all 26 Battlegrounds, which the
+    maintainer called "super, super hard, too much to take a look at". The
+    second attempt asked for orderings of the groups the bot had collapsed
+    -- better, but built on `country_value`, the *signed current
+    contribution*, so "order these best first" did not mean anything. They
+    caught that too.
 
-    People price *comparisons* far more easily than absolutes, and the
-    places worth asking about are the ones where the bot says two obviously
-    different Battlegrounds are worth the same. So: find the clusters the
-    bot has collapsed, show only those countries, and ask for an order and a
-    spread. Each answer pins a difference, which is what the region-margin
-    function is made of.
+    What the bot actually has is one number per region, times a single
+    Battleground weight. So that is the question: what should those six
+    numbers be, relative to each other.
     """
-    vals = battleground_values(engine, side)
-    clusters = {}
-    for cid, (v, region) in vals.items():
-        clusters.setdefault(round(v, 1), []).append((cid, region))
-    interesting = [(v, cs) for v, cs in sorted(clusters.items())
-                   if len(cs) >= 2 and len({r for _, r in cs}) >= 2]
+    imp, _ = battleground_importance(engine, side)
+    rows, flat = [], []
+    for region, cs in imp.items():
+        vals = sorted(set(round(v, 3) for v in cs.values()))
+        span = (f'{vals[0]:.3f}' if len(vals) == 1
+                else f'{vals[0]:.3f} to {vals[-1]:.3f}')
+        odd = [c for c, v in cs.items() if round(v, 3) != vals[0]]
+        rows.append(f'| {region.name.title().replace("_", " ")} | {len(cs)} | {span} | '
+                    f'{", ".join(odd) if odd else "all identical"} |')
+        flat.extend(cs.values())
 
-    lo, hi = min(v for v, _ in vals.values()), max(v for v, _ in vals.values())
-    out = [f'The bot values every Battleground on this board between **{lo:+.1f}** '
-           f'and **{hi:+.1f} VP** -- a total spread of {hi-lo:.1f} VP across the '
-           f'whole map. Each question below is a group it has collapsed to one '
-           f'number. **Order them and say roughly how far apart the ends are.** '
-           f'One line each; skip any you do not care about.', '']
-
-    n = 0
-    for v, cs in sorted(interesting, key=lambda kv: -len(kv[1])):
-        n += 1
-        out += [f'**Q{n}. The bot prices these {len(cs)} equally, at {v:+.1f} VP.**',
-                '', '```'] + _slice(engine, [c for c, _ in cs]) + ['```', '',
-                '> Order (best first), and the spread from best to worst:', '', '']
-
-    empty = [c for c, (v, r) in vals.items()
-             if not engine.board.influence[c]['US'] and not engine.board.influence[c]['USSR']]
-    # Skip it when the empty Battlegrounds are already one of the clusters
-    # above -- which they usually are, since they all price at exactly 0.0.
-    asked = {c for _, cs in interesting for c, _ in cs}
-    if empty and not set(empty) <= asked:
-        n += 1
-        out += [f'**Q{n}. These {len(empty)} Battlegrounds are empty and price at '
-                f'exactly 0.0.** You have said a dead Battleground is worth about '
-                f'2.5 VP, scaled to what Control is worth in its region.',
-                '', '```'] + _slice(engine, empty) + ['```', '',
-                '> What is each actually worth, on this board:', '', '']
-
-    n += 1
-    out += [f'**Q{n}. The whole map spans {hi-lo:.1f} VP.** What should the spread '
-            f'between the most and least valuable Battleground on this board be?',
-            '', '> ', '', '']
-    return out
+    lo, hi = min(flat), max(flat)
+    return [
+        "**What the bot believes.** A Battleground's importance is "
+        "`battleground_weight * region_urgency`, so every Battleground in a "
+        "region is worth exactly the same and the only thing separating "
+        "regions is one number each. On this board:",
+        '',
+        '| Region | Battlegrounds | Importance (VP each) | Exceptions |',
+        '| --- | ---: | --- | --- |',
+        *rows,
+        '',
+        f'The whole map spans {lo:.3f} to {hi:.3f} VP -- a ratio of '
+        f'{hi/lo:.1f}x between the most and least important Battleground '
+        f'anywhere. **Europe is at the bottom of that range**, level with the '
+        'Middle East and Central America and below Africa and South America.',
+        '',
+        '**Q1. What should the six region numbers be, relative to each other?** '
+        'Europe = 1 is probably the easiest anchor. Six numbers on one line is '
+        'a complete answer.',
+        '',
+        '> ',
+        '',
+        '**Q2. Should there be a per-country term at all?** There is none '
+        'today: Thailand, Egypt, Iran and South Korea cannot differ from their '
+        'neighbours no matter what the deck holds, because the value is one '
+        'constant per region. Adding one is a change of shape, not of a '
+        'number, so it is worth confirming it is wanted before it is built.',
+        '',
+        '> ',
+        '',
+    ]
 
 
 def option_lines(record, bot: StrategicPlayer, limit: int = 6) -> list[str]:
@@ -276,15 +273,14 @@ def main(argv=None):
     # -- Part A ------------------------------------------------------------
     doc += ['## Part A -- calibration boards', '',
             'Real boards at the calibration point, with the scoring cards still',
-            'live. **This is not a table to fill in.** Each board asks a handful',
-            'of specific questions, each one a group of Battlegrounds the bot has',
-            'collapsed to a single number, with only those countries shown. Order',
-            'them and say how far apart the ends are; a line each is enough, and',
-            'skipping any is fine.', '',
-            'A first version asked for a VP figure against all 26 Battlegrounds on',
-            'a full board, which was too much to look at. Comparisons are easier',
-            'to answer than absolutes and pin the same constants, since the',
-            'region-margin function is made of differences.', '']
+            'live. **Two questions per board, and the first one is six numbers.**',
+            '', 'This section has been wrong twice. It began as a VP figure against',
+            'all 26 Battlegrounds -- a data entry task, not a question. The second',
+            'version asked for orderings, but built them on the *current signed',
+            'contribution* of each country, so "order these best first" did not',
+            'mean anything. What the bot actually holds is one importance number',
+            'per region times a single Battleground weight, so that is what there',
+            'is to calibrate.', '']
 
     # Played fresh: the corpus holds turns 1/3/5/7/9 and the calibration point
     # is turn 4. Seeds are tried in order and only boards with every scoring
