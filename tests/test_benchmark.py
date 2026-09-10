@@ -266,6 +266,28 @@ def test_acceptance_measures_nuclear_losses_against_their_rate():
     assert not ok
 
 
+def test_an_opponent_nuclear_defeat_is_not_a_candidate_nuclear_loss():
+    """Seed 5020 on gate-bcff140: the candidate US won, reason defcon_1, the
+    baseline USSR having blown up on turn 10. `acceptance` warned about it
+    as a candidate loss and would have failed the gate on a second baseline
+    blunder; `summarize` had the attribution right. One helper now serves
+    every count, and the opponent's defeats are reported, not penalised."""
+    from struggler.bots.benchmark import acceptance, _decided
+    report = _report(range(4000, 4048), 0.5)
+    for game in report['games'][:2]:
+        game['reason'] = 'defcon_1'
+        game['winner'] = game['bot_side']  # the candidate's win
+    ok, lines = acceptance([('gate', report), ('held-out', _report(range(5000, 5048), 0.5))])
+    assert ok, lines
+    assert not any('WARN nuclear' in line or 'FAIL nuclear' in line for line in lines), lines
+    assert any('opponent lost to DEFCON 1 in 2 games' in line for line in lines), lines
+
+    # The early-stopping count agrees: two opponent defeats change nothing.
+    games = report['games'] + _report(range(5000, 5048), 0.5)['games']
+    sample_of = {s: 0 for s in range(4000, 4048)} | {s: 1 for s in range(5000, 5048)}
+    assert _decided(games, sample_of, {0: 48, 1: 48})
+
+
 def test_acceptance_counts_a_seed_once_not_once_per_seat():
     """Both seats of a seed play the same deal, so they are one observation.
     Counting them separately halves the standard error and makes noise look

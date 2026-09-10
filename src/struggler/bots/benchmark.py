@@ -262,6 +262,21 @@ def seed_scores(games) -> dict[int, float]:
     return {seed: statistics.fmean(results) for seed, results in by_seed.items()}
 
 
+def candidate_nuclear_loss(game: dict) -> bool:
+    """Whether `game` is one the *candidate* lost to DEFCON 1. A game the
+    opponent blew up is the candidate's win, and counting it against the
+    candidate -- which `acceptance` and `_decided` did, while `summarize`
+    did not -- meant two baseline blunders would fail a gate. A report
+    without a `winner` field counts, conservatively."""
+    return game.get('reason') == 'defcon_1' and game.get('winner') != game.get('bot_side')
+
+
+def opponent_nuclear_defeat(game: dict) -> bool:
+    """The other case: the opponent lost to DEFCON 1. A diagnostic, never a
+    penalty -- forcing that can be good play."""
+    return game.get('reason') == 'defcon_1' and game.get('winner') == game.get('bot_side')
+
+
 def verdict(scores_by_sample, nuclear: int, total_games: int) -> bool:
     """Whether the acceptance rules pass, given per-sample seed scores, the
     nuclear-loss count and the number of finished games.
@@ -366,7 +381,9 @@ def acceptance(samples) -> tuple[bool, list[str]]:
        a warning naming the seed to replay. The measured rate is 3 in 1920
        recorded gate games, so a 192-game gate sees one by chance about a
        quarter of the time; demanding zero would reject a quarter of all
-       changes on variance alone.
+       changes on variance alone. Only the *candidate's* defeats count
+       (`candidate_nuclear_loss`): a game the opponent blew up is the
+       candidate's win, and is reported as a note, never a penalty.
     2. **Enough evidence, from more than the seeds it was tuned on.** At least
        two samples over disjoint seeds and 150 finished games pooled. Selecting
        change after change on one seed range is how a bot overfits its own
@@ -390,9 +407,14 @@ def acceptance(samples) -> tuple[bool, list[str]]:
         summary = report.get('summary', {})
         scores = seed_scores(games)
         total += sum(1 for g in games if g.get('finished'))
-        losses = [g for g in games if g.get('reason') == 'defcon_1']
+        losses = [g for g in games if candidate_nuclear_loss(g)]
         nuclear += len(losses)
         nuclear_seeds += [(g['seed'], g['bot_side'], g['turn']) for g in losses]
+        forced = [g for g in games if opponent_nuclear_defeat(g)]
+        if forced:
+            where = ', '.join(f"seed {g['seed']} {g['bot_side']} T{g['turn']}" for g in forced)
+            lines.append(f"  note {label}: opponent lost to DEFCON 1 in {len(forced)} "
+                         f"game{'s' if len(forced) > 1 else ''} ({where}); not counted")
         lines.append(f"  {label}: {len(scores)} seeds, "
                      f"score {statistics.fmean(scores.values()):.3f}, "
                      f"signed VP {summary.get('mean_signed_vp')}, "
@@ -463,7 +485,7 @@ def parse_seeds(spec: str) -> list[int]:
 def summarize(games: list[dict], stop_turn: int) -> dict:
     finished = [g for g in games if g['finished']]
     summary = dict(games=len(games), stop_turn=stop_turn, finished=len(finished),
-                   nuclear_losses=sum(g['reason'] == 'defcon_1' and g['winner'] != g['bot_side'] for g in games),
+                   nuclear_losses=sum(candidate_nuclear_loss(g) for g in games),
                    mean_signed_vp=round(statistics.fmean(g['signed_vp'] for g in games), 2),
                    mean_projected_vp=round(statistics.fmean(g['projected_vp'] for g in games), 2),
                    mean_total=round(statistics.fmean(g['total'] for g in games), 2),
@@ -623,7 +645,7 @@ def _decided(games, sample_of, planned: dict[int, int]) -> bool:
     complete = {seed: rows for seed, rows in finished.items() if len(rows) == 2}
     observed = [(sample_of.get(seed, 0),
                  statistics.fmean(r['result'] for r in rows),
-                 sum(1 for r in rows if r.get('reason') == 'defcon_1'))
+                 sum(1 for r in rows if candidate_nuclear_loss(r)))
                 for seed, rows in sorted(complete.items())]
     if len(complete) * 2 < ACCEPTANCE['min_games']:
         return False  # the evidence floor is a floor, whatever the score says
