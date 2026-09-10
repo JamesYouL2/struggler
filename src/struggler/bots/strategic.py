@@ -1034,7 +1034,14 @@ class StrategicPlayer:
             self._set_influence(cid, original['US'], original['USSR'])
         return best
 
-    def coup(self, obs: Observation, cid: str, ops: int) -> float:
+    def coup(self, obs: Observation, cid: str, ops: int, military: bool = True) -> float:
+        """What couping `cid` with `ops` is worth.
+
+        `military=False` for a Coup the card calls *free* (Junta, Ortega
+        Elected in Nicaragua, Tear Down This Wall): it does not advance the
+        Military Operations track, so it earns no credit against the
+        requirement, while still degrading DEFCON on a Battleground like any
+        other Coup. See `Engine.resolve_free_op_choice`."""
         info = self.board.countries[cid]
         if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
             return LOSS
@@ -1048,8 +1055,9 @@ class StrategicPlayer:
             removed = min(enemy, margin)
             gain += self.delta(obs, cid, own=margin-removed, opp=-removed) / 6
         gain *= self.weights.coup_discount
-        deficit = max(0, obs.defcon - obs.military_ops.get(obs.side.value, 0))
-        gain += self.weights.military * min(ops, deficit)
+        if military:
+            deficit = max(0, obs.defcon - obs.military_ops.get(obs.side.value, 0))
+            gain += self.weights.military * min(ops, deficit)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
             gain -= self.vp_value(obs)
         return gain
@@ -1891,6 +1899,30 @@ class StrategicPlayer:
                 if choice == 'lower' and obs.defcon <= 2:
                     return LOSS if responsible else -LOSS
                 return float(choice == 'raise')
+            if choice in ('none', 'coup', 'realign') and ctx.get('countries') is not None and 'ops' in ctx:
+                # A free Coup/Realignment offer (`push_free_coup_or_realign`:
+                # Junta, Ortega Elected in Nicaragua, Tear Down This Wall).
+                # Without this the three branches all fell to the 0.0 below,
+                # and because `sorted` is stable and the engine offers "none"
+                # first, the bot declined every free Coup it was ever handed.
+                # Keyed on the offer's shape rather than on three card names,
+                # so a future card routed through the same helper is priced
+                # too. `none` is the do-nothing baseline at 0, so a Coup worth
+                # less than nothing (or forbidden, scoring LOSS) is still
+                # correctly refused.
+                if choice == 'none':
+                    return 0.
+                engine = self.public_engine(obs)
+                coup = choice == 'coup'
+                # `ignore_defcon` matches how the engine filtered the offer:
+                # a free Coup is exempt from 8.1.5's DEFCON geography, though
+                # not from the DEFCON degradation `coup` already prices.
+                return max((self.coup(obs, c, ctx['ops'], military=False) if coup
+                            else self.realign(obs, c) * ctx['ops']
+                            for c in ctx['countries']
+                            if engine._usable_coup_realign_target(
+                                obs.side, c, for_coup=coup, ignore_defcon=True)),
+                           default=0.)
             if choice in CARDS:
                 return CARDS[choice].ops if event == 'Aldrich_Ames_Remix' else -CARDS[choice].ops
             if choice == 'boycott':

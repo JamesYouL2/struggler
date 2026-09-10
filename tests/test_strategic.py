@@ -1209,3 +1209,62 @@ def test_hand_events_that_cannot_occur_are_worth_nothing():
     for cid in ('Star_Wars', 'Our_Man_In_Tehran'):
         assert not EVENTS[cid].eligible(engine, Side.US), cid
         assert _value_from(engine, Side.US, cid) == 0.0, cid
+
+
+@pytest.mark.parametrize('event,ops,countries,allow_realign', [
+    ('Tear_Down_This_Wall', 3, ['Angola', 'South_Africa', 'Zaire'], True),
+    ('Junta', 2, ['Cuba', 'Nicaragua', 'Panama'], True),
+    ('Ortega_Elected_in_Nicaragua', 2, ['Cuba', 'Honduras', 'Costa_Rica'], False),
+])
+def test_a_free_coup_offer_is_priced_rather_than_declined_by_tuple_order(
+        event, ops, countries, allow_realign):
+    """Every branch of these three used to score 0.0 and fall through to the
+    bare `return 0.0`. `sorted` is stable and the engine offers "none" first,
+    so the bot declined the free Coup that is the whole point of the card,
+    every time -- and symmetrically, so no gate could ever see it."""
+    engine = Engine(seed=1)
+    for cid in countries:
+        engine.board.influence[cid][Side.USSR.value] = 2
+    engine.push_free_coup_or_realign(Side.US, event, ops=ops, countries=countries,
+                                     allow_realign=allow_realign)
+    decision = engine.pending_decision
+    assert decision.kind is K.EVENT_CHOICE
+
+    bot = StrategicPlayer()
+    obs = engine.observe(Side.US)
+    ranked = bot.rank_actions(obs)
+    scores = {a.payload['choice']: k[-1] for k, a in ranked}
+
+    assert len(set(scores.values())) > 1, f'{event}: every branch still ties at {scores}'
+    assert scores['coup'] > scores['none'], f'{event}: a free Coup on enemy influence should beat doing nothing'
+    assert bot.choose_action(obs, []).payload['choice'] == 'coup'
+    if allow_realign:
+        assert 'realign' in scores
+
+
+def test_a_free_coup_that_would_end_the_game_is_still_declined():
+    """`none` stays the do-nothing baseline at 0, so a branch priced at the
+    certain-defeat sentinel loses to it rather than being taken."""
+    engine = Engine(seed=1)
+    engine.defcon = 2
+    engine.board.influence['Angola'][Side.USSR.value] = 2
+    assert engine.board.countries['Angola'].battleground
+    engine.push_free_coup_or_realign(Side.US, 'Tear_Down_This_Wall', ops=3,
+                                     countries=['Angola'], allow_realign=False)
+    bot = StrategicPlayer()
+    obs = engine.observe(Side.US)
+    assert bot.choose_action(obs, []).payload['choice'] == 'none'
+
+
+def test_a_free_coup_earns_no_military_operations_credit():
+    """The two ways a free Coup differs from an ordinary one are that it
+    ignores DEFCON geography and does not advance the Military Operations
+    track (Engine.resolve_free_op_choice). Only the second is a value."""
+    engine = Engine(seed=1)
+    engine.board.influence['Angola'][Side.USSR.value] = 2
+    engine._maybe_push_place_influence(Side.US, 1)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.prepare(obs)
+    assert obs.military_ops.get(Side.US.value, 0) < obs.defcon, 'need a requirement deficit'
+    assert bot.coup(obs, 'Angola', 3, military=False) < bot.coup(obs, 'Angola', 3)
