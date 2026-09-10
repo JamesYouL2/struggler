@@ -100,7 +100,7 @@ not be added.
 
 | Workload | Dominant path | Share | Source |
 | --- | --- | ---: | --- |
-| Strategic vs strategic, full game (25.6 s profiled, 13.4 s plain) | `bots/defcon.py` whole-hand survival search (`_solve`, `_after_hand_attack`, `hazardous`, `opponent_event`: 3.5-4 M calls of per-card predicates) | ~60 % | Claude, seed 4000 |
+| Strategic vs strategic, full game (25.6 s profiled, 13.4 s plain) | `bots/strategic/defcon.py` whole-hand survival search (`_solve`, `_after_hand_attack`, `hazardous`, `opponent_event`: 3.5-4 M calls of per-card predicates) | ~60 % | Claude, seed 4000 |
 | same | evaluator: `country_value` 347 k, `_access` 338 k, `delta` 184 k, `influence`/`_investment` | ~25 % | Claude |
 | same | enum attribute access (`Side.value`, `.opponent`): 11 M lookups | ~12 % | Claude |
 | MCTS, 24 simulations, one opening decision (48.9 s profiled, 22.2 s plain) | rollout ranking: `delta()` 157 k calls, 72 % of search | ~93 % | Astra |
@@ -245,7 +245,7 @@ tree management, hidden-state sampling, logging.
 
 ### Python side
 
-`bots/evaluator.py` grows the table builders and a `Native` wrapper with
+`bots/strategic/evaluator.py` grows the table builders and a `Native` wrapper with
 the same three functions in pure Python. `STRUGGLER_NATIVE=0` forces the
 Python path. The strategic player calls the wrapper; nothing else changes.
 Weights keep their names; the array order is defined in one place.
@@ -259,7 +259,7 @@ The pure-function evaluator is **done** and landed ahead of that order,
 because it turned out to be the fix for a correctness defect rather than
 only a porting convenience: two memos in `StrategicPlayer` were keyed on
 less state than the terms read, and the same position scored differently
-depending on what had been evaluated first. `bots/evaluator.py` now holds
+depending on what had been evaluated first. `bots/strategic/evaluator.py` now holds
 the country, access, wipe, region and margin terms as functions of
 `(Terrain, Position, weights, urgency, defcon)` -- no reads of `self._obs`,
 `board`, `RULES` or any memo. That module is the data layout below, in
@@ -371,7 +371,7 @@ is a few hundred lines with the Python path kept as the oracle.
 | Risk | Handling |
 | --- | --- |
 | Floating-point summation order changes tie-breaks between near-equal placements | Each operation keeps its *existing* tie rule and the port reproduces it: `RolloutPolicy.score` resolves equal values by country-string order (`max` over `(value, country)`), `_investment` keeps the first best point count (strict `>`), action sorting is stable on its own key. The corpus includes tied cases; any standardisation is a separate semantic commit. Parity is exact rankings and top actions, values within absolute plus relative tolerance. |
-| Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed: the terms live in `bots/evaluator.py` and take `(Terrain, Position, weights, urgency, defcon)`. `_scoring_weights` is gone, replaced by an urgency vector computed once per decision; the margin basis is passed as an argument rather than read from `self`. The Python fallback is that pure function, so both paths share one contract. |
+| Hidden coupling: the evaluator reads `_base_regions`, `_scoring_weights`, `_obs`, `RULES` through `self` | Removed: the terms live in `bots/strategic/evaluator.py` and take `(Terrain, Position, weights, urgency, defcon)`. `_scoring_weights` is gone, replaced by an urgency vector computed once per decision; the margin basis is passed as an argument rather than read from `self`. The Python fallback is that pure function, so both paths share one contract. |
 | A baseline loaded by `strategic@<file>` silently uses the *candidate's* evaluator | `benchmark.load_module` binds an `evaluator.py` sitting beside the baseline file in place of the candidate's while the baseline executes, and `gate.sh` snapshots both files per revision. Without it, a gate spanning an evaluator change reports the candidate playing itself. |
 | Boundary cost dominating if the granularity is wrong | `evaluate_placements` takes all candidates at once; measured whole-decision wall time including conversion is the acceptance metric. |
 | Behaviour drift from an "accidental" fix while porting | Algorithm changes and acceleration never share a commit; the corpus is regenerated only by an explicit, reviewed commit. |

@@ -10,7 +10,7 @@ commit.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The decision stack, the public API, `Engine`, core types |
 | [docs/CARDS.md](docs/CARDS.md) | `events.py`, `cards.json`, anything card-related |
 | [docs/BOTS.md](docs/BOTS.md) | `bots/`, the `Player` protocol, physical mode |
-| [docs/STRATEGIC_AI.md](docs/STRATEGIC_AI.md) | `bots/strategic.py`, `bots/evaluator.py`, the value function and its snapshot contract |
+| [docs/STRATEGIC_AI.md](docs/STRATEGIC_AI.md) | `bots/strategic/policy.py`, `bots/strategic/evaluator.py`, the value function and its snapshot contract |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
@@ -66,5 +66,5 @@ the tests.
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored
   differently depending on what came first: 39 of 598 corpus rankings changed
-  when the memo was bypassed. The terms now live in `bots/evaluator.py` and
+  when the memo was bypassed. The terms now live in `bots/strategic/evaluator.py` and
   own no state; see the snapshot contract in `docs/STRATEGIC_AI.md`.

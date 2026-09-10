@@ -319,7 +319,7 @@ The actual action always comes from the offered legal options.
 
 ## Where the evaluation lives
 
-The terms above are pure functions in `bots/evaluator.py`. Each one is a
+The terms above are pure functions in `bots/strategic/evaluator.py`. Each one is a
 function of its arguments alone: no `self`, no `Observation`, no `RULES`
 lookup, no memo, so the same arguments always give the same float.
 `StrategicPlayer` keeps the policy -- which observation is in play, what to
@@ -459,7 +459,7 @@ observation non-mutation, deterministic paired games, and model serialization.
 
 ## Hand survival
 
-`bots/defcon.py`'s `DefconPlanner` is the tactical guard in front of every
+`bots/strategic/defcon.py`'s `DefconPlanner` is the tactical guard in front of every
 VP score. `StrategicPlayer.safety_key` ranks each legal option by a tuple:
 certain immediate defeat first, then -- for scores in raw board units -- the
 residual turn-loss risk priced *into* that score rather than ranked ahead of

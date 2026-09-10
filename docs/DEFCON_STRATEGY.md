@@ -268,7 +268,7 @@ Engine items 1–5 below are now fixed; item 6 remains a bot limitation.
    `models/event-value-match-check.json`, deleted with the neural bot; the
    finding stands and the file is recoverable from git history.
    `StrategicPlayer` now ranks every card, mode, event-choice, and discard
-   decision by `bots/defcon.py`'s whole-hand survival search before its VP
+   decision by `bots/strategic/defcon.py`'s whole-hand survival search before its VP
    score (see [STRATEGIC_AI.md](STRATEGIC_AI.md#hand-survival)). The
    seed 2401 loss above (Blockade paid away the last spare safe card) no
    longer reproduces.

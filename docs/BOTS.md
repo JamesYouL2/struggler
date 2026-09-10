@@ -515,7 +515,7 @@ heuristics still actually help," not a claim of strategic strength.
 
 ## Strategic tactical policy and evolutionary training
 
-`StrategicPlayer` in `bots/strategic.py` adds local influence search, dice
+`StrategicPlayer` in `bots/strategic/policy.py` adds local influence search, dice
 expectations, and selected public-event simulations. `bots/train.py` trains
 its linear evaluation weights through evolutionary policy optimization.
 This implements a lightweight self-play training path alongside the existing
