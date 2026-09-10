@@ -584,11 +584,18 @@ tail's status, not the gate's. Read the printed verdict.
 
 The nuclear-loss rule started as "any is a blocker" and was wrong. It
 rejected the scoring-horizon commit on one loss, and the recorded gate
-games say that is variance: 3 in 1920 games, 0.16%, across three separate
-commits, two of which landed. At that rate a 192-game gate sees one about a
-quarter of the time, so demanding zero would have rejected a quarter of all
-changes on noise, which is the failure the strength rule was written to
-avoid. Two is now a fail; one warns and names the seat and seed to replay.
+games say that is variance: 3 candidate losses in 4226 games, 0.071%, across
+three separate commits, two of which landed. At that rate a 192-game gate
+sees one about one time in eight, so demanding zero would have rejected a
+change in eight on noise, which is the failure the strength rule was written
+to avoid. Two is now a fail; one warns and names the seat and seed to replay.
+
+Recounted 2026-09-09, after `4f01bc7` fixed the attribution: the earlier
+figure of 4 in 1920 included one game the *opponent* lost to DEFCON 1, and
+the recorded corpus has since more than doubled. The rate came down rather
+than up, which matters for Codex's proposal to drop the cap entirely
+(docs/CODEX_NOTES.md): a FAIL at two fires by chance in under 1% of gates,
+so the tripwire is close to free.
 Replay it: seed 4014 USSR turn 9 was a real lost position, the planner
 having correctly flagged every remaining play as a certain loss several
 action rounds earlier, with two US DEFCON-lowering cards stuck in a hand of

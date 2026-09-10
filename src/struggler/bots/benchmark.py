@@ -239,11 +239,13 @@ ACCEPTANCE = dict(
     confidence=1.645,   # one-sided 95%
     min_games=150,      # pooled, finished
     min_samples=2,      # at least one of them not the seeds the change was tuned on
-    # Nuclear losses are rare rather than impossible: 3 in the 1920 gate games
-    # recorded under logs/game-check, 0.16%, spread over three separate
-    # commits, two of which landed. At that rate a 192-game gate sees one by
-    # chance about a quarter of the time, so demanding zero would reject a
-    # quarter of all changes on variance alone -- the exact failure this rule
+    # Nuclear losses are rare rather than impossible: 3 candidate losses in
+    # the 4226 gate games recorded under logs/game-check, 0.071%, spread over
+    # three separate commits, two of which landed. (Recounted after the
+    # attribution fix: the old figure of 4 in 1920 counted an opponent's own
+    # DEFCON-1 defeat, and the corpus has more than doubled since.) At the
+    # true rate a 192-game gate sees one by chance 12.7% of the time and two
+    # 0.8% of the time, so demanding zero would reject one change in eight
     # set out to avoid for strength. Two is a fail (about 4% by chance), one
     # is a warning that names the seed so it can be replayed.
     max_nuclear=1,
@@ -378,10 +380,11 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     Three rules, all required:
 
     1. **No more nuclear losses than chance explains.** Two is a fail, one is
-       a warning naming the seed to replay. The measured rate is 3 in 1920
-       recorded gate games, so a 192-game gate sees one by chance about a
-       quarter of the time; demanding zero would reject a quarter of all
-       changes on variance alone. Only the *candidate's* defeats count
+       a warning naming the seed to replay. The measured rate is 3 candidate
+       losses in 4226 recorded gate games, so a 192-game gate sees one by
+       chance 12.7% of the time and two 0.8% of the time: demanding zero
+       would reject one change in eight on variance alone, while the rule as
+       written costs under one gate in a hundred. Only the *candidate's* defeats count
        (`candidate_nuclear_loss`): a game the opponent blew up is the
        candidate's win, and is reported as a note, never a penalty.
     2. **Enough evidence, from more than the seeds it was tuned on.** At least

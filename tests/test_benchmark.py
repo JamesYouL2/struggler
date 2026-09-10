@@ -247,10 +247,11 @@ def test_acceptance_requires_disjoint_seeds_and_enough_of_them():
 
 
 def test_acceptance_measures_nuclear_losses_against_their_rate():
-    """Losing to DEFCON 1 is rare, not impossible: 3 in the 1920 recorded gate
-    games, across three commits, two of which landed. Demanding zero would
-    reject about a quarter of all gates on variance alone, so one is a warning
-    naming the seed to replay and two is a failure."""
+    """Losing to DEFCON 1 is rare, not impossible: 3 candidate losses in the
+    4226 recorded gate games, across three commits, two of which landed.
+    Demanding zero would reject one gate in eight on variance alone, so one is
+    a warning naming the seed to replay and two is a failure -- which the same
+    rate puts at under one gate in a hundred."""
     from struggler.bots.benchmark import acceptance
     ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
                             ('held-out', _report(range(5000, 5048), 0.5))])
