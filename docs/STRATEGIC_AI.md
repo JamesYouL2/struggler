@@ -208,10 +208,30 @@ action = bot.choose_action(observation, history)
   over the unseen cards (`_unseen_holds`) and the hand size we can see. A
   discard from a hand whose cards all have negative hold value is a gain to
   the victim -- the end-of-turn Five Year Plan dumping a scoring card -- and
-  it falls out of the arithmetic. Salt Negotiations and Our Man In Tehran
-  stay on the generic estimate, which is `0.8 * ops_value(card.ops)` -- on
-  the same Ops scale as every other term, after a long spell at a raw
-  `weights.ops` that priced them near zero.
+  it falls out of the arithmetic. Two expert calibrations sit on top: a
+  card *discarded* outright (not swapped, as Missile Envy does) costs its
+  holder `CARD_DENIAL_OPS` (1.5) Ops beyond the card, unless it was a card
+  they wanted gone; and a card lost from a hand larger than the rounds
+  left costs only its excess over the card its holder would have held
+  anyway. The beneficiary's seat is then scaled by `HAND_ATTACK_REALISED`
+  (0.5) -- calibrated against the expert's Grain Sales 4 and Missile Envy
+  3, which the raw sums overshot by exactly that factor, and against the
+  gate, which rejected them at face value; the victim's seat measured even
+  on its own and is not discounted. Salt Negotiations is the best hold in the discard pile, Our Man In
+  Tehran five draws' worth of what the US would rather not see. The generic
+  estimate that remains for anything else is `0.8 * ops_value(card.ops)` --
+  on the same Ops scale as every other term, after a long spell at a raw
+  `weights.ops` that priced everything on it near zero.
+- The follow-up decisions those events raise are priced by the same
+  quantities, because a term that promises the best choice is worthless if
+  the choice then falls to option order: Grain Sales takes the shown card
+  only when its hold plus what the USSR loses beats 2 Ops (a Soviet event's
+  harm is in the hold, so those go back); Star Wars picks the best event in
+  the pile, or none; Missile Envy's giver hands over the tied card worth
+  least; Aldrich Ames discards the US card worth most to the US. The first
+  two used to fall through to the generic card-choice rule, which scored a
+  card at *minus* its Ops -- so Star Wars fetched the weakest card in the
+  pile, and the gate rejected the terms for it.
 
 All decisions use only `Observation`; history is currently ignored. The event
 sandbox is constructed from public fields with an independent fixed RNG and

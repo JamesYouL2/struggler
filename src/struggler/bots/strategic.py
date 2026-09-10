@@ -118,11 +118,23 @@ Our_Man_In_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.sp
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
 # Hidden-information cards whose value is nonetheless derivable from what a
 # card in a hand is worth (`hold_value`): priced by `_hand_attack_value`
-# rather than the generic estimate. Salt Negotiations and Our Man In Tehran
-# stay on the estimate.
+# rather than the generic estimate.
+# An opponent's card discarded outright -- not swapped, as Missile Envy does
+# -- is worth this many Ops beyond the card itself: a card fewer to play
+# with, so a card more likely held or wasted. The expert's figure.
+CARD_DENIAL_OPS = 1.5
+# What the beneficiary of a hand attack actually realises of "my gain plus
+# their loss". Calibrated, not derived: with the sums taken at face value
+# Grain Sales priced at 8.2 Ops-equivalents and Missile Envy at 6.0 against
+# the expert's 4 and 3, and the terms were rejected by the gate (0.428); at
+# half they price at 4.1 and 3.0 and a 32-seed run scored 0.539. The victim's
+# seat is not discounted -- it measured even on its own -- so what is
+# cheaper is spending your round on the attack, not suffering it.
+HAND_ATTACK_REALISED = 0.5
 HAND_ATTACK_EVENTS = frozenset(('Five_Year_Plan', 'Terrorism', 'Aldrich_Ames_Remix',
                                 'Grain_Sales_to_Soviets', 'Star_Wars', 'CIA_Created',
-                                'Lone_Gunman', 'Missile_Envy'))
+                                'Lone_Gunman', 'Missile_Envy', 'Salt_Negotiations',
+                                'Our_Man_In_Tehran'))
 # For the docs and tests: what the sandbox is asked to simulate. Every name
 # above must be a real card id -- `Our_Man_in_Tehran` (lowercase i) matched
 # nothing, so the card stayed in PUBLIC_EVENTS and was simulated in a sandbox
@@ -1156,6 +1168,14 @@ class StrategicPlayer:
         return holds
 
     @staticmethod
+    def _expected_min(values: list[float], n: int) -> float:
+        """The expected smallest of `n` draws, the mirror of `_expected_max`."""
+        if not values:
+            return 0.
+        ranked = sorted(values)
+        return ranked[min(len(ranked) - 1, len(ranked) // (max(1, n) + 1))]
+
+    @staticmethod
     def _expected_max(values: list[float], n: int) -> float:
         """The expected largest of `n` draws without replacement from
         `values`, by the order-statistic rule of thumb: the top 1/(n+1)
@@ -1188,7 +1208,22 @@ class StrategicPlayer:
         own_hand = [c for c in obs.hand if c != cid]
 
         def seat(gain: float, beneficiary: Side) -> float:
-            return gain if beneficiary is me else -gain
+            return HAND_ATTACK_REALISED * gain if beneficiary is me else -gain
+
+        denial = CARD_DENIAL_OPS * self.ops_value(obs, 1)
+        total_rounds = 6 if obs.turn <= 3 else 7
+        rounds = total_rounds if obs.phase == 'headline' else max(0, total_rounds - obs.action_round)
+
+        def held(holds: list[float], hand_size: int, scoring_free: list[float] | None = None) -> float:
+            """What the holder would have held anyway: the worst non-scoring
+            hold, when the hand is larger than the rounds left to play it.
+            A card lost from such a hand costs only its excess over that --
+            you play the card you were going to hold instead. Nothing, when
+            every card was going to be played."""
+            if hand_size <= rounds:
+                return 0.
+            pool = scoring_free if scoring_free is not None else holds
+            return min(pool) if pool else 0.
 
         if cid in ('CIA_Created', 'Lone_Gunman'):
             beneficiary = Side.US if cid == 'CIA_Created' else Side.USSR
@@ -1202,9 +1237,15 @@ class StrategicPlayer:
             victim = Side.USSR if cid == 'Five_Year_Plan' else player.opponent
             if victim is me:
                 holds = [self.hold_value(obs, c) for c in own_hand]
+                keepable = [self.hold_value(obs, c) for c in own_hand if not CARDS[c].scoring]
+                floor = held(holds, len(own_hand), keepable)
             else:
                 holds = self._unseen_holds(obs, victim)
-            loss = sum(holds) / len(holds) if holds else 0.
+                floor = (self._expected_min(holds, obs.opponent_hand_size)
+                         if obs.opponent_hand_size > rounds else 0.)
+            mean = sum(holds) / len(holds) if holds else 0.
+            loss = max(0., mean - floor) if floor else mean
+            loss += denial if mean > 0 else 0.  # no premium for losing a card you wanted gone
             if cid == 'Terrorism' and player is Side.USSR and obs.game_effects.get('iranian_hostage'):
                 loss *= 2  # two discards after the Iranian Hostage Crisis
             return seat(loss, victim.opponent)
@@ -1212,10 +1253,17 @@ class StrategicPlayer:
         if cid == 'Aldrich_Ames_Remix':
             # The USSR sees the US hand and discards the card the US values most.
             if me is Side.US:
-                best = max((self.hold_value(obs, c) for c in own_hand), default=0.)
+                holds = [self.hold_value(obs, c) for c in own_hand]
+                keepable = [self.hold_value(obs, c) for c in own_hand if not CARDS[c].scoring]
+                best = max(holds, default=0.)
+                floor = held(holds, len(own_hand), keepable)
             else:
-                best = self._expected_max(self._unseen_holds(obs, Side.US), obs.opponent_hand_size)
-            return seat(best, Side.USSR)
+                holds = self._unseen_holds(obs, Side.US)
+                best = self._expected_max(holds, obs.opponent_hand_size)
+                floor = (self._expected_min(holds, obs.opponent_hand_size)
+                         if obs.opponent_hand_size > rounds else 0.)
+            loss = (max(0., best - floor) if floor else best) + (denial if best > 0 else 0.)
+            return seat(loss, Side.USSR)
 
         if cid == 'Missile_Envy':
             # The player takes the opponent's highest-Ops card, and the
@@ -1235,21 +1283,60 @@ class StrategicPlayer:
 
         if cid == 'Grain_Sales_to_Soviets':
             # A random USSR card is shown; the US plays it or hands it back
-            # for 2 Ops. A Soviet card goes back (its event would fire); any
-            # other is worth its Ops to the US plus the card the USSR loses,
-            # if that beats the 2. Scoring cards net the same whoever plays
-            # them, so they count as a return.
+            # for 2 Ops. Taking it is worth its Ops to the US, plus the card
+            # the USSR loses, plus the denial premium -- this card actually
+            # discards, which is what puts it above Missile Envy -- less the
+            # estimated harm if it is a Soviet event. Scoring cards net the
+            # same whoever plays them, so they count as a return.
             floor = self.ops_value(obs, 2)
             options = []
             for c in CARDS.values():
-                if card_state(obs, c.id) != 'unseen' or c.scoring or c.side.value == 'USSR':
-                    options.append(floor if card_state(obs, c.id) == 'unseen' else None)
+                if card_state(obs, c.id) != 'unseen':
                     continue
-                take = (self.ops_value(obs, _effective_ops_estimate(c, obs, Side.US))
-                        + self.ops_value(obs, _effective_ops_estimate(c, obs, Side.USSR)))
+                if c.scoring:
+                    options.append(floor)
+                    continue
+                us_ops = self.ops_value(obs, _effective_ops_estimate(c, obs, Side.US))
+                take = (us_ops + self.ops_value(obs, _effective_ops_estimate(c, obs, Side.USSR))
+                        + denial - (0.8 * us_ops if c.side.value == 'USSR' else 0.))
                 options.append(max(floor, take))
-            options = [o for o in options if o is not None]
             gain = sum(options) / len(options) if options else floor
+            return seat(gain, Side.US)
+
+        if cid == 'Salt_Negotiations':
+            # The player takes any non-scoring card from the discard pile
+            # into hand -- a card fetched and a card more to hold, for the
+            # Action Round the event costs; `card_play_value` weighs that
+            # against the 3 Ops. Priced as the best hold in the pile over the
+            # dozen highest-Ops candidates. The DEFCON +2 is the planner's
+            # (RAISERS); the -1 to coup rolls this turn is not priced.
+            pool = sorted((c for c in obs.discard_pile if not CARDS[c].scoring),
+                          key=lambda c: -CARDS[c].ops)
+            best = max((self.hold_value(obs, c) for c in pool[:12]), default=0.)
+            return seat(max(0., best), player)
+
+        if cid == 'Our_Man_In_Tehran':
+            # The US looks at the top five of the draw pile and discards any
+            # of them. Worth what the US would rather not see drawn: five
+            # draws' worth of the cards whose existence hurts it. Scoring
+            # cards are exact -- a region scoring against the US is delayed
+            # -- and a Soviet event is the generic estimate of its harm,
+            # halved for the seat that would have drawn it. Every other card
+            # is a card the US is happy to leave. Rarely large, as the expert
+            # says, unless the pile is holding a Lone Gunman or a bad scoring.
+            harms = []
+            for card in CARDS.values():
+                if card_state(obs, card.id) != 'unseen':
+                    continue
+                if card.scoring:
+                    value = self.hold_value(obs, card.id)
+                    harm = -(value if me is Side.US else -value)
+                elif card.side.value == 'USSR':
+                    harm = 0.5 * 0.8 * self.ops_value(obs, card.ops)
+                else:
+                    harm = 0.
+                harms.append(max(0., harm))
+            gain = 5 * sum(harms) / len(harms) if harms else 0.
             return seat(gain, Side.US)
 
         if cid == 'Star_Wars':
@@ -1535,12 +1622,41 @@ class StrategicPlayer:
                 if choice == 'none':
                     return -1
                 return CARDS[choice].ops - 100*(self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0)
+            if event == 'Grain_Sales_to_Soviets':
+                # The shown USSR card: take it -- the US plays it in full, so
+                # `hold_value` carries a Soviet event's harm -- and the USSR
+                # is a card down, with the denial premium if it was an asset;
+                # or hand it back for Grain Sales' own 2 Ops. This used to
+                # fall through to 0 for both, so "take" won by option order,
+                # Soviet events included.
+                shown = ctx['card']
+                if choice == 'return':
+                    return self.ops_value(obs, 2)
+                theirs = self.ops_value(obs, _effective_ops_estimate(CARDS[shown], obs, obs.side.opponent))
+                return (self.hold_value(obs, shown) + theirs
+                        + (CARD_DENIAL_OPS * self.ops_value(obs, 1) if theirs > 0 else 0.))
+            if event == 'Star_Wars':
+                # Any non-scoring card in the discard pile, its event played
+                # now by the US. Worth the event, so a Soviet card prices
+                # negative and "none" beats it. The generic card-choice rule
+                # below scored this -ops, picking the *weakest* card.
+                if choice == 'none':
+                    return 0.
+                return self.event_value(obs, choice)
+            if event == 'Missile_Envy_pick':
+                # Tied on Ops by construction; give up the one worth least to us.
+                return -self.hold_value(obs, choice)
             if event == 'Aldrich_Ames_Remix':
                 # These options are the legitimately revealed US hand.
                 hand = tuple(a.payload['choice'] for a in obs.pending_decision.options)
                 target = replace(obs, side=Side.US, hand=tuple(c for c in hand if c != choice))
                 planner = self.planner_for(target)
-                return 1000*planner.risk() + CARDS[choice].ops
+                # The US card worth most to the US: its Ops, or its event if
+                # that is better -- which from our seat is the harm it does us,
+                # negated. Printed Ops alone would hand back a 1-Op Marshall
+                # Plan while discarding a 3-Op nothing.
+                return 1000*planner.risk() + max(self.ops_value(obs, CARDS[choice].ops),
+                                                 -self.event_value(obs, choice))
             if event == 'Wargames':
                 if choice != 'end_game':
                     return 0

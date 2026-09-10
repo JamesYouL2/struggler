@@ -892,3 +892,48 @@ def test_grain_sales_is_worth_at_least_its_two_ops_to_the_us():
     obs = engine.observe(Side.US)
     bot = StrategicPlayer(); bot.rank_actions(obs)
     assert value >= bot.ops_value(obs, 2) * (1 - bot._planner.event_risk('Grain_Sales_to_Soviets')) - 1e-9
+
+
+def _event_choice_keys(engine, side):
+    obs = engine.observe(side)
+    bot = StrategicPlayer()
+    return {a.payload['choice']: key for key, a in bot.rank_actions(obs)}
+
+
+def test_grain_sales_returns_a_soviet_event_and_takes_a_us_one():
+    """The shown card is played in full by the US, so a Soviet event's harm
+    is in its hold value and it goes back for the 2 Ops; a US card is taken.
+    Both choices scored 0 before, and "take" won by option order."""
+    from struggler.engine import Action, DecisionKind as K
+    engine = _midwar_us_engine()
+    engine.defcon = 2
+    engine.hands['USSR'] = ['We_Will_Bury_You']  # its DEFCON drop is nuclear war, on the US's action
+    engine.hands['US'] = ['Duck_and_Cover']
+    engine._fire_event(Side.US, 'Grain_Sales_to_Soviets')
+    engine.step(engine.pending_decision.options[0])  # the CHANCE reveal
+    assert engine.pending_decision.context['event'] == 'Grain_Sales_to_Soviets'
+    keys = _event_choice_keys(engine, Side.US)
+    assert keys['return'] > keys['take'], 'We Will Bury You would fire against the US at DEFCON 2'
+
+    engine = _midwar_us_engine()
+    engine.hands['USSR'] = ['Marshall_Plan']
+    engine.hands['US'] = ['Duck_and_Cover']
+    engine._fire_event(Side.US, 'Grain_Sales_to_Soviets')
+    engine.step(engine.pending_decision.options[0])
+    keys = _event_choice_keys(engine, Side.US)
+    assert keys['take'] > keys['return'], 'a 4-Op US event, and the USSR loses it'
+
+
+def test_star_wars_takes_the_best_event_in_the_pile_not_the_weakest():
+    """The generic card-choice rule scored a card at minus its Ops, so Star
+    Wars fetched the weakest card in the discard pile. It is the strongest
+    US or neutral event, or none if only Soviet events are there."""
+    engine = _midwar_us_engine()
+    engine.space_race = {'US': 3, 'USSR': 1}
+    engine.discard_pile = ['Truman_Doctrine', 'Marshall_Plan', 'De_Gaulle_Leads_France']
+    engine.board.influence['France'] = {'US': 0, 'USSR': 2}
+    engine.hands['US'] = ['Duck_and_Cover']
+    engine._fire_event(Side.US, 'Star_Wars')
+    keys = _event_choice_keys(engine, Side.US)
+    assert keys['Marshall_Plan'] > keys['Truman_Doctrine']
+    assert keys['none'] > keys['De_Gaulle_Leads_France'], 'a Soviet event is worse than nothing'
