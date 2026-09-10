@@ -141,8 +141,13 @@
       "Wargames": {
         "ops": null,
         "board_dependent": true,
-        "formula": "1 - win_pct if live, otherwise 0",
-        "note": "Recorded verbatim. Claude could not confirm the direction: the card hands the opponent 6 VP, so it reads as a card you play when *ahead*, which would make its value rise with win probability rather than fall. Ask before encoding. Claude's estimate was 0.0 flat, which at least had the 'not a constant' part right."
+        "schedule": {
+          "ahead by 7+ VP": "converts the game to a certain win",
+          "ahead by exactly 6 VP": "a tie",
+          "ahead by 5 VP or less": 0.0
+        },
+        "formula": "(1 - win_pct) * game_value when ahead by 7+, else 0",
+        "note": "It ends the game and hands the opponent 6 VP, so at +7 you finish at +1 and win. Its worth is therefore the *remaining uncertainty it removes*, which is what the maintainer's original '1 - win pct' meant. Claude read that as a contradiction and asked for confirmation; the maintainer was right and the reading was wrong. Note the condition is entirely public -- VP margin and DEFCON 2 -- so this is highly conditional but *cheap* to evaluate, which is why it is easy to play well."
       }
     }
   },
