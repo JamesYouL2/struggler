@@ -315,3 +315,37 @@ def test_five_year_plan_and_missile_envy_chains_only_matter_at_defcon_2():
         planner = DefconPlanner(e.observe(Side.US), e, SurvivalPrior(opponent_hand_attack=0))
         assert planner.event_risk('Five_Year_Plan') == expected
         assert planner.event_risk('Missile_Envy') == expected
+
+
+def test_the_defcon_drop_prior_matches_what_was_measured():
+    """`opponent_lowers_defcon` shipped at 0.75 with no rationale, applied
+    once per remaining round. The event is labelled and counted in
+    `models/opponent-model-v1.json.report.json` -- "did the opponent lower
+    DEFCON between our pick and our next" -- at a base rate near 0.10. The
+    prior is held a little above that (humans Coup more freely than these
+    bots, and a survival prior should err toward caution) and far below the
+    old guess."""
+    import json
+    from pathlib import Path
+    from struggler.bots.defcon import SurvivalPrior
+
+    report = json.loads(Path('models/opponent-model-v1.json.report.json').read_text())
+    measured = report['test']['defcon_drop']['rate']
+    prior = SurvivalPrior().opponent_lowers_defcon
+    assert measured < prior <= 4 * measured, (
+        f'prior {prior} should sit just above the measured rate {measured:.3f}')
+    assert prior < 0.5, 'the old 0.75 expected DEFCON to fall almost every round'
+
+
+def test_the_hand_attack_prior_is_not_fitted_to_bot_games():
+    """Its measured base rate (0.003-0.006) is an artefact of the opponent
+    being a bot: these bots play the attack cards for Ops or Space, while
+    strong humans always event them. Fitting to that would tune the planner
+    to an opponent it should not expect."""
+    import json
+    from pathlib import Path
+    from struggler.bots.defcon import SurvivalPrior
+
+    report = json.loads(Path('models/opponent-model-v1.json.report.json').read_text())
+    measured = report['test']['hand_attack']['rate']
+    assert SurvivalPrior().opponent_hand_attack > 10 * measured

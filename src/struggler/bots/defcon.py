@@ -44,7 +44,30 @@ PLAY_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE)
 
 @dataclass(frozen=True)
 class SurvivalPrior:
-    opponent_lowers_defcon: float = .75
+    # The chance the opponent lowers DEFCON before our next card, applied
+    # once per remaining round in `_next`. It shipped at 0.75 with no
+    # recorded rationale, which over seven rounds is a planner that expects
+    # DEFCON to fall almost every round.
+    #
+    # It is measurable, and it was measured:
+    # `models/opponent-model-v1.json.report.json` labels exactly this event
+    # ("did the opponent lower DEFCON between our pick and our next pick")
+    # over recorded games, and the base rate is **0.098 on 973 test samples
+    # and 0.108 on 697 validation samples**. 0.75 was seven times too high,
+    # and an over-cautious survival prior is the likeliest remaining reason
+    # this bot reaches DEFCON 1 far less often than a human field.
+    #
+    # Set above the measured rate rather than at it: those are games against
+    # *this* bot, strong humans Coup more freely (Sankt Coups Italy on turn
+    # 1), and a survival planner should be wrong toward caution. 0.10 is the
+    # obvious ablation if this gates well.
+    opponent_lowers_defcon: float = .15
+    # Deliberately *not* lowered to its measured base rate, which is 0.003
+    # to 0.006. That number is an artefact of the opponent being a bot:
+    # these bots play Grain Sales, Aldrich Ames Remix and Terrorism for Ops
+    # or Space, so they almost never attack a hand, while strong humans
+    # always event them (docs/EXPERT_STRATEGY.md). Fitting this to bot games
+    # would tune the planner to an opponent it should not expect to face.
     opponent_hand_attack: float = .10
     unknown_chain_loss: float = .25
     replacement_hazard: float = .15
