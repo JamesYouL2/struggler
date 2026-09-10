@@ -26,8 +26,8 @@
         "note": "Bot about right. Not about 1-stability targets: it hits every 2-stability target, an isolated country or one with a single adjacent support."
       },
       "Grain_Sales_to_Soviets": {
-        "ops": null,
-        "note": "Expert: basically impossible to play without Nuclear Subs as the USSR; always evented as the US, because you can always return the card. Number still to come."
+        "ops": 4.0,
+        "note": "Expert: about 4. Basically impossible to play without Nuclear Subs as the USSR; always evented as the US, because you can always return the card. Taking the card actually discards it from the USSR hand, and discarding an opponent's card is worth ~1.5 Ops by itself on top of the card."
       },
       "The_Voice_Of_America": {
         "ops": 6.0,
@@ -125,8 +125,8 @@
         "note": "About 1 when it does not move the China card; the China card is easily 2.5 Ops in the Mid War, so 3.5 when it does."
       },
       "Missile_Envy": {
-        "ops": null,
-        "note": "A hand event, but very, very good."
+        "ops": 3.0,
+        "note": "Expert: about 3. A hand event, but very, very good. Unlike Grain Sales it does not discard -- the opponent gets Missile Envy back -- so no card-denial premium."
       },
       "OPEC": {
         "ops": null,
