@@ -86,6 +86,15 @@ class Certain(float):
 LOSS = Certain(-1_000_000.0)
 
 
+def priced(value: float, cap: float) -> float:
+    """`value` as a number that may be combined with others: a certain
+    outcome becomes the whole game, which is what it is worth, and anything
+    else passes through. Use this wherever a value that *might* be `LOSS`
+    feeds arithmetic -- the sentinel refuses `+`, `*` and `/` precisely so
+    that those places have to be found and made explicit."""
+    return max(-cap, min(cap, float(value)))
+
+
 def is_certain(value: float) -> bool:
     """Whether `value` is a certain outcome rather than a price. Ask this
     before combining a value with anything else."""
@@ -96,6 +105,10 @@ def is_certain(value: float) -> bool:
 # worth, so that risk can be traded against value instead of ranking ahead
 # of it at any price. The expert's number.
 GAME_SWING_VP = 40.0
+# What holding The China Card is worth, in Ops, charged against playing it.
+# The maintainer's figure: the floor is a 2 VP swing, already 4 Ops at the
+# Late War rate of 2 Ops per VP, and it is basically always worth more.
+CHINA_HOLD_OPS = 5.0
 # Decisions whose `score` is in raw board units, and can therefore be blended
 # with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
 # their own ad-hoc scales and keep risk as a separate, prior key.
@@ -1699,7 +1712,9 @@ class StrategicPlayer:
             # exactly what it gains the US.
             gains = [self.event_value(obs, c) if me is Side.US else -self.event_value(obs, c)
                      for c in pool[:12]]
-            return seat(max([0.] + gains), Side.US)
+            # `seat` scales its argument, so a retrieved event that is
+            # certain has to become a price first: the whole game.
+            return seat(priced(max([0.] + gains), self.game_value(obs)), Side.US)
 
         return None
 
@@ -1923,7 +1938,10 @@ class StrategicPlayer:
             event = self.event_value(obs, cid)
             ops = _effective_ops_estimate(card, obs, obs.side)
             if kind is K.HEADLINE_PLAY:
-                return event - 0.5 * self.ops_value(obs, ops)
+                # Headlining a card whose event is certain is that outcome;
+                # the half-Ops charge for the round it costs is an
+                # adjustment between prices and does not apply to a flag.
+                return event if is_certain(event) else event - 0.5 * self.ops_value(obs, ops)
             value = self.card_play_value(obs, cid, ops, event)
             if is_certain(value):
                 # A certain outcome takes none of the nudges below -- the
@@ -1934,7 +1952,12 @@ class StrategicPlayer:
                 # and it only shows up in games, never in a fixture.
                 return value
             if cid == 'The_China_Card':
-                value -= 4
+                # What holding it is worth, charged against playing it. The
+                # maintainer puts the floor at a 2 VP swing, which is already
+                # 4 Ops at the Late War rate, and says it is basically always
+                # worth more; 5 is their figure. Still a constant where the
+                # truth is option value over the rest of the game.
+                value -= CHINA_HOLD_OPS
             if cid == 'UN_Intervention' and self.un_card(obs):
                 # Played alone it is a 1-Op card; it is worth keeping for
                 # the card it neutralises. If that card's event is certain
@@ -2046,8 +2069,12 @@ class StrategicPlayer:
                 # that is better -- which from our seat is the harm it does us,
                 # negated. Printed Ops alone would hand back a 1-Op Marshall
                 # Plan while discarding a 3-Op nothing.
-                return 1000*planner.risk() + max(self.ops_value(obs, CARDS[choice].ops),
-                                                 -self.event_value(obs, choice))
+                # Bounded before the sum: taking away a card whose event
+                # would certainly lose us the game is worth the game, not a
+                # million.
+                best = max(self.ops_value(obs, CARDS[choice].ops),
+                           -self.event_value(obs, choice))
+                return 1000*planner.risk() + priced(best, self.game_value(obs))
             if event == 'Wargames':
                 if choice != 'end_game':
                     return 0

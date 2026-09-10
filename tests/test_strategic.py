@@ -1355,3 +1355,14 @@ def test_a_certain_card_value_takes_none_of_the_small_nudges():
         except KeyError:
             continue  # not a legal card in this fixture
         assert isinstance(value, float)  # no TypeError from a nudged sentinel
+
+
+def test_holding_the_china_card_is_charged_at_the_experts_floor():
+    """`CHINA_HOLD_OPS` is what holding the card is worth, charged against
+    playing it. The maintainer's floor is a 2 VP swing, which is already 4
+    Ops at the Late War rate of 2 Ops per VP, and they judge it basically
+    always worth more. Pinned so the constant cannot drift back below the
+    floor it was reasoned from."""
+    from struggler.bots.strategic.policy import CHINA_HOLD_OPS
+    assert CHINA_HOLD_OPS >= 4.0, 'below the 2-VP-swing floor'
+    assert CHINA_HOLD_OPS == 5.0
