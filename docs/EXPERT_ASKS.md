@@ -25,9 +25,21 @@ with no coverage at all is one the bot plays in most games.
 
 ---
 
-## 1. The Late War table: 22 cards, none priced
+## 1. The Late War table: 22 cards, 4 priced
 
-The single biggest hole. Format is the existing one -- US Ops, signed from
+**In progress.** `models/expert_valuations_latewar.json` holds what has
+arrived: Aldrich Ames Remix 6.5, The Reformer 3.5 (5 with its bonus),
+Pershing II Deployed 2.5, Glasnost 1.0 (5 with its bonus). Seat-own Ops,
+matching the Mid War file.
+
+Two things already learned from four cards. **My estimates are biased low
+on the strongest cards** -- Aldrich Ames came in at 6.5 against my 3.5 --
+which is the shape you would expect from a scale anchored on an opening
+board where nothing is that decisive. And **two of the four are
+conditional**, base versus bonus, which the fixture format and the bot
+both lack any way to express.
+
+The rest of the hole. Format is the existing one -- US Ops, signed from
 the US seat, so a USSR-favourable event is negative -- and rough is fine;
 the tolerance is 0.75 Ops.
 
