@@ -4,8 +4,8 @@ import dataclasses
 import pytest
 
 from struggler.bots import evaluator as ev
-from struggler.bots.strategic import CARDS, StrategicPlayer, StrategicWeights
-from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
+from struggler.bots.strategic import ASK, CARDS, StrategicPlayer, StrategicWeights
+from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
 from struggler.bots.train import evaluate, mutate
 import random
 
@@ -986,3 +986,94 @@ def test_still_refuses_the_suicide_coup_on_its_own_action_round():
             break
     else:
         raise AssertionError('no battleground target offered')
+
+
+def test_hand_attack_values_do_not_depend_on_legal_option_order():
+    """The hand terms are mutually recursive -- Ask Not prices the hand, which
+    holds Aldrich Ames, which prices the hand, which holds Ask Not. The cycle
+    breaker cached whichever card was reached first at its full value and the
+    other at the estimate, so reversing the legal options moved Ask Not by 170
+    raw units. Hand terms now take a deterministic shallow value for any card
+    that could recurse."""
+    engine = Engine.new_game(seed=3003, events=True)
+    engine.turn, engine.phase, engine.action_round = 6, 'action_rounds', 3
+    engine._ars_played, engine.defcon = 5, 5
+    engine.hands['US'] = [ASK, 'Aldrich_Ames_Remix', 'Marshall_Plan', 'Decolonization']
+    engine._push_action_round_play(Side.US)
+    obs = engine.observe(Side.US)
+    decision = obs.pending_decision
+
+    forward = StrategicPlayer(); forward.rank_actions(obs)
+    for permuted in (tuple(reversed(decision.options)),
+                     decision.options[1:] + decision.options[:1]):
+        other = StrategicPlayer()
+        other.rank_actions(dataclasses.replace(
+            obs, pending_decision=dataclasses.replace(decision, options=permuted)))
+        for cid in obs.hand:
+            assert forward.event_value(obs, cid) == other.event_value(obs, cid), cid
+
+
+def test_evaluate_restores_the_whole_prepared_context_not_just_the_caches():
+    """`prepare` rewrites `_scoring_flags` and `_coup_bans` from the
+    observation's game_effects. `evaluate` restored the observation, urgency,
+    caches and influence but not those, so a leaf evaluated under Formosan
+    Resolution left the caller scoring Taiwan as a Battleground."""
+    engine = Engine(seed=1)
+    engine.board.influence['Taiwan']['US'] = 3
+    engine._maybe_push_place_influence(Side.US, 1)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    before_flags, before_bans = bot._scoring_flags, bot._coup_bans
+    before_value = bot.value(bot.board, Side.US)
+
+    bot.evaluate(dataclasses.replace(obs, game_effects={'formosan_resolution': True,
+                                                       'nato': True, 'marshall_plan': True}))
+    assert bot._scoring_flags == before_flags
+    assert bot._coup_bans == before_bans
+    assert bot.value(bot.board, Side.US) == before_value
+
+
+def _star_wars_engine(us_ahead: bool):
+    engine = Engine.new_game(seed=9, events=True)
+    engine.turn, engine.phase, engine.action_round = 8, 'action_rounds', 2
+    engine._ars_played = 3
+    engine.space_race = {'US': 4 if us_ahead else 1, 'USSR': 1}
+    engine.discard_pile = ['Marshall_Plan', 'Truman_Doctrine']
+    engine.board.influence['France'] = {'US': 0, 'USSR': 2}
+    engine.hands['US'] = ['Duck_and_Cover']
+    engine.hands['USSR'] = ['Fidel']
+    return engine
+
+
+def _value_from(engine, side, cid):
+    engine._decision_stack.clear()
+    engine._push_action_round_play(side)
+    obs = engine.observe(side)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    return bot.event_value(obs, cid)
+
+
+def test_star_wars_costs_the_ussr_what_it_gains_the_us():
+    """The US chooses the retrieved event whoever played the card, so the
+    maximum is taken over the *US's* gain. Maximising our own seat's value and
+    clamping at zero priced Star Wars at nothing for the USSR, while the
+    Marshall Plan it fetches lands either way."""
+    engine = _star_wars_engine(us_ahead=True)
+    us = _value_from(engine, Side.US, 'Star_Wars')
+    ussr = _value_from(engine, Side.USSR, 'Star_Wars')
+    assert us > 0 and ussr < 0, (us, ussr)
+
+
+def test_hand_events_that_cannot_occur_are_worth_nothing():
+    """These terms read the hand and the deck rather than the sandbox, so they
+    skipped the engine's own prerequisite check."""
+    from struggler.engine.events import EVENTS
+    engine = _star_wars_engine(us_ahead=False)  # neither side leads the Space Race
+    for cid, info in engine.board.countries.items():
+        if info.region is Region.MIDDLE_EAST:
+            engine.board.influence[cid] = {'US': 0, 'USSR': 0}
+    for cid in ('Star_Wars', 'Our_Man_In_Tehran'):
+        assert not EVENTS[cid].eligible(engine, Side.US), cid
+        assert _value_from(engine, Side.US, cid) == 0.0, cid

@@ -22,6 +22,7 @@ from struggler.engine.board import Board
 from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG
+from struggler.engine.events import EVENTS
 from struggler.bots import evaluator as ev
 from struggler.bots.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
@@ -601,9 +602,14 @@ class StrategicPlayer:
         # Both Ops caches are per position, so they are put back with the
         # board they describe. Leaving this leaf's behind would price the
         # interrupted ranking's Ops from a board it never saw.
+        # Everything `prepare` sets, not just the caches: it also rewrites
+        # `_scoring_flags` and `_coup_bans` from the observation's
+        # game_effects, and a leaf evaluated under Formosan Resolution left
+        # the caller scoring Taiwan as a Battleground afterwards.
         saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
                  self.__dict__.get('_placement_values'),
                  self.__dict__.get('_unseen_hold_values'),
+                 self.__dict__.get('_scoring_flags'), self.__dict__.get('_coup_bans'),
                  {c: dict(v) for c, v in self.board.influence.items()})
         self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
@@ -612,9 +618,11 @@ class StrategicPlayer:
         try:
             return self.value(self.board, observation.side)
         finally:
-            self._obs, self._urgency, ops_values, placements, unseen, influence = saved
+            (self._obs, self._urgency, ops_values, placements, unseen,
+             flags, bans, influence) = saved
             for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
-                                ('_unseen_hold_values', unseen)):
+                                ('_unseen_hold_values', unseen),
+                                ('_scoring_flags', flags), ('_coup_bans', bans)):
                 if value is not None:
                     setattr(self, name, value)
             for c, v in influence.items():
@@ -1123,10 +1131,18 @@ class StrategicPlayer:
                 log.warning('event %s failed in the sandbox (%s: %s); using the estimate',
                             cid, type(exc).__name__, exc)
                 self.sandbox_failures[cid] = '%s: %s' % (type(exc).__name__, exc)
-        elif cid == ASK:
-            result = self._hand_upgrade_value(obs)
-        elif cid in HAND_ATTACK_EVENTS:
-            result = self._hand_attack_value(obs, cid)
+        elif cid == ASK or cid in HAND_ATTACK_EVENTS:
+            # These terms read the hand and the deck rather than the sandbox,
+            # so they skip the engine's own prerequisite check -- and priced
+            # Star Wars at +50 with neither side ahead in space, and Our Man
+            # In Tehran at +25 with no US-controlled Middle Eastern country.
+            # An event that cannot occur is worth nothing.
+            if not self._event_eligible(obs, cid):
+                result = 0.
+            elif cid == ASK:
+                result = self._hand_upgrade_value(obs)
+            else:
+                result = self._hand_attack_value(obs, cid)
         if result is None:
             # Explicit approximation for events beyond the public simulator:
             # the card's Ops on this board, discounted -- and on the same
@@ -1145,7 +1161,37 @@ class StrategicPlayer:
         self._events[cid] = result
         return result
 
-    def hold_value(self, obs: Observation, cid: str) -> float:
+    def _event_eligible(self, obs: Observation, cid: str) -> bool:
+        """Whether `cid`'s event can occur at all here, asked of the engine
+        rather than reimplemented (Star Wars needs the Space Race lead, Our
+        Man In Tehran a US-controlled Middle Eastern country, Willy Brandt an
+        un-torn-down wall...)."""
+        if cid not in EVENTS:
+            return True
+        try:
+            return bool(EVENTS[cid].eligible(self.public_engine(obs), obs.side))
+        except Exception:  # a prerequisite the idle sandbox cannot answer
+            return True
+
+    def _shallow_event_value(self, obs: Observation, cid: str) -> float:
+        """A card's event value for use *inside* a hand term.
+
+        The hand terms are mutually recursive by nature: Ask Not prices the
+        hand, which holds Five Year Plan, which prices the hand, which holds
+        Ask Not. `_events_in_progress` breaks the loop, but whichever card is
+        reached first gets the full value and the other gets the estimate --
+        so reversing the legal-option order moved Ask Not by 170 raw units.
+        Hand terms therefore never ask for another hand-attack card's full
+        value; they take the flat estimate for those, which depends on
+        nothing but the card and the board, and the full value for every
+        other card, which cannot recurse back into a hand term."""
+        card = CARDS[cid]
+        if cid in HAND_ATTACK_EVENTS or cid == ASK:
+            sign = -1 if card.side.value == obs.side.opponent.value else 1
+            return sign * self.ops_value(obs, card.ops) * 0.8
+        return self.event_value(obs, cid)
+
+    def hold_value(self, obs: Observation, cid: str, shallow: bool = False) -> float:
         """What having `cid` in hand is worth to `obs.side`: a scoring card
         scores its region, anything else gets played (`card_play_value`, so
         an opponent event carries its harm). Negative for a card you would
@@ -1159,8 +1205,9 @@ class StrategicPlayer:
             value = self.scoring_card_value(obs, cid)
             cap = 20 * self.vp_value(obs)
             return max(-cap, min(cap, value))
-        return self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side),
-                                    self.event_value(obs, cid))
+        event = (self._shallow_event_value(obs, cid) if shallow
+                 else self.event_value(obs, cid))
+        return self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side), event)
 
     def _unseen_holds(self, obs: Observation, side: Side) -> list[float]:
         """A hold value for every unseen card, from `side`'s seat, on Ops
@@ -1251,8 +1298,9 @@ class StrategicPlayer:
             # "a US event fires" rider is not priced.
             victim = Side.USSR if cid == 'Five_Year_Plan' else player.opponent
             if victim is me:
-                holds = [self.hold_value(obs, c) for c in own_hand]
-                keepable = [self.hold_value(obs, c) for c in own_hand if not CARDS[c].scoring]
+                holds = [self.hold_value(obs, c, shallow=True) for c in own_hand]
+                keepable = [self.hold_value(obs, c, shallow=True)
+                            for c in own_hand if not CARDS[c].scoring]
                 floor = held(holds, len(own_hand), keepable)
             else:
                 holds = self._unseen_holds(obs, victim)
@@ -1268,8 +1316,9 @@ class StrategicPlayer:
         if cid == 'Aldrich_Ames_Remix':
             # The USSR sees the US hand and discards the card the US values most.
             if me is Side.US:
-                holds = [self.hold_value(obs, c) for c in own_hand]
-                keepable = [self.hold_value(obs, c) for c in own_hand if not CARDS[c].scoring]
+                holds = [self.hold_value(obs, c, shallow=True) for c in own_hand]
+                keepable = [self.hold_value(obs, c, shallow=True)
+                            for c in own_hand if not CARDS[c].scoring]
                 best = max(holds, default=0.)
                 floor = held(holds, len(own_hand), keepable)
             else:
@@ -1327,7 +1376,7 @@ class StrategicPlayer:
             # (RAISERS); the -1 to coup rolls this turn is not priced.
             pool = sorted((c for c in obs.discard_pile if not CARDS[c].scoring),
                           key=lambda c: -CARDS[c].ops)
-            best = max((self.hold_value(obs, c) for c in pool[:12]), default=0.)
+            best = max((self.hold_value(obs, c, shallow=True) for c in pool[:12]), default=0.)
             return seat(max(0., best), player)
 
         if cid == 'Our_Man_In_Tehran':
@@ -1361,8 +1410,14 @@ class StrategicPlayer:
             pool = [c for c in obs.discard_pile
                     if not CARDS[c].scoring and CARDS[c].side.value != 'USSR']
             pool.sort(key=lambda c: -CARDS[c].ops)
-            best = max((self.event_value(obs, c) for c in pool[:12]), default=0.)
-            return seat(max(0., best), Side.US)
+            # The US chooses, so the maximum is taken over what the *US*
+            # gains, then converted back. Maximising our own seat's value and
+            # clamping at zero priced Star Wars at nothing for the USSR --
+            # the retrieved Marshall Plan lands either way, and costs them
+            # exactly what it gains the US.
+            gains = [self.event_value(obs, c) if me is Side.US else -self.event_value(obs, c)
+                     for c in pool[:12]]
+            return seat(max([0.] + gains), Side.US)
 
         return None
 
@@ -1418,7 +1473,7 @@ class StrategicPlayer:
                     continue
                 held = self.card_play_value(
                     obs, cid, _effective_ops_estimate(card, obs, obs.side),
-                    self.event_value(obs, cid))
+                    self._shallow_event_value(obs, cid))
                 gains.append(max(0., mean - held))
             gains.sort(reverse=True)  # the worst cards go first
             return sum(gains[:rounds])

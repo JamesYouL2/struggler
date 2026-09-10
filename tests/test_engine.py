@@ -75,23 +75,48 @@ def test_final_scoring_gives_europe_control_precedence_over_vp_elsewhere():
     assert engine.game_over_reason == "europe_control"
 
 
-def test_final_scoring_is_recorded_even_when_it_ends_on_another_reason():
-    """How often a game goes the distance is a calibration input (it sets
-    `public_cards.FINAL_SCORING_ODDS`), and it was read off the end reason.
-    But Final Scoring can end the game at 'vp' or 'europe_control' partway
-    through the regions, or leave a draw with no reason at all, and each of
-    those is a game that reached Final Scoring and was not counted."""
+def test_final_scoring_scores_every_region_before_deciding_on_vp():
+    """10.3.2: "Reaching 20 VPs does not result in Automatic Victory during
+    scoring at the end of turn 10 ... Once all regions have been scored,
+    victory goes to the player who has accrued most VPs."
+
+    Stopping at 20 handed the game to whoever the running total happened to
+    favour when it crossed. Here the US starts on +19 and controls Italy, the
+    USSR controls everything outside Europe: Europe alone takes the US past
+    20, and the full regional total is -37."""
     from struggler.engine import Engine, Region, Side
 
     engine = Engine(seed=1)
     engine.turn = 10
-    engine.vp = 19  # one region away from the 20 VP auto-victory
+    engine.vp = 19
+    engine.board.influence["Italy"]["US"] = engine.board.countries["Italy"].stability
+    for cid, info in engine.board.countries.items():
+        if info.region is not Region.EUROPE:
+            engine.board.influence[cid]["USSR"] = info.stability
+    engine._finish_game()
+    assert engine.winner is Side.USSR, "every region counts before the winner is decided"
+    assert engine.game_over_reason == "final_vp"
+    assert engine.vp == -37
+    assert engine.final_scoring_ran
+
+
+def test_final_scoring_is_recorded_even_when_it_ends_on_another_reason():
+    """How often a game goes the distance is a calibration input (it sets
+    `public_cards.FINAL_SCORING_ODDS`), and it was read off the end reason.
+    But Final Scoring can end at 'europe_control' before the other regions
+    are scored, or leave a draw with no reason at all, and each of those is a
+    game that reached Final Scoring and was not counted."""
+    from struggler.engine import Engine, Region, Side
+
+    engine = Engine(seed=1)
+    engine.turn = 10
+    engine.vp = 19  # past 20 once Europe scores, and no longer a victory there
     for cid, info in engine.board.countries.items():
         if info.region is not Region.EUROPE:
             engine.board.influence[cid]["US"] = info.stability
     engine._finish_game()
     assert engine.winner is Side.US
-    assert engine.game_over_reason == "vp", "ended before the last region was scored"
+    assert engine.game_over_reason == "final_vp", "not 'vp': no auto-victory in Final Scoring"
     assert engine.final_scoring_ran
 
     # A draw ends with no reason at all, and still reached Final Scoring.

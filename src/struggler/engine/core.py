@@ -753,10 +753,21 @@ class Engine:
         # Europe first, whatever order `Region` happens to list it in:
         # Control of Europe is an automatic victory at Final Scoring too, and
         # it takes precedence over VP scored anywhere else.
+        #
+        # 10.3.2 draws the line between the two automatic victories here:
+        # "Reaching 20 VPs does not result in Automatic Victory during
+        # scoring at the end of turn 10; however, Control of Europe does
+        # grant automatic victory to the controlling player, regardless of
+        # scoring elsewhere. Once all regions have been scored, victory goes
+        # to the player who has accrued most VPs." Stopping at 20 handed the
+        # game to whoever a partial total happened to favour: a US player on
+        # +19 controlling Italy won at +23 after Europe, on a board whose
+        # full regional total was -37.
         for region in (Region.EUROPE, *(r for r in Region if r is not Region.EUROPE)):
-            self._change_vp_by(self._score_region_net(region))
-            if self.is_terminal:  # Europe control, or a VP-20 swing, ends it here
+            net = self._score_region_net(region)
+            if self.is_terminal:  # Control of Europe, and nothing else
                 return
+            self._change_vp_by(net, auto_victory=False)
         if self.vp > 0:
             self._win(Side.US, "final_vp")
         elif self.vp < 0:
@@ -2229,10 +2240,19 @@ class Engine:
     def _award_vp(self, side: Side, amount: int) -> None:
         self._change_vp_by(amount if side is Side.US else -amount)
 
-    def _change_vp_by(self, net: int) -> None:
+    def _change_vp_by(self, net: int, auto_victory: bool = True) -> None:
+        """Move the VP track by `net`, ending the game at +/-20 unless
+        `auto_victory` is off.
+
+        It is off for exactly one caller: Final Scoring. "Reaching 20 VPs
+        does not result in Automatic Victory during scoring at the end of
+        turn 10" (10.3.2) -- every region is scored and only then does
+        victory go to whoever has the most."""
         if net:
             self.log.debug("T%d AR%d VP %+d -> %+d", self.turn, self.action_round, self.vp, self.vp + net)
         self.vp += net
+        if not auto_victory:
+            return
         if self.vp >= RULES["vp_to_win"]:
             self._win(Side.US, "vp")
         elif self.vp <= -RULES["vp_to_win"]:

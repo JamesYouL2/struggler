@@ -205,6 +205,16 @@ action = bot.choose_action(observation, history)
   manufacture the situation: it takes the kill when the opponent hands it
   over, but nothing in the policy steers toward a DEFCON 2 where the
   opponent is holding one of those cards.
+- Values a hand card *inside* a hand term with a deliberately shallow rule
+  (`_shallow_event_value`): the flat estimate for anything that could
+  recurse, the full value for everything else. The hand terms are mutually
+  recursive by nature -- Ask Not prices the hand, which holds Five Year
+  Plan, which prices the hand -- and a cycle breaker that caches whichever
+  card it reached first makes the answer depend on the order legal actions
+  happen to be enumerated in. It did: reversing the options moved Ask Not by
+  170 raw units. An event the engine says cannot occur here is worth nothing
+  (`_event_eligible`), asked of `EVENTS[...].eligible` rather than
+  reimplemented.
 - Prices the hidden-information cards from what a card in a hand is worth
   (`hold_value`: a scoring card scores its region, anything else is played,
   so an opponent event carries its harm and a card you would rather not
