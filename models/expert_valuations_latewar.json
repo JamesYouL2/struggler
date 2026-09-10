@@ -40,6 +40,32 @@
       "Terrorism": {
         "ops": 1.75,
         "note": "1.5 is liked, 2 is slightly better; swingy on win percentage and stronger for the US. Recorded at 1.75 as the midpoint of a stated range, not a precise figure. Claude's estimate was 1.5."
+      },
+      "Latin_American_Debt_Crisis": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "a country can be flipped": 2.5,
+          "otherwise": 0.0
+        },
+        "note": "Often basically 0. Claude's estimate was a flat 2.5, i.e. the best case as the base."
+      },
+      "Ortega_Elected_in_Nicaragua": {
+        "ops": 0.5,
+        "board_dependent": true,
+        "schedule": {
+          "US has no Influence in Cuba": 0.5,
+          "US has Influence in Cuba": "DEFCON suicide"
+        },
+        "note": "Basically never evented by the USSR. Claude's estimate was 2.5 -- the free Coup priced without its DEFCON cost."
+      },
+      "Marine_Barracks_Bombing": {
+        "ops": 2.5,
+        "note": "Generally better as the event, and a strong headline. Claude's estimate was 2.0."
+      },
+      "Yuri_and_Samantha": {
+        "ops": 1.5,
+        "note": "Claude's estimate was 1.5, right."
       }
     }
   },
@@ -57,23 +83,48 @@
           "not active": 0.0
         },
         "note": "Its value is the best card in the discard pile, so it cannot be a constant. Claude's estimate was a flat 2.0 -- wrong shape and low."
+      },
+      "Tear_Down_This_Wall": {
+        "ops": 5.0,
+        "note": "Claude's estimate was 4.0, low again."
+      },
+      "Soviets_Shoot_Down_KAL_007": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "depends on Korea": "unquantified"
+        },
+        "note": "Board-dependent on Korea. Claude's estimate was a flat 3.5."
+      },
+      "The_Iron_Lady": {
+        "ops": 0.5,
+        "note": "The Argentina Influence point is worth more than cancelling Socialist Governments, unless you must play Soc Gov as the US for Ops, or know the US must. Claude's estimate was 3.0 -- the largest overestimate so far, from pricing a cancellation that usually never matters."
+      },
+      "North_Sea_Oil": {
+        "ops": 1.75,
+        "note": "1.5 to 2. Claude's estimate was 2.5, slightly high."
+      },
+      "An_Evil_Empire": {
+        "ops": 1.5,
+        "ops_with_bonus": 2.5,
+        "condition": "Flower Power is active, so the cancellation bites",
+        "note": "Claude's estimate was 2.5, i.e. the bonus case taken as the base -- the same error as Glasnost."
+      },
+      "Solidarity": {
+        "ops": null,
+        "board_dependent": true,
+        "schedule": {
+          "John Paul II active and it breaks Poland": "good",
+          "otherwise": "unquantified"
+        },
+        "note": "Conditional on John Paul II and on actually breaking Poland."
       }
     }
   },
   "_pending": [
-    "An_Evil_Empire",
-    "North_Sea_Oil",
-    "Solidarity",
-    "Tear_Down_This_Wall",
-    "The_Iron_Lady",
-    "Soviets_Shoot_Down_KAL_007",
     "Iran_Contra_Scandal",
     "Iran_Iraq_War",
-    "Latin_American_Debt_Crisis",
-    "Marine_Barracks_Bombing",
-    "Ortega_Elected_in_Nicaragua",
-    "Reagan_Bombs_Libya",
-    "Yuri_and_Samantha"
+    "Reagan_Bombs_Libya"
   ],
   "_late_war_note": "The maintainer: Late War values are the most conditional on **win probability** of any period. A card's worth depends on whether you are ahead, behind, or close, more than on the board it acts on. The bot has no notion of win probability at all -- it has banked VP, board value and a flat GAME_SWING_VP -- so a single number per Late War card is the wrong shape for most of them, and the fixture should expect schedules or conditions rather than constants.",
   "NEUTRAL": {
@@ -94,5 +145,6 @@
         "note": "Recorded verbatim. Claude could not confirm the direction: the card hands the opponent 6 VP, so it reads as a card you play when *ahead*, which would make its value rise with win probability rather than fall. Ask before encoding. Claude's estimate was 0.0 flat, which at least had the 'not a constant' part right."
       }
     }
-  }
+  },
+  "_context_scaling": "The maintainer's rule, and the most useful thing in this file: **context-dependence scales with the turn.** Early War values are the least context-specific, Mid War in between, Late War the most, because more turns played means more state that a value can hang on. That is why an opening-board fixture of constants works for the Early War and fails for the Late War, and it means the Late War table will never be a list of numbers."
 }
