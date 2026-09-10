@@ -1884,3 +1884,112 @@ anything while a gate runs"), in a new dress. The warning needs widening:
 process, interleaved, on the same inputs.** Two runs of the same script at
 two revisions is not an A/B, it is two anecdotes. Neither is a per-game
 average from two gates that shared the machine with different work.
+
+## 2026-09-10 — The bugs this repo actually gets, and what would stop them
+
+Read back over every `fix(...)` commit and the incidents in this file. The
+defects are not random: eight shapes account for nearly all of them, and
+six of the eight have recurred. Listed by how often they have bitten, with
+the practice that would have caught each. This is the list to design
+against, not a generic checklist.
+
+### 1. A cached value keyed on less state than it reads (six times)
+
+`7cb9fbe` two evaluator memos ignoring neighbouring influence; `9d9890f`
+valuing only the countries an event touched; the rollout cache not syncing
+the board; MCTS leaves inheriting the last ranking's context; the
+`_event_basis` surviving across decisions; and tonight the VP price, where
+`coup -> vp_value -> ops_value -> coup` made one Op worth 28.43 or 27.78
+depending only on which arm of the ranking asked first.
+
+**The practice: an order-independence property test.** Every one of these
+is the same assertion -- *evaluating the same position twice, in different
+orders, gives the same numbers*. That is a property test over the corpus
+positions and it is cheap. The pure-function extraction into `evaluator.py`
+was the right structural move and did not stop instance six, because the
+cycle was in the stateful wrapper. **Nothing may be memoised until this
+test exists**, and the planner memoisation is next in the queue.
+
+### 2. A sentinel used as a number (four times)
+
+`LOSS = -1e6` means "certain defeat", and it has escaped into arithmetic
+through `ops_value`, `_resolve_sandbox`, `hold_value`, and dice averaging
+(`0.4167 * LOSS`). Each time the fix was another clamp.
+
+**The practice: make it unrepresentable.** A separate type -- `Certain`
+versus a float price -- so the type checker refuses the mean of a hand
+containing defeat. Codex proposed this independently. Clamps are a fourth
+patch on a design that invites the mistake.
+
+### 3. The measurement comparing something against itself (five times)
+
+`871b170` snapshotting two files instead of the package; the gate running
+against a dirty working tree; counting the opponent's nuclear losses as
+the candidate's; drawing unplayed seeds from the wrong sample; and tonight
+the package loader, where a baseline would have bound the candidate's
+submodules.
+
+**The practice: negative controls.** A test for an isolation mechanism is
+worthless unless it fails when the mechanism is removed. Tonight's first
+attempt at one passed either way, and only checking that revealed I was
+testing the wrong half. Also worth keeping: the "standard error of exactly
+zero" alarm, which is a cheap tell that two things are identical when they
+should not be.
+
+### 4. Two implementations of one rule, drifting (three times)
+
+`cddb7a0` three copies of region scoring, only one of which knew about the
+scoring overrides; two Ops estimates, one for card choice and one for the
+Ops-type branch; and the invariant checker, where the copy in the property
+tests was silently the weaker.
+
+**The practice: derive, then prove equality exhaustively.**
+`test_coup_forbidden_matches_the_engine_under_every_prohibition` walks all
+32 flag combinations against the engine's own answer, and asserts each
+prohibition fired at least once. That is the pattern to copy whenever the
+bot mirrors an engine rule.
+
+### 5. A silent fallback hiding a defect (twice, and it paid off once)
+
+`event_value` caught every exception and substituted a plausible estimate,
+so a programming error read as an approximation. `b5466cc` made unexpected
+failures a warning and recorded them. **That fix caught tonight's bug**:
+the Military Ops sandbox credit read a variable that is an evaluator index
+rather than a `Side`, and every sandboxed event fell back silently until
+the warning said otherwise.
+
+**The practice: distinguish "unsupported" from "broken" at the type level**
+and never let the second be quiet.
+
+### 6. A number on the wrong scale (four times)
+
+VP priced at 0.14 Ops; the event estimate at 0.02-0.06 Ops; the DEFCON
+prior at seven times its measured rate; Military Ops at an eighth of a VP.
+Each was a hand-set constant sitting next to quantities on a different
+scale.
+
+**The practice: units in the name, and one conversion point.** Every
+weight should say what it multiplies. `military` is now a multiplier on a
+VP, not a raw number, and reads that way.
+
+### 7. Timing measured under uncontrolled conditions (three times)
+
+"Never time anything while a gate runs" was already in this file, and I
+did it anyway, twice tonight: a 3x slowdown that was contention, and a
+3.7x speedup that was two runs at different revisions.
+
+**The practice: both arms in one process, interleaved, same inputs.**
+Anything else is two anecdotes.
+
+### 8. A test that encodes the defect as the contract (twice)
+
+`test_mutation_can_be_restricted_to_named_weights` asserted that *every*
+weight changes under a default mutation, which is exactly the bug -- the
+disabled terms were being switched on. The parity test that expected a
+`vp` ending partway through Final Scoring preserved a rules defect the
+same way.
+
+**The practice: assert intent, not observed output.** When a test is
+written to pin current behaviour rather than desired behaviour, say so in
+its name or docstring so the next reader knows it is a characterisation
+test and not a specification.

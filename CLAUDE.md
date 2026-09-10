@@ -50,7 +50,7 @@ the tests.
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
 
-## Two things that have bitten this codebase before
+## Things that have bitten this codebase before
 
 - **Check `tests/conftest.py` before writing a test helper.** A
   near-duplicate invariant checker copy-pasted across test files once let a
@@ -58,6 +58,10 @@ the tests.
 - **Don't re-derive placement legality from the live board mid-Ops-spend.**
   Rule 6.1.1 freezes reachability at the start of the action round; see the
   reachability section of `docs/ARCHITECTURE.md`.
+- **The full list, with the practice that stops each, is
+  `docs/CLAUDE_NOTES.md` "The bugs this repo actually gets".** Eight
+  shapes; six have recurred. Read it before adding a cache, a sentinel, a
+  fallback, or a second copy of a rule.
 - **Don't memoise an evaluation term on less state than it reads.** This has
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored
