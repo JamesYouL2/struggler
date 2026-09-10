@@ -70,11 +70,27 @@ cd "$SNAP"
 export PYTHONPATH=src
 echo "== 1. turn-1 table (seed ${SEEDS%%-*})"
 $PY -m struggler.bots.benchmark --table --seeds "$SEEDS" | tee "$OUT/table.txt"
-summ() { $PY -c "import sys,json; d=json.loads(sys.stdin.read()); print({k:d[k] for k in ('score','mean_signed_vp','mean_total','nuclear_losses') if k in d})"; }
+# A benchmark step that dies used to surface as a JSONDecodeError from this
+# summariser, with the actual traceback already discarded to /dev/null -- so
+# "the gate crashed" was indistinguishable from "the gate disagreed", and the
+# reason was gone. Every step now keeps its stderr in $OUT and `summ` names
+# the file when it is handed no JSON. A crash is a verdict: the run is not a
+# dead heat, it is unmeasured, and it exits non-zero saying so.
+summ() {  # summ <step-name>
+  local step=$1 out
+  out=$(cat)
+  if [ -z "$out" ]; then
+    echo "GATE FAILED: step $step produced no result -- it crashed or was killed."
+    echo "  stderr: $OUT/$step.err"
+    tail -n 20 "$OUT/$step.err" 2>/dev/null | sed 's/^/  | /'
+    exit 3
+  fi
+  printf '%s\n' "$out" | $PY -c "import sys,json; d=json.loads(sys.stdin.read()); print({k:d[k] for k in ('score','mean_signed_vp','mean_total','nuclear_losses') if k in d})"
+}
 echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
 echo "== 2. turn-3 checkpoint vs $BASE"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3
 echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 # One pool over both samples, not two runs. Two pools drained in sequence pay
 # the slowest game's tail twice, and --decide can only stop a run that has
@@ -82,10 +98,10 @@ echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE \
-   --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>/dev/null | summ
+   --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
 if [ "${GATE_ANCHOR:-0}" = "1" ]; then
   echo "== 3c. full games vs pre-session $OLD"
-  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ
+  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
 fi
 echo "== 4. acceptance"
 STATUS=0
