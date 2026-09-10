@@ -12,10 +12,17 @@ instrument that sees either.
 
 ## Part A -- calibration boards
 
-Real boards with the scoring cards still live. Every Battleground row
-is pre-filled with what the bot believes today, converted to VP.
-**Correct the ones that are wrong and leave the rest.** The residual
-is what gets fitted.
+Real boards at the calibration point, with the scoring cards still
+live. **This is not a table to fill in.** Each board asks a handful
+of specific questions, each one a group of Battlegrounds the bot has
+collapsed to a single number, with only those countries shown. Order
+them and say how far apart the ends are; a line each is enough, and
+skipping any is fine.
+
+A first version asked for a VP figure against all 26 Battlegrounds on
+a full board, which was too much to look at. Comparisons are easier
+to answer than absolutes and pin the same constants, since the
+region-margin function is made of differences.
 
 *A board with all seven scoring cards still live at turn 4 is uncommon: 2 of 9 seeds qualified, the rest having already played one or two (seed 4000: 6 live, seed 4001: 5 live, seed 4003: 6 live, seed 4004: 6 live, seed 4005: 6 live, seed 4006: 5 live). Worth knowing, since the calibration point assumes a board that most games have already left.*
 
@@ -25,6 +32,8 @@ is what gets fitted.
 - Military Ops: US 0, USSR 0
 - Space race: US 1, USSR 0
 - Scoring still live (7 of 7): Europe, Asia, Middle East, Africa, Central America, South America, Southeast Asia
+
+<details><summary>The full board (only needed if a question depends on something outside it)</summary>
 
 ```
 EUROPE
@@ -76,37 +85,87 @@ SOUTH_AMERICA
   *Venezuela              US 2  SU 0  (stab 2) [US]
 ```
 
-| Battleground | Region | Holder | Bot says (VP) | Your VP | Note |
-| --- | --- | --- | ---: | ---: | --- |
-| France | Europe | US | 0.4 |  |  |
-| Italy | Europe | US | 0.5 |  |  |
-| West_Germany | Europe | US | 0.5 |  |  |
-| East_Germany | Europe | USSR | -0.4 |  |  |
-| Poland | Europe | USSR | -0.4 |  |  |
-| Pakistan | Asia | USSR | -0.4 |  |  |
-| India | Asia | USSR | -0.5 |  |  |
-| Japan | Asia | -- | 0.1 |  |  |
-| South_Korea | Asia | USSR | -0.4 |  |  |
-| North_Korea | Asia | USSR | -0.4 |  |  |
-| Thailand | Asia | USSR | -0.7 |  |  |
-| Libya | Middle East | US | 0.4 |  |  |
-| Egypt | Middle East | USSR | -0.4 |  |  |
-| Israel | Middle East | -- | 0.1 |  |  |
-| Iraq | Middle East | USSR | -0.4 |  |  |
-| Iran | Middle East | -- | -0.1 |  |  |
-| Saudi_Arabia | Middle East | -- | 0.0 |  |  |
-| Algeria | Africa | US | 0.5 |  |  |
-| Nigeria | Africa | USSR | -0.5 |  |  |
-| Zaire | Africa | USSR | -0.6 |  |  |
-| Angola | Africa | US | 0.7 |  |  |
-| South_Africa | Africa | -- | 0.1 |  |  |
-| Mexico | Central America | -- | 0.0 |  |  |
-| Panama | Central America | US | 0.4 |  |  |
-| Cuba | Central America | USSR | -0.4 |  |  |
-| Chile | South America | -- | 0.0 |  |  |
-| Argentina | South America | -- | 0.0 |  |  |
-| Brazil | South America | -- | 0.0 |  |  |
-| Venezuela | South America | US | 0.5 |  |  |
+</details>
+
+The bot values every Battleground on this board between **-0.7** and **+0.7 VP** -- a total spread of 1.3 VP across the whole map. Each question below is a group it has collapsed to one number. **Order them and say roughly how far apart the ends are.** One line each; skip any you do not care about.
+
+**Q1. The bot prices these 8 equally, at -0.4 VP.**
+
+```
+  East_Germany       Europe           US 0  SU 3  stab 3  held by USSR
+  Poland             Europe           US 0  SU 3  stab 3  held by USSR
+  Pakistan           Asia             US 2  SU 4  stab 2  held by USSR
+  South_Korea        Asia             US 1  SU 4  stab 3  held by USSR
+  North_Korea        Asia             US 1  SU 4  stab 3  held by USSR
+  Egypt              Middle East      US 1  SU 3  stab 2  held by USSR
+  Iraq               Middle East      US 1  SU 4  stab 3  held by USSR
+  Cuba               Central America  US 0  SU 3  stab 3  held by USSR
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q2. The bot prices these 5 equally, at +0.0 VP.**
+
+```
+  Saudi_Arabia       Middle East      US 0  SU 0  stab 3  held by nobody
+  Mexico             Central America  US 0  SU 0  stab 2  held by nobody
+  Chile              South America    US 0  SU 0  stab 3  held by nobody
+  Argentina          South America    US 0  SU 0  stab 2  held by nobody
+  Brazil             South America    US 0  SU 0  stab 2  held by nobody
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q3. The bot prices these 4 equally, at +0.5 VP.**
+
+```
+  Italy              Europe           US 4  SU 0  stab 2  held by US
+  West_Germany       Europe           US 6  SU 0  stab 4  held by US
+  Algeria            Africa           US 2  SU 0  stab 2  held by US
+  Venezuela          South America    US 2  SU 0  stab 2  held by US
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q4. The bot prices these 3 equally, at +0.1 VP.**
+
+```
+  Japan              Asia             US 1  SU 0  stab 4  held by nobody
+  Israel             Middle East      US 1  SU 0  stab 4  held by nobody
+  South_Africa       Africa           US 1  SU 0  stab 3  held by nobody
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q5. The bot prices these 3 equally, at +0.4 VP.**
+
+```
+  France             Europe           US 4  SU 0  stab 3  held by US
+  Libya              Middle East      US 2  SU 0  stab 2  held by US
+  Panama             Central America  US 2  SU 0  stab 2  held by US
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q6. The bot prices these 2 equally, at -0.5 VP.**
+
+```
+  India              Asia             US 0  SU 3  stab 3  held by USSR
+  Nigeria            Africa           US 0  SU 1  stab 1  held by USSR
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q7. The whole map spans 1.3 VP.** What should the spread between the most and least valuable Battleground on this board be?
+
+> 
+
 
 > Anything else about this board that changes the numbers:
 
@@ -117,6 +176,8 @@ SOUTH_AMERICA
 - Military Ops: US 0, USSR 0
 - Space race: US 0, USSR 0
 - Scoring still live (7 of 7): Europe, Asia, Middle East, Africa, Central America, South America, Southeast Asia
+
+<details><summary>The full board (only needed if a question depends on something outside it)</summary>
 
 ```
 EUROPE
@@ -162,37 +223,77 @@ SOUTH_AMERICA
    Colombia               US 1  SU 0  (stab 1) [US]
 ```
 
-| Battleground | Region | Holder | Bot says (VP) | Your VP | Note |
-| --- | --- | --- | ---: | ---: | --- |
-| France | Europe | -- | 0.3 |  |  |
-| Italy | Europe | USSR | -0.6 |  |  |
-| West_Germany | Europe | US | 0.7 |  |  |
-| East_Germany | Europe | USSR | -0.7 |  |  |
-| Poland | Europe | USSR | -0.6 |  |  |
-| Pakistan | Asia | USSR | -0.6 |  |  |
-| India | Asia | US | 0.7 |  |  |
-| Japan | Asia | US | 0.7 |  |  |
-| South_Korea | Asia | -- | 0.0 |  |  |
-| North_Korea | Asia | USSR | -0.7 |  |  |
-| Thailand | Asia | USSR | -1.0 |  |  |
-| Libya | Middle East | -- | 0.0 |  |  |
-| Egypt | Middle East | USSR | -0.8 |  |  |
-| Israel | Middle East | -- | -0.1 |  |  |
-| Iraq | Middle East | -- | 0.0 |  |  |
-| Iran | Middle East | USSR | -0.6 |  |  |
-| Saudi_Arabia | Middle East | -- | 0.0 |  |  |
-| Algeria | Africa | -- | 0.0 |  |  |
-| Nigeria | Africa | US | 0.7 |  |  |
-| Zaire | Africa | USSR | -0.8 |  |  |
-| Angola | Africa | US | 0.9 |  |  |
-| South_Africa | Africa | -- | 0.1 |  |  |
-| Mexico | Central America | -- | 0.0 |  |  |
-| Panama | Central America | -- | 0.2 |  |  |
-| Cuba | Central America | USSR | -0.6 |  |  |
-| Chile | South America | -- | 0.0 |  |  |
-| Argentina | South America | -- | 0.0 |  |  |
-| Brazil | South America | -- | 0.0 |  |  |
-| Venezuela | South America | -- | 0.0 |  |  |
+</details>
+
+The bot values every Battleground on this board between **-1.0** and **+0.9 VP** -- a total spread of 1.8 VP across the whole map. Each question below is a group it has collapsed to one number. **Order them and say roughly how far apart the ends are.** One line each; skip any you do not care about.
+
+**Q1. The bot prices these 10 equally, at +0.0 VP.**
+
+```
+  South_Korea        Asia             US 1  SU 1  stab 3  held by nobody
+  Libya              Middle East      US 0  SU 0  stab 2  held by nobody
+  Iraq               Middle East      US 1  SU 1  stab 3  held by nobody
+  Saudi_Arabia       Middle East      US 0  SU 0  stab 3  held by nobody
+  Algeria            Africa           US 0  SU 0  stab 2  held by nobody
+  Mexico             Central America  US 0  SU 0  stab 2  held by nobody
+  Chile              South America    US 0  SU 0  stab 3  held by nobody
+  Argentina          South America    US 0  SU 0  stab 2  held by nobody
+  Brazil             South America    US 0  SU 0  stab 2  held by nobody
+  Venezuela          South America    US 0  SU 0  stab 2  held by nobody
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q2. The bot prices these 5 equally, at -0.6 VP.**
+
+```
+  Italy              Europe           US 0  SU 2  stab 2  held by USSR
+  Poland             Europe           US 0  SU 4  stab 3  held by USSR
+  Pakistan           Asia             US 1  SU 3  stab 2  held by USSR
+  Iran               Middle East      US 2  SU 4  stab 2  held by USSR
+  Cuba               Central America  US 0  SU 3  stab 3  held by USSR
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q3. The bot prices these 4 equally, at +0.7 VP.**
+
+```
+  West_Germany       Europe           US 5  SU 0  stab 4  held by US
+  India              Asia             US 3  SU 0  stab 3  held by US
+  Japan              Asia             US 4  SU 0  stab 4  held by US
+  Nigeria            Africa           US 5  SU 0  stab 1  held by US
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q4. The bot prices these 2 equally, at -0.8 VP.**
+
+```
+  Egypt              Middle East      US 0  SU 3  stab 2  held by USSR
+  Zaire              Africa           US 0  SU 2  stab 1  held by USSR
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q5. The bot prices these 2 equally, at -0.7 VP.**
+
+```
+  East_Germany       Europe           US 0  SU 4  stab 3  held by USSR
+  North_Korea        Asia             US 0  SU 3  stab 3  held by USSR
+```
+
+> Order (best first), and the spread from best to worst:
+
+
+**Q6. The whole map spans 1.8 VP.** What should the spread between the most and least valuable Battleground on this board be?
+
+> 
+
 
 > Anything else about this board that changes the numbers:
 

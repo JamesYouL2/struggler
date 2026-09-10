@@ -95,29 +95,94 @@ def scoring_left(engine: Engine) -> list[str]:
     return [c for c in SCORING if c not in gone]
 
 
-def battleground_table(engine: Engine, side: Side) -> str:
-    """Every Battleground, with the bot's own valuation converted to VP.
+def battleground_values(engine: Engine, side: Side) -> dict:
+    """Every Battleground's value to `side`, converted to VP.
 
     `country_value` is in board units where one Op is worth roughly 28, so
-    it is divided by the bot's price of a VP to land on a scale the
-    maintainer can answer in.
+    it is divided by the bot's price of a VP to land on a scale a person can
+    answer in.
     """
     obs = engine.observe(side)
     bot = StrategicPlayer(StrategicWeights())
     bot.rank_actions(obs)
     vp = bot.vp_value(obs) or 1.0
-    lines = ['| Battleground | Region | Holder | Bot says (VP) | Your VP | Note |',
-             '| --- | --- | --- | ---: | ---: | --- |']
+    out = {}
     for region in REGION_ORDER:
         for cid, info in engine.board.countries.items():
-            if info.region is not region or not info.battleground:
-                continue
-            ctrl = engine.board.control(cid)
-            holder = 'US' if ctrl is Side.US else 'USSR' if ctrl is Side.USSR else '--'
-            worth = bot.country_value(bot.board, cid, side) / vp
-            lines.append(f'| {cid} | {region.name.title().replace("_"," ")} | {holder} '
-                         f'| {worth:.1f} |  |  |')
-    return '\n'.join(lines)
+            if info.region is region and info.battleground:
+                out[cid] = (bot.country_value(bot.board, cid, side) / vp, region)
+    return out
+
+
+def _slice(engine: Engine, countries) -> list[str]:
+    """The board, but only the countries a question is about -- so the
+    question can be answered without scrolling back to a 60-line board."""
+    rows = []
+    for cid in countries:
+        info = engine.board.countries[cid]
+        inf = engine.board.influence[cid]
+        ctrl = engine.board.control(cid)
+        who = 'US' if ctrl is Side.US else 'USSR' if ctrl is Side.USSR else 'nobody'
+        rows.append(f'  {cid:18} {info.region.name.title().replace("_"," "):16} '
+                    f'US {inf["US"]}  SU {inf["USSR"]}  stab {info.stability}  '
+                    f'held by {who}')
+    return rows
+
+
+def calibration_questions(engine: Engine, side: Side) -> list[str]:
+    """Specific questions, not a table.
+
+    The first version of Part A asked for a VP number against all 26
+    Battlegrounds on a full board. The maintainer: "super, super hard, too
+    much to take a look at. Need more specific questions there." They were
+    right, and the fix is not a shorter table -- it is a different question.
+
+    People price *comparisons* far more easily than absolutes, and the
+    places worth asking about are the ones where the bot says two obviously
+    different Battlegrounds are worth the same. So: find the clusters the
+    bot has collapsed, show only those countries, and ask for an order and a
+    spread. Each answer pins a difference, which is what the region-margin
+    function is made of.
+    """
+    vals = battleground_values(engine, side)
+    clusters = {}
+    for cid, (v, region) in vals.items():
+        clusters.setdefault(round(v, 1), []).append((cid, region))
+    interesting = [(v, cs) for v, cs in sorted(clusters.items())
+                   if len(cs) >= 2 and len({r for _, r in cs}) >= 2]
+
+    lo, hi = min(v for v, _ in vals.values()), max(v for v, _ in vals.values())
+    out = [f'The bot values every Battleground on this board between **{lo:+.1f}** '
+           f'and **{hi:+.1f} VP** -- a total spread of {hi-lo:.1f} VP across the '
+           f'whole map. Each question below is a group it has collapsed to one '
+           f'number. **Order them and say roughly how far apart the ends are.** '
+           f'One line each; skip any you do not care about.', '']
+
+    n = 0
+    for v, cs in sorted(interesting, key=lambda kv: -len(kv[1])):
+        n += 1
+        out += [f'**Q{n}. The bot prices these {len(cs)} equally, at {v:+.1f} VP.**',
+                '', '```'] + _slice(engine, [c for c, _ in cs]) + ['```', '',
+                '> Order (best first), and the spread from best to worst:', '', '']
+
+    empty = [c for c, (v, r) in vals.items()
+             if not engine.board.influence[c]['US'] and not engine.board.influence[c]['USSR']]
+    # Skip it when the empty Battlegrounds are already one of the clusters
+    # above -- which they usually are, since they all price at exactly 0.0.
+    asked = {c for _, cs in interesting for c, _ in cs}
+    if empty and not set(empty) <= asked:
+        n += 1
+        out += [f'**Q{n}. These {len(empty)} Battlegrounds are empty and price at '
+                f'exactly 0.0.** You have said a dead Battleground is worth about '
+                f'2.5 VP, scaled to what Control is worth in its region.',
+                '', '```'] + _slice(engine, empty) + ['```', '',
+                '> What is each actually worth, on this board:', '', '']
+
+    n += 1
+    out += [f'**Q{n}. The whole map spans {hi-lo:.1f} VP.** What should the spread '
+            f'between the most and least valuable Battleground on this board be?',
+            '', '> ', '', '']
+    return out
 
 
 def option_lines(record, bot: StrategicPlayer, limit: int = 6) -> list[str]:
@@ -210,10 +275,16 @@ def main(argv=None):
 
     # -- Part A ------------------------------------------------------------
     doc += ['## Part A -- calibration boards', '',
-            'Real boards with the scoring cards still live. Every Battleground row',
-            'is pre-filled with what the bot believes today, converted to VP.',
-            '**Correct the ones that are wrong and leave the rest.** The residual',
-            'is what gets fitted.', '']
+            'Real boards at the calibration point, with the scoring cards still',
+            'live. **This is not a table to fill in.** Each board asks a handful',
+            'of specific questions, each one a group of Battlegrounds the bot has',
+            'collapsed to a single number, with only those countries shown. Order',
+            'them and say how far apart the ends are; a line each is enough, and',
+            'skipping any is fine.', '',
+            'A first version asked for a VP figure against all 26 Battlegrounds on',
+            'a full board, which was too much to look at. Comparisons are easier',
+            'to answer than absolutes and pin the same constants, since the',
+            'region-margin function is made of differences.', '']
 
     # Played fresh: the corpus holds turns 1/3/5/7/9 and the calibration point
     # is turn 4. Seeds are tried in order and only boards with every scoring
@@ -252,9 +323,11 @@ def main(argv=None):
                 f'- Scoring still live ({len(left)} of 7): '
                 + (', '.join(c.replace('_Scoring', '').replace('_', ' ') for c in left) or 'none'),
                 '',
-                '```', render_board(engine), '```', '',
-                battleground_table(engine, Side.US), '',
-                '> Anything else about this board that changes the numbers:', '', '']
+                '<details><summary>The full board (only needed if a question '
+                'depends on something outside it)</summary>', '',
+                '```', render_board(engine), '```', '', '</details>', ''] \
+               + calibration_questions(engine, Side.US) \
+               + ['> Anything else about this board that changes the numbers:', '', '']
 
     # -- Part B ------------------------------------------------------------
     doc += ['## Part B -- decisions', '',
