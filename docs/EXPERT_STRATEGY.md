@@ -11,6 +11,25 @@ International Twilight Struggle Rankings and is the most decorated player
 of the game. Kris "Sankt" Wei is the strongest of the Chinese school, whose
 style is named after him.
 
+**The order to weigh sources in**, as stated by this repo's maintainer, who
+is a top 20 to top 50 player worldwide and writes as *Lastchancexi* on
+Reddit:
+
+1. Sankt and Ziemowit, who are stronger than the maintainer.
+2. The maintainer, whose valuations are what
+   `models/expert_valuations.json` records and what the value function is
+   fitted to.
+3. `twilightstrategy.com`, the Western canon. The maintainer is
+   "definitely stronger" than its author, so it is a reference and not an
+   authority.
+4. The author of this repo's LLM bot prompt, weakest of the four.
+
+The practical rule: when the bot disagrees with the maintainer, the bot is
+wrong. When the maintainer disagrees with `twilightstrategy.com`, prefer
+the maintainer. When Sankt or Ziemowit disagree with the maintainer, raise
+it rather than silently picking a side -- the three disagreements at the
+end of this file are exactly that case.
+
 **Provenance, which matters for how much weight to give this.** The only
 source that could be retrieved is a third-party compilation: a 2017 blog
 post collecting Sankt's forum posts and adding replay analysis, which also
