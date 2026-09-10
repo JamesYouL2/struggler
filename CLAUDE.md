@@ -16,6 +16,7 @@ commit.
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
 | [docs/CLAUDE_NOTES.md](docs/CLAUDE_NOTES.md) | Bot strategy work: the stated principles, their status, and what is open (Claude's notes; Codex's audit is `docs/CODEX_NOTES.md`, the Rust plan `docs/RUST_PORT_PLAN.md`) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
+| [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
 non-negotiable. Code referring to "mandate #3" means that list. An

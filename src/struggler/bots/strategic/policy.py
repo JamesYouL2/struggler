@@ -43,7 +43,53 @@ from struggler.bots.greedy import (
 )
 
 CARDS = load_cards()
-LOSS = -1_000_000.0
+class Certain(float):
+    """A certain outcome, not a price.
+
+    `LOSS` has escaped into arithmetic four times -- `ops_value`,
+    `_resolve_sandbox` (`0.4167 * LOSS`, fifteen thirty-sixths of a magic
+    number), `hold_value`, and `_hand_upgrade_value` -- and each time the
+    fix was another clamp at another boundary. A clamp is a patch on a
+    design that invites the mistake: a sentinel that is a `float` will be
+    added, averaged and scaled by any code that has not been taught about
+    it yet.
+
+    So it is a `float` for everything that treats it as an *ordering* --
+    comparison, `min`, `max`, `sorted`, `abs`, negation, truthiness, which
+    is what the safety keys and the `max(...)` over targets need -- and it
+    refuses `+`, `-`, `*`, `/` outright. Averaging a hand that contains
+    certain defeat is not a number, and now it raises where it used to
+    return one. Negation gives the certain *win*, so `-LOSS` keeps
+    working and stays marked.
+    """
+
+    def _refuse(self, *_args):
+        raise TypeError(
+            'a certain outcome is an ordering flag, not a price: bound it '
+            'with game_value() before arithmetic (see the LOSS escapes in '
+            'docs/CLAUDE_NOTES.md)')
+
+    __add__ = __radd__ = __sub__ = __rsub__ = _refuse
+    __mul__ = __rmul__ = __truediv__ = __rtruediv__ = _refuse
+    __floordiv__ = __rfloordiv__ = __mod__ = __rmod__ = _refuse
+
+    def __neg__(self):
+        return Certain(-float(self))
+
+    def __abs__(self):
+        return Certain(abs(float(self)))
+
+    def __repr__(self):
+        return f'Certain({float(self)!r})'
+
+
+LOSS = Certain(-1_000_000.0)
+
+
+def is_certain(value: float) -> bool:
+    """Whether `value` is a certain outcome rather than a price. Ask this
+    before combining a value with anything else."""
+    return abs(value) >= -LOSS
 # What winning or losing the game is worth, in VP: the whole track, -20 to
 # +20. `LOSS` stays the sentinel for a *certain* outcome, which no amount of
 # board value should buy; this is the finite figure a *probabilistic* one is
@@ -575,6 +621,12 @@ class StrategicPlayer:
                 # this by `(1-1)*score - 1*game_value`; it has to be said
                 # explicitly now that the coefficient is the residual.
                 return (certain, 0.0, -self.game_value(obs))
+            if is_certain(score):
+                # A certain *win* is not a price either. Scaling it by
+                # `(1 - residual)` is the same fifteen-thirty-sixths-of-a-
+                # magic-number mistake as the losing side, mirrored; it
+                # already outranks every blended score, so pass it through.
+                return (certain, 0.0, score)
             residual = (risk - immediate) / (1 - immediate) if immediate < 1 else 0.
             residual = max(0., min(1., residual))  # a headline blends two DEFCONs; keep it a probability
             return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs))
@@ -1761,7 +1813,18 @@ class StrategicPlayer:
         unless this is the card UN Intervention is kept for) or, for our own
         and neutral cards, its event if that is better."""
         opponents = CARDS[cid].side.value == obs.side.opponent.value
-        harm = min(0, event) if opponents and cid != self.un_card(obs) else 0
+        fires = opponents and cid != self.un_card(obs)
+        if is_certain(event):
+            # Certain defeat or certain victory is an ordering flag: pass it
+            # through rather than adding it to an Ops value. `min(0, LOSS)`
+            # then `ops + LOSS` used to be how "this play loses" was said,
+            # which is arithmetic on a number chosen to be unreachable.
+            if fires and event < 0:
+                return event
+            if not opponents and event > 0:
+                return event
+            return self.ops_value(obs, ops)
+        harm = min(0, event) if fires else 0
         value = self.ops_value(obs, ops) + harm
         return value if opponents else max(value, event)
 
@@ -1884,7 +1947,13 @@ class StrategicPlayer:
                 return event
             if p['mode'] == 'space_race':
                 return self.space_value(obs, ops) + 1
-            return self.ops_value(obs, ops) + (min(0, event) if p['mode'] != 'un_intervention' and CARDS[cid].side.value == obs.side.opponent.value else 0)
+            fires = (p['mode'] != 'un_intervention'
+                     and CARDS[cid].side.value == obs.side.opponent.value)
+            if fires and is_certain(event):
+                # Playing it for Ops still fires their event, so a certain
+                # defeat stays certain. Said as a flag, not as `ops + LOSS`.
+                return event if event < 0 else self.ops_value(obs, ops)
+            return self.ops_value(obs, ops) + (min(0, event) if fires else 0)
         if kind is K.WAR_TARGET:
             cid = p['country']
             penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
