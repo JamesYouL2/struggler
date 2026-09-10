@@ -310,3 +310,39 @@ def test_acceptance_counts_a_seed_once_not_once_per_seat():
     from struggler.bots.benchmark import seed_scores
     games = _report(range(4000, 4032), 0.5)['games']
     assert len(games) == 64 and len(seed_scores(games)) == 32
+
+
+def test_a_snapshotted_package_binds_its_own_submodules(tmp_path):
+    """A baseline that is a *package* must import its own submodules, not the
+    candidate's.
+
+    `_SnapshotFinder` used to decline every dotted name, so
+    `struggler.bots.strategic.policy` fell through to normal resolution and
+    answered with the candidate's copy: the baseline would have played half
+    its own code and half the code it was being measured against. Nothing was
+    a package when that was written, and the gate has twice been caught
+    comparing a change with itself, so this is pinned before anything becomes
+    one.
+    """
+    snapshot = tmp_path / 'base'
+    pkg = snapshot / 'strategic'
+    pkg.mkdir(parents=True)
+    (pkg / '__init__.py').write_text(
+        'from struggler.bots.strategic.policy import MARKER\n')
+    (pkg / 'policy.py').write_text("MARKER = 'baseline'\n")
+    # A sibling top-level module in the same snapshot must still shadow too.
+    (snapshot / 'sibling.py').write_text("MARKER = 'baseline-sibling'\n")
+    entry = snapshot / 'entry.py'
+    entry.write_text('from struggler.bots.strategic import MARKER\n'
+                     'from struggler.bots.sibling import MARKER as SIBLING\n')
+
+    from struggler.bots import benchmark
+    loaded = benchmark.load_module(str(entry))
+    assert loaded.MARKER == 'baseline', 'baseline package bound the candidate submodule'
+    assert loaded.SIBLING == 'baseline-sibling'
+
+    # And the candidate's own modules are restored afterwards.
+    import struggler.bots.strategic as live
+    assert getattr(live, 'MARKER', None) is None
+    import sys as _sys
+    assert 'struggler.bots.sibling' not in _sys.modules

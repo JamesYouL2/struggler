@@ -100,19 +100,44 @@ class _SnapshotFinder:
     def __init__(self, directory: str):
         self.directory = directory
 
-    def source_for(self, fullname: str) -> str | None:
+    def source_for(self, fullname: str) -> tuple[str, bool] | None:
+        """The snapshot file backing `fullname`, and whether it is a package.
+
+        A snapshotted *package* resolves to its `__init__.py`, and the spec
+        below gives it `submodule_search_locations` inside the snapshot, so
+        its submodules come from the snapshot too -- that is what the
+        package's own `__path__` is then used for, and it is the part that
+        matters. Without it a baseline `strategic/` package fell through to
+        normal resolution and bound the *candidate's* `strategic`: the
+        baseline would have been measured partly against its own code, the
+        same contamination that twice made a gate compare a change with
+        itself. Pinned by
+        `test_a_snapshotted_package_binds_its_own_submodules`, which fails
+        with package detection removed.
+
+        Dotted names resolve as well, which normal parent-first importing
+        makes redundant in practice; it is kept so a direct import of a
+        submodule cannot find a hole.
+        """
         if not fullname.startswith(self.PREFIX):
             return None
-        stem = fullname[len(self.PREFIX):]
-        if '.' in stem:  # subpackages are not snapshotted
-            return None
-        path = os.path.join(self.directory, stem + '.py')
-        return path if os.path.exists(path) else None
+        relative = fullname[len(self.PREFIX):].split('.')
+        base = os.path.join(self.directory, *relative)
+        init = os.path.join(base, '__init__.py')
+        if os.path.isfile(init):
+            return init, True
+        module = base + '.py'
+        return (module, False) if os.path.isfile(module) else None
 
     def find_spec(self, fullname, path=None, target=None):
         # No imports in here: a finder that imports re-enters itself.
-        source = self.source_for(fullname)
-        return None if source is None else importlib.util.spec_from_file_location(fullname, source)
+        found = self.source_for(fullname)
+        if found is None:
+            return None
+        source, is_package = found
+        return importlib.util.spec_from_file_location(
+            fullname, source,
+            submodule_search_locations=[os.path.dirname(source)] if is_package else None)
 
 
 def load_module(path: str):
@@ -136,8 +161,14 @@ def load_module(path: str):
     directory = os.path.dirname(os.path.abspath(path))
     target = os.path.basename(path)
     finder = _SnapshotFinder(directory)
-    snapshotted = [name[:-3] for name in sorted(os.listdir(directory))
-                   if name.endswith('.py') and name != target and not name.startswith('_')]
+    # Top-level modules *and* packages: a snapshot that contains
+    # `strategic/__init__.py` must shadow the candidate's `strategic`
+    # package, not just its `.py` files.
+    snapshotted = [name[:-3] if name.endswith('.py') else name
+                   for name in sorted(os.listdir(directory))
+                   if name != target and not name.startswith('_')
+                   and (name.endswith('.py')
+                        or os.path.isfile(os.path.join(directory, name, '__init__.py')))]
     if not snapshotted:
         return _exec_file(path, 'struggler_benchmark_' + str(abs(hash(path))))
     import struggler.bots as package
