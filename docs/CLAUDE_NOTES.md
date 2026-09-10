@@ -2186,3 +2186,75 @@ was invisible to an Early War fixture, and the games saw it.
 The design consequence is bigger than the fixture. A single number per
 card is the right shape for the Early War and the wrong shape for the
 Late War, and the bot uses one shape throughout.
+
+### Three corrections that change the roadmap
+
+**Win probability is a parameter, not a nicety.** The maintainer, flatly.
+Nothing in `bots/` represents it: `game_value` is `GAME_SWING_VP * 40` at
+this turn's VP price, whatever the position. So every risk trade the bot
+makes is priced against the same constant whether it is winning by
+fifteen or losing by fifteen -- and Wargames, whose entire worth is the
+uncertainty it removes, cannot be priced at all. This is now the largest
+single structural gap, ahead of the hand planner in the queue's logic
+even if not in its order, because the planner's objective (opponent event
+value against your own) is itself worth different amounts depending on
+whether you are ahead.
+
+**My "hardest card to value" answer was wrong, and instructively.** I
+argued Bear Trap and Quagmire, because their value depends on *future
+draws*. The maintainer: redraws are random and are modelled by an average
+draw; the value should change only with **hand knowledge**, yours and the
+opponent's. So the temporal axis I invented collapses, and Bear Trap sits
+in the same class as Missile Envy and UN Intervention -- a hidden hand,
+not an unknowable future. That is a much smaller and more tractable
+problem than I made it, and it is a modelling instruction: **do not build
+machinery for draw variance; build it for hand belief.**
+
+Which leaves exactly one genuinely missing quantity behind all of these,
+and it is the same one: win probability.
+
+**The China Card is worth about 5 to hold.** The floor is a 2 VP swing,
+which at the Late War rate of 2 Ops per VP is already 4 Ops, and it is
+basically always worth more. The bot charges 4 for playing it (`score`'s
+card branch), which encodes a holding value of 4 -- the right shape, a
+little low.
+
+### Correction: improving DEFCON is usually a gift to the *opponent*
+
+I recorded "acting immediately after a DEFCON improvement is worth an Op"
+and treated it as a benefit to the side that improves it. The sign is
+usually wrong, and the maintainer's Glasnost explanation is why.
+
+The mechanism is not the regional restriction I assumed (8.1.5 geography,
+which never covered Africa anyway). It is that **at DEFCON 2 any
+Battleground Coup ends the game**, so improving to DEFCON 3 makes
+Battleground Coups safe again *everywhere*. The value goes to whoever
+acts next -- and after your own action round, that is your opponent about
+80% of the time.
+
+So Glasnost's base finally adds up: 2 VP to the USSR, worth roughly 4 Ops
+at the Late War rate, **minus** handing the US a free Battleground Coup
+worth about the same. Base 1.0. The arithmetic that would not close was
+missing a cost, not a discount on the VP, and `vp_late` at 2.0 is fine.
+
+Two consequences.
+
+**The bot has this backwards twice over.** It prices a DEFCON improvement
+at 0 (the sandbox measures influence and VP), and my proposed fix would
+have added a *positive* constant for the improver. The correct treatment
+is a transfer: mostly negative for the side that improves DEFCON, positive
+for the side that moves next.
+
+**It is the same shape as Military Ops.** Both are turn-order effects that
+the position evaluator cannot see because they are not on the board, and
+both are worth about a card. That is now two, which suggests looking for
+the rest rather than patching each.
+
+Also from the maintainer, and it belongs in the Battleground table: **a
+free Battleground Coup in the Mid to Late War is worth almost 2 VP by
+itself**, and the proposal is to value Battleground Coups as equal to an
+Africa Battleground (Angola, Zaire, Nigeria). Noting a tension to resolve
+with them: the Sankt-derived table puts an Africa Battleground at ~4 VP,
+so "a Coup is worth almost 2 VP" and "value a Coup as an Africa
+Battleground" differ by about a factor of two unless the second means the
+marginal rather than the total.
