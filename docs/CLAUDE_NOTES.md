@@ -1548,3 +1548,144 @@ list:
   distinguishes `SandboxUnsupported` (debug, expected) from any other
   exception (warning, recorded in `sandbox_failures` where a caller can see
   the value is an estimate). Landed as `b5466cc`.
+
+## 2026-09-10 — MCTS does not replicate, and Military Ops needed a discount
+
+### The 32-seed MCTS run: 0.75 does not replicate, and the search is too thin to be one
+
+Codex and I both wanted this before any native-port discussion, because the
+port's whole case rested on one 8-game reading of 0.75. Run at `5a2f3bb`,
+24 simulations, seeds 4000-4031, both seats, against the plain policy:
+
+| | |
+| --- | ---: |
+| score | 0.547 +/- 0.062 (32 seed pairs) |
+| 95% CI | [0.425, 0.668] |
+| mean total | **-0.58** |
+| nuclear losses | 0 |
+| seconds a game | 650, of which 93% is search |
+
+**The interval contains 0.5 and the mean total is slightly negative.** The
+0.75 was 8 games; it is gone. And the diagnostics say why, which is the
+part worth keeping:
+
+| | |
+| --- | ---: |
+| simulations completed | 24 (always) |
+| tree nodes | median 15 |
+| root moves that got any visit | median 8, max 12 |
+| **visits to the move it chose** | **median 4, min 3** |
+| searches choosing on fewer than 5 visits | 526 of 900, **58%** |
+| truncated rollouts | 0 |
+
+Twenty-four simulations spread over eight to twelve root macros is three or
+four visits each. A UCT root that picks the highest mean over three samples
+is not searching, it is sampling noise, and 58% of decisions are decided
+that way. The honest description of the current prototype is a very
+expensive random tie-break among survival-safe cards.
+
+So the two ways forward are arithmetic, not engineering taste. Either the
+root gets far fewer macros (three or four, not twelve), which is free, or
+the simulation count goes up by an order of magnitude, which at 650 s a
+game is impossible in Python and is the case a native port would have to
+make. **Nothing here supports starting the port.** Narrow the root first
+and re-measure; that experiment costs nothing and would tell us whether
+the leaf and the rollout are any good at all, which this run cannot.
+
+Evidence: `logs/game-check/mcts-32seed-5a2f3bb/`, per-game INFO logs with
+every search dict, summarised by `mcts_report.py` in the session
+scratchpad.
+
+### Military Operations: rule-exact value, and why a flat one VP an Op is wrong
+
+The only model was a credit inside `coup()` of `weights.military * min(ops,
+deficit)`, a flat 2.0 raw against a VP worth ~16 raw on the opening board:
+the requirement was priced at about an eighth of its value. Rule 6.3.5
+leaves nothing to estimate -- a side below the DEFCON level at the end of
+the turn hands the difference over as VP -- so an Op that closes the
+deficit is worth exactly one VP and an Op past it is worth nothing.
+
+Pricing it at a full VP an Op made the fixture **worse**, 23 misses to 26:
+
+| Card | Expert | Flat credit | Discounted |
+| --- | ---: | ---: | ---: |
+| Korean War | -1.00 | -2.07 | -1.10 |
+| Indo-Pakistani War | +0.50 | +1.59 | +0.67 |
+| Arab-Israeli War | -1.78 | -2.33 | -1.42 |
+
+The reason is that early in a turn the credit is not real: some *later*
+card would very likely have covered the requirement anyway, and only the
+Ops that end up uncovered are worth a VP. Spreading the credit over the
+action rounds still to play fixes it, uses the shape the Containment and
+Red Scare riders already use, and introduces no free parameter -- full
+value in the last round, a sixth of it in the first.
+
+Discounted, the three war rows move to 24 misses, and the sum of their
+absolute error is 0.63 against the baseline's 0.64. **So the fixture calls
+this neutral, not an improvement.** The extra "miss" is an ordering check,
+not a value: Arab-Israeli War moving toward its target overtook Suez
+Crisis, which is itself underpriced by 1.27 and already flagged. Keep the
+change because it is rule-exact and the old number was arbitrary, not
+because the table endorses it; the gate decides.
+
+Both call sites -- `coup()` and the event sandbox -- now go through one
+`military_credit`, so they cannot drift. The sandbox half is new: a war
+grants Military Ops to whoever the *event* belongs to, which is not always
+the side playing the card (the US playing Korean War for Ops credits the
+USSR), and the sandbox valued events by board influence and VP alone, so
+that was worth nothing at all before.
+
+Two process notes. The first version read `side` inside `_resolve_sandbox`,
+which is an evaluator index there and not a `Side`; every sandboxed event
+fell back to its estimate. It was loud rather than silent only because
+`b5466cc` made an unexpected sandbox failure a warning -- exactly the case
+that commit was written for. And `coup()` now calls `vp_value`, so it needs
+the per-decision Ops cache that `rank_actions` builds and `prepare` does
+not; every production caller is already inside a ranking, but a test that
+called `prepare` alone crashed, which is worth knowing before someone
+evaluates a coup outside one.
+
+### The free-Coup gate: accepted, and no gain to show for it
+
+`bbebbd8` against `b9f5370`, 76 seeds over both samples (the gate ran as
+`gate-6d33d91`, HEAD having moved on to the docs commits, which touch no
+bot file):
+
+| Sample | Seeds | Score |
+| --- | ---: | ---: |
+| tuning 4000-4031 | 32 | 0.484 |
+| held out 5000-5063 | 44 | 0.500 |
+| pooled | 76 | **0.493 +/- 0.026** |
+
+**ACCEPTED** on the rule that only a measurable regression blocks: the
+one-sided 95% upper bound is 0.536. But read it plainly -- the point
+estimate is a hair *below* even, and the fix bought nothing the games can
+see. Two honest reasons and one thing to check:
+
+- The three cards are Mid War, so they only fire in a subset of games, and
+  the gate's half-width here is 0.05. A change confined to three cards
+  cannot clear that bar even if it is worth something.
+- Taking a free Coup is not free: it degrades DEFCON on a Battleground.
+  The bot now takes Coups it used to decline, so some of the value is
+  spent on DEFCON.
+- One candidate nuclear loss, seed 4015 US T8, and the evidence says look
+  at it rather than shrug. **That seat has appeared in 34 recorded gates
+  and never once ended at DEFCON 1**; it ends on VP, Wargames or final
+  scoring. It is a seat the bot loses every single time (result 0.0 in all
+  34), so this costs nothing in score, but the mechanism is new and the
+  change is the obvious suspect.
+
+  Against that suspicion: `coup()` already returns the sentinel for a
+  Battleground Coup at DEFCON 2 and `none` scores 0, so the free-Coup
+  branch should refuse exactly the suicidal ones. The likelier story is
+  DEFCON 3 to 2 on a Battleground the *geography* rule would normally have
+  forbidden -- a free Coup is exempt from 8.1.5 -- with something else
+  taking the last step. **Not resolved: replay it at `bbebbd8` in a
+  worktree and read the DEFCON transitions.** Deferred only because the
+  working tree carries the uncommitted Military Ops change, and stashing
+  it while the corpus generator is reading `src/` would corrupt the
+  capture.
+
+The fix stays regardless. Choosing by tuple order is not a strategy, and
+"the games cannot measure it" is not "it was fine". This is what the
+gate's asymmetric rule is for.

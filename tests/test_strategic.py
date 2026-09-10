@@ -1265,6 +1265,45 @@ def test_a_free_coup_earns_no_military_operations_credit():
     engine._maybe_push_place_influence(Side.US, 1)
     obs = engine.observe(Side.US)
     bot = StrategicPlayer()
-    bot.prepare(obs)
+    bot.rank_actions(obs)  # coup() is only ever called inside a ranking
     assert obs.military_ops.get(Side.US.value, 0) < obs.defcon, 'need a requirement deficit'
     assert bot.coup(obs, 'Angola', 3, military=False) < bot.coup(obs, 'Angola', 3)
+
+
+def test_military_operations_are_priced_in_vp_not_a_flat_weight():
+    """Rule 6.3.5 is exact: a side below the DEFCON level at the end of the
+    turn hands the difference to its opponent as VP, so one Op of deficit
+    closed is worth exactly one VP. The old flat weight of 2.0 raw priced it
+    at a few percent of that, next to a VP worth ~14 raw on turn 1."""
+    engine = Engine(seed=1)
+    engine.board.influence['Angola'][Side.USSR.value] = 2
+    engine._maybe_push_place_influence(Side.US, 1)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)  # coup() is only ever called inside a ranking
+
+    deficit = obs.defcon - obs.military_ops.get(Side.US.value, 0)
+    assert deficit > 0, 'the fixture needs an open requirement'
+    credit = bot.coup(obs, 'Angola', 3) - bot.coup(obs, 'Angola', 3, military=False)
+
+    rounds = bot._rounds_left(obs)
+    expected = bot.weights.military * min(3, deficit) * bot.vp_value(obs) / rounds
+    assert credit == pytest.approx(expected)
+    # Spread over the rounds still to play: a full VP an Op overshot the
+    # expert fixture badly on turn 1 (Korean War by 1.07 Ops), because a
+    # later card would very likely have covered the requirement anyway.
+    assert rounds > 1, 'the fixture should have rounds left, so the credit is discounted'
+    assert 0 < credit < bot.weights.military * min(3, deficit) * bot.vp_value(obs)
+
+
+def test_meeting_the_requirement_removes_the_military_credit():
+    """Once Military Ops reach the DEFCON level there is nothing left to buy,
+    so the credit disappears rather than paying for every further coup."""
+    engine = Engine(seed=1)
+    engine.board.influence['Angola'][Side.USSR.value] = 2
+    engine.military_ops[Side.US.value] = engine.defcon
+    engine._maybe_push_place_influence(Side.US, 1)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)  # coup() is only ever called inside a ranking
+    assert bot.coup(obs, 'Angola', 3) == pytest.approx(bot.coup(obs, 'Angola', 3, military=False))

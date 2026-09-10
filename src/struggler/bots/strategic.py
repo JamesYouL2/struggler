@@ -231,7 +231,19 @@ class StrategicWeights:
     vp_early: float = 0.5
     vp_mid: float = 1.0
     vp_late: float = 2.0
-    military: float = 2.0
+    # Military Operations, priced in VP like everything else. Rule 6.3.5 is
+    # exact and there is nothing to estimate: at the end of the turn a side
+    # whose Military Ops are below the DEFCON level hands the *difference*
+    # to its opponent as VP, so one Op of deficit closed is worth exactly
+    # one VP. This weight is the multiplier on that, and 1.0 is the
+    # principled default; it exists to tune, not to define.
+    #
+    # It was 2.0 raw against a VP worth 14 raw on turn 1 and ~75 in the Mid
+    # War, so the requirement was priced at 3% to 14% of its real value and
+    # the bot had almost no reason to cover it. This is the third weight
+    # found flat against the Ops scale, after `vp` and `ops`; see the
+    # comment on vp_early.
+    military: float = 1.0
     # Retired: the estimate fallback it scaled now prices through
     # `ops_value`, like every other Ops term. Kept so saved weights and the
     # parity corpus's recorded weights still load; `mutate` will perturb it
@@ -334,6 +346,13 @@ class StrategicPlayer:
         self._base_regions = {}
         self._base_margins = {}
         self._ops_values = {}
+        # One VP's price, fixed once per decision. `military_credit` needs it
+        # inside `coup`, which `ops_value` calls, which `vp_value` calls --
+        # a cycle whose answer otherwise depended on which arm was evaluated
+        # first (ops_value(1) came out 28.43 or 27.78 by order alone). Fixing
+        # it at the start of the ranking, always from a cold cache, makes it
+        # a property of the position rather than of the traversal.
+        self._vp_price = None
         self._unseen_hold_values = {}
         self._events_in_progress = set()
         # Set by `_resolve_sandbox` when it prices a probabilistic ending, and
@@ -347,6 +366,10 @@ class StrategicPlayer:
         self._space_card = None
         self._un_card = None
         self._planner = None
+        # Fix the VP price now, from a cold cache, so it cannot depend on
+        # which arm of the ranking happened to ask for it first. Everything
+        # downstream reads the memo.
+        self.vp_value(observation)
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
             self._planner = self.planner_for(observation)
@@ -679,19 +702,22 @@ class StrategicPlayer:
         # game_effects, and a leaf evaluated under Formosan Resolution left
         # the caller scoring Taiwan as a Battleground afterwards.
         saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
+                 self.__dict__.get('_vp_price'),
                  self.__dict__.get('_placement_values'),
                  self.__dict__.get('_unseen_hold_values'),
                  self.__dict__.get('_scoring_flags'), self.__dict__.get('_coup_bans'),
                  {c: dict(v) for c, v in self.board.influence.items()})
         self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
+        self._vp_price = None
         self._placement_values = {}
         self._unseen_hold_values = {}  # per position too: it reads card states and scoring
         try:
             return self.value(self.board, observation.side)
         finally:
-            (self._obs, self._urgency, ops_values, placements, unseen,
+            (self._obs, self._urgency, ops_values, vp_price, placements, unseen,
              flags, bans, influence) = saved
+            self._vp_price = vp_price
             for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
                                 ('_unseen_hold_values', unseen),
                                 ('_scoring_flags', flags), ('_coup_bans', bans)):
@@ -896,6 +922,9 @@ class StrategicPlayer:
         board, so VP and Ops stay on one scale as the board's Ops value moves."""
         w = self.weights
         per_vp = w.vp_early if obs.turn <= 3 else w.vp_mid if obs.turn <= 7 else w.vp_late
+        fixed = self.__dict__.get('_vp_price')
+        if fixed is not None:
+            return per_vp * fixed
         cached = self._ops_values.get(1) if hasattr(self, '_ops_values') else None
         if cached is not None:
             return per_vp * cached
@@ -907,9 +936,12 @@ class StrategicPlayer:
             return per_vp * 20.
         self._vp_reentrant = True
         try:
-            return per_vp * self.ops_value(obs, 1)
+            one_op = self.ops_value(obs, 1)
         finally:
             self._vp_reentrant = False
+        if hasattr(self, '_ops_values'):
+            self._vp_price = one_op
+        return per_vp * one_op
 
     def ops_value(self, obs: Observation, ops: int) -> float:
         """What `ops` Operations are worth here: the best influence spend
@@ -919,7 +951,11 @@ class StrategicPlayer:
         turn 1 outranks 3 VP and a late 1-Op card does not."""
         if ops <= 0:
             return 0.
-        cached = self._ops_values.get(ops)
+        # Tolerate being called outside a ranking, the way `vp_value`
+        # already does. Every production caller is inside one, so this
+        # changes nothing there; it stops a bare `coup()` on a synced board
+        # from raising now that the Military Ops credit prices a VP.
+        cached = self.__dict__.setdefault('_ops_values', {}).get(ops)
         if cached is not None:
             return cached
         total = self._placement_ops_value(obs, ops)
@@ -1034,6 +1070,40 @@ class StrategicPlayer:
             self._set_influence(cid, original['US'], original['USSR'])
         return best
 
+    def _rounds_left(self, obs: Observation) -> int:
+        """Action rounds still to play this turn, counting the current one."""
+        total = 6 if obs.turn <= 3 else 7
+        if obs.phase == 'headline':
+            return total
+        return max(1, total - obs.action_round + 1)
+
+    def military_credit(self, obs: Observation, gained: int, already: int, defcon: int) -> float:
+        """What `gained` Military Ops are worth to a side already holding
+        `already` of them, in raw units.
+
+        The requirement itself is exact (6.3.5): a side below the DEFCON
+        level at the end of the turn hands the difference over as VP, so an
+        Op that closes the deficit is worth one VP and an Op past it is
+        worth nothing.
+
+        The discount is the part that is not exact. A flat one VP an Op
+        overshoots badly early in a turn, because some *later* card would
+        very likely have covered the requirement anyway, and only the Ops
+        that end up uncovered are really worth a VP. Charging the full VP on
+        turn 1 put Korean War 1.07 Ops and Indo-Pakistani War 1.09 Ops past
+        the expert's values and took the fixture from 23 misses to 26.
+        Spreading it over the rounds still to play is the same shape the
+        Containment and Red Scare riders already use, and it has no free
+        parameter: full value in the last round, a sixth of it in the first.
+        Whether a later card *actually* covers the requirement is the hand
+        planner's question, not this one's.
+        """
+        deficit = max(0, defcon - already)
+        if gained <= 0 or deficit <= 0:
+            return 0.
+        return (self.weights.military * min(gained, deficit)
+                * self.vp_value(obs) / self._rounds_left(obs))
+
     def coup(self, obs: Observation, cid: str, ops: int, military: bool = True) -> float:
         """What couping `cid` with `ops` is worth.
 
@@ -1056,8 +1126,7 @@ class StrategicPlayer:
             gain += self.delta(obs, cid, own=margin-removed, opp=-removed) / 6
         gain *= self.weights.coup_discount
         if military:
-            deficit = max(0, obs.defcon - obs.military_ops.get(obs.side.value, 0))
-            gain += self.weights.military * min(ops, deficit)
+            gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
             gain -= self.vp_value(obs)
         return gain
@@ -1186,7 +1255,18 @@ class StrategicPlayer:
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before
-        return result + self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+        result += self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
+        # Military Operations the event awarded, on the same VP scale as the
+        # VP it awarded. The wars hand Ops to whoever the event belongs to,
+        # which is not always the side playing the card -- the US playing
+        # Korean War for its Ops gives the *USSR* the credit -- so both sides
+        # are priced. Only the part that closes a real deficit is worth
+        # anything: past the requirement the track pays nothing (6.3.5).
+        for who, sign_of in ((obs.side, 1), (obs.side.opponent, -1)):
+            already = obs.military_ops.get(who.value, 0)
+            gained = engine.military_ops.get(who.value, 0) - already
+            result += sign_of * self.military_credit(obs, gained, already, engine.defcon)
+        return result
 
     def _value_dependents(self, changed) -> set[str]:
         """Every country whose `country_value` can move when the influence in
