@@ -72,8 +72,10 @@
   "US": {
     "cards": {
       "Chernobyl": {
-        "ops": 2.0,
-        "note": "Highly dependent on what Europe control is still possible. Claude's estimate was 2.0, right."
+        "ops": 1.5,
+        "ops_with_bonus": "very high",
+        "condition": "Europe control is reachable by denying the USSR the region",
+        "note": "Revised down from the maintainer's earlier flat 2.0 once the condition was drawn out: 1.5 ordinarily, and dominant if it buys Europe control."
       },
       "Star_Wars": {
         "ops": null,
@@ -151,5 +153,40 @@
       }
     }
   },
-  "_context_scaling": "The maintainer's rule, and the most useful thing in this file: **context-dependence scales with the turn.** Early War values are the least context-specific, Mid War in between, Late War the most, because more turns played means more state that a value can hang on. That is why an opening-board fixture of constants works for the Early War and fails for the Late War, and it means the Late War table will never be a list of numbers."
+  "_context_scaling": "The maintainer's rule, and the most useful thing in this file: **context-dependence scales with the turn.** Early War values are the least context-specific, Mid War in between, Late War the most, because more turns played means more state that a value can hang on. That is why an opening-board fixture of constants works for the Early War and fails for the Late War, and it means the Late War table will never be a list of numbers.",
+  "FLAGS_AND_EFFECTS": {
+    "cards": {
+      "Formosan_Resolution": {
+        "ops": 0.0,
+        "note": "The bot's 0 is right. First flag-only event confirmed as genuinely worthless."
+      },
+      "Bear_Trap": {
+        "ops": 3.0,
+        "note": "Traps the USSR."
+      },
+      "Quagmire": {
+        "ops": 4.0,
+        "note": "Traps the US, and worth more than Bear Trap because there are more very strong US events in the Mid and Late War than USSR ones. The asymmetry is the point: these are not mirror cards."
+      },
+      "Warsaw_Pact_Formed": {
+        "ops": 0.5,
+        "note": "In general. The branch choice is a computation, not a constant -- see _branch_rules."
+      },
+      "Nuclear_Subs": {
+        "ops": null,
+        "note": "Still unpriced."
+      }
+    }
+  },
+  "_branch_rules": {
+    "Warsaw_Pact_Formed": "A math problem: take whichever branch flips control and yields the largest Ops difference. Implementable directly -- the bot already prices influence deltas -- so this needs no constant.",
+    "Chernobyl": "Pick the region by whether it buys Europe control; otherwise the region whose denial costs the USSR most."
+  },
+  "_space_race_abilities": {
+    "discard_held_card": 3.0,
+    "play_eight_cards": 1.5,
+    "note": "The bot prices box VP times roll odds and the abilities at zero. These two are the ones Sankt calls decisive."
+  },
+  "_military_ops_rule": "When to eat the penalty is 'basically just a VP calculation' -- there is no judgement layer above the arithmetic. That validates pricing a closed Op of deficit at one VP; the open question stays the rounds-remaining discount, not the rate.",
+  "_safe_windows": "Any card that lets the opponent make a Battleground Coup -- CIA Created is the type case, Lone Gunman the one that cost seed 4015. The bot can detect this class: events that grant the opponent Ops or a Coup. Also: basically never event Grain Sales as the USSR, since the US can almost always return it; worth it only when holding a 1-Op card that is worse, which is roughly just CIA Created."
 }
