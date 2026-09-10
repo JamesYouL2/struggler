@@ -1689,3 +1689,65 @@ see. Two honest reasons and one thing to check:
 The fix stays regardless. Choosing by tuple order is not a strategy, and
 "the games cannot measure it" is not "it was fine". This is what the
 gate's asymmetric rule is for.
+
+### Seed 4015 replayed: the whole-hand planner did not see a trap seven rounds away
+
+The gate's flagged nuclear loss, run down properly. My guess in the section
+above was **wrong** -- no free Coup is involved anywhere in the fatal
+sequence. What actually happened is worse, and it is the most valuable
+thing found tonight.
+
+Reproduced by replaying `bbebbd8` against the gate's own base snapshot
+(mirror self-play at the same commit does *not* reproduce it: the loss
+needs the pre-fix opponent, so it is a trajectory difference, not a new
+suicidal move).
+
+Turn 8, DEFCON 2 from action round 1 onward. The US hand at AR1:
+
+    Lone_Gunman, Sadat_Expels_Soviets, Willy_Brandt, Iran_Contra_Scandal,
+    Portuguese_Empire_Crumbles, Reagan_Bombs_Libya, The_Reformer, Star_Wars
+
+Lone Gunman is a USSR event: playing it for Ops still hands the USSR the
+Operations, and at DEFCON 2 the USSR spends them on a Battleground Coup,
+which is DEFCON 1 and a loss for the phasing player. So **that one card was
+a certain loss from AR1, with seven rounds of warning.** The bot played
+every other card first and arrived at AR7 holding it alone:
+
+| Round | Played |
+| --- | --- |
+| AR1 | Star Wars, event |
+| AR2 | Reagan Bombs Libya, event |
+| AR3-5 | Willy Brandt, Iran-Contra, Portuguese Empire -- all *USSR* events, for Ops |
+| AR6 | Sadat Expels Soviets, Ops |
+| AR7 | **Lone Gunman, forced.** "EVERY option is a certain loss" |
+
+Two separate defects, and the planner's own log settles which is which.
+
+**1. The planner reported `risk=0.000` on every option at AR1.** Not a
+truncated conservative estimate -- zero. It does see this card: the corpus
+notes record Lone Gunman at DEFCON 2 as `risk` 1.0 *once it is forced*. It
+simply never propagates that back to the round where it could still be
+avoided. `docs/CLAUDE_NOTES.md` opens by claiming the planner will "plan
+the whole hand, not the current card"; on this evidence the claim is
+overstated. It survives the current round and defers the problem, every
+round, until deferring is the losing move. **A card whose forced play is a
+certain loss should dominate the whole turn's plan from the moment the hand
+is dealt.**
+
+**2. The Space Race slot went unused while a lethal card sat in hand.**
+The US did not space at all on turn 8, though it had spaced twice on turn
+6, so the option was live. `space_card` picks "the opponent's card whose
+Ops-plus-event is worst" *by value*. Lethality does not enter. Spacing Lone
+Gunman at any point in seven rounds saves the game outright. This one is
+small and self-contained: a card that is a certain loss when forced should
+take the space slot ahead of any value comparison.
+
+Worth being precise about blame. The free-Coup fix did not cause this and
+the gate did not really "find" it either -- the seat loses in all 34
+recorded gates and the change only altered *how*. What the gate did was
+put a nuclear loss on a seed whose history made it worth opening, which is
+exactly what the warn-and-name rule is for.
+
+This is the strongest argument yet for the hand planner (tier 2), and it
+also gives it a test case that does not need a strength gate to score:
+seed 4015 US, turn 8, must not arrive at AR7 holding Lone Gunman.
