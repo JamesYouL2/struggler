@@ -15,7 +15,7 @@ from pathlib import Path
 
 from struggler.bots.greedy import GreedyPlayer
 from struggler.bots.naive import RandomPlayer
-from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import TUNABLE_WEIGHTS, StrategicPlayer, StrategicWeights
 from struggler.engine import Engine, Side
 from struggler.runner import play_game
 
@@ -64,7 +64,10 @@ def mutate(weights: StrategicWeights, rng: random.Random, fields: tuple[str, ...
            scale: float = .25) -> StrategicWeights:
     """Seeded log-normal perturbation of `fields` (default: every weight)."""
     values = asdict(weights)
-    names = fields or tuple(values)
+    # Not every field: a zero weight takes an *absolute* step below, so
+    # perturbing a deliberately-disabled term switches it on. See
+    # `strategic.UNTUNED_WEIGHTS`. Naming one in `fields` still works.
+    names = fields or TUNABLE_WEIGHTS
     unknown = set(names) - set(values)
     if unknown:
         raise ValueError(f'unknown weight fields: {sorted(unknown)}')

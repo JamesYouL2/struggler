@@ -4,7 +4,8 @@ import dataclasses
 import pytest
 
 from struggler.bots import evaluator as ev
-from struggler.bots.strategic import ASK, CARDS, StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import (ASK, CARDS, TUNABLE_WEIGHTS, UNTUNED_WEIGHTS,
+                                      StrategicPlayer, StrategicWeights)
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
 from struggler.bots.train import evaluate, mutate
 import random
@@ -221,7 +222,9 @@ def test_mutation_can_be_restricted_to_named_weights():
     changed = {k for k, v in dataclasses.asdict(only).items() if v != getattr(base, k)}
     assert changed == {'scoring_discount', 'scoring_hand'}
     everything = mutate(base, rng)
-    assert all(v != getattr(base, k) for k, v in dataclasses.asdict(everything).items())
+    changed_by_default = {k for k, v in dataclasses.asdict(everything).items()
+                          if v != getattr(base, k)}
+    assert changed_by_default == set(TUNABLE_WEIGHTS)
     with pytest.raises(ValueError, match='unknown weight'):
         mutate(base, rng, ('not_a_weight',))
 
@@ -1307,3 +1310,23 @@ def test_meeting_the_requirement_removes_the_military_credit():
     bot = StrategicPlayer()
     bot.rank_actions(obs)  # coup() is only ever called inside a ranking
     assert bot.coup(obs, 'Angola', 3) == pytest.approx(bot.coup(obs, 'Angola', 3, military=False))
+
+
+def test_training_does_not_switch_on_a_deliberately_disabled_weight():
+    """`mutate` steps a zero weight with `abs(gauss)`, because a
+    multiplicative step would make zero absorbing. That means any
+    deliberately-disabled term left in the default field set gets switched
+    *on*: a default run moved `wipe` from 0.0 to 0.27, so every training run
+    to date searched a space that enables an uncalibrated term -- and with
+    `wipe` non-zero the evaluator's dependency radius widens to the whole
+    board, so those runs were slower than they looked too."""
+    base = StrategicWeights()
+    for seed in range(20):
+        got = mutate(base, random.Random(seed))
+        for name in UNTUNED_WEIGHTS:
+            assert getattr(got, name) == getattr(base, name), name
+    # Naming one explicitly is how a deliberate ablation turns it on.
+    assert mutate(base, random.Random(1), ('wipe',)).wipe > 0
+    assert set(TUNABLE_WEIGHTS).isdisjoint(UNTUNED_WEIGHTS)
+    assert set(TUNABLE_WEIGHTS) | set(UNTUNED_WEIGHTS) == {
+        f.name for f in dataclasses.fields(StrategicWeights)}

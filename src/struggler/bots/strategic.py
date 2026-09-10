@@ -294,6 +294,26 @@ class StrategicWeights:
         Path(path).write_text(json.dumps(dict(version=1, weights=asdict(self), metadata=metadata), indent=2) + '\n')
 
 
+# Weights the trainer must not perturb unless asked for by name. `mutate`
+# steps a *zero* weight with `abs(gauss(0, scale))` rather than
+# multiplicatively -- otherwise zero would be an absorbing state -- so
+# leaving a deliberately-disabled term in the default set switches it on:
+# a default run turned `wipe` from 0.0 to 0.27. Every `train` run to date
+# therefore searched a space that enables an uncalibrated term, and with
+# `wipe` non-zero `_value_dependents` widens to the whole board, so those
+# runs were also much slower than they looked.
+#
+#   wipe, wipe_backed  off until calibrated (CLAUDE_NOTES plan step 2)
+#   progress_curve     pinned at its neutral 1.0; convex lost 0.33
+#   ops                retired, read nowhere in executable code
+#
+# `--fields` still names any of them explicitly, which is how a deliberate
+# ablation turns one on.
+UNTUNED_WEIGHTS = ('wipe', 'wipe_backed', 'progress_curve', 'ops')
+TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
+                        if f.name not in UNTUNED_WEIGHTS)
+
+
 class StrategicPlayer:
     def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None,
                  opponent_model=None):
