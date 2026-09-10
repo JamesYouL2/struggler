@@ -2865,3 +2865,86 @@ That makes three quantities now found in turn order rather than on the
 board -- the Military Operations requirement, the DEFCON hand-off, forced
 defensive spend -- plus this fourth, which is the extreme case of the same
 thing: the value of moving last.
+
+### Correction: the turn-10 worst card is about one Op, not eight
+
+The −8.55 Ops reported above was a mean over ten observations dragged by a
+single one. Over 20 turn-10 hands:
+
+| | Worst card in hand |
+| --- | ---: |
+| **Median** | **−1.26 Ops** |
+| Mean | −5.33 Ops |
+
+The outlier is **Duck and Cover at −77.97 Ops**, held by the USSR at
+DEFCON 2, where playing it degrades DEFCON to 1 and loses the game. Not a
+sentinel leak -- `is_certain` is False on all 20 -- but the planner
+pricing a near-certain loss at about 78 Ops, which is defensible.
+
+So the earlier claim that turn-10 China clears the maintainer's 8-Ops
+crossover was an artifact. On the median the gap is about **4.3 Ops**,
+which does not clear it.
+
+What is actually there is more useful than the number that was wrong.
+**China's late value is bimodal.** Usually the worst card costs about an
+Op and China beats it by a few; occasionally the worst card loses the
+game and China is worth almost anything. A mean over those two regimes
+describes neither, and the bimodality is exactly the safe-window
+structure: China's worth at the end is *insurance against being forced to
+play a trap*, which explains "100% of the time" better than an expected
+value does.
+
+**The safe-window list is confirmed from play, not from theory.** The most
+frequent worst turn-10 holdings are Duck and Cover (3), Lone Gunman (2)
+and Grain Sales to Soviets (2) -- three of the eight cards the maintainer
+named -- then Marine Barracks Bombing, Aldrich Ames Remix, Che, OPEC and
+The Voice of America. Their verdict on the list: "these are all basically
+unplayable. I think Marine is the only one that isn't just dreadful, and
+it's still bad."
+
+Caveat on the measurement: 24 seeds gives only 20 turn-10 observations,
+because most games end earlier. Enough to see the shape and to kill the
+mean, not enough to pin either mode.
+
+### Aldrich Ames is already right; Five Year Plan's whole risk is unpriced
+
+Two cards the maintainer flagged, and they come out opposite ways.
+
+**Aldrich Ames Remix is free when it is the last card, and the bot knows
+it.** `own_hand = [c for c in obs.hand if c != cid]` excludes the card
+being played, so pricing it with one card in hand leaves an empty hand,
+`best` falls to 0 and the loss is 0. The engine agrees: `_aldrich_ames`
+returns early on an empty US hand. Nothing to fix -- worth recording
+precisely because the instinct was to go and fix it.
+
+**Five Year Plan is the opposite: its entire risk is explicitly
+unpriced.** From `event_value`:
+
+```
+# The victim loses a uniformly random card. Five Year Plan's
+# "a US event fires" rider is not priced.
+```
+
+The bot charges only the expected loss of a random card. But the rider is
+the whole card -- the maintainer: "really safe in early war, pretty safe
+in mid war, and **death in late war**" -- and that era dependence comes
+entirely from how bad the US event is when it fires. Pricing only the card
+loss removes exactly the term that varies. The `DefconPlanner` does model
+it (`_hazard` averages over the US cards in hand) but only for terminal
+risk, so a Five Year Plan that fires a merely *expensive* US event is
+still free to the value function.
+
+The nudge beside it is wrong in a second way:
+
+```
+if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
+    value -= max(0, len(obs.hand)-3)
+```
+
+Another bare constant in board units (about 0.01 Ops per card), and keyed
+on the wrong variable. The maintainer: Five Year Plan "loves discarding
+negative / even scoring cards / 1-Op cards", so what matters is the
+*quality* of the hand and the fraction of it that is US-associated, not
+how many cards are in it. The expected loss at line 1620 already accounts
+for hand size. The bot computes the per-card hold values three lines
+earlier and then throws them away for a card count.
