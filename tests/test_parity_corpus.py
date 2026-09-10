@@ -16,7 +16,7 @@ import sys
 import pytest
 
 from struggler.engine import Engine, Region, Side
-from struggler.bots.defcon import SurvivalPrior
+from struggler.bots.strategic.defcon import SurvivalPrior
 from struggler.bots.rollout import RolloutPolicy
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 
@@ -61,7 +61,7 @@ def test_placement_ranking_is_independent_of_python_hash_seed():
     root = pathlib.Path(__file__).parents[1]
     probe = """
 import gzip, json
-from struggler.bots.defcon import SurvivalPrior
+from struggler.bots.strategic.defcon import SurvivalPrior
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.engine import Engine, Side
 with gzip.open(r'%s', 'rt') as stream:

@@ -5,7 +5,7 @@ import pytest
 from conftest import bare_engine
 from struggler.engine import Side, Action, DecisionKind as K
 from struggler.bots.strategic import StrategicPlayer
-from struggler.bots.defcon import DefconPlanner, SurvivalPrior
+from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior
 
 
 def setup_hand(cards, side=Side.USSR, rounds=2, defcon=2, space_used=0, china=False):
@@ -326,7 +326,7 @@ def test_the_defcon_drop_prior_matches_what_was_measured():
     old guess."""
     import json
     from pathlib import Path
-    from struggler.bots.defcon import SurvivalPrior
+    from struggler.bots.strategic.defcon import SurvivalPrior
 
     report = json.loads(Path('models/opponent-model-v1.json.report.json').read_text())
     measured = report['test']['defcon_drop']['rate']
@@ -343,7 +343,7 @@ def test_the_hand_attack_prior_is_not_fitted_to_bot_games():
     to an opponent it should not expect."""
     import json
     from pathlib import Path
-    from struggler.bots.defcon import SurvivalPrior
+    from struggler.bots.strategic.defcon import SurvivalPrior
 
     report = json.loads(Path('models/opponent-model-v1.json.report.json').read_text())
     measured = report['test']['hand_attack']['rate']

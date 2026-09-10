@@ -22,11 +22,11 @@ from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine.events import EVENTS
-from struggler.bots import evaluator as ev
-from struggler.bots.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
+from struggler.bots.strategic import evaluator as ev
+from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
-from struggler.bots.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
+from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
 RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARNING
@@ -1723,7 +1723,7 @@ class StrategicPlayer:
         nothing), the opponent's as their hand size times the expected
         marginal over the unseen cards. Positive when the hand affected is
         the one it helps, from our seat."""
-        from struggler.bots.public_cards import card_state
+        from struggler.bots.strategic.public_cards import card_state
         if cid == 'Red_Scare_Purge':
             target, delta = obs.side.opponent, -1
         else:

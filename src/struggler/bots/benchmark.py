@@ -32,7 +32,7 @@ from multiprocessing import Pool
 from struggler.engine import Engine, Region, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.replay import HistoryBuilder
-from struggler.bots.public_cards import scoring_schedule, turns_to_final_scoring
+from struggler.bots.strategic.public_cards import scoring_schedule, turns_to_final_scoring
 from struggler.bots.strategic import StrategicPlayer
 
 # Checkpoint projection: how many more times each region is expected to
@@ -176,7 +176,12 @@ def load_module(path: str):
     saved_modules = {k: v for k, v in sys.modules.items() if k.startswith(prefix)}
     saved_attributes = {stem: getattr(package, stem, None) for stem in snapshotted}
     for stem in snapshotted:
-        sys.modules.pop(prefix + stem, None)
+        # The whole subtree, not just the top name: a cached
+        # `struggler.bots.strategic.policy` would answer the snapshot
+        # package's own import and hand it the candidate's module.
+        for cached in [k for k in sys.modules
+                       if k == prefix + stem or k.startswith(prefix + stem + '.')]:
+            sys.modules.pop(cached, None)
         if hasattr(package, stem):
             delattr(package, stem)
     sys.meta_path.insert(0, finder)
@@ -581,7 +586,7 @@ def event_table(seed: int, weights=None, out=sys.stdout) -> None:
     with the Ops scale beside it: the review table. Read it against your
     own judgement; every row that disagrees is a value-function gap."""
     from struggler.engine.cards import entry_turn
-    from struggler.bots.public_cards import CARDS
+    from struggler.bots.strategic.public_cards import CARDS
     from struggler.bots.strategic import (HIDDEN_INFO_EVENTS, OPS_MODIFIER_EVENTS, StrategicPlayer)
     engine, placed = opening_board(seed)
     print(f'seed {seed} opening: ' + ', '.join(f'{s} {c}' for s, c in placed), file=out)
@@ -628,7 +633,7 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
     to-do list, and the ordering constraints; returns the number of
     misses (differences over the file's tolerance, plus broken orders)."""
     from struggler.bots.strategic import StrategicPlayer
-    from struggler.bots.public_cards import CARDS
+    from struggler.bots.strategic.public_cards import CARDS
     expert = json.load(open(path))
     engine, _ = opening_board(seed)
     obs = engine.observe(Side.US)

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 
 from struggler.engine import DecisionKind as K
-from struggler.bots.defcon import DefconPlanner
+from struggler.bots.strategic.defcon import DefconPlanner
 from struggler.bots.strategic import (LOSS, StrategicPlayer, _bonus_ops, _coup_risks_defcon,
                                       _in_bonus_region, _sync_board)
 

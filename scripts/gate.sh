@@ -74,18 +74,18 @@ summ() { $PY -c "import sys,json; d=json.loads(sys.stdin.read()); print({k:d[k] 
 echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
 echo "== 2. turn-3 checkpoint vs $BASE"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>/dev/null | summ
 echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 # One pool over both samples, not two runs. Two pools drained in sequence pay
 # the slowest game's tail twice, and --decide can only stop a run that has
 # played some of each sample. GATE_DECIDE=0 plays every game regardless.
 DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic.py" \
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>/dev/null | summ
 if [ "${GATE_ANCHOR:-0}" = "1" ]; then
   echo "== 3c. full games vs pre-session $OLD"
-  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ
+  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>/dev/null | summ
 fi
 echo "== 4. acceptance"
 STATUS=0

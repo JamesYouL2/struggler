@@ -5,7 +5,7 @@ import random
 import pytest
 
 from conftest import bare_engine
-from struggler.bots.defcon import SurvivalPrior
+from struggler.bots.strategic.defcon import SurvivalPrior
 from struggler.bots.opponent_model import (
     FEATURE_NAMES, HEADS, Labeler, OpponentModel, collect_rows, encode, metrics,
 )

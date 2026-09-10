@@ -70,7 +70,7 @@ def outputs(bot: StrategicPlayer, engine: Engine, side: Side) -> dict:
     budget the real ranking consumed; `planner.probes` is the ordered
     query list the parity test replays."""
     from dataclasses import asdict
-    from struggler.bots.defcon import SurvivalPrior
+    from struggler.bots.strategic.defcon import SurvivalPrior
     from struggler.bots.rollout import RolloutPolicy
     obs = engine.observe(side)
     d = obs.pending_decision

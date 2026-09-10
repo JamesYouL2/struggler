@@ -3,7 +3,7 @@
 def test_expert_valuations_file_is_well_formed_and_the_check_runs(tmp_path):
     import io
     from struggler.bots.benchmark import expert_check, to_ops
-    from struggler.bots.public_cards import CARDS
+    from struggler.bots.strategic.public_cards import CARDS
     import json
     expert = json.load(open('models/expert_valuations.json'))
     assert set(expert['cards']) <= set(CARDS)
@@ -29,10 +29,15 @@ def test_a_baseline_policy_loads_its_own_bot_modules_not_the_candidates(tmp_path
     `strategic.py` and `evaluator.py` alone, a `public_cards.py` change gated
     against itself and returned 0.500 with a standard error of zero over 96
     seeds. Every snapshotted module stands in, and only while the baseline
-    loads."""
+    loads.
+
+    The snapshot here is deliberately the *old* flat layout -- `evaluator.py`
+    and `public_cards.py` beside `strategic.py` -- because that is what every
+    baseline from before those modules moved into `bots/strategic/` looks
+    like, and gating against one of those revisions has to keep working.
+    """
     import sys
-    import struggler.bots as package
-    from struggler.bots import evaluator as real_evaluator, public_cards as real_cards
+    from struggler.bots.strategic import evaluator as real_evaluator, public_cards as real_cards
     from struggler.bots.benchmark import load_module
 
     (tmp_path / 'evaluator.py').write_text('MARKER = "baseline evaluator"\n')
@@ -44,10 +49,11 @@ def test_a_baseline_policy_loads_its_own_bot_modules_not_the_candidates(tmp_path
     evaluator, cards = load_module(str(tmp_path / 'strategic.py')).BOUND
     assert (evaluator.MARKER, cards.MARKER) == ('baseline evaluator', 'baseline cards')
     assert evaluator is not real_evaluator and cards is not real_cards
-    # The substitution is undone: the candidate keeps its own code.
-    assert package.evaluator is real_evaluator and package.public_cards is real_cards
-    assert sys.modules['struggler.bots.evaluator'] is real_evaluator
-    assert sys.modules['struggler.bots.public_cards'] is real_cards
+    # The substitution is undone: the candidate keeps its own code, which
+    # now lives under the package rather than beside it.
+    assert sys.modules['struggler.bots.strategic.evaluator'] is real_evaluator
+    assert sys.modules['struggler.bots.strategic.public_cards'] is real_cards
+    assert 'struggler.bots.evaluator' not in sys.modules
 
 
 def test_a_baseline_resolves_the_engine_from_the_candidate(tmp_path):
@@ -78,11 +84,11 @@ def test_acceptance_warns_when_every_game_is_a_dead_heat():
 
 
 def test_a_baseline_without_a_sibling_evaluator_still_loads(tmp_path):
-    from struggler.bots import evaluator as real
+    from struggler.bots.strategic import evaluator as real
     from struggler.bots.benchmark import load_module
 
     (tmp_path / 'strategic.py').write_text(
-        'from struggler.bots import evaluator as ev\nBOUND = ev\n')
+        'from struggler.bots.strategic import evaluator as ev\nBOUND = ev\n')
     assert load_module(str(tmp_path / 'strategic.py')).BOUND is real
 
 

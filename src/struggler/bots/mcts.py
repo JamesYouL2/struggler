@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from struggler.engine import DecisionKind as K, Side, Subregion
 from struggler.engine.core import SCORING_CARD_REGION
-from struggler.bots.public_cards import card_state
+from struggler.bots.strategic.public_cards import card_state
 from struggler.engine.board import Board
 from struggler.bots.rollout import RolloutPolicy, information_key
 from struggler.bots.strategic import CARDS, StrategicPlayer

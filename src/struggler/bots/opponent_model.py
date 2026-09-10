@@ -42,7 +42,7 @@ from struggler.engine.cards import action_rounds, load_cards
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine.replay import decode_action, make_engine
 
-from struggler.bots.public_cards import STATES, card_state
+from struggler.bots.strategic.public_cards import STATES, card_state
 
 CARDS = load_cards()
 ATTACK_CARDS = ('Aldrich_Ames_Remix', 'Terrorism', 'Grain_Sales_to_Soviets', 'Missile_Envy')

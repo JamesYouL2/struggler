@@ -3,7 +3,7 @@ import dataclasses
 
 import pytest
 
-from struggler.bots import evaluator as ev
+from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import (ASK, CARDS, TUNABLE_WEIGHTS, UNTUNED_WEIGHTS,
                                       StrategicPlayer, StrategicWeights)
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
@@ -152,7 +152,7 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     # scored one only after the reshuffle; a Mid War region from turn 4. Every
     # region also has the end of the game to play for, at its measured odds,
     # so a scored region is not worth nothing.
-    from struggler.bots.public_cards import final_scoring_odds
+    from struggler.bots.strategic.public_cards import final_scoring_odds
     d = bot.weights.scoring_discount
     live_iran, dead_iran = (bot.scoring_weight(o, 'Iran') for o in (live, dead))
     assert live_iran - dead_iran == pytest.approx(1.)  # the gap is exactly this cycle
@@ -179,7 +179,7 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
     Final scoring is not certain either: most games end before it, on the 20 VP
     auto-victory, so it is priced at its measured odds rather than treated as
     a scheduled scoring."""
-    from struggler.bots.public_cards import (FINAL_SCORING_ODDS, final_scoring_odds,
+    from struggler.bots.strategic.public_cards import (FINAL_SCORING_ODDS, final_scoring_odds,
                                              scoring_schedule, turns_to_final_scoring)
     engine = Engine(seed=0)
     bot = StrategicPlayer()

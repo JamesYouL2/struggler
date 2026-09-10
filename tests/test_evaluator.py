@@ -10,7 +10,7 @@ import itertools
 from struggler.engine import Engine, Region, Side
 from struggler.engine.rules import RULES
 from struggler.engine.types import ScoringTier
-from struggler.bots import evaluator as ev
+from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 
 
