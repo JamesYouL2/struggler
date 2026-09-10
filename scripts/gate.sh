@@ -101,6 +101,16 @@ summ() {  # summ <step-name>
   out=$(cat)
   if [ -z "$out" ]; then
     echo "GATE FAILED: step $step produced no result -- it crashed or was killed."
+    # Attribute it. Frames under $OUT/base and none in the candidate worktree
+    # mean the *baseline* died on its own code, which is a different verdict:
+    # a fix for a crash cannot be mirror-gated against the revision that
+    # crashes, because the gate needs both sides to finish their games.
+    if grep -q "$OUT/base/" "$OUT/$step.err" 2>/dev/null &&
+       ! grep -q "$SNAP/src/struggler/bots/" "$OUT/$step.err" 2>/dev/null; then
+      echo "  THE BASELINE CRASHED, NOT THE CANDIDATE -- every frame is under $OUT/base."
+      echo "  A crash fix cannot be measured against the revision it fixes. Gate it"
+      echo "  against a baseline that finishes, or accept it on the crash evidence."
+    fi
     echo "  stderr: $OUT/$step.err"
     tail -n 20 "$OUT/$step.err" 2>/dev/null | sed 's/^/  | /'
     exit 3
