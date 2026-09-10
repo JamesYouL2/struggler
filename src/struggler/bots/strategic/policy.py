@@ -112,13 +112,18 @@ GAME_SWING_VP = 40.0
 # "at the expert's floor" of 4; both were wrong, and the bare `value -= 4`
 # it replaced at least claimed nothing.
 #
-# It is left at its measured behaviour rather than multiplied by 30, because
-# the naive correction is worse than the bug: 5 Ops converted honestly is
-# ~187 raw against a 4-Op card worth ~149, so China would never be played at
-# all. The maintainer's 5 Ops is what *holding* it is worth, and playing it
-# transfers that to the opponent rather than burning it -- so the charge is
-# some function of the two, not the hold value itself. That needs their
-# answer and a gate, not a rescale at the constant.
+# The maintainer's figure for *playing* it is **8 Ops**, not less than the
+# 5 that holding is worth: you lose the option and hand the same option to
+# the opponent, so the transfer roughly doubles it. And it is a
+# rounds-remaining quantity, not a constant -- "whoever has it on turn 10
+# plays it 100% of the time, even with a 2 VP swing", so the charge decays
+# to nothing as the game ends, the same shape as `military_credit`.
+#
+# Left at 5.0 raw (~0.06 Ops) rather than corrected here, because the
+# correction is not a rescale: it is a decaying term worth ~8 Ops early and
+# 0 on turn 10, which changes when China is played in most games and needs
+# a gate. The maintainer's own conclusion is that it belongs in the hand
+# planner rather than in a constant at the point of play.
 # See docs/CLAUDE_NOTES.md, "The China charge is in the wrong units".
 CHINA_HOLD_RAW = 5.0
 # Decisions whose `score` is in raw board units, and can therefore be blended

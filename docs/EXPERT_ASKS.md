@@ -126,12 +126,20 @@ closes. Which cards have one, and roughly what it is worth to dump such a
 card early rather than hold it? This is the objective the hand planner
 needs, and possibly a cheaper standalone term.
 
-## 7. The China Card
+## 7. The China Card -- ANSWERED
 
-Priced by a flat constant in the rollout policy and nothing in the main
-one. What is holding it worth, what does passing it cost, and when do you
-play it? A number for "China in hand, unplayed" would let the bot stop
-treating it as an ordinary 4-Ops card.
+**Holding it is worth 5 Ops; playing it costs 8**, because the transfer
+is the expensive half: you lose the option and hand the same option to
+the opponent. And the charge decays with the game -- "whoever has it on
+t10 is going to play it 100% of the time, even with a 2 VP swing" -- so
+it is a rounds-remaining quantity like `military_credit`, not a
+constant.
+
+Outstanding is the implementation, not the number. The bot charges 5.0
+*raw board units* at the point of play, which is 0.06 Ops on a measured
+board, and the maintainer's conclusion is that when to play China is a
+whole-hand planner decision rather than a constant. See
+`docs/CLAUDE_NOTES.md`, "The China charge is in the wrong units".
 
 ## 8. Military Operations: when to eat the penalty
 
