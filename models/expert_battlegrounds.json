@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "board": "Start of turn 4, all seven scoring cards still in the deck. The maintainer's stated calibration point, and the only turn at which a flat per-Battleground table is coherent: it is where the three Mid War regions stop being discounted and all six weigh the same.",
+  "unit": "VP of total board-value swing from flipping one Battleground between the two sides. This is the quantity the maintainer prices in, and the one `scripts/position_pack.py` measures.",
+  "floor_vp": 4.0,
+  "_floor_note": "'These BG countries are worth at least 4 VP each on turn 4 unscored.' The bot measures about 1.0 across the whole map.",
+  "spread_vp": [2.0, 3.0],
+  "_spread_note": "Best Battleground minus worst, across the whole map. The bot's is 0.49.",
+  "region_order": [
+    ["EUROPE"],
+    ["SOUTH_AMERICA", "ASIA"],
+    ["AFRICA"],
+    ["MIDDLE_EAST", "CENTRAL_AMERICA"]
+  ],
+  "_region_order_note": "Ranked groups, best first; regions inside a group are not separated. Europe top, South America and Asia second, Middle East and Central America least -- all at turn 4 unscored. Africa is not stated and is placed in the middle by elimination, which is an inference and not the maintainer's word. The bot's measured order is AFRICA > SOUTH_AMERICA > CENTRAL_AMERICA > ASIA > EUROPE > MIDDLE_EAST.",
+  "urgency": {
+    "never_zero": true,
+    "measured_floor": 0.75,
+    "measured_turn4": [1.75, 2.95],
+    "suggested_band": [0.5, 1.5],
+    "_note": "The floor is real: `w.scoring_final * final_scoring_odds` survives every scoring card being played. The absolute level is NOT a parameter -- importance is `w.battleground * urgency` and `w.battleground` is free, so only the region-to-region and turn-to-turn ratios mean anything."
+  },
+  "_structural": "The ordering cannot be reached by tuning. `urgency` is built only from how soon and how often a region scores, with no term for what Control is worth on arrival, so Europe -- where Control ends the game -- can never outrank a region that scores more often. Europe's premium needs its own term."
+}
