@@ -1162,3 +1162,389 @@ country in Europe where the term is silent. And under NATO the risk that
 remains is divided over fewer targets, so lifting the shield on one country
 with De Gaulle does not return it to its unshielded value; it lands harder
 than it did before.
+
+## 2026-09-09 (night) — Audit: the gate, the bot's speed, its strength, and what is off those three lists
+
+Asked for: how to speed up the gate, how to speed up the strategic bot, how
+to make it stronger, and anything important that is none of those. Written
+against `df29bf8`, with `c15a603` (Codex's audit of the same revision) read
+afterwards; the two are compared at the end.
+
+What is *not* behind this section: no fresh profile of my own. A gate held
+the machine for the whole audit (load 17 on 8 cores), and this file's own
+rule is that a timing taken next to a gate is worthless. The step budget
+below is from the gate's own records, which are wall-clock-honest about
+themselves whatever else was running; the cProfile numbers quoted are
+Codex's.
+
+### The gate is not slow where either of us guessed
+
+`gate-df29bf8`, 8 workers, 151 finished games, from the directory's mtimes
+and the reports' own per-game seconds:
+
+| Step | Wall | Share |
+| --- | ---: | ---: |
+| 1 + 1b, turn-1 table and the expert diff | 2 s | 0.1 % |
+| 2, turn-3 checkpoint (64 games) | 67 s | 4 % |
+| 3, full games (151 games, 12,282 CPU-seconds) | 1,595 s | 96 % |
+
+The pool is not starved: 12,282 CPU-seconds over 8 workers is 1,535 s ideal
+against 1,595 s actual, 96 % efficiency, and that is *with* one 551-second
+game in the tail. So three of the speedups that suggest themselves from
+reading `gate.sh` are worth nothing measurable. Running steps 1 and 1b
+concurrently with step 3 saves two seconds. Folding the turn-3 checkpoint
+into the full-game workers -- which I proposed before measuring, and which
+`c15a603` calls "the next cheap speedup" -- saves 4 %. Worth doing as
+tidiness, not as a speed programme.
+
+The gate is 151 games of this bot and essentially nothing else. **Bot speed
+is gate speed**; they are one item on the list, not two.
+
+### Per-game seconds have drifted 2-3x in two days, and nobody attributed it
+
+`mean_game_seconds` from each gate's `full-vs-base`, in commit order:
+~13-15 s across the Sept 8 morning gates (`f123625` 13.2, `50e8bff` 13.4,
+`873d9d9` 14.0, `c5446e0` 14.8, `1a03954` 15.5), then 25-36 s for every gate
+of Sept 9 (`7cb9fbe` 31.9, `ec48dfa` 36.4, `b375ae5` 33.1), and 82.5 s for
+`df29bf8` under contention.
+
+Two candidate steps, neither attributed: `6ec71d4` (VP priced in Ops, which
+puts an `ops_value` call underneath every VP price) with `4e67bf0` (sandbox
+dice averaging, which forks the engine per die face) at the first jump, and
+`7cb9fbe` (the two stale memos removed -- correctly; that commit bought
+correctness and paid for it in time) at the second. Codex's cProfile at
+`df29bf8` independently puts `ops_value` at ~31 s cumulative of 107.8 s,
+which fits the first candidate. `ops_value` *is* cached per decision
+(`_ops_values`), so this is cache misses across decisions and sandboxes, not
+naive recomputation -- do not "fix" it by adding a cache that is already
+there.
+
+Attribute it with `scripts/profile_baseline.py` on a quiet machine before
+optimising anything. A 2x recovery here is a 2x gate, which is worth more
+than every structural change to `gate.sh` combined.
+
+### What the gate can see -- and the arithmetic I got wrong first
+
+I first computed the gate's standard error over individual games and got
+0.041 at 150 games. That is wrong, in the direction that flatters the
+gate: both seats of one seed play the same deal, so a seed is one
+observation and not two, which is exactly what `benchmark.seed_scores`
+already does and what the docstring there already says. Over the 2,315 seed
+pairs in the recorded reports the seed-score SD is 0.24.
+
+| Seed pairs | Games | SE | Regression blocked at 80 % power |
+| ---: | ---: | ---: | ---: |
+| 32 | 64 | 0.042 | 0.105 |
+| 96 | 192 | 0.024 | 0.061 |
+| 150 | 300 | 0.020 | 0.049 |
+| 500 | 1,000 | 0.011 | 0.027 |
+
+So the full 96-seed gate blocks a 6-point regression four times in five, and
+is blind to 3 points in either direction. `df29bf8`'s own gate reported
++/- 0.009 because that change left most seeds identical: the error bar adapts
+to how much the candidate actually moves play, which means it is tightest
+exactly when the answer matters least.
+
+The consequence for how this project spends its day: 49 commits landed on
+Sept 9, most separately gated at ~28 minutes each. That bought *attribution*,
+not evidence -- at 32-64 seeds nearly every one of them was unmeasurable by
+construction. Batching related changes into one 300-game gate and bisecting
+only on a failure costs less wall time and sees more. Keep per-commit gating
+for changes expected to be large, and for anything touching the DEFCON
+planner.
+
+`gate-df29bf8` verdict, for the record: **ACCEPTED**, pooled 0.500 +/- 0.009
+over 76 seeds, stopped early at 76 of 96. One candidate nuclear loss (seed
+4003 USSR T6) to replay, and one *opponent* nuclear loss at seed 4003 US T6,
+correctly not counted.
+
+### Strength: the expert table's misses are mostly one missing quantity
+
+23 misses at `df29bf8`. The large ones are not independent: France ranks
+below Egypt, Pakistan and Iraq in the US placement order; Vietnam Revolts
+-1.17 against -4.00; De-Stalinization -4.94 against -7.00; De Gaulle -0.80
+against -2.00; Suez -1.23 against -2.50. Adjacency into *empty* countries,
+the liability of a lone point, and what a coup takes back are one quantity,
+and the term for it (`wipe`, `wipe_backed`) is coded and ships at 0. Plan
+step 2 is still the highest-value strength work in the file, and it is the
+one the expert table is already instrumented to score.
+
+After it, in order:
+
+1. **The 32-seed MCTS run.** Scoring-turn MCTS scored 0.75 against the plain
+   policy on 8 games after the three semantic fixes. That is the only large
+   unconfirmed number in this file, it is ~25 minutes, and it decides
+   whether a native port is worth considering at all. Do it before any
+   further Rust discussion.
+2. **Scoring-card timing** (plan step 5): an urgency multiplier is not a
+   plan, and seed 3003's Asia Scoring at -6 with no Asia presence is the
+   standing reference failure.
+3. **Fit weights to the expert table, not to games.** The trainer has never
+   found a strict improvement, and the reason is arithmetic: its fitness has
+   an SE of 0.04-0.06 against effects of 0.02-0.05. It cannot see what it is
+   selecting for. The expert table is a one-second fitness function that
+   can, and the gate then checks the result rather than searching with it.
+
+### Three things off those three lists
+
+**Every strong opponent is this bot.** Greedy scores 1.00 against it,
+`event_value` and MCTS are strategic underneath, and the gate asks only
+"does it beat yesterday's self". Nothing in the loop would notice the whole
+line drifting away from strong human play; the expert table is the sole
+external reference and it is ~30 rows on one board. The cheapest fix is to
+extend it to annotated positions drawn from the parity corpus -- a tactics
+suite scored the way the opening table is -- which doubles as the fitness
+function item 3 above needs.
+
+**Rules churn is invisible to the gate by construction, and 16 cards are
+untested.** About a dozen rules fixes landed on Sept 9. `gate.sh` snapshots
+only `src/struggler/bots`, so a rules change puts identical players on both
+sides and returns exactly 0.500; the tests are the only thing standing under
+those commits. These 16 of 110 cards are named nowhere under `tests/`:
+Romanian Abdication, Nuclear Subs, Kitchen Debates, Cultural Revolution,
+Flower Power, Colonial Rear Guards, Latin American Death Squads, OAS
+Founded, Shuttle Diplomacy, Liberation Theology, Alliance for Progress,
+Iranian Hostage Crisis, The Iron Lady, Reagan Bombs Libya, Iran-Contra
+Scandal, Iran-Iraq War. A per-card pass against `docs/RULES_SOURCES.md`
+belongs before more value tuning is stacked on top of them.
+
+**The parity corpus is red and stale, and it is the oracle for what comes
+next.** Every caching or indexing change is verified by it. Regenerate it in
+its own reviewed commit (the ranking changes behind the failure are measured
+and intended) before touching the evaluator again, or the next memo bug --
+there have been three -- lands without a detector.
+
+A fourth, smaller: these notes are 337 KB across two files and the open list
+now lives in four separate sections. Whoever picks this up next pays an hour
+to find out what is open. One short state-and-open-list page, rewritten
+rather than appended, would pay for itself immediately.
+
+### Where this differs from Codex's `c15a603`
+
+Agreement on the substance: the risk and sentinel fixes are good, the corpus
+should be regenerated separately rather than treated as evidence against
+them, `LOSS` wants an explicit terminal-outcome type rather than sentinel
+plumbing, `StrategicWeights` should separate its active tuning set from
+compatibility and disabled fields, and no native port before the repeated
+work is measured against a frozen Python reference.
+
+Three differences, all of them measurement rather than opinion:
+
+- Codex calls folding the turn-3 checkpoint into the full-game workers "the
+  next cheap speedup". Measured, it is 4 % of the gate, and steps 1 and 1b
+  are 0.1 %. The gate's cost is per-game CPU times 151, and nothing else.
+- Codex proposes caching the repeated `discard_risk` / coup-target / `delta`
+  work with full state keys. Right in principle, and this file's history
+  says the risk is real (three memos have shipped keyed on less state than
+  they read). But the corpus that would catch a fourth is currently red, so
+  the order is corpus first, cache second.
+- This section of Codex's notes does not raise an external strength
+  reference, the untested cards, or the gate's statistical power. (It has
+  asked for varied opponents before, under "benchmark reuse", so the first
+  is a difference of emphasis rather than of view.) I think the power
+  arithmetic changes how the day should be spent -- batch the gates, buy
+  seeds with the savings -- more than any single item on either list.
+
+Codex also covers ground I did not, and it is worth keeping rather than
+merging away: the `LOSS` sentinel wants a real terminal-outcome type, the
+26 weight fields want their active tuning set separated from the
+compatibility and disabled ones, `coup_discount=1` is a clean isolated
+ablation, and the MCTS leaf parameters should be split from the rollout and
+proposal parameters before anything tunes them together. Those belong with
+`docs/STRATEGIC_SIMPLIFICATION.md`, which is where the weight-by-weight
+argument already lives.
+
+Neither audit found a new correctness defect in the risk fixes.
+
+### Codex reviewed the section above, and corrected two of its claims
+
+`CODEX_NOTES.md` "Review of Claude's night plan", written against the
+uncommitted section above. Broad agreement, and it accepts the 4 % finding
+that demotes the checkpoint fold. Two of my claims do not survive, and both
+corrections are confirmed here rather than taken on trust:
+
+- **"96 % pool efficiency" is close to a tautology, and is withdrawn.**
+  `benchmark.play` times a game with `time.time()` (`benchmark.py:203,227`),
+  so the per-game seconds are elapsed worker occupancy, not CPU. Summing
+  them and dividing by the worker count measures how busy the workers were,
+  which under contention inflates with the contention and returns ~1 by
+  construction. What survives is the step budget itself, which comes from
+  directory mtimes and is real wall clock: 2 s, 67 s, 1,595 s. Step 3
+  dominates and the checkpoint fold is worth 4 %; the pool efficiency claim
+  and the "2-3x code slowdown" both need controlled, quiet-machine
+  comparisons before anyone believes them.
+- **"16 cards are untested" overstates it.** Codex names behaviour tests for
+  Nuclear Subs, Flower Power and Shuttle Diplomacy that my grep missed
+  because it searched for literal card IDs and the tests spell them
+  differently or drive them through effect flags. Checked: those three are
+  mentioned in 4, 2 and 4 test files respectively. Iran-Iraq War, OAS
+  Founded and Kitchen Debates appear in one file each, which may be an
+  incidental mention rather than a behaviour test. The real question is
+  coverage of activation, resolution, interaction and expiration separately,
+  and no grep answers it. Treat 16 as an upper bound on a number nobody has
+  measured yet.
+
+Codex's other three qualifications stand and are adopted: the wipe term is
+a hypothesis rather than the proven cause of the clustered expert-table
+misses (empty-country access, event vulnerability and coup vulnerability
+overlap but are not the same mechanism); batching gates should keep
+distinct strategic hypotheses independently measurable, since a failed
+batch of interacting changes does not bisect cleanly; and the MCTS run
+should record root visits and truncation and compare equal wall-time
+budgets as well as equal simulation counts.
+
+Its revised sequence -- green baseline, controlled profiling, the 32-seed
+MCTS run, tactics suite and a real coverage audit, then optimisation with
+wipe and coup-discount tested independently -- supersedes the order I gave
+above. The one thing I would keep from mine is that the gate's power is a
+reason to batch *validation*, not a reason to stop attributing changes.
+
+## 2026-09-09 (overnight) — Green baseline, and the slowdown is real but not attributed
+
+Work done unsupervised, following Codex's revised sequence. Nothing was
+committed and no weights changed.
+
+### Baseline restored
+
+`5a2f3bb` regenerated the parity corpus (427 records, captured clean at
+`c15a603`, no dirty paths). The suite at that revision: **588 passed, 3
+skipped, 0 failed**, including `test_parity_corpus.py`. The single expected
+red test recorded in earlier sessions is therefore closed; treat a parity
+failure from here on as a real one.
+
+Housekeeping worth knowing: four leftover watcher shells from an earlier
+session were deadlocked, each polling `ps` for a pattern that its own
+command line contained, so each was waiting for itself. They had been idle
+25 minutes on a quiet machine. If a background wait never fires, check
+whether its own command line matches its own predicate.
+
+### The bot really did get slower, normalised for game length
+
+The obvious confound first, and it is dead: **games are not running
+longer.** Mean end turn is flat at 8.4 across every gate from `b18b7a9` to
+`ec48dfa`. Game seconds do scale hard with how far a game goes (median 3.6 s
+at end-turn 3, 28.8 s at end-turn 10, over 4,636 games), so per-turn cost is
+the number to compare, not per-game.
+
+Seconds per turn of play, in git commit order, one row per gate:
+
+| Period | s/turn |
+| --- | ---: |
+| `b18b7a9` .. `1a03954` (Sept 8, before the corpus commit) | 1.07 - 2.21 |
+| `2a3f12c`, dice averaging's first landing, later reverted | 2.73 |
+| `8ba89db` .. `ec48dfa` (Sept 8 evening onward), 24 gates | 2.80 - 4.42 |
+| `df29bf8`, measured under load 17 | 10.17 |
+
+So roughly **1.9x on per-turn cost**, it never came back down, and the step
+sits at the `8ba89db` / `6ec71d4` / `4e67bf0` cluster. The natural
+experiment inside it: dice averaging spiked its first landing to 2.73
+against neighbours at 1.07-1.90, was reverted, and every gate after it
+re-landed in `4e67bf0` is at or above 2.80.
+
+**This is suggestive, not attribution.** Every row is a separate gate run
+under uncontrolled machine load, which is exactly the confound this file
+keeps warning about. Codex's controlled experiment -- the same positions,
+the same machine, revisions compared back to back -- is still the thing that
+would settle it. What this does establish is that the question is worth the
+experiment, and that "the games just got longer" is not the answer.
+
+### Frozen positions: two hot paths, not one
+
+Four corpus positions, three unprofiled repetitions each, fresh player per
+repetition (a warm player carries per-decision caches and would time the
+second call), on a quiet machine at `5a2f3bb`:
+
+| Position | Decision | Options | Min elapsed |
+| --- | --- | ---: | ---: |
+| Opening placement, T1 AR1 US | `place_influence` | 38 | 0.007 s |
+| Scoring-card choice, T1 AR1 US | `action_round_play` | 7 | 0.034 s |
+| Ordinary mid-war hand, T5 AR1 USSR | `action_round_play` | 9 | 0.191 s |
+| Hazardous late hand, T7 AR1 US (whole-hand risk 0.469) | `action_round_play` | 8 | 0.336 s |
+
+Elapsed and CPU agree to the millisecond, so none of this is waiting on
+anything. A decision costs **48x more late than at the opening**, which is
+why per-turn cost is the right unit and why a hazardous hand is the
+workload to optimise.
+
+The profiles say the cost is in two different places depending on which:
+
+- **Ordinary mid-war hand:** `event_value` is 0.340 s of 0.486 s profiled,
+  about 70 %.
+- **Hazardous late hand:** `action_risk` into `defcon.risk` is 0.410 s of
+  0.612 s, about 67 %, and `event_value` is not the story at all.
+
+That refines Codex's single-game profile, which showed `action_risk` ~49 s,
+`delta` ~37 s and `ops_value` ~31 s as overlapping cumulative paths: they
+overlap because they are the same two paths sampled over positions of both
+kinds. **Optimising either one alone wins about half the workload.** It also
+gives the slowdown a plausible mechanism, since both suspected commits
+(`6ec71d4` pricing VP in Ops, `4e67bf0` averaging the sandbox dice) add work
+inside event valuation, which is the dominant path in ordinary hands.
+
+Harness: `frozen_bench.py` in the session scratchpad, selection deterministic
+by corpus order so the same four positions return on every run. It is not
+committed; it should be, next to `profile_baseline.py`, if this becomes the
+standard measurement.
+
+### The bot declines free Coups: six event branches decided by option order
+
+`score()`'s `EVENT_CHOICE` arm has twelve per-event rules and two
+choice-shaped ones (`choice in CARDS`, `choice == 'boycott'`), and then
+`return 0.0` (`strategic.py:1898`). Anything with no rule scores 0.0 on
+every branch, and `sorted(..., reverse=True)` is stable, so the **first
+option offered wins**. The notes recorded this as the Warsaw Pact
+branch-selection defect. It is much wider than one card.
+
+Reproduced directly against the engine, not inferred from reading:
+
+| Event | Options | Bot picks | All tied at 0.0 |
+| --- | ---: | --- | --- |
+| Tear Down This Wall | none / coup / realign | **none** | yes |
+| Junta | none / coup / realign | **none** | yes |
+| Ortega Elected in Nicaragua | none / coup | **none** | yes |
+| Warsaw Pact Formed | remove / add | remove | yes |
+| Chernobyl | six regions | EUROPE | yes |
+| South African Unrest | south_africa_only / and_adjacent | south_africa_only | yes |
+
+The first three are the serious ones: `push_free_coup_or_realign` puts
+`"none"` first in the option tuple, so **the bot declines the free
+Coup or Realignment that is the entire point of those three cards, every
+time.** This is not a cautious refusal -- the DEFCON planner is not
+consulted on this decision at all, and the engine has already filtered the
+options to legal ones. It is a tie broken by tuple order.
+
+Chernobyl always blocks Europe and South African Unrest always takes the
+smaller option, both unconditionally.
+
+Two reasons this went unseen. It is **invisible to the gate by
+construction**: both sides are strategic, both decline, so the games are
+symmetric and score 0.500, the same blind spot as a rules change. And the
+expert table prices whole cards on the opening board, where none of these
+six can fire.
+
+The fix is not new machinery. A free Coup/Realignment type choice is
+already valuable to this bot in other decision kinds, so route it through
+the existing coup and realignment valuation instead of returning 0.0;
+Chernobyl's region choice is the region score it already computes. What it
+must not become is a per-branch sandbox simulation, which would land in
+the middle of the hottest path (event valuation is ~70 % of an ordinary
+mid-war decision, above), so the speed finding and this one pull against
+each other and should be designed together.
+
+Reproduction: resolve the event on a fresh `Engine.new_game(seed=7)`, take
+the pushed `EVENT_CHOICE`, and compare `rank_actions` keys. Probe kept in
+the session scratchpad; it belongs in `tests/` as a regression that asserts
+no `EVENT_CHOICE` presents an all-tied ranking.
+
+### Two of Codex's open items are already closed
+
+Checked rather than assumed, since both were on the "what still applies"
+list:
+
+- **`_event_helper` stale weights: fixed.** `strategic.py:1014` rebuilds the
+  helper whenever `helper.weights is not self.weights`, with a comment
+  naming the training case. The finding is stale.
+- **Silent sandbox fallback: addressed.** `_event_value_uncached`
+  distinguishes `SandboxUnsupported` (debug, expected) from any other
+  exception (warning, recorded in `sandbox_failures` where a caller can see
+  the value is an estimate). Landed as `b5466cc`.
