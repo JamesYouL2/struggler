@@ -1896,9 +1896,34 @@ class StrategicPlayer:
         return self._space_card or None
 
     def score(self, obs: Observation, action: Action) -> float:
+        """What `action` is worth, dispatched to the arm for its kind.
+
+        This was 256 lines and 90 branches -- three times the next worst
+        function in the project, on the path of every decision, and where
+        four separate scale and sentinel bugs have been found. Splitting it
+        changed no behaviour: the parity corpus pins all 547 recorded
+        rankings, so that is verified rather than believed.
+
+        An arm returning `None` had no opinion, which is 0.0 -- the value
+        the old flat chain of `if`s fell through to."""
         kind, p = action.kind, action.payload
         ctx = obs.pending_decision.context
-        if kind is K.PLACE_INFLUENCE and ctx.get('setup'):
+        scorer = self._SCORERS.get(kind)
+        if scorer is None:
+            return 0.0
+        value = scorer(self, obs, action, kind, p, ctx)
+        return 0.0 if value is None else value
+
+    def _score_place_influence(self, obs: Observation, action: Action, kind, p, ctx):
+        """Where a point of Influence goes: the opening book while the setup is still being placed, otherwise the greedy per-country value.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        if ctx.get('setup'):
             # The opening is a book, not a search: the standard openings
             # keep control through East European Unrest / Socialist
             # Governments and take the access points strong players take.
@@ -1908,247 +1933,352 @@ class StrategicPlayer:
             if wanted is not None and any(a.payload['country'] == wanted for a in obs.pending_decision.options):
                 return float(p['country'] == wanted)
             return self.influence(obs, p['country'], 1)
-        if kind is K.PLACE_INFLUENCE:
-            ops = int(ctx.get('ops_remaining', ctx.get('remaining', ctx.get('ops', 1))))
-            if ctx.get('bonus'):
-                ops = ctx['base'] - ctx['spent']
-                # One extra point per bonus whose region has held every point
-                # so far and holds this one too; two are possible at once.
-                ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
-                           if outside == 0
-                           and _in_bonus_region(self.board.countries[p['country']], tag))
-            return self.influence(obs, p['country'], ops)
-        if kind is K.EVENT_INFLUENCE:
-            cid = p['country']
-            amount = int(ctx.get('amount', 1))
-            if ctx['op'] == 'remove':
-                amount = -self.board.influence[cid][ctx['inf_side']] if ctx.get('whole') else -amount
-            return self.delta(obs, cid, **{'own' if ctx['inf_side'] == obs.side.value else 'opp': amount})
-        if kind is K.COUP_TARGET:
-            ops = ctx['ops'] + _bonus_ops(self.board.countries[p['country']], ctx.get('bonus'))
-            return self.coup(obs, p['country'], ops)
-        if kind is K.REALIGNMENT_TARGET:
-            return self.realign(obs, p['country'])
-        if kind is K.OPS_TYPE:
-            ops = ctx['ops']
-            if p['type'] == 'influence':
-                # The same greedy multi-country spend `ops_value` prices a card
-                # with. Taking the best single country's value per Op and
-                # multiplying by the Ops, as this did, is a different estimate:
-                # it assumes every point goes to that one country at the first
-                # point's rate, so it overprices a spend whose best target
-                # saturates after a point or two. A card could then be chosen
-                # on one estimate and its Ops spent on the strength of another.
-                return self._placement_ops_value(obs, ops)
-            engine = self.public_engine(obs)
-            coup = p['type'] == 'coup'
-            return max(((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup else self.realign(obs, c) * ops)
-                        for c, i in self.board.countries.items() if engine._usable_coup_realign_target(obs.side, c, for_coup=coup)), default=LOSS)
-        if kind in (K.HEADLINE_PLAY, K.ACTION_ROUND_PLAY):
-            cid = p['card']
-            card = CARDS[cid]
-            if card.scoring:
-                value = self.scoring_card_value(obs, cid)
-                if abs(value) >= -LOSS:  # scoring it ends the game
-                    return value
-                return value + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
-            event = self.event_value(obs, cid)
-            ops = _effective_ops_estimate(card, obs, obs.side)
-            if kind is K.HEADLINE_PLAY:
-                # Headlining a card whose event is certain is that outcome;
-                # the half-Ops charge for the round it costs is an
-                # adjustment between prices and does not apply to a flag.
-                return event if is_certain(event) else event - 0.5 * self.ops_value(obs, ops)
-            value = self.card_play_value(obs, cid, ops, event)
-            if is_certain(value):
-                # A certain outcome takes none of the nudges below -- the
-                # China charge, the Five Year Plan tie-break, the space
-                # slot. They are small adjustments between comparable
-                # prices, and the flag is not one: subtracting 4 from
-                # certain defeat is arithmetic on an unreachable number,
-                # and it only shows up in games, never in a fixture.
+        ops = int(ctx.get('ops_remaining', ctx.get('remaining', ctx.get('ops', 1))))
+        if ctx.get('bonus'):
+            ops = ctx['base'] - ctx['spent']
+            # One extra point per bonus whose region has held every point
+            # so far and holds this one too; two are possible at once.
+            ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
+                       if outside == 0
+                       and _in_bonus_region(self.board.countries[p['country']], tag))
+        return self.influence(obs, p['country'], ops)
+
+    def _score_event_influence(self, obs: Observation, action: Action, kind, p, ctx):
+        """An event adding or removing Influence in a named country.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        cid = p['country']
+        amount = int(ctx.get('amount', 1))
+        if ctx['op'] == 'remove':
+            amount = -self.board.influence[cid][ctx['inf_side']] if ctx.get('whole') else -amount
+        return self.delta(obs, cid, **{'own' if ctx['inf_side'] == obs.side.value else 'opp': amount})
+
+    def _score_coup_target(self, obs: Observation, action: Action, kind, p, ctx):
+        """Which country to Coup.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        ops = ctx['ops'] + _bonus_ops(self.board.countries[p['country']], ctx.get('bonus'))
+        return self.coup(obs, p['country'], ops)
+
+    def _score_realignment_target(self, obs: Observation, action: Action, kind, p, ctx):
+        """Which country to Realign.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        return self.realign(obs, p['country'])
+
+    def _score_ops_type(self, obs: Observation, action: Action, kind, p, ctx):
+        """How to spend a card's Operations: Influence, a Coup, or Realignment.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        ops = ctx['ops']
+        if p['type'] == 'influence':
+            # The same greedy multi-country spend `ops_value` prices a card
+            # with. Taking the best single country's value per Op and
+            # multiplying by the Ops, as this did, is a different estimate:
+            # it assumes every point goes to that one country at the first
+            # point's rate, so it overprices a spend whose best target
+            # saturates after a point or two. A card could then be chosen
+            # on one estimate and its Ops spent on the strength of another.
+            return self._placement_ops_value(obs, ops)
+        engine = self.public_engine(obs)
+        coup = p['type'] == 'coup'
+        return max(((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup else self.realign(obs, c) * ops)
+                    for c, i in self.board.countries.items() if engine._usable_coup_realign_target(obs.side, c, for_coup=coup)), default=LOSS)
+
+    def _score_card_play(self, obs: Observation, action: Action, kind, p, ctx):
+        """Which card to play, as a Headline or in an action round.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        cid = p['card']
+        card = CARDS[cid]
+        if card.scoring:
+            value = self.scoring_card_value(obs, cid)
+            if abs(value) >= -LOSS:  # scoring it ends the game
                 return value
-            if cid == 'The_China_Card':
-                # A nudge, not the maintainer's 5 Ops: see CHINA_HOLD_RAW.
-                value -= CHINA_HOLD_RAW
-            if cid == 'UN_Intervention' and self.un_card(obs):
-                # Played alone it is a 1-Op card; it is worth keeping for
-                # the card it neutralises. If that card's event is certain
-                # defeat, holding UN for it is worth the flag, not a price:
-                # `ops + LOSS` was arithmetic on an unreachable number.
-                harm = self.event_value(obs, self.un_card(obs))
-                value = harm if is_certain(harm) and harm < 0 else min(
-                    value, self.ops_value(obs, 1) + min(0, harm))
-            if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
-                # Prefer the controlled late-hand use when survival risks tie.
-                value -= max(0, len(obs.hand)-3)
-            # One space slot a turn: it goes to the worst card in hand, and
-            # only that card is valued as a space play here.
-            if cid == self.space_card(obs):
-                value = max(value, self.space_value(obs, ops))
+            return value + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
+        event = self.event_value(obs, cid)
+        ops = _effective_ops_estimate(card, obs, obs.side)
+        if kind is K.HEADLINE_PLAY:
+            # Headlining a card whose event is certain is that outcome;
+            # the half-Ops charge for the round it costs is an
+            # adjustment between prices and does not apply to a flag.
+            return event if is_certain(event) else event - 0.5 * self.ops_value(obs, ops)
+        value = self.card_play_value(obs, cid, ops, event)
+        if is_certain(value):
+            # A certain outcome takes none of the nudges below -- the
+            # China charge, the Five Year Plan tie-break, the space
+            # slot. They are small adjustments between comparable
+            # prices, and the flag is not one: subtracting 4 from
+            # certain defeat is arithmetic on an unreachable number,
+            # and it only shows up in games, never in a fixture.
             return value
-        if kind is K.PLAY_MODE:
-            cid = ctx['card']
-            event = self.event_value(obs, cid)
-            ops = _effective_ops_estimate(CARDS[cid], obs, obs.side)
-            if p['mode'] == 'event':
-                return event
-            if p['mode'] == 'space_race':
-                return self.space_value(obs, ops) + 1
-            fires = (p['mode'] != 'un_intervention'
-                     and CARDS[cid].side.value == obs.side.opponent.value)
-            if fires and is_certain(event):
-                # Playing it for Ops still fires their event, so a certain
-                # defeat stays certain. Said as a flag, not as `ops + LOSS`.
-                return event if event < 0 else self.ops_value(obs, ops)
-            return self.ops_value(obs, ops) + (min(0, event) if fires else 0)
-        if kind is K.WAR_TARGET:
-            cid = p['country']
-            penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
-            penalty += int(ctx.get('count_target_control', True) and self.board.control(cid) is obs.side.opponent)
-            probability = max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
-            enemy = self.board.influence[cid][obs.side.opponent.value]
-            return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
-        if kind in (K.QUAGMIRE_DISCARD, K.HELD_CARD_DISCARD):
-            cid = p['card']
-            if cid == 'none':
+        if cid == 'The_China_Card':
+            # A nudge, not the maintainer's 5 Ops: see CHINA_HOLD_RAW.
+            value -= CHINA_HOLD_RAW
+        if cid == 'UN_Intervention' and self.un_card(obs):
+            # Played alone it is a 1-Op card; it is worth keeping for
+            # the card it neutralises. If that card's event is certain
+            # defeat, holding UN for it is worth the flag, not a price:
+            # `ops + LOSS` was arithmetic on an unreachable number.
+            harm = self.event_value(obs, self.un_card(obs))
+            value = harm if is_certain(harm) and harm < 0 else min(
+                value, self.ops_value(obs, 1) + min(0, harm))
+        if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
+            # Prefer the controlled late-hand use when survival risks tie.
+            value -= max(0, len(obs.hand)-3)
+        # One space slot a turn: it goes to the worst card in hand, and
+        # only that card is valued as a space play here.
+        if cid == self.space_card(obs):
+            value = max(value, self.space_value(obs, ops))
+        return value
+
+    def _score_play_mode(self, obs: Observation, action: Action, kind, p, ctx):
+        """Whether to take a card's event, its Operations, or the space race.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        cid = ctx['card']
+        event = self.event_value(obs, cid)
+        ops = _effective_ops_estimate(CARDS[cid], obs, obs.side)
+        if p['mode'] == 'event':
+            return event
+        if p['mode'] == 'space_race':
+            return self.space_value(obs, ops) + 1
+        fires = (p['mode'] != 'un_intervention'
+                 and CARDS[cid].side.value == obs.side.opponent.value)
+        if fires and is_certain(event):
+            # Playing it for Ops still fires their event, so a certain
+            # defeat stays certain. Said as a flag, not as `ops + LOSS`.
+            return event if event < 0 else self.ops_value(obs, ops)
+        return self.ops_value(obs, ops) + (min(0, event) if fires else 0)
+
+    def _score_war_target(self, obs: Observation, action: Action, kind, p, ctx):
+        """Which country a war card attacks.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        cid = p['country']
+        penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
+        penalty += int(ctx.get('count_target_control', True) and self.board.control(cid) is obs.side.opponent)
+        probability = max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
+        enemy = self.board.influence[cid][obs.side.opponent.value]
+        return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
+
+    def _score_discard(self, obs: Observation, action: Action, kind, p, ctx):
+        """Which card to throw away to Quagmire, Bear Trap or a held-card event.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        cid = p['card']
+        if cid == 'none':
+            return 0.
+        harm = self.event_value(obs, cid)
+        if is_certain(harm) and harm < 0:
+            # Getting rid of a card whose event is certain defeat is
+            # worth the game, bounded -- not `-ops - LOSS`, which is
+            # a million and says discarding it beats winning.
+            return self.game_value(obs) - CARDS[cid].ops
+        return -CARDS[cid].ops - min(0, harm)
+
+    def _score_event_ops_order(self, obs: Observation, action: Action, kind, p, ctx):
+        """Whether a card's event or its Operations resolve first.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        # Resolve damage first so operations can repair it afterwards.
+        return float(p['order'] == 'event_first')
+
+    def _score_event_choice(self, obs: Observation, action: Action, kind, p, ctx):
+        """The per-card branch an event asks its owner to pick.
+
+        One arm of the decision dispatch, called only for its own kinds.
+        Takes the whole decision -- kind, payload and context -- because
+        several arms read more than one, and returns `None` for "no
+        opinion", which `score` turns into 0.0 exactly as the old
+        fall-through did.
+        """
+        choice = p['choice']
+        event = ctx.get('event')
+        responsible = ctx.get('phasing_player', obs.side.value) == obs.side.value
+        if event == 'How_I_Learned_to_Stop_Worrying':
+            if choice == '1':
+                return LOSS if responsible else -LOSS
+            return float(choice)  # a larger buffer permits later dangerous events
+        if event == ASK:
+            if choice == 'stop':
+                return 0
+            if CARDS[choice].scoring:
+                # Discarding a scoring card is legal -- the illegal act is
+                # holding one (FAQ 5.0) -- and it is much of what this card
+                # is for. Priced as the exact negation of playing it: dump
+                # the regions that would score against us, keep the ones
+                # that would not. Without this a scoring card came out at
+                # 0 (its Ops value), tying with "stop" and falling to hand
+                # order.
+                return -self.scoring_card_value(obs, choice)
+            risk = self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0
+            return 100*risk - CARDS[choice].ops
+        if event == 'Salt_Negotiations':
+            if choice == 'none':
+                return -1
+            return CARDS[choice].ops - 100*(self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0)
+        if event == 'Grain_Sales_to_Soviets':
+            # The shown USSR card: take it -- the US plays it in full, so
+            # `hold_value` carries a Soviet event's harm -- and the USSR
+            # is a card down, with the denial premium if it was an asset;
+            # or hand it back for Grain Sales' own 2 Ops. This used to
+            # fall through to 0 for both, so "take" won by option order,
+            # Soviet events included.
+            shown = ctx['card']
+            if choice == 'return':
+                return self.ops_value(obs, 2)
+            theirs = self.ops_value(obs, _effective_ops_estimate(CARDS[shown], obs, obs.side.opponent))
+            return (self.hold_value(obs, shown) + theirs
+                    + (CARD_DENIAL_OPS * self.ops_value(obs, 1) if theirs > 0 else 0.))
+        if event == 'Star_Wars':
+            # Any non-scoring card in the discard pile, its event played
+            # now by the US. Worth the event, so a Soviet card prices
+            # negative and "none" beats it. The generic card-choice rule
+            # below scored this -ops, picking the *weakest* card.
+            if choice == 'none':
                 return 0.
-            harm = self.event_value(obs, cid)
-            if is_certain(harm) and harm < 0:
-                # Getting rid of a card whose event is certain defeat is
-                # worth the game, bounded -- not `-ops - LOSS`, which is
-                # a million and says discarding it beats winning.
-                return self.game_value(obs) - CARDS[cid].ops
-            return -CARDS[cid].ops - min(0, harm)
-        if kind is K.EVENT_OPS_ORDER:
-            # Resolve damage first so operations can repair it afterwards.
-            return float(p['order'] == 'event_first')
-        if kind is K.EVENT_CHOICE:
-            choice = p['choice']
-            event = ctx.get('event')
-            responsible = ctx.get('phasing_player', obs.side.value) == obs.side.value
-            if event == 'How_I_Learned_to_Stop_Worrying':
-                if choice == '1':
-                    return LOSS if responsible else -LOSS
-                return float(choice)  # a larger buffer permits later dangerous events
-            if event == ASK:
-                if choice == 'stop':
-                    return 0
-                if CARDS[choice].scoring:
-                    # Discarding a scoring card is legal -- the illegal act is
-                    # holding one (FAQ 5.0) -- and it is much of what this card
-                    # is for. Priced as the exact negation of playing it: dump
-                    # the regions that would score against us, keep the ones
-                    # that would not. Without this a scoring card came out at
-                    # 0 (its Ops value), tying with "stop" and falling to hand
-                    # order.
-                    return -self.scoring_card_value(obs, choice)
-                risk = self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0
-                return 100*risk - CARDS[choice].ops
-            if event == 'Salt_Negotiations':
-                if choice == 'none':
-                    return -1
-                return CARDS[choice].ops - 100*(self._planner.event_risk(choice, 2) if self._planner.opponent_event(choice) else 0)
-            if event == 'Grain_Sales_to_Soviets':
-                # The shown USSR card: take it -- the US plays it in full, so
-                # `hold_value` carries a Soviet event's harm -- and the USSR
-                # is a card down, with the denial premium if it was an asset;
-                # or hand it back for Grain Sales' own 2 Ops. This used to
-                # fall through to 0 for both, so "take" won by option order,
-                # Soviet events included.
-                shown = ctx['card']
-                if choice == 'return':
-                    return self.ops_value(obs, 2)
-                theirs = self.ops_value(obs, _effective_ops_estimate(CARDS[shown], obs, obs.side.opponent))
-                return (self.hold_value(obs, shown) + theirs
-                        + (CARD_DENIAL_OPS * self.ops_value(obs, 1) if theirs > 0 else 0.))
-            if event == 'Star_Wars':
-                # Any non-scoring card in the discard pile, its event played
-                # now by the US. Worth the event, so a Soviet card prices
-                # negative and "none" beats it. The generic card-choice rule
-                # below scored this -ops, picking the *weakest* card.
-                if choice == 'none':
-                    return 0.
-                return self.event_value(obs, choice)
-            if event == 'Missile_Envy_pick':
-                # Tied on Ops by construction; give up the one worth least to us.
-                return -self.hold_value(obs, choice)
-            if event == 'Aldrich_Ames_Remix':
-                # These options are the legitimately revealed US hand.
-                hand = tuple(a.payload['choice'] for a in obs.pending_decision.options)
-                target = replace(obs, side=Side.US, hand=tuple(c for c in hand if c != choice))
-                planner = self.planner_for(target)
-                # The US card worth most to the US: its Ops, or its event if
-                # that is better -- which from our seat is the harm it does us,
-                # negated. Printed Ops alone would hand back a 1-Op Marshall
-                # Plan while discarding a 3-Op nothing.
-                # Bounded before the sum: taking away a card whose event
-                # would certainly lose us the game is worth the game, not a
-                # million.
-                best = max(self.ops_value(obs, CARDS[choice].ops),
-                           -self.event_value(obs, choice))
-                return 1000*planner.risk() + priced(best, self.game_value(obs))
-            if event == 'Wargames':
-                if choice != 'end_game':
-                    return 0
-                engine = self.public_engine(obs)
-                engine._fire_event(obs.side, 'Wargames')
-                if engine.pending_decision is None:
-                    return LOSS
-                engine.step(Action(K.EVENT_CHOICE, {'choice': 'end_game'}))
-                return -LOSS if engine.winner is obs.side else LOSS
-            if event == 'De_Stalinization_remove':
-                # Keep relocating while the cheapest point to lift is worth
-                # less than the best place it can go (max 2 per country,
-                # never into US control). A whole-relocation plan (four
-                # best destinations against four cheapest lifts) measured
-                # 0.44 against this on seeds 4000-4015: it lifts Austria and
-                # Laos first because the value function prices those single
-                # points below an over-protection point on Poland.
-                if choice == 'done':
-                    return 0.
-                gains = self.__dict__.get('_relocation_gain')
-                if gains is None:
-                    gains = self._relocation_gain = max(
-                        (self.delta(obs, c, own=1) for c in self.board.countries
-                         if self.board.control(c) is not Side.US and self.board.influence[c]['USSR'] < 2),
-                        default=0.)
-                return self.delta(obs, choice, own=-1) + gains
-            if event == 'Blockade' and choice == 'refuse':
-                return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])
-            if event == 'Independent_Reds' and choice in self.board.countries:
-                inf = self.board.influence[choice]
-                return self.delta(obs, choice, own=max(0, inf['USSR']-inf['US']))
-            if event == 'Summit_defcon':
-                if choice == 'lower' and obs.defcon <= 2:
-                    return LOSS if responsible else -LOSS
-                return float(choice == 'raise')
-            if choice in ('none', 'coup', 'realign') and ctx.get('countries') is not None and 'ops' in ctx:
-                # A free Coup/Realignment offer (`push_free_coup_or_realign`:
-                # Junta, Ortega Elected in Nicaragua, Tear Down This Wall).
-                # Without this the three branches all fell to the 0.0 below,
-                # and because `sorted` is stable and the engine offers "none"
-                # first, the bot declined every free Coup it was ever handed.
-                # Keyed on the offer's shape rather than on three card names,
-                # so a future card routed through the same helper is priced
-                # too. `none` is the do-nothing baseline at 0, so a Coup worth
-                # less than nothing (or forbidden, scoring LOSS) is still
-                # correctly refused.
-                if choice == 'none':
-                    return 0.
-                engine = self.public_engine(obs)
-                coup = choice == 'coup'
-                # `ignore_defcon` matches how the engine filtered the offer:
-                # a free Coup is exempt from 8.1.5's DEFCON geography, though
-                # not from the DEFCON degradation `coup` already prices.
-                return max((self.coup(obs, c, ctx['ops'], military=False) if coup
-                            else self.realign(obs, c) * ctx['ops']
-                            for c in ctx['countries']
-                            if engine._usable_coup_realign_target(
-                                obs.side, c, for_coup=coup, ignore_defcon=True)),
-                           default=0.)
-            if choice in CARDS:
-                return CARDS[choice].ops if event == 'Aldrich_Ames_Remix' else -CARDS[choice].ops
-            if choice == 'boycott':
-                return (LOSS if responsible else -LOSS) if obs.defcon <= 2 else 0
-        return 0.0
+            return self.event_value(obs, choice)
+        if event == 'Missile_Envy_pick':
+            # Tied on Ops by construction; give up the one worth least to us.
+            return -self.hold_value(obs, choice)
+        if event == 'Aldrich_Ames_Remix':
+            # These options are the legitimately revealed US hand.
+            hand = tuple(a.payload['choice'] for a in obs.pending_decision.options)
+            target = replace(obs, side=Side.US, hand=tuple(c for c in hand if c != choice))
+            planner = self.planner_for(target)
+            # The US card worth most to the US: its Ops, or its event if
+            # that is better -- which from our seat is the harm it does us,
+            # negated. Printed Ops alone would hand back a 1-Op Marshall
+            # Plan while discarding a 3-Op nothing.
+            # Bounded before the sum: taking away a card whose event
+            # would certainly lose us the game is worth the game, not a
+            # million.
+            best = max(self.ops_value(obs, CARDS[choice].ops),
+                       -self.event_value(obs, choice))
+            return 1000*planner.risk() + priced(best, self.game_value(obs))
+        if event == 'Wargames':
+            if choice != 'end_game':
+                return 0
+            engine = self.public_engine(obs)
+            engine._fire_event(obs.side, 'Wargames')
+            if engine.pending_decision is None:
+                return LOSS
+            engine.step(Action(K.EVENT_CHOICE, {'choice': 'end_game'}))
+            return -LOSS if engine.winner is obs.side else LOSS
+        if event == 'De_Stalinization_remove':
+            # Keep relocating while the cheapest point to lift is worth
+            # less than the best place it can go (max 2 per country,
+            # never into US control). A whole-relocation plan (four
+            # best destinations against four cheapest lifts) measured
+            # 0.44 against this on seeds 4000-4015: it lifts Austria and
+            # Laos first because the value function prices those single
+            # points below an over-protection point on Poland.
+            if choice == 'done':
+                return 0.
+            gains = self.__dict__.get('_relocation_gain')
+            if gains is None:
+                gains = self._relocation_gain = max(
+                    (self.delta(obs, c, own=1) for c in self.board.countries
+                     if self.board.control(c) is not Side.US and self.board.influence[c]['USSR'] < 2),
+                    default=0.)
+            return self.delta(obs, choice, own=-1) + gains
+        if event == 'Blockade' and choice == 'refuse':
+            return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])
+        if event == 'Independent_Reds' and choice in self.board.countries:
+            inf = self.board.influence[choice]
+            return self.delta(obs, choice, own=max(0, inf['USSR']-inf['US']))
+        if event == 'Summit_defcon':
+            if choice == 'lower' and obs.defcon <= 2:
+                return LOSS if responsible else -LOSS
+            return float(choice == 'raise')
+        if choice in ('none', 'coup', 'realign') and ctx.get('countries') is not None and 'ops' in ctx:
+            # A free Coup/Realignment offer (`push_free_coup_or_realign`:
+            # Junta, Ortega Elected in Nicaragua, Tear Down This Wall).
+            # Without this the three branches all fell to the 0.0 below,
+            # and because `sorted` is stable and the engine offers "none"
+            # first, the bot declined every free Coup it was ever handed.
+            # Keyed on the offer's shape rather than on three card names,
+            # so a future card routed through the same helper is priced
+            # too. `none` is the do-nothing baseline at 0, so a Coup worth
+            # less than nothing (or forbidden, scoring LOSS) is still
+            # correctly refused.
+            if choice == 'none':
+                return 0.
+            engine = self.public_engine(obs)
+            coup = choice == 'coup'
+            # `ignore_defcon` matches how the engine filtered the offer:
+            # a free Coup is exempt from 8.1.5's DEFCON geography, though
+            # not from the DEFCON degradation `coup` already prices.
+            return max((self.coup(obs, c, ctx['ops'], military=False) if coup
+                        else self.realign(obs, c) * ctx['ops']
+                        for c in ctx['countries']
+                        if engine._usable_coup_realign_target(
+                            obs.side, c, for_coup=coup, ignore_defcon=True)),
+                       default=0.)
+        if choice in CARDS:
+            return CARDS[choice].ops if event == 'Aldrich_Ames_Remix' else -CARDS[choice].ops
+        if choice == 'boycott':
+            return (LOSS if responsible else -LOSS) if obs.defcon <= 2 else 0
+
+    # One scorer per decision kind, defined after the arms it names.
+    _SCORERS = {
+        K.PLACE_INFLUENCE: _score_place_influence,
+        K.EVENT_INFLUENCE: _score_event_influence,
+        K.COUP_TARGET: _score_coup_target,
+        K.REALIGNMENT_TARGET: _score_realignment_target,
+        K.OPS_TYPE: _score_ops_type,
+        K.HEADLINE_PLAY: _score_card_play,
+        K.ACTION_ROUND_PLAY: _score_card_play,
+        K.PLAY_MODE: _score_play_mode,
+        K.WAR_TARGET: _score_war_target,
+        K.QUAGMIRE_DISCARD: _score_discard,
+        K.HELD_CARD_DISCARD: _score_discard,
+        K.EVENT_OPS_ORDER: _score_event_ops_order,
+        K.EVENT_CHOICE: _score_event_choice,
+    }
