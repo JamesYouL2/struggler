@@ -194,6 +194,17 @@ action = bot.choose_action(observation, history)
   the tiers are discontinuous and a near-miss is worth nothing. Ask Not's
   discard choice prices a scoring card as the exact negation of that: dump
   the regions that would score against us, keep the ones that would not.
+- Plays for the kill, not only against its own defeat. Nuclear war costs
+  the *phasing* player the game (8.1.3) -- whoever played the card, not
+  whoever is spending the Operations. So when an opponent's event hands us
+  Ops on their own Action Round (Lone Gunman, CIA Created, Grain Sales, ABM
+  Treaty pulled by Missile Envy), couping a Battleground at DEFCON 2 wins
+  outright, and `StrategicPlayer._is_phasing` is what both `score` and
+  `coup_survival_risk` ask. The Summit, Olympic Games and How I Learned
+  choice branches use the same distinction. What the bot does *not* do is
+  manufacture the situation: it takes the kill when the opponent hands it
+  over, but nothing in the policy steers toward a DEFCON 2 where the
+  opponent is holding one of those cards.
 - Prices the hidden-information cards from what a card in a hand is worth
   (`hold_value`: a scoring card scores its region, anything else is played,
   so an opponent event carries its harm and a card you would rather not

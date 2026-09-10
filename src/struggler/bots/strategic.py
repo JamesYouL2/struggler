@@ -736,6 +736,13 @@ class StrategicPlayer:
         finally:
             self._set_influence(cid, was_us, was_ussr)
 
+    @staticmethod
+    def _is_phasing(obs: Observation) -> bool:
+        """Whether we are the player whose Action Round this is -- the one
+        who loses if DEFCON reaches 1 (8.1.3), whoever spends the Ops."""
+        ctx = obs.pending_decision.context if obs.pending_decision else {}
+        return ctx.get('phasing_player', obs.side.value) == obs.side.value
+
     def coup_survival_risk(self, obs: Observation, country: str) -> float:
         """Turn-loss risk of the hand after couping `country` now.
 
@@ -748,7 +755,15 @@ class StrategicPlayer:
         if not _coup_risks_defcon(obs, obs.side, info):
             return self._planner.discard_risk(None)
         if obs.defcon - 1 <= 1:
-            return 1.
+            # Nuclear war costs the *phasing* player the game, and the phasing
+            # player is whoever played the card -- not whoever is spending the
+            # Operations. When an opponent's event hands us Ops on their own
+            # Action Round (Lone Gunman, CIA Created, Grain Sales, ABM Treaty
+            # via Missile Envy), couping a Battleground here wins outright.
+            # `score` already returns -LOSS for it; returning 1. regardless
+            # meant this key vetoed the win, and the bot took 26 points of
+            # Influence over the game.
+            return 1. if self._is_phasing(obs) else 0.
         influence = {c: dict(v) for c, v in obs.influence.items()}
         influence[country][obs.side.value] = max(1, influence[country][obs.side.value])
         after = replace(obs, defcon=obs.defcon-1, influence=influence)
@@ -931,7 +946,7 @@ class StrategicPlayer:
         if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
             return LOSS
         if obs.defcon <= 2 and _coup_risks_defcon(obs, obs.side, info):
-            return LOSS if obs.pending_decision.context.get('phasing_player', obs.side.value) == obs.side.value else -LOSS
+            return LOSS if self._is_phasing(obs) else -LOSS
         enemy = self.board.influence[cid][obs.side.opponent.value]
         mod = _coup_roll_modifier_estimate(obs, obs.side, info)
         gain = 0.0

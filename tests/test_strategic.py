@@ -937,3 +937,52 @@ def test_star_wars_takes_the_best_event_in_the_pile_not_the_weakest():
     keys = _event_choice_keys(engine, Side.US)
     assert keys['Marshall_Plan'] > keys['Truman_Doctrine']
     assert keys['none'] > keys['De_Gaulle_Leads_France'], 'a Soviet event is worse than nothing'
+
+
+def _lone_gunman_at_defcon_two():
+    """The US plays Lone Gunman at DEFCON 2: the USSR gets 1 Op, and the US
+    is the phasing player, so a USSR Battleground coup ends the game with the
+    US losing (FAQ, card #62)."""
+    engine = Engine.new_game(seed=4, events=True)
+    engine.turn, engine.phase, engine.action_round = 7, 'action_rounds', 3
+    engine._ars_played = 5
+    engine.defcon = 2
+    engine.board.influence['Iran'] = {'US': 4, 'USSR': 1}
+    engine.hands['US'] = ['Lone_Gunman']
+    engine.hands['USSR'] = ['Duck_and_Cover', 'Nasser']
+    engine._phasing_player = Side.US
+    engine._fire_event(Side.US, 'Lone_Gunman')
+    return engine
+
+
+def test_takes_the_winning_coup_when_the_opponent_is_the_phasing_player():
+    """Nuclear war costs the *phasing* player the game, whoever spends the
+    Ops. `score` knew that; `coup_survival_risk` returned maximum risk for
+    any coup reaching DEFCON 1 regardless of seat, and risk outranks score,
+    so the key vetoed the win -- the bot took 26 points of Influence over
+    winning the game."""
+    engine = _lone_gunman_at_defcon_two()
+    assert engine.pending_decision.kind is K.OPS_TYPE
+    assert engine.pending_decision.context['phasing_player'] == 'US'
+    ranked = StrategicPlayer().rank_actions(engine.observe(Side.USSR))
+    assert ranked[0][1].payload['type'] == 'coup'
+
+    engine.step(ranked[0][1])
+    target = StrategicPlayer().rank_actions(engine.observe(Side.USSR))[0][1]
+    assert engine.board.countries[target.payload['country']].battleground
+
+
+def test_still_refuses_the_suicide_coup_on_its_own_action_round():
+    """The mirror: same board, our own Action Round, and the coup loses."""
+    engine = _lone_gunman_at_defcon_two()
+    engine._decision_stack.clear()
+    engine._phasing_player = Side.USSR
+    engine.begin_coup(Side.USSR, 3)
+    ranked = StrategicPlayer().rank_actions(engine.observe(Side.USSR))
+    assert engine.pending_decision.context['phasing_player'] == 'USSR'
+    for key, action in ranked:
+        if engine.board.countries[action.payload['country']].battleground:
+            assert key[0] == -1, 'a battleground coup at DEFCON 2 is our own defeat'
+            break
+    else:
+        raise AssertionError('no battleground target offered')
