@@ -113,7 +113,7 @@
     },
     "Captured_Nazi_Scientist": {
       "ops": 1.5,
-      "note": "Double space plus the extra VP."
+      "note": "Double space plus the extra VP. Always evented: the advance needs no roll, and a guaranteed box is worth much more than one bought at the box's odds."
     },
     "CIA_Created": {
       "ops": 1.0,
@@ -127,8 +127,12 @@
       "ops": null
     },
     "NORAD": {
-      "ops": 1.0,
-      "note": "0.5 to 1.5 Ops: not much, but something. Table says 0."
+      "ops": 1.5,
+      "note": "The effect is fine; the card is 3 Ops. That is why Sankt never events it as the US -- opportunity cost, not a weak event. Revised up from 1.0 on 2026-09-09. Table says 0: flag-only events are unpriced."
+    },
+    "One_Small_Step": {
+      "ops": null,
+      "note": "Always evented: the advance needs no roll. Unpriced -- no Ops figure from the maintainer yet, so ask before fitting to it. Also the reason not to enter the Mid War holding a 2-1 space lead (Sankt)."
     },
     "UN_Intervention": {
       "ops": null,

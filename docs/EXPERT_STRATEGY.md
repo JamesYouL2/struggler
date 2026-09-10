@@ -202,21 +202,41 @@ they differ, ask.
 - The opening should be chosen from the hand. Both players do this; the
   book cannot, and this is already plan step 4.
 
-**Disagreements to put to the maintainer:**
+**Disagreements, all three now ruled on by the maintainer (2026-09-09):**
 
-- **The opening.** The maintainer prefers 3 West Germany / 3 France / 2
-  Italy / Iran to 2, with 4/4/2 as "old school". Sankt strongly prefers
-  4/4/2 on a wide class of hands and reserves the split lines for
-  Socialist Governments or Red Scare. The maintainer's own exposure table
-  in `CLAUDE_NOTES.md` also found 4/4/2 safest. Worth resolving before the
-  book is rewritten.
-- **Space Race weight.** The Chinese school treats space as a seventh
-  scoring region and spaces aggressively, including cards this bot would
-  play. If that is right, `space_value` and the space slot are
-  substantially underweighted.
-- **NORAD is never evented.** The maintainer prices NORAD at about 1 Op
-  and the bot at 0. Sankt's claim is about play, not value, but a card you
-  never event is worth less than one you sometimes do.
+- **The opening: Sankt is wrong here, and the post is outdated.** The
+  maintainer's line stands: 3 West Germany / 3 France / 2 Italy / Iran to
+  2. The compilation is from 2017 and the opening theory has moved. Do not
+  rewrite `OPENING_BOOK` toward 4/4/2. This is the one place in this file
+  where the source is superseded rather than merely second-hand, so treat
+  the rest of its Turn 1 specifics with the same suspicion: they are the
+  same vintage.
+- **Space Race: about 2 VP per box, discounted hard by the chance of
+  failure.** That is the right shape and it is already what the bot
+  computes (`greedy._space_race_expected_vp` takes the box's own VP, first
+  or second, times `roll_max / 6`). Two consequences the maintainer draws
+  that the bot does *not* yet see:
+  - **A guaranteed advance is worth much more than a rolled one**, which
+    is the whole reason Captured Nazi Scientist and One Small Step are
+    always evented. Their value is the box VP undiscounted, plus the box's
+    ability.
+  - **The Space Race is a disposal channel**: "basically every opposing
+    card that costs you something is spaceable". The bot's `space_card`
+    already picks the opponent's worst card by Ops-plus-event, so the
+    structure is right; what is missing is that the slot competes with
+    nothing else, so a card that hurts should reach it readily.
+
+  The real gap is that `space_value` counts **only the box VP and never
+  the box's ability**. Sankt calls the discard-a-held-card ability "by far
+  the most important" for this style, and the bot prices it at zero -- the
+  same flag-only blindness recorded elsewhere. That, not the VP scale, is
+  what makes the bot under-space.
+- **NORAD: the effect is fine, the card is 3 Ops.** That is why Sankt never
+  events it as the US: opportunity cost, not a weak event. The maintainer
+  puts the event at about 1.5 Ops, revised up from 1.0, and the fixture is
+  updated to match. The bot's 0 is too low, though the maintainer notes it
+  is unclear how much it changes, and it cannot change anything until
+  flag-only events are priced at all.
 
 ## How to use this file
 
