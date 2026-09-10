@@ -1751,3 +1751,52 @@ exactly what the warn-and-name rule is for.
 This is the strongest argument yet for the hand planner (tier 2), and it
 also gives it a test case that does not need a strength gate to score:
 seed 4015 US, turn 8, must not arrive at AR7 holding Lone Gunman.
+
+### The Military Ops gate: the first measured improvement in this project's history
+
+`da721fe` against `6d33d91`:
+
+| Sample | Seeds | Score | Signed VP |
+| --- | ---: | ---: | ---: |
+| tuning 4000-4031 | 32 | 0.547 | +1.08 |
+| held out 5000-5063 | 45 | **0.639** | +5.07 |
+| pooled | 77 | **0.601 +/- 0.036** | +3.39 |
+
+**ACCEPTED**, and for once that undersells it. Recomputed over the 75
+complete seed pairs the score is 0.617 with a one-sided 95% *lower* bound
+of 0.559. Every other gate on record sits below 0.500 on that bound:
+
+| Gate | Seeds | Score | 95% lower |
+| --- | ---: | ---: | ---: |
+| **da721fe** | 75 | **0.617** | **0.559** |
+| 40726d0 | 96 | 0.542 | 0.486 |
+| fe6ddb0 | 75 | 0.540 | 0.489 |
+| cddb7a0 | 96 | 0.510 | 0.489 |
+
+So this is the first change the games can actually say is *better*, rather
+than merely not worse. The held-out sample scores higher than the tuning
+sample, which is the wrong direction for overfitting and is the strongest
+part of the result.
+
+**The fixture and the games disagree, and the games are right.** The
+expert table called this neutral: 23 misses to 24, war-row error 0.64 to
+0.63. The games call it a ten-point gain. That divergence is the most
+useful thing here after the result itself. `models/expert_valuations.json`
+is ~30 rows on the *opening board*, and the Military Ops requirement is
+worth least on turn 1 -- the discount makes it a sixth of full value there
+-- and most in the Mid and Late War, where the fixture has no rows at all.
+A fixture that cannot see the change it is asked to judge will call any
+such change neutral. This is the concrete argument for the Late War table
+and the annotated position suite, and it is now evidence rather than
+opinion.
+
+What it cost: 2 candidate nuclear losses against 0-1 in recent gates, both
+flagged (seed 4010 USSR T8, seed 5028 USSR T8), inside the rate cap. The
+bot Coups more, so it spends more DEFCON. Set against that, it forced the
+*opponent* into DEFCON 1 in five games where recent gates saw one or two,
+which the acceptance rules correctly score as wins rather than penalties.
+
+One thing not established: the flat, undiscounted version was never gated.
+It was rejected on the fixture alone (23 misses to 26). So the evidence
+says the discounted form works; it does not prove the discount is *why*.
+If that matters later, gate the flat form as an ablation.
