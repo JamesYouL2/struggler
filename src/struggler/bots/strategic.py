@@ -336,6 +336,12 @@ class StrategicPlayer:
         self._ops_values = {}
         self._unseen_hold_values = {}
         self._events_in_progress = set()
+        # Set by `_resolve_sandbox` when it prices a probabilistic ending, and
+        # read by `_event_value_uncached` right after the call that set it.
+        # The sandbox's own decisions are played by `_event_helper`, a
+        # *separate* player instance, so a simulated event cannot reach in and
+        # reset this one mid-simulation.
+        self._sandbox_terminal = False
         self._placement_values = {}
         self._relocation_gain = None
         self._space_card = None
@@ -512,7 +518,28 @@ class StrategicPlayer:
             # whatever was on the table, so nothing could ever be bought with
             # risk. That is the likeliest reason this bot loses to DEFCON 1
             # 38x to 82x less often than a human tournament field.
-            return (certain, 0.0, (1 - risk) * score - risk * self.game_value(obs))
+            #
+            # Only the *residual* risk is charged here, because `score`
+            # already owns the immediate one: `event_value` prices a firing
+            # event as `(1-r)*result - r*game_value`, spending the event's own
+            # chance of ending the game. `risk` is the whole turn-loss chance
+            # and contains that same `r` -- `transition` returns
+            # `r + (1-r)*future` -- so charging `risk` here billed `r` twice.
+            # Summit at DEFCON 2 came out at -974.51 where the honest
+            # expectation is -485.57: an implied loss chance of 0.79 against a
+            # true 0.4167, worse than losing the game outright is.
+            # `(1-f)*score - f*game_value` with `f` the residual is exactly
+            # the total expectation, since score is already unconditional.
+            if certain:
+                # Certain defeat is already ordered by the first element, and
+                # `score` here is the sentinel, not a number to blend: losing
+                # the game is worth exactly the game. The old formula reached
+                # this by `(1-1)*score - 1*game_value`; it has to be said
+                # explicitly now that the coefficient is the residual.
+                return (certain, 0.0, -self.game_value(obs))
+            residual = (risk - immediate) / (1 - immediate) if immediate < 1 else 0.
+            residual = max(0., min(1., residual))  # a headline blends two DEFCONs; keep it a probability
+            return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs))
         return (certain, -round(risk, 8), score)
 
     def action_risk(self, obs, action) -> tuple[float, float]:
@@ -539,7 +566,22 @@ class StrategicPlayer:
                                           obs.defcon, obs.space_race[obs.side.value],
                                           obs.space_race_attempts[obs.side.value], planner.china)
             else:
+                # An opponent event fires whichever mode we pick, so its
+                # terminal chance is already in `score` (through
+                # `event_value`) exactly as it is in `risk`. One of our own
+                # fires only in event mode, which `modes` offers only for the
+                # raisers, Ask Not and Five Year Plan -- and `risk` mins over
+                # modes, so it need not have taken that one. This mirrors
+                # `DefconPlanner.transition`'s own `fires` rule.
+                immediate = planner.event_risk(cid) if planner.opponent_event(cid) else 0.
                 risk = planner.risk(cid)
+                # The mode is not chosen yet and `risk` mins over the ones on
+                # offer, so a Space Race play can dodge the event entirely.
+                # The immediate ending is one way the turn is lost, never a
+                # bigger chance than losing it: without this, a Lone Gunman
+                # the US could still have spaced was refused outright as
+                # certain defeat.
+                immediate = min(immediate, risk)
         elif planner and kind is K.COUP_TARGET:
             risk = self.coup_survival_risk(obs, p['country'])
         elif planner and kind is K.OPS_TYPE:
@@ -883,9 +925,17 @@ class StrategicPlayer:
         total = self._placement_ops_value(obs, ops)
         engine = self.public_engine(obs)
         side, board = obs.side, self.board
-        best_coup = max((self.coup(obs, c, ops) for c in board.countries
-                         if engine._usable_coup_realign_target(side, c, for_coup=True)), default=LOSS)
-        value = max(total, best_coup, 0.)
+        # A coup that ends the game is worth the sentinel, and this is a
+        # *price* -- what one Op buys on this board, the denominator half the
+        # value function divides by. Letting the sentinel through made
+        # ops_value(n) 1,000,000 for every n whenever a winning coup was
+        # available, so vp_value became 1,000,000 and game_value 40,000,000,
+        # and every card, hand term and risk price on that board was junk.
+        # The winning coup is priced where it is chosen, not here.
+        coups = [v for v in (self.coup(obs, c, ops) for c in board.countries
+                             if engine._usable_coup_realign_target(side, c, for_coup=True))
+                 if abs(v) < -LOSS]
+        value = max([total, 0.] + coups)
         self._ops_values[ops] = value
         return value
 
@@ -1042,6 +1092,7 @@ class StrategicPlayer:
             self._event_basis = (basis_key, countries, regions, margins, before)
         _, countries, regions, margins, before = self._event_basis
         engine._fire_event(obs.side, cid)
+        self._sandbox_terminal = False
         return self._resolve_sandbox(engine, obs, cid, countries, regions, margins, before, self._event_helper())
 
     def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions, margins,
@@ -1093,6 +1144,11 @@ class StrategicPlayer:
             # number chosen to be unreachable rather than 15/36 of what losing
             # actually costs. A probabilistic ending is worth the game.
             end = -LOSS if rolls == 0 else self.game_value(obs)
+            if rolls:
+                # A probabilistic ending, priced right here as its share of
+                # the game. `event_value` must not then charge `event_risk`
+                # for the same dice: that is the third count on Summit.
+                self._sandbox_terminal = True
             return end if engine.winner is obs.side else -end
         changed = {c for c in engine.board.countries if engine.board.influence[c] != obs.influence[c]}
         changed_regions = {engine.board.countries[c].region for c in changed}
@@ -1159,11 +1215,13 @@ class StrategicPlayer:
 
     def _event_value_uncached(self, obs: Observation, cid: str, card, sign: int) -> float:
         result = None
+        sandbox_owns_ending = False
         if cid in OPS_MODIFIER_EVENTS:
             result = self._ops_modifier_value(obs, cid)
         elif cid in PUBLIC_EVENTS:
             try:
                 result = self._public_event_value(obs, cid)
+                sandbox_owns_ending = self._sandbox_terminal
             except SandboxUnsupported as exc:  # a branch the sandbox cannot drive
                 log.debug('event %s not simulated (%s); using the estimate', cid, exc)
                 self.sandbox_failures[cid] = 'unsupported'
@@ -1197,12 +1255,23 @@ class StrategicPlayer:
             # Op. The same defect was found and fixed for `vp` (see the
             # StrategicWeights comment on vp_early); `ops` was left behind.
             result = sign * self.ops_value(obs, card.ops) * 0.8
+        # No event is worth more than winning, so a value term is bounded by
+        # the game before any risk arithmetic touches it (the convex
+        # combination below then preserves the bound). This is the boundary
+        # between the two kinds of number in this file: below it, `LOSS` is
+        # an unreachable *ordering* sentinel that only `safety_key` reads;
+        # above it, every number is a price. Aggregates crossed the bound on
+        # their own -- Ask Not summed a whole hand's upgrades to 1.06x the
+        # game, Aldrich Ames to 1.13x -- quite apart from the sentinel
+        # leaks that clamping `hold_value` fixed.
+        cap = self.game_value(obs)
+        result = max(-cap, min(cap, result))
         # Opponent-granted operations may coup a battleground at DEFCON 2.
         planner = self._planner or self.planner_for(obs)
         risk = planner.event_risk(cid)
         if risk >= 1:
             result = LOSS  # certain: the sentinel, not a price
-        elif risk:
+        elif risk and not sandbox_owns_ending:
             result = (1-risk)*result - risk*self.game_value(obs)
         self._events[cid] = result
         return result
@@ -1243,9 +1312,19 @@ class StrategicPlayer:
         an opponent event carries its harm). Negative for a card you would
         rather not hold -- which is what makes losing it a gift.
 
-        A scoring card that would end the game is clamped to a full VP track
-        rather than the win/loss sentinel: this is a value term, and the
-        sentinel is `safety_key`'s to use."""
+        A card that would end the game is clamped rather than carrying the
+        win/loss sentinel out: this is a value term, and the sentinel is
+        `safety_key`'s to use. Both branches need the clamp. The scoring one
+        always had it; the branch below did not, so an event that is certain
+        defeat (`event_value` returns `LOSS` by design -- "certain: the
+        sentinel, not a price") walked straight into the callers, every one
+        of which averages, mins or maxes these. A USSR hand holding a
+        Duck and Cover it cannot safely play at DEFCON 2 priced that hold at
+        -999,904, and the mean of a hand containing it is not a number: Ask
+        Not came out at +999,948, 742x the whole game, so the bot would play
+        it ahead of a winning move, and Aldrich Ames landed past the
+        sentinel and was refused as certain defeat. The bound is what the
+        game itself is worth -- no card in hand is worth more than winning."""
         card = CARDS[cid]
         if card.scoring:
             value = self.scoring_card_value(obs, cid)
@@ -1253,7 +1332,9 @@ class StrategicPlayer:
             return max(-cap, min(cap, value))
         event = (self._shallow_event_value(obs, cid) if shallow
                  else self.event_value(obs, cid))
-        return self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side), event)
+        value = self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side), event)
+        cap = self.game_value(obs)  # GAME_SWING_VP: the whole -20..+20 track
+        return max(-cap, min(cap, value))
 
     def _unseen_holds(self, obs: Observation, side: Side) -> list[float]:
         """A hold value for every unseen card, from `side`'s seat, on Ops
@@ -1517,9 +1598,11 @@ class StrategicPlayer:
                 card = CARDS[cid]
                 if card.scoring or cid == ASK:
                     continue
-                held = self.card_play_value(
-                    obs, cid, _effective_ops_estimate(card, obs, obs.side),
-                    self._shallow_event_value(obs, cid))
+                # `hold_value`, not a re-derivation of its body: this was a
+                # near-duplicate of that branch and so missed the clamp added
+                # there, pricing a hand holding one unplayable card at the
+                # sentinel and Ask Not at +999,948 -- 742x the whole game.
+                held = self.hold_value(obs, cid, shallow=True)
                 gains.append(max(0., mean - held))
             gains.sort(reverse=True)  # the worst cards go first
             return sum(gains[:rounds])

@@ -194,9 +194,10 @@ action = bot.choose_action(observation, history)
   the tiers are discontinuous and a near-miss is worth nothing. Ask Not's
   discard choice prices a scoring card as the exact negation of that: dump
   the regions that would score against us, keep the ones that would not.
-- **Prices risk rather than ranking it.** `safety_key` refuses certain
-  defeat outright, then folds the turn-loss risk into the score as
-  `(1-risk)*score - risk*game_value`, where `game_value` is the whole VP
+- **Prices risk rather than ranking it, and prices it once.** `safety_key`
+  refuses certain defeat outright, then folds the *residual* turn-loss risk
+  into the score as `(1-residual)*score - residual*game_value`, where
+  `game_value` is the whole VP
   track (`GAME_SWING_VP` = 40) at this turn's price per VP -- about 8 cards
   on turn 2, 22 on turn 6, 43 on turn 9, so a 10% risk costs one to four
   cards. It used to be a separate key element *ahead* of the score, which
@@ -209,11 +210,46 @@ action = bot.choose_action(observation, history)
   Decisions whose score is not in raw board units (`EVENT_CHOICE`'s
   per-card rules) keep risk as a prior key element, because blending an
   ad-hoc scale with `game_value` would swamp it.
+
+  The residual is what is left of the turn-loss risk once the event's own
+  share of it is removed: `(risk - immediate) / (1 - immediate)`. It has to
+  be, because `score` already owns the immediate share -- `event_value`
+  prices a firing event as `(1-r)*result - r*game_value` -- while
+  `DefconPlanner.transition` returns `r + (1-r)*future`, so `risk`
+  *contains* that same `r`. Charging `risk` here billed `r` twice and, for a
+  sandboxed event, three times. Summit at DEFCON 2 keyed at -974.51 against
+  an honest -485.57: an implied loss chance of 0.79 where the dice give
+  0.4167, a worse price than losing the game outright. With one owner per
+  layer the two compose exactly, since `(1-f)*score - f*game_value` is the
+  full expectation when `score` is already unconditional. Only
+  `ACTION_ROUND_PLAY` needs a guard -- the mode is not chosen there and
+  `risk` mins over the modes on offer, so `immediate` is capped at `risk`
+  lest a Lone Gunman that could still be spaced be refused as certain.
+  The affected cards are the ones whose `event_risk` is strictly between 0
+  and 1: Summit, Grain Sales (USSR), Missile Envy, Five Year Plan, and Star
+  Wars when the discard pile's best card is itself fractional. Everything
+  else returns 0 or 1 and takes the sentinel path.
 - The sandbox averages a die over its faces, so a game-ending face is one
   outcome of an average and carries `game_value`, not the sentinel: Summit
   at DEFCON 2 priced at 0.4167 * LOSS, which is 15/36 of a number chosen to
-  be unreachable. It is now -0.65 games. An event that ends the game
-  without a die still returns the sentinel.
+  be unreachable. It is now -0.40 games. An event that ends the game
+  without a die still returns the sentinel. Having priced that ending, the
+  sandbox *owns* it: `event_value` skips its own `event_risk` charge for
+  any event whose simulation reached a terminal state on a die branch,
+  which is the third of Summit's three counts.
+- **A value term never carries the sentinel.** `LOSS` is an ordering flag
+  that only `safety_key` reads, chosen to be unreachable so the test for it
+  can be exact. It is not a price, so nothing that averages, mins or maxes
+  card values may carry it out -- the mean of a hand containing -1e6 is not
+  a number. `hold_value` clamps both its branches to `game_value` and
+  `event_value` clamps its result before any risk arithmetic, so the
+  invariant is: `event_value` returns either exactly `LOSS` or a price
+  bounded by the game, and nothing in between
+  (`test_the_certain_defeat_sentinel_never_leaves_a_value_term` sweeps every
+  card for it). This has shipped three times -- through `ops_value` (a
+  winning coup), `_resolve_sandbox` (one die face), and `hold_value` (a card
+  the side cannot play, which priced Ask Not at 742x the whole game and put
+  Aldrich Ames past the sentinel, where it was refused as certain defeat).
 - Plays for the kill, not only against its own defeat. Nuclear war costs
   the *phasing* player the game (8.1.3) -- whoever played the card, not
   whoever is spending the Operations. So when an opponent's event hands us
@@ -425,10 +461,13 @@ observation non-mutation, deterministic paired games, and model serialization.
 
 `bots/defcon.py`'s `DefconPlanner` is the tactical guard in front of every
 VP score. `StrategicPlayer.safety_key` ranks each legal option by a tuple:
-certain immediate defeat first, then the planner's turn-loss risk, then the
-trainable score. So a card play, play mode, headline, event choice, or trap
-discard that leaves the hand unable to survive the turn loses to any option
-that can, regardless of country value.
+certain immediate defeat first, then -- for scores in raw board units -- the
+residual turn-loss risk priced *into* that score rather than ranked ahead of
+it (the middle element is a constant there; it still carries the risk for the
+ad-hoc scales). So a card play, play mode, headline, event choice, or trap
+discard that leaves the hand unable to survive the turn is charged what that
+costs, and certain defeat loses to any option that is not, regardless of
+country value.
 
 The planner is a memoised search over the observation only, never hidden
 state: the state is (hand, rounds left, DEFCON, Space Race box and

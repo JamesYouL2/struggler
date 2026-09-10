@@ -886,6 +886,138 @@ def test_hand_attack_values_are_seat_antisymmetric_in_sign():
         assert ussr * us_sign < 0, (cid, ussr)
 
 
+def _play_mode_decision(cid, defcon, side, rest, action_round=6):
+    """Step an engine to the PLAY_MODE decision for `cid`: the decision where
+    the bot chooses Event over Ops, and the one the risk double-charge hit."""
+    engine = Engine(seed=1)
+    engine.events_enabled = True
+    engine.turn, engine.phase, engine.action_round = 6, 'action_rounds', action_round
+    engine._ars_played = 11
+    engine.defcon = defcon
+    engine.hands[side.value] = [cid, *rest]
+    engine.hands[side.opponent.value] = ['NORAD']
+    engine._push_action_round_play(side)
+    engine.step(next(a for a in engine.pending_decision.options if a.payload.get('card') == cid))
+    assert engine.pending_decision.kind is K.PLAY_MODE
+    obs = engine.observe(side)
+    bot = StrategicPlayer()
+    ranked = bot.rank_actions(obs)
+    keys = {a.payload['mode']: key for key, a in ranked}
+    event = next(a for _, a in ranked if a.payload['mode'] == 'event')
+    return bot, obs, keys, event
+
+
+@pytest.mark.parametrize('cid, side, risk', [
+    ('Summit', Side.USSR, 15 / 36),
+    ('Missile_Envy', Side.USSR, 0.25),
+    ('Five_Year_Plan', Side.US, 0.25),
+])
+def test_an_events_terminal_risk_is_charged_once_not_twice(cid, side, risk):
+    """`event_value` already prices a firing event as
+    `(1-r)*result - r*game_value`. `DefconPlanner.risk` returns
+    `r + (1-r)*future` -- it *contains* that same `r` -- so charging it again
+    in `safety_key` billed the same terminal chance twice.
+
+    Where the rest of the hand is safe there is no residual at all
+    (`risk == immediate`), so the priced key must be exactly the score. It
+    used to be `(1-r)*score - r*game_value`: Summit at DEFCON 2 keyed at
+    -974.51 against an honest -485.57, an implied loss chance of 0.79 where
+    the dice give 0.4167 -- a worse price than losing the game outright.
+    """
+    bot, obs, keys, event = _play_mode_decision(cid, 2, side, ('Nasser',))
+    immediate, total = bot.action_risk(obs, event)
+    assert immediate == pytest.approx(risk, abs=1e-9), 'the fixture is meant to be the risky branch'
+    assert total == pytest.approx(immediate, abs=1e-9), 'and to have no residual hand risk'
+    assert keys['event'][2] == pytest.approx(bot.score(obs, event)), 'charged twice'
+    # The bot must still prefer the safe Ops mode; pricing it once is not
+    # pricing it away.
+    assert keys['ops'][2] > keys['event'][2]
+
+
+def test_a_simulated_ending_is_not_charged_again_by_event_value():
+    """Summit was counted three times: `_resolve_sandbox` averages the losing
+    dice branches at `game_value` already, and `event_value` then applied
+    `event_risk` to that average, and `safety_key` applied the whole
+    turn-loss risk on top. The sandbox owns the ending it simulated."""
+    bot, obs, keys, event = _play_mode_decision('Summit', 2, Side.USSR, ('Nasser',))
+    raw = bot._public_event_value(obs, 'Summit')
+    assert bot._planner.event_risk('Summit') == pytest.approx(15 / 36)
+    assert bot.event_value(obs, 'Summit') == pytest.approx(raw), 'sandbox ending charged twice'
+    # It is a real cost -- most of a losing game's worth -- just not two of them.
+    assert raw < 0
+    assert -bot.game_value(obs) < raw
+
+    # At DEFCON 3 the same event ends nothing and costs nothing.
+    safe, safe_obs, _, _ = _play_mode_decision('Summit', 3, Side.USSR, ('Nasser',))
+    assert safe._planner.event_risk('Summit') == 0
+    assert safe.event_value(safe_obs, 'Summit') > raw
+
+
+def _defcon_two_hand(side, dead=True):
+    """A mid-war hand at DEFCON 2 holding, with `dead`, an opponent DEFCON
+    reducer this side cannot play: its `event_value` is the certain-defeat
+    sentinel, so every term that prices the hand has to meet one."""
+    reducer = 'Duck_and_Cover' if side is Side.USSR else 'We_Will_Bury_You'
+    benign = 'Marshall_Plan' if side is Side.USSR else 'De_Gaulle_Leads_France'
+    engine = Engine(seed=1)
+    engine.events_enabled = True
+    engine.turn, engine.phase, engine.action_round = 6, 'action_rounds', 6
+    engine._ars_played = 11
+    engine.defcon = 2
+    engine.board.influence['Iran'] = {'US': 2, 'USSR': 2}  # a live battleground coup target
+    engine.hands[side.value] = ['NATO', reducer if dead else benign, 'Nasser']
+    engine.hands[side.opponent.value] = ['Olympic_Games', 'Summit']
+    engine._push_action_round_play(side)
+    obs = engine.observe(side)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    return bot, obs, reducer
+
+
+def test_the_certain_defeat_sentinel_never_leaves_a_value_term():
+    """`LOSS` is an *ordering* sentinel, deliberately unreachable so that
+    `safety_key` can test for it exactly. It is not a price, and no term that
+    averages, mins or maxes card values may carry it out: the mean of a hand
+    containing -1e6 is not a number, it is -333,216.
+
+    This defect has now shipped three times -- through `ops_value` (a winning
+    coup), `_resolve_sandbox` (one die face of an average), and `hold_value`
+    (a card the side cannot play). So the invariant is swept over every card
+    rather than pinned per-card: `event_value` returns either exactly `LOSS`
+    or a real price bounded by what the game is worth, and nothing in
+    between. `hold_value` is always a price -- it has no sentinel branch.
+    """
+    from struggler.bots.strategic import LOSS
+    for side in (Side.USSR, Side.US):
+        bot, obs, reducer = _defcon_two_hand(side)
+        cap = bot.game_value(obs)
+        assert bot.event_value(obs, reducer) == LOSS, 'the sentinel is still the sentinel'
+        for cid, card in CARDS.items():
+            if card.scoring:
+                continue
+            value = bot.event_value(obs, cid)
+            assert value == LOSS or abs(value) <= cap, (side.value, cid, value, cap)
+            assert abs(bot.hold_value(obs, cid, shallow=True)) <= cap, (side.value, cid)
+
+
+def test_one_unplayable_card_does_not_make_ask_not_worth_the_whole_game():
+    """`_hand_upgrade_value` re-derived `hold_value`'s body instead of
+    calling it, so it never got that clamp. One card the US could not play
+    made discarding it look like a gain of the sentinel, and Ask Not priced
+    at +999,948 -- 742x the whole game, ahead of every real play on the
+    board, including a winning one."""
+    live, live_obs, _ = _defcon_two_hand(Side.US, dead=False)
+    dead, dead_obs, _ = _defcon_two_hand(Side.US, dead=True)
+    cap = dead.game_value(dead_obs)
+    with_dead = dead.event_value(dead_obs, ASK)
+    without = live.event_value(live_obs, ASK)
+    assert with_dead > without, 'a card you cannot play is exactly what Ask Not is for'
+    assert with_dead <= cap, (with_dead, cap)
+    # The upgrade is worth something, not everything: one dead card cannot
+    # be worth more than the game it is one card of.
+    assert with_dead - without < cap, (with_dead, without, cap)
+
+
 def test_grain_sales_is_worth_at_least_its_two_ops_to_the_us():
     engine = _midwar_us_engine()
     value, _ = _event_value_for(engine, Side.US, 'Grain_Sales_to_Soviets')

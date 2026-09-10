@@ -24,9 +24,14 @@ the tests.
 ## Conventions
 
 - **Python**: 3.12+.
-- **Tests**: `pytest`, plus `hypothesis` for property-based tests. Run the
-  full suite before committing; it takes well under a minute.
-- **Environment**: conda (`environment.yml`), or `pip install -e ".[test]"`.
+- **Environment**: `uv` (`uv.lock`, `.venv/`). Run everything through it --
+  `uv run pytest`, `uv run python ...`. The system `python3` has none of the
+  dependencies, so a bare `python3 -m pytest` fails with `No module named
+  pytest`; that is a missing `uv run`, not a broken checkout. `environment.yml`
+  (conda) and `pip install -e ".[test]"` still work but are not what this
+  repo is developed against.
+- **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
+  the full suite before committing; it takes about 80 seconds.
 - **License**: MIT.
 - **Language**: all code, comments, docstrings, and commit messages in
   English.
