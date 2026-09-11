@@ -27,14 +27,19 @@
 # worktree and every benchmark runs from there, so editing the working
 # tree while a gate runs cannot change what it measures (it did, once:
 # a gate blamed a nuclear loss on a commit that never produced one).
-# The anchor run (3c) is off by default; GATE_ANCHOR=1 turns it on.
+# The anchor run (3c) plays the candidate against the oldest tag still
+# believed sound (docs/VERSIONING.md, default v0.1.0) rather than against
+# HEAD~1. One baseline cannot see drift: a run of individually-neutral
+# changes can walk the bot downward with every single gate accepting. It is
+# off by default because it roughly doubles the wall time and the budget is
+# an hour -- run it periodically, not per commit. GATE_ANCHOR=1 turns it on.
 # Step 3 runs both samples in one pool and stops once the seeds still
 # unplayed cannot change the verdict (about 15% of the games, and no
 # historical verdict changes); GATE_DECIDE=0 plays every game.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 BASE=${1:-HEAD~1}
-OLD=${2:-b2e8572}
+OLD=${2:-v0.1.0}
 SEEDS=${3:-4000-4031}
 WORKERS=${4:-8}
 HELD=${5:-5000-5063}
@@ -148,11 +153,19 @@ echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 # the slowest game's tail twice, and --decide can only stop a run that has
 # played some of each sample. GATE_DECIDE=0 plays every game regardless.
 DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
+# --vary-openings: each seed gets one of the nine opening-book pairs, the
+# same pair for both arms, so it cancels from the difference exactly as the
+# deal does. Measured at 32 seeds to cost no precision (se 0.0524 varied
+# against 0.0591 fixed). Scores from before this landed are not directly
+# comparable with scores after, though the verdict logic is unchanged.
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
-   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE \
+   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE --vary-openings \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
 if [ "${GATE_ANCHOR:-0}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
-  echo "== 3c. full games vs pre-session $OLD"
+  # No --vary-openings here: a baseline from before the opening books cannot
+  # be given one, and falling back would start the two arms from *different*
+  # boards. The drift question does not need varied openings anyway.
+  echo "== 3c. drift: full games vs $OLD (fixed opening)"
   $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
 fi
 echo "== 4. acceptance"
