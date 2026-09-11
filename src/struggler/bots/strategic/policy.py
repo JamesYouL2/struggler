@@ -208,11 +208,15 @@ OPENING_BOOKS = {
         'WESTERN_EUROPE': ('West_Germany',) * 4 + ('Italy',) * 3,
         None: ('Iran', 'Italy'),
     },
-    # West Germany to 5: a point of overprotection on the most expensive
-    # country in Europe. What this bot shipped before any of them were named.
-    ('US', 'germany'): {
+    # 4/3/3, Sankt's other line: the second handicap point goes to Iran
+    # rather than to West Germany. This book used to put West Germany at 5 --
+    # a point of overprotection on the most expensive country in Europe --
+    # which is what shipped before any of them were named and which the
+    # maintainer replaced. Named for Iran because that is now the only thing
+    # separating it from `italy`; both take West Germany to 4.
+    ('US', 'iran'): {
         'WESTERN_EUROPE': ('West_Germany',) * 4 + ('Italy',) * 3,
-        None: ('Iran', 'West_Germany'),
+        None: ('Iran', 'Iran'),
     },
     ('USSR', 'austria'): {
         'EASTERN_EUROPE': ('East_Germany',) + ('Poland',) * 4 + ('Austria',),
@@ -224,12 +228,18 @@ OPENING_BOOKS = {
         'EASTERN_EUROPE': ('East_Germany',) + ('Poland',) * 4 + ('Yugoslavia',),
     },
 }
-OPENINGS = {'US': ('france', 'italy', 'germany'),
+OPENINGS = {'US': ('france', 'italy', 'iran'),
             'USSR': ('austria', 'poland', 'yugoslavia')}
-# What `StrategicPlayer()` plays when nobody says otherwise. Not yet the
-# maintainer's line: changing it is a behaviour change and wants its own
-# gate, so it stays on what shipped until that runs.
-DEFAULT_OPENINGS = {'US': 'germany', 'USSR': 'austria'}
+# What `StrategicPlayer()` plays when nobody says otherwise.
+#
+# `iran` (4 West Germany / 3 Italy / Iran to 3), the maintainer's choice.
+# Not the `france` line they ruled on in docs/EXPERT_STRATEGY.md a day
+# after the old book was written -- that one is available as a book, but
+# the default is theirs to set and they set it here.
+#
+# Ungated: the book this replaced took West Germany to 5, so this is a
+# behaviour change and wants its own gate.
+DEFAULT_OPENINGS = {'US': 'iran', 'USSR': 'austria'}
 
 
 def _copy_state(value):
@@ -490,6 +500,10 @@ class StrategicPlayer:
         self.opponent_model = opponent_model
         self._planner = None
         self._event_basis = None
+        # Set here as well as at both per-decision reset points: `influence`
+        # and `delta` are reachable without a `rank_actions` first, and a
+        # cache that only exists after one turns that into an AttributeError.
+        self._reply_budget_pool = None
         self._base_regions = None
         self._base_margins = None
         self._base_country = None
@@ -539,6 +553,7 @@ class StrategicPlayer:
         # a property of the position rather than of the traversal.
         self._vp_price = None
         self._unseen_hold_values = {}
+        self._reply_budget_pool = None
         self._events_in_progress = set()
         # Set by `_resolve_sandbox` when it prices a probabilistic ending, and
         # read by `_event_value_uncached` right after the call that set it.
@@ -899,6 +914,7 @@ class StrategicPlayer:
         self._vp_price = None
         self._placement_values = {}
         self._unseen_hold_values = {}  # per position too: it reads card states and scoring
+        self._reply_budget_pool = None
         try:
             return self.value(self.board, observation.side)
         finally:
@@ -1283,13 +1299,26 @@ class StrategicPlayer:
         model = int(self.weights.reply_model)
         if model == 1:
             return ((int(self.weights.reply_ops), 1.0),)
-        pool = [CARDS[c].ops for c in CARDS
+        # The unseen pool is a property of the position, not of the country
+        # being priced, so it is built once per decision like
+        # `_unseen_hold_values`. It was rebuilt on every call: 3008 calls
+        # walking ~110 cards accounted for all 332k `card_state` calls in a
+        # profile of hazardous late hands, and 11% of the whole ranking.
+        pool = self._reply_budget_pool
+        if pool is None:
+            pool = self._reply_budget_pool = [
+                CARDS[c].ops for c in CARDS
                 if card_state(obs, c) == 'unseen' and not CARDS[c].scoring]
         if not pool:
             return ((2, 1.0),)
         if model == 2:
-            pool.sort()
-            return ((pool[len(pool) // 2], 1.0),)
+            # `sorted`, not `pool.sort()`: the pool is cached now, and
+            # sorting it in place would hand the next caller a different
+            # list than it built. Harmless today -- model 3 counts and does
+            # not care about order -- which is exactly how that kind of
+            # aliasing survives until it is not harmless.
+            ranked = sorted(pool)
+            return ((ranked[len(ranked) // 2], 1.0),)
         counts: dict[int, int] = {}
         for ops in pool:
             counts[ops] = counts.get(ops, 0) + 1

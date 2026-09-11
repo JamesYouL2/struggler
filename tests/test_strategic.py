@@ -329,10 +329,15 @@ def test_opening_book_plays_the_standard_setup_and_the_handicap():
     us = [c for s, c in placed if s == 'US']
     assert sorted(ussr) == sorted(['East_Germany'] + ['Poland'] * 4 + ['Austria'])
     assert us[:7].count('West_Germany') == 4 and us[:7].count('Italy') == 3
-    assert us[7:] == ['Iran', 'West_Germany']
+    # Both handicap points to Iran: 4 West Germany / 3 Italy / Iran to 3,
+    # the maintainer's default. The book this replaced sent the second point
+    # to West Germany, taking it to 5 -- overprotection on the most
+    # expensive country in Europe.
+    assert us[7:] == ['Iran', 'Iran']
     assert engine.board.influence['Poland']['USSR'] == 4
     assert engine.board.influence['East_Germany']['USSR'] == 4
-    assert engine.board.influence['West_Germany']['US'] == 5
+    assert engine.board.influence['West_Germany']['US'] == 4
+    assert engine.board.influence['Iran']['US'] == 3
 
 
 def _opening_board():
@@ -345,7 +350,25 @@ def _opening_board():
     return engine
 
 
-def test_ops_are_priced_by_their_best_use_and_concavely():
+def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
+    """More Ops are worth more, and a real play beats the flat rate.
+
+    This used to also assert `four - two <= two` -- that the curve is
+    concave -- and that was wrong as a general claim, though it passed for
+    as long as the default opening happened to satisfy it. The value
+    function is *deliberately* convex in places: `country_value` says so
+    in its own comment ("Progress toward control is convex: control is
+    worth VP, a lone point is not"), and the maintainer's break arithmetic
+    is convex the same way, the exchange improving from 2.0:1 to 1.33:1 as
+    you commit more Ops. Where four Ops cross a control threshold that two
+    cannot, four is worth more than twice two, and that is the model
+    working rather than failing.
+
+    The counterexample is the `iran` opening, which is now the default:
+    Iran at 3 denies the USSR its cheap first play (one Op drops from 28.2
+    to 18.5) and the curve goes convex. See
+    `test_the_ops_curve_is_convex_where_a_threshold_is_crossed`.
+    """
     from struggler.engine import Side
     engine = _opening_board()
     obs = engine.observe(Side.USSR)
@@ -354,7 +377,35 @@ def test_ops_are_priced_by_their_best_use_and_concavely():
     one, two, four = (bot.ops_value(obs, n) for n in (1, 2, 4))
     assert one > bot.weights.ops  # a real turn-1 play is worth more than the flat rate
     assert two > one and four > two
-    assert four - two <= two  # the later points buy less than the first ones
+
+
+def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
+    """The property the concavity assertion was hiding.
+
+    Pinning the openings rather than using the default, so this says what
+    it means and does not move when the default does.
+    """
+    from struggler.engine import Side
+
+    def ops(book):
+        engine = Engine.new_game(seed=4004, setup_bonus=True)
+        setup = StrategicPlayer(openings={'US': book, 'USSR': 'austria'})
+        while engine.pending_decision.context.get('setup'):
+            d = engine.pending_decision
+            engine.step(setup.choose_action(engine.observe(d.actor), []))
+        obs = engine.observe(Side.USSR)
+        bot = StrategicPlayer()
+        bot.rank_actions(obs)
+        return [bot.ops_value(obs, n) for n in (1, 2, 4)]
+
+    # `italy` leaves Iran at 2, so the USSR keeps a cheap first play.
+    one_i, two_i, four_i = ops('italy')
+    # `iran` takes it to 3 and denies them that, which is the point of the
+    # book. The marginal Ops then buy a threshold instead of a cheap point.
+    one_r, two_r, four_r = ops('iran')
+    assert one_r < one_i, 'Iran to 3 should cost the USSR its cheap first Op'
+    assert four_i - two_i <= two_i, 'italy: no threshold crossed, concave'
+    assert four_r - two_r > two_r, 'iran: four Ops cross what two cannot, convex'
 
 
 def test_de_stalinization_is_simulated_and_beats_its_ops():

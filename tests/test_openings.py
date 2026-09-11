@@ -33,7 +33,7 @@ BONUS = RULES['setup_bonus']['amount']
 EXPECTED = {
     ('US', 'france'): {'West_Germany': 3, 'France': 3, 'Italy': 2, 'Iran': 2},
     ('US', 'italy'): {'West_Germany': 4, 'Italy': 4, 'Iran': 2},
-    ('US', 'germany'): {'West_Germany': 5, 'Italy': 3, 'Iran': 2},
+    ('US', 'iran'): {'West_Germany': 4, 'Italy': 3, 'Iran': 3},
     ('USSR', 'austria'): {'East_Germany': 4, 'Poland': 4, 'Austria': 1},
     ('USSR', 'poland'): {'East_Germany': 4, 'Poland': 5},
     ('USSR', 'yugoslavia'): {'East_Germany': 4, 'Poland': 4, 'Yugoslavia': 1},
@@ -113,15 +113,17 @@ def test_an_unknown_opening_is_refused():
         StrategicPlayer(openings={'US': 'not_an_opening'})
 
 
-def test_the_default_is_what_shipped_before_the_books_were_named():
-    """Adding the books must not move the bot. Changing which one is the
-    default is a behaviour change and wants its own gate; until that runs
-    the default stays where it was."""
-    assert DEFAULT_OPENINGS == {'US': 'germany', 'USSR': 'austria'}
+def test_the_default_is_the_one_the_maintainer_set():
+    """4 West Germany / 3 Italy / Iran to 3. Not the `france` line of
+    docs/EXPERT_STRATEGY.md -- that is available as a book, but the default
+    is the maintainer's call and this is it. A behaviour change from the
+    West-Germany-to-5 book it replaced, and not yet gated."""
+    assert DEFAULT_OPENINGS == {'US': 'iran', 'USSR': 'austria'}
     engine = play_setup(DEFAULT_OPENINGS)
-    assert engine.board.influence['West_Germany']['US'] == 5
+    assert engine.board.influence['West_Germany']['US'] == 4
     assert engine.board.influence['Italy']['US'] == 3
-    assert engine.board.influence['Iran']['US'] == 2
+    assert engine.board.influence['Iran']['US'] == 3
+    assert engine.board.influence['France']['US'] == 0
     assert engine.board.influence['East_Germany']['USSR'] == 4
     assert engine.board.influence['Poland']['USSR'] == 4
     assert engine.board.influence['Austria']['USSR'] == 1
