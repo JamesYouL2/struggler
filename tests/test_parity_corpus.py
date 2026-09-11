@@ -5,6 +5,7 @@ these outputs: exact rankings and top actions, values within tolerance,
 identical planner risks in the recorded query order, identical truncation
 and node counts. Regenerate the corpus only by an explicit commit
 (docs/RUST_PORT_PLAN.md, Option C step 1)."""
+import dataclasses
 import gzip
 import json
 import math
@@ -102,6 +103,34 @@ def _replay_probes(planner, probes):
         elif not _close(got, want):
             return (op, card, got, want)
     return None
+
+
+def test_every_record_pins_every_weight(corpus):
+    """A record that omits a weight is not a reproducible record.
+
+    `StrategicWeights(**rec['weights'])` fills anything absent from the
+    *current* defaults, so a weight added after capture silently takes
+    whatever the code says today -- and the oracle drifts with the thing
+    it exists to check. That is not hypothetical: `reply_ops` and
+    `reply_model` were added after this corpus was captured, and every
+    record reproduced fine until the day `reply_model`'s default changed
+    from 0 to 3, at which point 525 records "failed" against behaviour
+    they had never recorded.
+
+    The records were backfilled with the values in force at capture
+    (`reply_model=0`, the search not yet existing). This test is what
+    stops the next weight repeating it: add a field to StrategicWeights
+    and the corpus must be told what it was, or re-captured.
+    """
+    fields = {f.name for f in dataclasses.fields(StrategicWeights)}
+    for i, rec in enumerate(corpus['records']):
+        missing = sorted(fields - set(rec['weights']))
+        extra = sorted(set(rec['weights']) - fields)
+        assert not missing and not extra, (
+            f'record {i} pins {len(rec["weights"])} of {len(fields)} weights '
+            f'(missing {missing}, unknown {extra}). An absent weight is filled '
+            f'from the current default, so the record stops meaning what it '
+            f'recorded -- backfill it at its capture-time value or re-capture.')
 
 
 def test_evaluator_and_planner_reproduce_the_corpus(corpus):

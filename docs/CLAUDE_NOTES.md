@@ -1936,7 +1936,7 @@ versus a float price -- so the type checker refuses the mean of a hand
 containing defeat. Codex proposed this independently. Clamps are a fourth
 patch on a design that invites the mistake.
 
-### 3. The measurement comparing something against itself (five times)
+### 3. The measurement comparing something against itself (six times)
 
 `871b170` snapshotting two files instead of the package; the gate running
 against a dirty working tree; counting the opponent's nuclear losses as
@@ -1950,6 +1950,19 @@ attempt at one passed either way, and only checking that revealed I was
 testing the wrong half. Also worth keeping: the "standard error of exactly
 zero" alarm, which is a cheap tell that two things are identical when they
 should not be.
+
+The sixth is the parity corpus, and it is the quietest of them. A record
+stores the weights it was captured with and the test rebuilds them as
+`StrategicWeights(**rec['weights'])` -- so a weight added *after* capture
+is absent from the record and filled from the current default. The oracle
+then takes two of its inputs from the code it exists to check. It sat
+harmlessly for as long as the new weights' defaults did not move, and
+surfaced the day `reply_model` went from 0 to 3: 525 records "failed"
+against behaviour they had never recorded. Backfilled at the values in
+force at capture (`reply_model=0`, the search not yet existing), which
+restores the oracle without re-running anything, and gated by
+`test_every_record_pins_every_weight` -- every field of the dataclass
+must appear in every record.
 
 ### 4. Two implementations of one rule, drifting (four times)
 
