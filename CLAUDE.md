@@ -56,6 +56,18 @@ the tests.
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
 
+## The rule
+
+**If you make the same mistake twice, gate it with a test.** Not a note,
+not a comment -- a test that fails when the mistake comes back. The
+maintainer's rule, and the evidence for it is this file: every entry
+below is a defect that recurred before anyone mechanised it, and the
+ones that stopped recurring are the ones with a test next to them.
+
+Recurrence is the signal. A mistake made once is bad luck; made twice it
+is a property of the code or of how people read it, and neither is fixed
+by remembering harder.
+
 ## Things that have bitten this codebase before
 
 - **Check `tests/conftest.py` before writing a test helper.** A
@@ -68,6 +80,13 @@ the tests.
   `docs/CLAUDE_NOTES.md` "The bugs this repo actually gets".** Eight
   shapes; six have recurred. Read it before adding a cache, a sentinel, a
   fallback, or a second copy of a rule.
+- **Don't move the board mid-ranking without calling `_invalidate_base()`.**
+  `delta` prices against per-decision caches keyed on the board as synced;
+  moving it and then asking `delta` reads a base for a position that is not
+  there. When the forward search did this the sign *inverted* -- breaks came
+  back more attractive, and the minimum-poke rate stayed at 13 a game
+  instead of falling to 0.25. Gated by `tests/test_base_cache_discipline.py`,
+  which reconstructs the defect and requires the checker to catch it.
 - **Don't memoise an evaluation term on less state than it reads.** This has
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored

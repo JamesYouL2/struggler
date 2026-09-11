@@ -424,6 +424,7 @@ class StrategicPlayer:
         self._base_regions = None
         self._base_margins = None
         self._base_country = None
+        self._base_digest = 0
         self._obs = None
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
@@ -454,6 +455,12 @@ class StrategicPlayer:
         self._base_regions = {}
         self._base_margins = {}
         self._base_country = {}
+        # What the board looked like when these were established. `delta`
+        # prices against them, so calling it with the board moved reads a
+        # base for a position that is not there -- which inverted the
+        # forward search. Only maintained under CHECK_SNAPSHOT; `digest` is
+        # 0 otherwise.
+        self._base_digest = self._position.digest
         self._ops_values = {}
         # One VP's price, fixed once per decision. `military_credit` needs it
         # inside `coup`, which `ops_value` calls, which `vp_value` calls --
@@ -902,6 +909,11 @@ class StrategicPlayer:
             self._position.refresh(self.board)
         elif CHECK_SNAPSHOT:
             assert self._position.matches(self.board), f'snapshot stale before delta({cid})'
+            assert self._position.digest == self._base_digest, (
+                f'delta({cid}) called with the board moved away from the base '
+                f'its caches describe. Whatever moved it must call '
+                f'`_invalidate_base()` first -- see '
+                f'tests/test_base_cache_discipline.py.')
         t, w, pos = self._terrain, self.weights, self._position
         i = t.index[cid]
         region = t.region_of[i]
@@ -1135,6 +1147,15 @@ class StrategicPlayer:
         was = dict(board.influence[cid])
         before = board.control(cid)
         self._add_influence(cid, obs.side, points)
+        # `delta` reads per-decision caches keyed on "the board as synced",
+        # and its own comment says anyone committing a change mid-ranking
+        # must clear them. Mutating here and not clearing made the reply
+        # read a base computed for the unmutated board, which did not merely
+        # weaken the discount -- it inverted it. Chosen pokes came back
+        # *more* attractive: Iran 26.2 -> 36.2, Pakistan 32.6 -> 36.1.
+        # Seventh occurrence of this repo's commonest defect, written by the
+        # same hand that documented it.
+        self._invalidate_base()
         try:
             after = board.control(cid)
             if after is before:
@@ -1154,6 +1175,19 @@ class StrategicPlayer:
             return raw + answered * self.delta(obs, cid, opp=need)
         finally:
             self._set_influence(cid, was['US'], was['USSR'])
+            self._invalidate_base()
+
+    def _invalidate_base(self) -> None:
+        """Drop the per-decision base caches and re-stamp the board they
+        describe. Any code that changes the board mid-ranking owes this to
+        `delta`."""
+        if self._base_regions is not None:
+            self._base_regions = {}
+        if self._base_margins is not None:
+            self._base_margins = {}
+        if self._base_country is not None:
+            self._base_country = {}
+        self._base_digest = self._position.digest
 
     def _reply_budgets(self, obs: Observation) -> tuple[tuple[int, float], ...]:
         """The Operations the opponent might answer with, as
