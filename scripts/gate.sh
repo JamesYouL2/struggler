@@ -193,8 +193,17 @@ DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
 # deal does. Measured at 32 seeds to cost no precision (se 0.0524 varied
 # against 0.0591 fixed). Scores from before this landed are not directly
 # comparable with scores after, though the verdict logic is unchanged.
+#
+# GATE_VARY=0 turns it off, and there are two reasons to:
+#   1. A baseline older than the opening books cannot be given one, and
+#      `build` refuses rather than silently starting the arms from
+#      different boards. Baselines before v0.2.0 need GATE_VARY=0.
+#   2. **A change to the *default* opening is invisible with this on**,
+#      because varying overrides both arms' defaults. Measuring one means
+#      turning this off, so that each side plays the book it ships with.
+VARY=$([ "${GATE_VARY:-1}" = "1" ] && echo --vary-openings || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
-   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE --vary-openings \
+   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE $VARY \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
 if [ "${GATE_ANCHOR:-1}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
   # No --vary-openings here: a baseline from before the opening books cannot
