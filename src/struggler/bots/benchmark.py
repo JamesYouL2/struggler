@@ -342,13 +342,28 @@ ACCEPTANCE = dict(
     # gate and be rejected every time, which is exactly the "can reject a
     # stronger policy" failure docs/notes/codex/ warns about.
     #
-    # So the cap sits where the pooled score takes over. A policy losing a
-    # fraction p of its games outright gives up about p/2 of score; the
-    # gate's 95% half-width is near 0.05, so the score itself detects
-    # p > 10% -- 19 games in 192. Below that the count is the only evidence;
-    # above it, the strength rule fails the change on its own. `warn_nuclear`
-    # keeps the diagnostic: the first loss still names its seed to replay.
-    max_nuclear_rate=0.10,
+    # The cap is 20%, the maintainer's call on 2026-09-11: the bot's rate is
+    # about 12.6% and they judge it solid. What forced the question is that
+    # 10% rejected a change whose *baseline behaved identically* -- 19
+    # candidate losses and 19 baseline losses in the same 151 games -- so
+    # the rule was failing a shared property of both revisions rather than
+    # anything the change did. The rate only became visible when the verdict
+    # sample dropped from 96 seeds to 80 and the absolute cap fell from 19
+    # to 15; the behaviour had not moved at all.
+    #
+    # What the old reasoning got right and keeps: the cap belongs where the
+    # pooled score takes over. A policy losing a fraction p of its games
+    # outright gives up about p/2 of score, and the gate's 95% half-width is
+    # near 0.05, so the score detects p > 10% on its own. Setting the veto
+    # at 20% leaves the band from 10% to 20% to the strength rule, which is
+    # the rule with the statistics behind it, and keeps the veto for a
+    # policy that is losing a fifth of its games to its own DEFCON.
+    #
+    # Still only the *candidate's* losses count, so a shared rate can still
+    # trip this if it ever climbs past 20%. If that happens the fix is a
+    # paired comparison against the baseline's rate in the same run, not a
+    # higher number.
+    max_nuclear_rate=0.20,
     min_nuclear=3,      # never fail a small gate on one or two
     warn_nuclear=1,
 )
