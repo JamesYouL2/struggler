@@ -43,6 +43,7 @@ from typing import NamedTuple
 
 from struggler.engine import Region, Side
 from struggler.engine.board import Board
+from struggler.bots.strategic.stakes import EUROPE_CONTROL_VP
 from struggler.engine.rules import RULES
 
 US, USSR = 0, 1
@@ -555,25 +556,9 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
     return extra, ignored
 
 
-# What Europe Control is worth, in VP, when `region_vp` has to name a
-# number for a tier the rules give none.
-#
-# It stood at 100, which was arbitrary. The honest value is the distance to
-# the auto-victory it triggers: `20 - vp`, so 20 at par and up to 40 from
-# far behind -- the maintainer's range. 20 is the value at par and the
-# default here, since `region_vp` is a pure function of the board and does
-# not see the VP track.
-#
-# **Changing this number is not the fix, and lowering it alone makes things
-# worse.** The constant only fires once Europe Control already exists,
-# which the trial placements that drive every decision never reach, and it
-# is then multiplied by `w.region * urgency / vp_value` ~ 0.027 -- so
-# winning the game reads as 2.7 VP of board value at 100, and would read as
-# 0.5 at 20. The real defect is that Europe Control is priced as a very
-# large *scoring* when it is a *terminal outcome*, and belongs on
-# `game_value`'s scale rather than the region term's. See
-# docs/CLAUDE_NOTES.md, "Europe Control is priced as a scoring, not a win".
-EUROPE_CONTROL_VP = 20.0
+# Europe Control has no scoring value in the rules -- it simply wins -- so
+# `region_vp` needs a number for it. It comes from `stakes`, with every
+# other "what winning is worth" constant, rather than being chosen here.
 
 
 def region_vp(t: Terrain, pos: Position, region: Region,

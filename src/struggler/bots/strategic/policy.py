@@ -26,6 +26,7 @@ from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
+from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
@@ -103,8 +104,8 @@ def is_certain(value: float) -> bool:
 # +20. `LOSS` stays the sentinel for a *certain* outcome, which no amount of
 # board value should buy; this is the finite figure a *probabilistic* one is
 # worth, so that risk can be traded against value instead of ranking ahead
-# of it at any price. The expert's number.
-GAME_SWING_VP = 40.0
+# of it at any price. From `stakes`, the single source of truth for every
+# "what winning is worth" constant -- there were four and no two agreed.
 # The charge against playing The China Card, in RAW BOARD UNITS -- not Ops,
 # whatever the maintainer's figure is denominated in. It is subtracted from
 # `card_play_value`, which is on the Ops scale where one Op is worth 80-odd
