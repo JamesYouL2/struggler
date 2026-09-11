@@ -1936,7 +1936,7 @@ testing the wrong half. Also worth keeping: the "standard error of exactly
 zero" alarm, which is a cheap tell that two things are identical when they
 should not be.
 
-### 4. Two implementations of one rule, drifting (three times)
+### 4. Two implementations of one rule, drifting (four times)
 
 `cddb7a0` three copies of region scoring, only one of which knew about the
 scoring overrides; two Ops estimates, one for card choice and one for the
@@ -1948,6 +1948,17 @@ tests was silently the weaker.
 32 flag combinations against the engine's own answer, and asserts each
 prohibition fired at least once. That is the pattern to copy whenever the
 bot mirrors an engine rule.
+
+The fourth: `Decision.public()` hides an option list that names cards, and
+decided "names cards" as `"card" in option.payload` -- the rule written a
+second time, as a key name. Blockade asks the US to discard a 3+ Ops card
+and keys its options `choice`, so the qualifying part of the US hand went
+into the shared history both players are handed. Found by
+`tests/test_history_privacy.py`, which asks the rules' question instead:
+every card id in the shared history must already have been revealed by an
+event the history carries. The filter now matches option *values* against
+the card ids, which cannot be forgotten when a new decision spells its key
+differently.
 
 ### 5. A silent fallback hiding a defect (twice, and it paid off once)
 

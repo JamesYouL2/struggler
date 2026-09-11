@@ -195,6 +195,15 @@ class Decision:
         headline's options are the actor's hand, one card each, and eight
         of them were recoverable by anyone handed the Decision.
 
+        "Names cards" is decided by the option *values*, not by a payload
+        key. It was `"card" in option.payload` first, which is the same
+        rule written down a second time and immediately wrong about the
+        first decision that spelled the key differently: Blockade asks the
+        US to discard a 3+ Ops card, the options are keyed `choice`, and
+        the whole qualifying part of the US hand went into the shared
+        history. A key list has to be extended for every new decision that
+        offers a card; matching the value cannot be forgotten.
+
         Only card identity is hidden, because only card identity is
         private. Which countries may be placed in, Couped or Realigned is
         derived from the board everyone can see, and `observe(side)` is
@@ -213,10 +222,26 @@ class Decision:
         """
         if self.actor not in (Side.US, Side.USSR):
             return self
-        if not any("card" in option.payload for option in self.options):
+        if not any(_names_a_card(option.payload) for option in self.options):
             return self
         return Decision(id=self.id, actor=self.actor, kind=self.kind,
                         options=(), context=self.context)
+
+
+_CARD_IDS: frozenset[str] | None = None
+
+
+def _names_a_card(payload: Mapping[str, Any]) -> bool:
+    """Does this option payload name a card?
+
+    Lazily imported, because `engine.cards` imports this module -- the
+    vocabulary cannot depend on the data at import time. Built once.
+    """
+    global _CARD_IDS
+    if _CARD_IDS is None:
+        from struggler.engine.cards import load_cards
+        _CARD_IDS = frozenset(load_cards())
+    return any(value in _CARD_IDS for value in payload.values() if type(value) is str)
 
 
 @dataclass(frozen=True)

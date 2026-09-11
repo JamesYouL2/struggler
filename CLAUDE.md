@@ -87,6 +87,14 @@ by remembering harder.
   back more attractive, and the minimum-poke rate stayed at 13 a game
   instead of falling to 0.25. Gated by `tests/test_base_cache_discipline.py`,
   which reconstructs the defect and requires the checker to catch it.
+- **Don't decide "is this private?" from a key name.** `Decision.public()`
+  hid option lists by testing `"card" in option.payload`, which is the
+  privacy rule written down a second time. Blockade keys its card options
+  `choice`, so the qualifying part of the US hand went into the shared
+  history both players are handed -- the same leak already found and closed
+  for headlines. Match the *values* against the card ids. Gated by
+  `tests/test_history_privacy.py`, which checks the rules' question: every
+  card the shared history names must already have been revealed in it.
 - **Don't memoise an evaluation term on less state than it reads.** This has
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored
