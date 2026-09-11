@@ -5,10 +5,19 @@ description: Report what is running, what is blocked on the maintainer, and what
 
 # Status check
 
-Three sections, always these three, always in this order, always all
-three even when one is empty. The order is by what costs the maintainer
-time: what they must decide, then what they can ignore, then what they
-must do.
+Open with **the top three priorities overall, ranked** -- across all
+three sections, one line each, hardest-first by what it unblocks rather
+than by what is easiest to finish. Then the three sections below, always
+these three, always in this order, always all three even when one is
+empty. The order is by what costs the maintainer time: what they must
+decide, then what they can ignore, then what they must do.
+
+The ranking is the part that takes judgement. It is not the queue in
+queue order: a blocked decision that gates three items outranks a
+finished-but-ungated change, and a measurement that would tell us
+whether a whole line of work is worth anything outranks both. Say what
+each one unblocks, or it is a list rather than a ranking. Three, not
+five -- if everything is a priority the ranking has said nothing.
 
 ## 1. Things needed from you
 
