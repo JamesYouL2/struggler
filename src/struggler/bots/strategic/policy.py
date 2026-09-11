@@ -1280,23 +1280,19 @@ class StrategicPlayer:
         return helper
 
     def influence(self, obs: Observation, cid: str, ops: int) -> float:
-        # Search the feasible investment into this country; account for the
-        # doubled cost ending immediately after enemy control is broken.
-        original = dict(self.board.influence[cid])
-        spent = 0
-        best = LOSS
-        try:
-            for points in range(1, ops + 1):
-                spent += self.board.influence_cost(obs.side, cid)
-                if spent > ops:
-                    break
-                self._set_influence(cid, original['US'], original['USSR'])
-                gain = self.delta(obs, cid, own=points)
-                best = max(best, gain / spent)
-                self._add_influence(cid, obs.side, points)
-        finally:
-            self._set_influence(cid, original['US'], original['USSR'])
-        return best
+        """Best value per Op of investing `ops` into `cid`.
+
+        `_investment`'s first element, and it used to be a second copy of
+        that loop -- same doubled-cost accounting, same value-per-Op
+        search, differing only in whether the point count came back with
+        it. The two then drifted the moment anything was added to one:
+        the half-action-round forward search went into `_investment`, so
+        it reached card pricing and the Ops-type choice and *not* the
+        placement decision it was written for. Which is shape 4 in
+        `docs/CLAUDE_NOTES.md`, "two implementations of one rule", for the
+        fourth time.
+        """
+        return self._investment(obs, cid, ops)[0]
 
     def _rounds_left(self, obs: Observation) -> int:
         """Action rounds still to play this turn, counting the current one."""
