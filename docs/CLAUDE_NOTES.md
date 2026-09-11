@@ -3343,3 +3343,59 @@ weights stop being applied to something that has no tiers.
 That is a better target than patching a Thailand constant: it removes a
 special case instead of adding one, and it is the same restructuring the
 region-model rewrite needs anyway.
+
+### Win probability: the shape, and the ceiling
+
+The answer to the open question of what win probability should *do*, which
+was the one thing I said I should not decide alone.
+
+**Direction: variance is worth more when you are behind.** The maintainer:
+"a 75% to win is definitely worth less when you're winning, you want to
+take tons of DEFCON / Europe Control shots when behind." So a high win
+probability lowers the value of a risky line and a low one raises it. The
+bot has no such term: it prices a risky line the same whether it is ten
+ahead or ten behind, which means it declines the shots that are the only
+way back from a losing position and takes ones it does not need.
+
+**Ceiling: win probability tops out around 0.75 to 0.90**, at the start of
+a turn before cards are drawn, *even when far ahead on the board*, because
+you cannot force a win and the opponent can always take shots at you. And
+it is **asymmetric: lower for the USSR**, "because USSR has to die more."
+
+That ceiling is the most useful part of the answer and the easiest to get
+wrong. **A fitted estimator will happily report 0.99 from a dominant board
+and be wrong**, and an over-confident estimator inverts the whole term:
+the bot would stop taking shots exactly when a human would judge the
+position not yet safe. Any estimator has to be clipped, not just fitted.
+
+The USSR asymmetry is plausible and mechanically motivated but **not yet
+measured**. What is on hand is weak: over the 192-game hunt, `defcon_1`
+endings split 8 USSR to 5 US, and three explicit "USSR is responsible"
+lines appear across the session's logs. Thirteen events is not a result.
+Worth measuring properly before the asymmetry is built in, since it is a
+per-seat constant and those are exactly what the mirror gate cannot see.
+
+### P(SEA scores) is ~0.95; the discount is in the payout, not the odds
+
+The maintainer: "P(SEA scores) is at least .9, almost certain it's .95.
+It's just E(Scoring) that's much lower."
+
+Measured: **11 of the first 12 games, 92%**, run still going.
+
+Which corrects the formula from two sections up. It was written as
+`P(SEA scores) * 4 VP`, with the discount carried by P. P is nearly 1, so
+that form would price Thailand's Southeast Asia contribution at almost its
+full 4 VP swing. The discount belongs in the *payout*: whether you still
+hold the country when it scores, what else you hold in the subregion, and
+which turn it lands on.
+
+**And that is not a constant to be supplied -- it is a position, which the
+evaluator already computes.** So the right implementation adds no new
+number at all:
+
+```
+Southeast Asia contribution = 0.95 * (Southeast Asia VP swing on this board)
+```
+
+with the swing read off the position exactly as the six tiered regions
+already are. One measured constant near 1, and no per-country table.
