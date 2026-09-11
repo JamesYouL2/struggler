@@ -1889,11 +1889,19 @@ average from two gates that shared the machine with different work.
 
 Read back over every `fix(...)` commit and the incidents in this file. The
 defects are not random: eight shapes account for nearly all of them, and
-six of the eight have recurred. Listed by how often they have bitten, with
-the practice that would have caught each. This is the list to design
-against, not a generic checklist.
+every one of the eight has now recurred. Listed by how often they have
+bitten, with the practice that would have caught each. This is the list to
+design against, not a generic checklist.
 
-### 1. A cached value keyed on less state than it reads (six times)
+**Every shape here is gated.** `tests/test_recurring_defects.py` is the
+index: it names the tests that make each shape fail, checks those tests
+still exist, and reads the counts below -- so recording a new recurrence
+here makes the suite ask for the gate. The shapes that had no home
+anywhere else are gated in that file too (the sentinel, interleaved
+timing, the characterisation-test convention); the rest are listed and
+live beside their subject.
+
+### 1. A cached value keyed on less state than it reads (seven times)
 
 `7cb9fbe` two evaluator memos ignoring neighbouring influence; `9d9890f`
 valuing only the countries an event touched; the rollout cache not syncing
@@ -1901,6 +1909,13 @@ the board; MCTS leaves inheriting the last ranking's context; the
 `_event_basis` surviving across decisions; and tonight the VP price, where
 `coup -> vp_value -> ops_value -> coup` made one Op worth 28.43 or 27.78
 depending only on which arm of the ranking asked first.
+
+The seventh was the forward search: `_after_reply` moved the board and
+then called `delta`, which prices against per-decision caches keyed on the
+board as synced. Not a stale number but an inverted *sign* -- the term
+written to discourage poking encouraged it, and the minimum-poke rate sat
+at 13 a game instead of falling to 0.25. Written hours after this list
+was. Gated by `tests/test_base_cache_discipline.py`.
 
 **The practice: an order-independence property test.** Every one of these
 is the same assertion -- *evaluating the same position twice, in different
