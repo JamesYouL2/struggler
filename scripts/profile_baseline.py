@@ -21,28 +21,53 @@ from struggler.bots.benchmark import play
 from struggler.bots.mcts import MCTSPlayer
 
 PATHS = {
-    'defcon planner': ('bots/defcon.py', None),
-    'evaluator delta': ('bots/strategic.py', 'delta'),
-    'country_value': ('bots/strategic.py', 'country_value'),
-    '_access': ('bots/strategic.py', '_access'),
-    'region_margin': ('bots/strategic.py', 'region_margin'),
-    'rank_actions': ('bots/strategic.py', 'rank_actions'),
+    'defcon planner': ('bots/strategic/defcon.py', None),
+    'evaluator (exclusive)': ('bots/strategic/evaluator.py', None),
+    'policy (exclusive)': ('bots/strategic/policy.py', None),
+    'evaluator delta': ('bots/strategic/', 'delta'),
+    'country_value': ('bots/strategic/', 'country_value'),
+    '_access': ('bots/strategic/', '_access'),
+    'region_margin': ('bots/strategic/', 'region_margin'),
+    'rank_actions': ('bots/strategic/', 'rank_actions'),
     'engine step (cumulative)': ('engine/core.py', 'step'),
     'enum access (exclusive)': ('enum.py', None),
 }
 # Rows named with a function are cumulative; module rows are exclusive of
 # callees in other modules. Neither set is disjoint; do not add them.
+# The function rows match the whole `bots/strategic/` package, not one
+# module: `country_value`, `_access` and `region_margin` each exist twice,
+# as a pure function in `evaluator.py` and as the policy method that calls
+# it, and a row naming one module would silently profile half the work.
 
 
 def shares(pr: cProfile.Profile, total: float) -> dict[str, float]:
+    """Share of `total` for each named path -- and a hard error for any row
+    that matches nothing.
+
+    A path that matches no frame is not 0% of the work, it is a question
+    this profile did not ask, and the two are indistinguishable in the
+    output. Every row here named `bots/strategic.py` or `bots/defcon.py`,
+    which stopped existing when the bot became a package; the report kept
+    printing, all seven rows reading 0%, and stayed that way for as long
+    as nobody compared it against a profile they trusted. Matching is by
+    substring against a path, so it breaks silently whenever a file moves.
+    """
     stats = pstats.Stats(pr).stats
-    out = {}
+    out, empty = {}, []
     for label, (file_part, func) in PATHS.items():
         if func is None:  # exclusive time of a whole module
-            t = sum(v[2] for k, v in stats.items() if file_part in k[0])
+            frames = [v for k, v in stats.items() if file_part in k[0]]
+            t = sum(v[2] for v in frames)
         else:  # cumulative time of one function
-            t = sum(v[3] for k, v in stats.items() if file_part in k[0] and k[2] == func)
+            frames = [v for k, v in stats.items() if file_part in k[0] and k[2] == func]
+            t = sum(v[3] for v in frames)
+        if not frames:
+            empty.append(f'{label} ({file_part}' + (f', {func}' + ')' if func else ')'))
         out[label] = t / total if total else 0.
+    if empty:
+        raise LookupError(
+            'these profile rows matched no frame, so they measure nothing: '
+            + '; '.join(empty) + '. Update PATHS -- a moved file reads as 0%.')
     return out
 
 
