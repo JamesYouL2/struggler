@@ -1462,6 +1462,11 @@ def _glasnost(engine: "Engine", side: Side) -> None:
     if engine.is_terminal:
         return
     engine._change_defcon(+1, caused_by=side)
+    # ty: ignore[redundant-condition-strict] -- ty narrows `is_terminal`
+    # from the early return above and does not model `_change_defcon`
+    # reaching DEFCON 1, calling `_win` and ending the game in between.
+    # The guard is load-bearing: without it a finished game keeps pushing
+    # operations.
     if not engine.is_terminal and engine.game_effects.get("reformer"):
         engine.push_event_operations(Side.USSR, 4, allow_coup=False)
 
@@ -1519,6 +1524,8 @@ def _kal_007(engine: "Engine", side: Side) -> None:
     if engine.is_terminal:
         return
     engine._award_vp(Side.US, 2)
+    # ty: ignore[redundant-condition-strict] -- as above: `_change_defcon(-1)`
+    # can end the game by nuclear war between the early return and here.
     if not engine.is_terminal and engine.board.control("South_Korea") is Side.US:
         engine.push_event_operations(Side.US, 4, allow_coup=False)
 

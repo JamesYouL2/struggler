@@ -23,6 +23,7 @@ from __future__ import annotations
 import dataclasses
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -219,7 +220,8 @@ def test_the_bot_takes_its_ops_modifiers_from_the_engine():
 # -- shape 7: timing measured under uncontrolled conditions ------------------
 
 
-def interleaved(arms: dict[str, object], repeats: int, clock=time.perf_counter) -> dict[str, float]:
+def interleaved(arms: dict[str, Callable[[], object]], repeats: int,
+                clock=time.perf_counter) -> dict[str, float]:
     """Total seconds per arm, running them alternately.
 
     Three times this repo has compared two timings taken under conditions
@@ -243,7 +245,8 @@ def interleaved(arms: dict[str, object], repeats: int, clock=time.perf_counter) 
     return totals
 
 
-def sequential(arms: dict[str, object], repeats: int, clock=time.perf_counter) -> dict[str, float]:
+def sequential(arms: dict[str, Callable[[], object]], repeats: int,
+               clock=time.perf_counter) -> dict[str, float]:
     """The wrong way, kept so a test can show it is the wrong way."""
     totals = {}
     for name, arm in arms.items():
@@ -342,3 +345,44 @@ def test_every_characterisation_test_says_so():
     assert found == CHARACTERISATION_TESTS, (
         f'undeclared: {sorted(found - CHARACTERISATION_TESTS)}; '
         f'declared but gone: {sorted(CHARACTERISATION_TESTS - found)}')
+
+
+# -- logging: a logger name that does not match its module ------------------
+
+
+def test_every_logger_lives_under_its_own_package():
+    """A logger named outside its package drops out of the hierarchy.
+
+    `defcon.py` moved into `bots/strategic/` at the package split and kept
+    the name `struggler.bots.defcon`, which made it a sibling of
+    `struggler.bots.strategic` rather than a child -- so raising the
+    strategic logger's level missed the survival planner entirely, and the
+    planner is most of a full game's work. Nothing failed; the output was
+    quietly absent, which is the worst way for a diagnostic to break.
+
+    The rule is the package, not the module. `engine/core.py` deliberately
+    builds `struggler.engine.sandbox` as well as `struggler.engine` so the
+    sandbox can be silenced on its own -- that is fine, because both sit
+    under `struggler.engine` and inherit its level. What is not fine is a
+    name that sits outside the package directory it is written in.
+    """
+    pattern = re.compile(r"getLogger\(['\"]([\w.]+)['\"]\)")
+    package_root = ROOT / 'src' / 'struggler'
+    for path in sorted(package_root.rglob('*.py')):
+        parts = path.relative_to(package_root).parts[:-1]
+        package = '.'.join(('struggler',) + parts)
+        for name in pattern.findall(path.read_text()):
+            if not name.startswith('struggler'):
+                continue
+            # Under its own package, or an ancestor of it. An ancestor is
+            # configuration rather than emission -- `benchmark.py` grabs
+            # `struggler` to attach a per-game file handler, which is the
+            # root of the application and exactly the right handle for that.
+            # What is wrong is a name on a *different branch*: that is the
+            # one that silently stops inheriting.
+            assert (name == package or name.startswith(package + '.')
+                    or package.startswith(name + '.')), (
+                f'{path.relative_to(ROOT)} builds logger {name!r}, which is neither '
+                f'under its package {package!r} nor an ancestor of it. It will not '
+                f'inherit the level set on that package, and its output goes missing '
+                f'without an error.')

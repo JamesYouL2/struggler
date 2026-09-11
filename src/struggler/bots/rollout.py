@@ -100,7 +100,11 @@ class RolloutPolicy(StrategicPlayer):
 
     # -- one plan per card play -------------------------------------------
 
-    def rank_actions(self, obs):
+    def rank_actions(self, observation):
+        # Named `observation` to match `StrategicPlayer.rank_actions`: a
+        # keyword call would otherwise work on the parent and fail here.
+        # Found by ty's invalid-method-override.
+        obs = observation
         d = obs.pending_decision
         if d is None or not d.options:
             raise ValueError('RolloutPolicy requires a pending decision with legal options')

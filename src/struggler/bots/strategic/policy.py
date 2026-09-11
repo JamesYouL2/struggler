@@ -500,6 +500,7 @@ class StrategicPlayer:
         self.opponent_model = opponent_model
         self._planner = None
         self._event_basis = None
+        self._logged_opening = False
         # Set here as well as at both per-decision reset points: `influence`
         # and `delta` are reachable without a `rank_actions` first, and a
         # cache that only exists after one turns that into an AttributeError.
@@ -1257,7 +1258,17 @@ class StrategicPlayer:
             # Charged at the odds they can afford the answer, which for a
             # constant budget is all-or-nothing and for the averaged model
             # is the share of their likely cards big enough to pay.
-            return raw + answered * self.delta(obs, cid, opp=need)
+            discount = answered * self.delta(obs, cid, opp=need)
+            if log.isEnabledFor(logging.DEBUG):
+                # Guarded: this runs a few thousand times per ranking, and
+                # an unguarded call would cost about 0.2% of a game. Worth
+                # having at all because when this term's sign inverted
+                # there was nothing to look at -- the poke rate stayed at
+                # 13 a game and only a separate script showed why.
+                log.debug('reply %s: %+d pts costs %d Ops to undo, answered %.2f, '
+                          'raw %.1f -> %.1f', cid, points, undo, answered,
+                          raw, raw + discount)
+            return raw + discount
         finally:
             self._set_influence(cid, was['US'], was['USSR'])
             self._invalidate_base()
@@ -2195,6 +2206,10 @@ class StrategicPlayer:
             # keep control through East European Unrest / Socialist
             # Governments and take the access points strong players take.
             book = self.opening_book(obs.side).get(ctx.get('subregion'), ())
+            if not self._logged_opening:
+                self._logged_opening = True
+                log.info('opening: %s plays %r', obs.side.value,
+                         self.openings[obs.side.value])
             index = len(book) - int(ctx['remaining'])
             wanted = book[index] if 0 <= index < len(book) else None
             if wanted is not None and any(a.payload['country'] == wanted for a in obs.pending_decision.options):
@@ -2208,7 +2223,18 @@ class StrategicPlayer:
             ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
                        if outside == 0
                        and _in_bonus_region(self.board.countries[p['country']], tag))
-        return self.influence(obs, p['country'], ops)
+        value = self.influence(obs, p['country'], ops)
+        if log.isEnabledFor(logging.DEBUG):
+            cid = p['country']
+            held = self.board.control(cid)
+            if held is obs.side.opponent and self.board.countries[cid].battleground:
+                # The maintainer's break instrument, as a log line rather
+                # than a separate script: how many Ops this spend would
+                # need, and what it leaves behind.
+                log.debug('break candidate %s: they hold it, %d Ops available, '
+                          'costs %d an Op, value %.1f', cid, ops,
+                          self.board.influence_cost(obs.side, cid), value)
+        return value
 
     def _score_event_influence(self, obs: Observation, action: Action, kind, p, ctx):
         """An event adding or removing Influence in a named country.

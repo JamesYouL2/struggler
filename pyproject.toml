@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-test = ["pytest", "hypothesis"]
+test = ["pytest", "hypothesis", "ty", "ruff"]
 llm-anthropic = ["anthropic>=0.68"]
 llm-openai = ["openai>=1.0"]
 llm = ["anthropic>=0.68", "openai>=1.0"]
@@ -36,10 +36,46 @@ struggler = ["data/*.json"]
 #   ruff  -- `assert key.startswith('_') or key in CARDS or True`, an
 #            assertion that cannot fail, sitting in the test suite. That is
 #            shape 8 in docs/notes/claude/bug-shapes.md, found mechanically.
+[tool.ty.src]
+# `src/` only. Tests hold 419 of the 502 `unresolved-attribute` findings --
+# they poke private state on purpose -- and both `unsupported-operator`
+# false positives were test code using heterogeneous dicts and lists.
+include = ["src/struggler"]
+
 [tool.ty.rules]
-# `--error all` is what catches the always-False comparison above; the rest
-# of the backlog is mostly missing annotations on internal helpers.
+# Chosen by counting, not taste. Each rule below was read finding by
+# finding on 2026-09-11 and kept only where real positives outnumbered
+# false ones, which is the maintainer's rule:
+#
+#   rule                          true  false  verdict
+#   unsupported-operator             1*     0  KEEP  (*the CardSide bug; the
+#                                                     two FPs were in tests)
+#   possibly-unresolved-reference    3      0  KEEP
+#   call-non-callable                2      0  KEEP
+#   invalid-method-override          1      0  KEEP
+#   redundant-condition-strict       1      2  OFF
+#   not-iterable                     0      2  OFF
+#   too-many-positional-arguments    0      1  OFF
 unsupported-operator = "error"
+possibly-unresolved-reference = "error"
+call-non-callable = "error"
+invalid-method-override = "error"
+
+# `redundant-condition-strict` is off for a reason worth keeping, because
+# the obvious response to it would have *introduced* a defect. ty narrows a
+# property across a mutating call: after `if engine.is_terminal: return` it
+# treats `is_terminal` as permanently false, so the next
+# `not engine.is_terminal` reads as always true -- ignoring that the
+# intervening `_change_defcon(-1)` can reach DEFCON 1, call `_win`, and end
+# the game. Both flagged guards in events.py are load-bearing, and deleting
+# them would let a finished game keep awarding VP. In an engine built on
+# properties over mutable state this will be the common case, and the
+# failure direction is the dangerous one: the "fix" looks like tidying.
+redundant-condition-strict = "ignore"
+not-iterable = "ignore"
+too-many-positional-arguments = "ignore"
+# The optional LLM SDKs are genuinely absent unless the extra is installed.
+unresolved-import = "ignore"
 
 [tool.ruff]
 line-length = 110          # the prose-in-comments style runs long by design

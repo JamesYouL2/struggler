@@ -22,7 +22,13 @@ from struggler.engine.cards import load_cards
 from struggler.engine.core import effective_ops
 from struggler.engine.rules import RULES
 
-log = logging.getLogger('struggler.bots.defcon')
+# `struggler.bots.strategic.defcon`, matching the module path. It was
+# `struggler.bots.defcon` -- the name from before this file moved into the
+# strategic package -- which made it a *sibling* of
+# `struggler.bots.strategic` rather than a child, so raising the strategic
+# logger's level silently missed the survival planner. That is about 60% of
+# a full game's work and the first thing worth tracing.
+log = logging.getLogger('struggler.bots.strategic.defcon')
 
 CARDS = load_cards()
 CHINA = 'The_China_Card'

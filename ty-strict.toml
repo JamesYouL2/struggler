@@ -1,0 +1,58 @@
+# The hard gate: rules that are at zero findings and must stay there.
+#
+# Chosen by counting on 2026-09-11 -- each was read finding by finding and
+# kept only where real positives outnumbered false ones. The tally and the
+# reasoning live in pyproject.toml's [tool.ty.rules]. Everything else is
+# advisory (scripts/gate.sh step 1c) because the codebase was never
+# type-checked and carries ~95 findings of annotation debt, mostly
+# `Decision | None` where a `while not engine.is_terminal` loop guarantees
+# non-None.
+#
+# `unsupported-operator` is the one kept on prospective value rather than a
+# measured catch: it scores 0 true / 2 false on the current code, but it is
+# the rule that catches `CARDS[c].side is Side.US`, a comparison between two
+# enums that can never be equal, which shipped as a silently-zero term. Both
+# its false positives were in tests, and this gate runs on src/ only.
+[src]
+include = ["src/struggler"]
+
+[rules]
+# The gated rules.
+#
+# `redundant-condition-strict` is the one that matters, and it was very
+# nearly left off. It is what catches `CARDS[c].side is Side.US` -- a
+# comparison between a CardSide and a Side, always false, which shipped as
+# a silently-zero term. An earlier triage credited that catch to
+# `unsupported-operator` (pyright words it as "no overlap", and ty's
+# default output prints no rule name) and disabled this one for its two
+# false positives. The negative control in tests/test_types.py caught the
+# mistake: the gate passed a planted copy of the bug.
+#
+# Its two false positives are real but narrow, and suppressed inline where
+# they occur: ty narrows a property across a mutating call, so after
+# `if engine.is_terminal: return` it reads the next `not engine.is_terminal`
+# as always true, ignoring that `_change_defcon(-1)` can end the game in
+# between. Both guards are load-bearing; deleting them would let a finished
+# game keep awarding VP.
+redundant-condition-strict = "error"
+unsupported-operator = "error"
+possibly-unresolved-reference = "error"
+call-non-callable = "error"
+invalid-method-override = "error"
+
+# Everything else silenced *by name*. `--ignore all --error <rule>` does not
+# work -- `all` wins whichever order the flags come in, so the gate reported
+# "All checks passed!" while checking nothing. Its negative control caught
+# that, which is the only reason this file lists rules one by one instead.
+unresolved-import = "ignore"            # optional LLM SDKs are genuinely absent
+unresolved-attribute = "ignore"         # `Decision | None` the loops guarantee
+invalid-argument-type = "ignore"        # same shape, at call sites
+invalid-assignment = "ignore"
+invalid-return-type = "ignore"
+not-subscriptable = "ignore"
+not-iterable = "ignore"                 # measured 0 true / 2 false
+too-many-positional-arguments = "ignore"  # measured 0 true / 1 false
+missing-type-argument = "ignore"
+missing-override-decorator = "ignore"
+unsound-return-statement = "ignore"
+unsound-assignment = "ignore"

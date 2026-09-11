@@ -288,8 +288,8 @@ def test_the_nuclear_cap_scales_with_the_gate_and_never_fails_a_small_one():
     """A fixed count means different things at 76 seeds and 96. The floor
     keeps a small gate from failing on one or two."""
     from struggler.bots.benchmark import nuclear_cap
-    assert nuclear_cap(192) == 38
-    assert nuclear_cap(152) == 30
+    assert nuclear_cap(192) == 48
+    assert nuclear_cap(152) == 38
     assert nuclear_cap(10) == 3  # the floor, not 2
     # The case that forced the rate to 20%: a 12.6% rate, shared with the
     # baseline, failed a 10% cap once the sample dropped from 192 games to

@@ -77,15 +77,21 @@ REPORT = []
 def profile(label, fn, repeats=3):
     """Unprofiled wall time over `repeats` runs, then one profiled run for
     the shares; everything goes into REPORT for the JSON file."""
+    if repeats < 1:
+        # `--repeats 0` left `result` unbound and `min(plain)` on an empty
+        # list. Found by ty's possibly-unresolved-reference; the profiled
+        # run below would still have produced a report, so this failed
+        # late and looked like a profiler bug rather than a bad argument.
+        raise ValueError(f'--repeats must be at least 1, got {repeats}')
     plain = []
     for _ in range(repeats):
         t0 = time.time()
-        result = fn()
+        fn()
         plain.append(time.time() - t0)
     pr = cProfile.Profile()
     t0 = time.time()
     pr.enable()
-    fn()
+    result = fn()          # the profiled run is the one whose result we keep
     pr.disable()
     wall = time.time() - t0
     total = sum(v[2] for v in pstats.Stats(pr).stats.values())

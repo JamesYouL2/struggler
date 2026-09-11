@@ -44,8 +44,15 @@
 # stop below 150 whatever the score says, so early stopping can shave at
 # most five seeds here rather than its usual 15%.
 #
-# The drift check is a canary, not a verdict, so it does not need matching
-# power. GATE_ANCHOR=0 turns it off if the hour is tight.
+# 32 seeds, raised from 16 after the canary read 0.469 against v0.1.0 and
+# the full 77-seed run gave 0.578 -- a reversal of 0.11, which is what a
+# 16-seed sample can do. At 32 the half-width is about +/-0.055 rather
+# than +/-0.078, and every score the gate prints now carries its interval,
+# so a reading like that cannot be mistaken for a signal again.
+#
+# The drift check is still a canary, not a verdict: acceptance decides
+# against HEAD~1 and never sees this. GATE_ANCHOR=0 turns it off if the
+# hour is tight.
 # Step 3 runs both samples in one pool and stops once the seeds still
 # unplayed cannot change the verdict (about 15% of the games, and no
 # historical verdict changes); GATE_DECIDE=0 plays every game.
@@ -63,7 +70,7 @@ if [ "${1:-}" = "--check" ]; then CHECK=1; shift; fi
 BASE=${1:-HEAD~1}
 OLD=${2:-v0.1.0}
 SEEDS=${3:-4000-4031}
-DRIFT=${6:-6000-6015}   # the drift run's own seeds, disjoint from both samples
+DRIFT=${6:-6000-6031}   # the drift run's own seeds, disjoint from both samples
 WORKERS=${4:-8}
 HELD=${5:-5000-5047}
 ROOT=$(pwd)
@@ -177,10 +184,27 @@ summ() {  # summ <step-name>
     tail -n 20 "$OUT/$step.err" 2>/dev/null | sed 's/^/  | /'
     exit 3
   fi
-  printf '%s\n' "$out" | $PY -c "import sys,json; d=json.loads(sys.stdin.read()); print({k:d[k] for k in ('score','mean_signed_vp','mean_total','nuclear_losses') if k in d})"
+  printf '%s\n' "$out" | $PY -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+bits = []
+if 'score' in d:
+    ci = f\" +/-{d['score_halfwidth']}\" if 'score_halfwidth' in d else ''
+    bits.append(f\"score {d['score']}{ci} over {d.get('seeds', '?')} seeds\")
+for k in ('mean_signed_vp', 'mean_total', 'nuclear_losses'):
+    if k in d:
+        bits.append(f'{k} {d[k]}')
+print('  ' + ', '.join(bits))"
 }
 echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
+echo "== 1c. types and lint (advisory)"
+# Advisory on purpose: the hard gate is tests/test_types.py, five rules at
+# zero findings. This is the rest -- about 95 ty diagnostics of annotation
+# debt and 109 ruff findings -- reported so the backlog stays visible
+# without blocking a change on it.
+"$ROOT/.venv/bin/ty" check --output-format concise 2>&1 | tail -1 | sed 's/^/  ty: /' || true
+"$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1 | tail -3 | sed 's/^/  ruff: /' || true
 echo "== 2. turn-3 checkpoint vs $BASE"
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3
 echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
