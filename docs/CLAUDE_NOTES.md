@@ -4085,3 +4085,170 @@ is right, and what it is missing is the reply. One ply of
 opponent-response makes the 2:1 exchange visible, and "commit or stay
 out" falls out of it: a break big enough that restoring costs the
 opponent more than it cost you is exactly a break that survives one ply.
+
+### Four answers, two of which are predictions about the forward search
+
+**The Battleground table, closed.** Egypt −1.5 (was −2) and Cuba −1.0
+(was −1.5, and possibly −0.5, since adjacency is worth about +1 and
+partly offsets Fidel and Ortega). The 2-3 VP spread bounds the **region
+means** -- 2.67, inside it -- not the whole map, so the per-country
+figures are free to run wider. Europe and Thailand tied at 6.0 is fine.
+And the 4.0 floor is "probably a touch low": it gives 0.81 VP per Op
+where Europe and South America sit exactly on the fitted 1.00, so about
+5.0 would put ordinary ground on the same line.
+
+**Coup size is hand-planner work.** The bot may be choosing the right
+target and the wrong amount -- one Op where two or three buys the chance
+of the bigger result -- and the maintainer's instruction is not to fix it
+on its own. Filed against the planner with China's play charge and the
+safe windows.
+
+**OAS into Chile: "empty battleground, zero access. One ply look ahead
+makes this obvious."** That is a prediction about code written tonight,
+and a free test of it: the forward search should reach the maintainer's
+answer on Decision 8 without being told. If it does not, the search is
+weaker than the argument for it.
+
+**Region readiness: "when you've been behind and then get to even, or
+you've been even and have gone ahead."** Which is a *trajectory*
+condition, not a state one -- it compares the region now against the
+region earlier, and nothing in the bot remembers earlier. That explains
+why `EXPERT_ASKS` item 3 has resisted an answer for so long: every
+attempt has looked for a rule about the present board. The real home is
+the hand planner; one ply should help.
+
+**And the 2x risk premium has two candidate explanations**, per the
+maintainer and astra: nested terms double-counting, or the 20th VP
+mattering most -- the auto-victory discontinuity. The second is
+testable and links the two halves of the unchaining plan: **if the
+premium is really the VP discontinuity in disguise, then giving
+`vp_value` its convexity should make the premium unnecessary**, and
+`game_value` at its honest arithmetic value should then survive the gate
+it failed twice. That is a sharp prediction and worth running as the
+test of step 2.
+
+### The scale invariance, stated properly -- and what it makes unbuildable
+
+Astra's algebra, which is not a model of the ranking but literally
+`safety_key`:
+
+```
+V_vp   = e * O                 vp_value  = era multiplier x best one-Op value
+V_game = 40 * e * O            game_value = GAME_SWING_VP x vp_value
+Q      = (1-r) * S - r * (40 e O)        the ranking key, policy.py:665
+```
+
+Divide by `O > 0`, which preserves order:
+
+```
+Q/O = (1-r)(S/O) - 40 e r
+```
+
+**So any change that scales both the action value `S` and the one-Op
+reference `O` leaves the ranking alone.** Not a hypothesis: raising
+`battleground` from 5.0 to 40.0, an eightfold change, moved the measured
+Battleground swing from 1.08 VP to 1.10.
+
+Three consequences, and the third is the one that matters.
+
+**Only three things move the risk/value trade.** `e` (the era
+multiplier), the constant 40, and `r` (the residual loss probability).
+They survive the division; everything in the board weights does not.
+That is why `vp_mid` was the *only* lever that moved the swing when I
+swept for one, and it explains a run of null results tonight rather than
+leaving them as coincidences.
+
+**It predicts the `ops_value` change fails, and why.** Pricing an Op on
+placement instead of the best coup lowers `O` roughly fourfold without
+touching `S`, so `S/O` quadruples and value dominates risk four times
+more. More risk-taking, more nuclear losses -- which is exactly how the
+historical attempt failed (0.434, 13 nuclear losses) and how gate B
+failed tonight (0.464, 21). Twice for the same algebraic reason.
+
+**And it means the maintainer's turn-4 calibration is currently
+unbuildable.** Its *scale* half -- an ordinary Battleground swinging 4 VP
+where the bot measures 1 -- is expressed entirely in board weights, and
+board weights cancel. There is no setting of `battleground` that
+produces it. I spent a stretch tonight preparing to fit those numbers
+without noticing that the fit could not take.
+
+The relative half is not equally hopeless. A weight change is inert *to
+the extent it moves the best available option*, so a region-specific
+change (Europe up against Asia) shifts `O` far less than a global one
+and should survive partially. That is testable and worth testing before
+anyone assumes either way.
+
+**Which reorders everything.** The dependency runs:
+
+1. decouple `game_value` from `ops_value`, without the asymmetry that
+   lost gate D on strength;
+2. then board weights stop cancelling and the region calibration becomes
+   implementable at all;
+3. then `ops_value` on placement can be gated for its own merits rather
+   than failing on a coupling.
+
+And the maintainer's "20th VP" hypothesis is load-bearing for step 1: if
+the 2x risk premium is really the auto-victory discontinuity, a convex
+`vp_value` supplies it and `game_value` can stop being a flat multiple
+of anything. Three changes that have each failed alone may only work
+together.
+
+### Price Ops in VP, not VP in Ops -- the fix the invariance points at
+
+The maintainer: "maybe ops value needs to be calculated by VP... that's
+actually how most players think about it."
+
+That inverts the dependency, and it is what breaks the invariance rather
+than working around it.
+
+**Today, VP is priced from the board.** `vp_value = e * ops_value(1)`,
+and `ops_value` is the best action the board offers. So the unit of
+account is "what an Op buys here", which is itself a board quantity --
+there is no absolute anchor anywhere in the system, and
+`game_value = 40 * e * ops_value(1)` inherits that. Everything floats
+together, which is precisely why `Q/O` eliminates the board weights.
+
+**Proposed: VP is the anchor and Ops are priced in it.** Board terms
+are denominated in VP directly; `ops_value(n)` becomes "the VP that n
+Operations buy on this board", a derived quantity rather than the unit.
+`game_value` becomes a number of VP -- 40, or `20 - vp` -- that does not
+reference the board at all.
+
+**The invariance breaks, which is the point.** With `V_game = G` fixed
+in VP rather than `40eO`:
+
+```
+Q/O = (1-r)(S/O) - r * G/O
+```
+
+Scaling every board weight by `k` scales `S` and `O` together, so `S/O`
+holds -- but `G/O` falls by `k`. The risk term shrinks as the board
+grows. **Board weights stop cancelling**, which is exactly what the
+turn-4 calibration needs in order to be expressible at all.
+
+**Two things may fall out for free.**
+
+The **era rates** (`vp_early` 0.5, `vp_mid` 1.0, `vp_late` 2.0) exist to
+convert between the two units. If board value is already VP, an Op is
+worth more early because there is more to take, not because a constant
+says so -- the rate becomes emergent. Worth checking against the
+measured 1.76 Ops per VP before assuming it.
+
+And the **coup anchor** stops mattering as a yardstick. A cheap Nigeria
+coup would still be the best available Op, correctly, but it would no
+longer set the price of a VP for every other decision in the position.
+The thing that made the yardstick move goes away rather than being
+tuned around.
+
+**Cost, honestly.** Every board weight is currently denominated in Ops
+and would need re-expressing -- which is what the maintainer's turn-4
+table supplies, so the recalibration and the re-denomination are one
+job rather than two. The parity corpus moves wholesale. And the
+documented `coup -> vp_value -> ops_value -> coup` cycle disappears,
+which is a simplification but invalidates the reasoning in
+`tests/test_order_independence.py` that currently justifies fixing the
+VP price once per decision.
+
+This supersedes the three-step order in the section above. It is not a
+bigger change than those three together; it is the same change, done at
+the root instead of three times at the branches.
