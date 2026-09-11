@@ -42,23 +42,6 @@ AUTO_VICTORY_VP = 20.0
 # 40 VP from where you are standing".
 GAME_SWING_VP = 2 * AUTO_VICTORY_VP
 
-# How much more than the arithmetic swing a defeat must be priced at for
-# the bot to avoid it. **Measured, and the measurement was a surprise.**
-#
-# `game_value` was a flat `2 * AUTO_VICTORY_VP` (40) from every position.
-# Replacing it with the honest reachable swing -- 20 at par, since you fall
-# from 0 to -20 rather than 40 -- was REJECTED by the gate on nuclear
-# losses: 21 against the 16 allowed, pooled score 0.464. The same failure
-# had killed an earlier reprice at 0.434 with 13.
-#
-# Twice is a result, not an accident: pricing defeat at its arithmetic
-# value leaves this bot too willing to risk it. Whether that is a flaw in
-# the bot or a real feature of the game -- a loss costs you the rest of the
-# match, not just the VP -- is open, but the number is not arbitrary any
-# more, and it is separated from the swing so that the swing can stay
-# honest.
-RISK_PREMIUM = 2.0
-
 # What `evaluator.region_vp` returns for Europe Control, a tier the rules
 # give no scoring value because it simply wins.
 #

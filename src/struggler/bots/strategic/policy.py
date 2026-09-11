@@ -26,7 +26,7 @@ from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
-from struggler.bots.strategic.stakes import AUTO_VICTORY_VP, GAME_SWING_VP, RISK_PREMIUM
+from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
@@ -653,7 +653,7 @@ class StrategicPlayer:
                 # the game is worth exactly the game. The old formula reached
                 # this by `(1-1)*score - 1*game_value`; it has to be said
                 # explicitly now that the coefficient is the residual.
-                return (certain, 0.0, -self.game_value(obs, 'loss'))
+                return (certain, 0.0, -self.game_value(obs))
             if is_certain(score):
                 # A certain *win* is not a price either. Scaling it by
                 # `(1 - residual)` is the same fifteen-thirty-sixths-of-a-
@@ -662,7 +662,7 @@ class StrategicPlayer:
                 return (certain, 0.0, score)
             residual = (risk - immediate) / (1 - immediate) if immediate < 1 else 0.
             residual = max(0., min(1., residual))  # a headline blends two DEFCONs; keep it a probability
-            return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs, 'loss'))
+            return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs))
         return (certain, -round(risk, 8), score)
 
     def action_risk(self, obs, action) -> tuple[float, float]:
@@ -1030,39 +1030,10 @@ class StrategicPlayer:
         net = (engine.vp - obs.vp) * (1 if obs.side is Side.US else -1)
         return net * self.vp_value(obs)
 
-    def game_value(self, obs: Observation, direction: str = 'cap') -> float:
-        """What is still at stake here, in the same raw units as everything
-        else.
-
-        **Not a constant, and not symmetric.** It was `GAME_SWING_VP *
-        vp_value` -- the whole -20..+20 track, the same from every position
-        -- which is only right at par. The track *ends* at +/-20, so from VP
-        `v` measured at our own seat, a win is `AUTO_VICTORY_VP - v` away and
-        a defeat is `AUTO_VICTORY_VP + v` away. At +15 we can gain five more
-        VP before the game ends and can lose thirty-five; a flat 40
-        overstates the upside eightfold.
-
-        `direction` says which is wanted:
-
-        - ``'loss'`` what a certain defeat costs us, the usual case: risk is
-          charged against it.
-        - ``'gain'`` what a certain victory is worth.
-        - ``'cap'`` the larger of the two, for bounding a value whose sign
-          is not known -- a clamp must not be tighter than the outcome it
-          bounds.
-
-        See docs/CLAUDE_NOTES.md, "The game is not worth 40 VP from where
-        you are standing".
-        """
-        vp = obs.vp if obs.side is Side.US else -obs.vp   # our seat's margin
-        gain = max(0.0, AUTO_VICTORY_VP - vp)
-        loss = max(0.0, AUTO_VICTORY_VP + vp)
-        swing = gain if direction == 'gain' else loss if direction == 'loss' else max(gain, loss)
-        # `RISK_PREMIUM` is why this is not simply the swing: pricing defeat
-        # at its arithmetic value was rejected by the gate on nuclear losses,
-        # twice. At par the product is 40, exactly what the flat constant
-        # gave, so this change is the asymmetry alone.
-        return RISK_PREMIUM * swing * self.vp_value(obs)
+    def game_value(self, obs: Observation) -> float:
+        """What the game itself is worth here, in the same raw units as
+        everything else: the whole VP track at this turn's price per VP."""
+        return GAME_SWING_VP * self.vp_value(obs)
 
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
@@ -1370,7 +1341,7 @@ class StrategicPlayer:
             # Summit at DEFCON 2 priced at 0.4167 * LOSS, which is 15/36 of a
             # number chosen to be unreachable rather than 15/36 of what losing
             # actually costs. A probabilistic ending is worth the game.
-            end = -LOSS if rolls == 0 else self.game_value(obs, 'cap')
+            end = -LOSS if rolls == 0 else self.game_value(obs)
             if rolls:
                 # A probabilistic ending, priced right here as its share of
                 # the game. `event_value` must not then charge `event_risk`
@@ -1510,7 +1481,7 @@ class StrategicPlayer:
         if risk >= 1:
             result = LOSS  # certain: the sentinel, not a price
         elif risk and not sandbox_owns_ending:
-            result = (1-risk)*result - risk*self.game_value(obs, 'loss')
+            result = (1-risk)*result - risk*self.game_value(obs)
         self._events[cid] = result
         return result
 
@@ -2167,7 +2138,7 @@ class StrategicPlayer:
             # Getting rid of a card whose event is certain defeat is
             # worth the game, bounded -- not `-ops - LOSS`, which is
             # a million and says discarding it beats winning.
-            return self.game_value(obs, 'loss') - CARDS[cid].ops
+            return self.game_value(obs) - CARDS[cid].ops
         return -CARDS[cid].ops - min(0, harm)
 
     def _score_event_ops_order(self, obs: Observation, action: Action, kind, p, ctx):
