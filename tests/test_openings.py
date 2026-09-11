@@ -125,3 +125,51 @@ def test_the_default_is_what_shipped_before_the_books_were_named():
     assert engine.board.influence['East_Germany']['USSR'] == 4
     assert engine.board.influence['Poland']['USSR'] == 4
     assert engine.board.influence['Austria']['USSR'] == 1
+
+
+# -- the benchmark's seed-keyed selection ------------------------------------
+
+
+def test_seed_keyed_openings_walk_every_combination():
+    """Nine starting boards, not three: the two seats advance on different
+    cycles so a seed range reaches all of them."""
+    from struggler.bots.benchmark import openings_for_seed
+    seen = {tuple(sorted(openings_for_seed(s).items())) for s in range(4000, 4009)}
+    assert len(seen) == len(OPENINGS['US']) * len(OPENINGS['USSR'])
+
+
+def test_the_opening_is_a_property_of_the_seed_not_the_arm():
+    """What keeps the gate paired. The seed is its unit of observation
+    (`benchmark.seed_scores`), so both arms of a seed must get the same
+    board -- exactly as they get the same deal. If the arms could differ,
+    the opening would stop cancelling out of the measured difference and
+    start being part of it."""
+    from struggler.bots.benchmark import openings_for_seed
+    for seed in range(4000, 4020):
+        assert openings_for_seed(seed) == openings_for_seed(seed)
+        assert set(openings_for_seed(seed)) == {'US', 'USSR'}
+        for side, name in openings_for_seed(seed).items():
+            assert name in OPENINGS[side]
+
+
+def test_a_baseline_without_opening_books_is_refused_not_silently_paired():
+    """A pre-v0.2.0 baseline cannot be given an opening, and the two arms
+    would then start from *different* boards -- which is the one thing
+    this whole mechanism exists to prevent. It has to say so."""
+    import pytest as _pytest
+
+    from struggler.bots.benchmark import build
+
+    class Old:
+        def __init__(self, weights=None):
+            pass
+
+    import struggler.bots.benchmark as bm
+    original = bm.StrategicPlayer
+    bm.StrategicPlayer = Old
+    try:
+        assert isinstance(build('strategic', 4000, 24), Old)   # fine without books
+        with _pytest.raises(ValueError, match='predates the opening books'):
+            build('strategic', 4000, 24, None, {'US': 'france', 'USSR': 'poland'})
+    finally:
+        bm.StrategicPlayer = original

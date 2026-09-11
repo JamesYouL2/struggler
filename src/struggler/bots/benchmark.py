@@ -197,9 +197,29 @@ def load_module(path: str):
                 setattr(package, stem, module)
 
 
-def build(kind: str, seed: int, simulations: int, model: str | None = None):
+def openings_for_seed(seed: int) -> dict[str, str]:
+    """Which opening book each seat plays on this seed.
+
+    One book is one starting position, and the strategic bot has no RNG,
+    so without this every game a gate has ever measured began from the
+    same fifteen placements. The two seats advance on different cycles so
+    the seeds walk all nine combinations rather than three.
+
+    Derived from the seed alone, which is what keeps the comparison
+    paired: both arms of a seed get the same board, exactly as they get
+    the same deal, so the opening cancels out of the difference the gate
+    measures. See `seed_scores` -- the seed is the unit of observation.
+    """
+    from struggler.bots.strategic.policy import OPENINGS
+    return {'US': OPENINGS['US'][seed % len(OPENINGS['US'])],
+            'USSR': OPENINGS['USSR'][(seed // len(OPENINGS['US'])) % len(OPENINGS['USSR'])]}
+
+
+def build(kind: str, seed: int, simulations: int, model: str | None = None,
+          openings: dict[str, str] | None = None):
     """`kind` is mcts | strategic | greedy, optionally `strategic@<file.py>` to
-    load that version of the policy; `model` is a strategic weights JSON."""
+    load that version of the policy; `model` is a strategic weights JSON.
+    `openings` names a setup book per seat (see `openings_for_seed`)."""
     kind, _, path = kind.partition('@')
     weights = None
     if model:
@@ -207,7 +227,19 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None):
         weights = StrategicWeights.load(model)
     if kind == 'strategic':
         cls = load_module(path).StrategicPlayer if path else StrategicPlayer
-        return cls(weights)
+        if openings is None:
+            return cls(weights)
+        try:
+            return cls(weights, openings=openings)
+        except TypeError:
+            # A baseline from before the books existed plays its one
+            # opening. Saying so beats silently comparing two different
+            # starting positions, which is the whole failure this
+            # parameter exists to avoid.
+            raise ValueError(
+                f'{kind}@{path or "HEAD"} predates the opening books and cannot be '
+                f'given one; re-run without --vary-openings, or pick a baseline '
+                f'at or after v0.2.0') from None
     if kind == 'mcts':
         from struggler.bots.mcts import MCTSPlayer
         # STRUGGLER_ROLLOUT_OPTIONS='{"full_planner": true}' switches RolloutPolicy ablations.
@@ -221,7 +253,8 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None):
 
 
 def play(job: tuple) -> dict:
-    bot, opponent, seed, side_value, simulations, stop_turn, log_dir, model = job
+    (bot, opponent, seed, side_value, simulations, stop_turn, log_dir, model,
+     vary_openings) = job
     if log_dir:
         # One INFO log per game so any benchmark game can be reviewed as played.
         root = logging.getLogger('struggler')
@@ -233,7 +266,9 @@ def play(job: tuple) -> dict:
     else:
         logging.disable(logging.CRITICAL)
     side = Side(side_value)
-    players = {side: build(bot, seed, simulations, model), side.opponent: build(opponent, seed, simulations)}
+    books = openings_for_seed(seed) if vary_openings else None
+    players = {side: build(bot, seed, simulations, model, books),
+               side.opponent: build(opponent, seed, simulations, None, books)}
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     history = HistoryBuilder()
     start = time.time()
@@ -739,6 +774,11 @@ def main(argv=None):
     parser.add_argument('--held-seeds', help='a second, disjoint seed range played in the same pool '
                                              'as --seeds; with --held-report the two are written separately')
     parser.add_argument('--held-report', help='where the --held-seeds games go')
+    parser.add_argument('--vary-openings', action='store_true',
+                        help='give each seed one of the nine opening-book combinations '
+                             '(bots.strategic.policy.OPENINGS), the same one for both arms. '
+                             'Off by default: it changes what every gate measures, so the '
+                             'standard error wants comparing before it becomes the norm.')
     parser.add_argument('--decide', action='store_true',
                         help='stop once the seeds still unplayed cannot change the acceptance verdict')
     args = parser.parse_args(argv)
@@ -778,7 +818,7 @@ def main(argv=None):
                  for row in itertools.zip_longest(seeds, held)
                  for index, seed in enumerate(row) if seed is not None]
     jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn,
-             args.log_dir, args.bot_weights)
+             args.log_dir, args.bot_weights, args.vary_openings)
             for _, seed in order for side in ('US', 'USSR')]
     sample_of = {seed: index for index, seed in order}
     planned = collections.Counter(index for index, _ in order)

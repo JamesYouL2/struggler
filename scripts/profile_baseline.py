@@ -125,7 +125,7 @@ def main():
     parser.add_argument('--out', default='logs/game-check/baseline-profile.json')
     parser.add_argument('--repeats', type=int, default=3)
     args = parser.parse_args()
-    profile('strategic full game seed 4000', lambda: play(('strategic', 'strategic', 4000, 'US', 24, 0, None, None)),
+    profile('strategic full game seed 4000', lambda: play(('strategic', 'strategic', 4000, 'US', 24, 0, None, None, False)),
             args.repeats)
     # MCTS searches only turns with a scoring card in hand: the opening
     # candidate must have one (Astra: record 6, seed 4000 T1 AR1 US).
