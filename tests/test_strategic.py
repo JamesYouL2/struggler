@@ -1395,7 +1395,7 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
     An earlier version of this test asserted the opposite, pinning the
     constant "at the expert's floor of 4 Ops" against a number that was
     never in Ops. A test that encodes the defect as the contract is shape 8
-    in `docs/CLAUDE_NOTES.md`, and this is its second recurrence. What is
+    in `docs/notes/claude/`, and this is its second recurrence. What is
     pinned now is the discrepancy itself, so that closing it is a deliberate
     act with a gate behind it rather than a silent 30x.
     """

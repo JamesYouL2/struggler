@@ -1,6 +1,4 @@
-
-
-## 2026-09-11 — The gate's time budget: under an hour, and why ten minutes is not close
+# 2026-09-11 — The gate's time budget: under an hour, and why ten minutes is not close
 
 The maintainer's constraint, recorded because every change that makes a
 decision more expensive spends it: **`scripts/gate.sh` must stay under an
@@ -47,3 +45,37 @@ What is worth doing before any of that, in order of value per hour spent:
 
 The honest summary for the maintainer: **under an hour is met and worth
 defending; ten minutes is a port-scale project, not a tuning exercise.**
+
+### Postscript: this file was truncated and committed, and the registry test caught it
+
+Two hours after the entry above, `docs/notes/claude/` went from 4504
+lines to 49. The cause is a one-liner that reads as an append and is not:
+
+```python
+open(p, 'w').write(open(p).read() + entry)   # WRONG
+```
+
+Python builds the object whose method is called before it evaluates the
+argument, so `open(p, 'w')` **truncates the file** and `open(p).read()`
+then reads the empty result. The safe form is two statements, and
+`>>` from a shell heredoc cannot go wrong at all:
+
+```python
+s = open(p).read()           # read first, into a name
+open(p, 'w').write(s + entry)
+```
+
+Two things worth keeping from it.
+
+**The guard worked, and it was three hours old.**
+`test_the_notes_still_list_the_shapes_in_the_form_this_file_reads` exists
+because a registry that parses a document is worthless if the parse
+silently finds nothing -- it was written that morning against *vacuous
+passing*, and what it actually caught was the document being destroyed.
+A test written for one failure mode caught a different and worse one.
+
+**It reached a commit because I did not run the suite first.** CLAUDE.md
+says to run the full suite before committing and I skipped it for what
+looked like a docs-and-shell-script change. The lost content was
+recoverable only because the *previous* commit had the good version;
+nothing about the mistake guaranteed that. A docs commit is not exempt.

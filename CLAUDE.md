@@ -14,7 +14,7 @@ commit.
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
-| [docs/CLAUDE_NOTES.md](docs/CLAUDE_NOTES.md) | Bot strategy work: the stated principles, their status, and what is open (Claude's notes; Codex's audit is `docs/CODEX_NOTES.md`, the Rust plan `docs/RUST_PORT_PLAN.md`) |
+| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Codex's audit is `docs/notes/codex/`, the Rust plan `docs/RUST_PORT_PLAN.md`.) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
 
@@ -81,7 +81,7 @@ by remembering harder.
   Rule 6.1.1 freezes reachability at the start of the action round; see the
   reachability section of `docs/ARCHITECTURE.md`.
 - **The full list, with the practice that stops each, is
-  `docs/CLAUDE_NOTES.md` "The bugs this repo actually gets".** Eight
+  `docs/notes/claude/bug-shapes.md`.** Eight
   shapes; six have recurred. Read it before adding a cache, a sentinel, a
   fallback, or a second copy of a rule.
 - **Don't move the board mid-ranking without calling `_invalidate_base()`.**

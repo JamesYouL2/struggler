@@ -38,7 +38,7 @@ AUTO_VICTORY_VP = 20.0
 # actually reachable from VP `v` is `AUTO_VICTORY_VP - v` upward and
 # `AUTO_VICTORY_VP + v` downward, equal only at par. Making it directional
 # is a change with a wide blast radius -- every sentinel bound depends on it
-# -- and wants its own gate. See docs/CLAUDE_NOTES.md, "The game is not worth
+# -- and wants its own gate. See docs/notes/claude/, "The game is not worth
 # 40 VP from where you are standing".
 GAME_SWING_VP = 2 * AUTO_VICTORY_VP
 

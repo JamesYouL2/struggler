@@ -23,7 +23,3 @@ where = ["src"]
 struggler = ["data/*.json"]
 "struggler.bots.llm" = ["*.json"]
 
-[dependency-groups]
-dev = [
-    "maturin>=1.15.0",
-]

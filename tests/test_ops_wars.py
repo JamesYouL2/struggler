@@ -185,7 +185,7 @@ def test_record_the_bots_preference_between_a_break_and_an_empty_country():
     it the change will not survive. With the search on it should prefer the
     empty country. Pinning either would make this a test that has to be
     edited when the behaviour is fixed, which is shape 8 in
-    `docs/CLAUDE_NOTES.md`. So it records the numbers and asserts only what
+    `docs/notes/claude/`. So it records the numbers and asserts only what
     must hold either way: both are legal, and they are priced differently.
     """
     from struggler.bots.strategic import StrategicPlayer

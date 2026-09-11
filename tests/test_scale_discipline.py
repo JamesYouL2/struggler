@@ -1,6 +1,6 @@
 """No new bare constants added to board-unit values.
 
-Shape 6 in `docs/CLAUDE_NOTES.md`, "a number on the wrong scale", has
+Shape 6 in `docs/notes/claude/`, "a number on the wrong scale", has
 recurred at least four times, most recently in a commit whose whole
 subject was scale discipline: `CHINA_HOLD_OPS` was named in Ops,
 documented in Ops, pinned by a test asserting an Ops floor, and
@@ -42,7 +42,7 @@ SCALED_NAMES = BOARD | {'one_op', 'per_vp', 'imp', 'gap', 'guard', 'urgency',
                         'before', 'holds', 'pool'}
 
 # The two known unscaled adjustments, as (file, source line). Both are
-# deliberate and documented; see docs/CLAUDE_NOTES.md, "The China charge is in
+# deliberate and documented; see docs/notes/claude/, "The China charge is in
 # the wrong units". Matched on source text rather than line number so that
 # editing around them does not break the test.
 KNOWN = {

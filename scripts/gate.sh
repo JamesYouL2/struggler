@@ -20,7 +20,7 @@
 # -- so run a gate alone. The floor is not the seed count: acceptance needs
 # 150 finished games, which at a 76.5s median game over 8 workers is 24
 # minutes before anything else runs. Ten minutes needs a ~2.5x faster game,
-# not fewer seeds. See docs/CLAUDE_NOTES.md "The gate's time budget".
+# not fewer seeds. See docs/notes/claude/ "The gate's time budget".
 # Usage: scripts/gate.sh [base-ref=HEAD~1] [pre-session-ref] [seeds=4000-4031] [workers=8] [held-out=5000-5063]
 # Results go to logs/game-check/gate-<head>/ and a one-line summary is printed.
 # The candidate is a snapshot: HEAD is checked out into a temporary
@@ -40,6 +40,7 @@ WORKERS=${4:-8}
 HELD=${5:-5000-5063}
 ROOT=$(pwd)
 PY=${PYTHON:-$ROOT/.venv/bin/python}
+MACHINE_AT_START=$(machine)
 HEAD_SHA=$(git rev-parse --short HEAD)
 OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
 mkdir -p "$OUT"
@@ -48,6 +49,16 @@ mkdir -p "$OUT"
 # (which is how the 46m09s in the notes was found).
 GATE_STARTED=$(date +%s)
 elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
+# Overlapping other work with a gate is allowed: the seeds are deterministic,
+# so contention moves the clock and never the verdict. It does make the wall
+# time uninterpretable unless it is written down, so it is. `load` is the
+# 1-minute average; `busy` counts python processes that are not this gate's.
+machine() {
+  printf 'load %s, %s other python processes, %s cores' \
+    "$(cut -d' ' -f1 /proc/loadavg)" \
+    "$(( $(pgrep -cf '[p]ython' 2>/dev/null || echo 0) - $(pgrep -cf '[b]ots.benchmark' 2>/dev/null || echo 0) ))" \
+    "$(nproc)"
+}
 # Each baseline gets its own directory holding that revision's whole
 # `struggler/bots` package: benchmark.load_module resolves every
 # `struggler.bots.*` import to it while `strategic.py` loads, so the baseline
@@ -150,12 +161,14 @@ $PY -m struggler.bots.benchmark --accept "$OUT/full-vs-base.json" "$OUT/full-vs-
 TOOK=$(elapsed)
 SECONDS_TAKEN=$(( $(date +%s) - GATE_STARTED ))
 echo "took $TOOK (budget: under 60m; $( [ "$SECONDS_TAKEN" -lt 3600 ] && echo ok || echo OVER ))"
+echo "  machine at start: $MACHINE_AT_START"
+echo "  machine at end:   $(machine)"
 if [ "$SECONDS_TAKEN" -ge 3600 ]; then
   # Not a failure -- the verdict is about the bot, not the clock -- but the
   # maintainer wants to know, and a gate that drifts past an hour stops
   # being run.
   echo "  WARN over the hour. Was anything else using the cores? See" \
-       "docs/CLAUDE_NOTES.md 'The gate's time budget': the floor is ~24m at" \
+       "docs/notes/claude/ 'The gate's time budget': the floor is ~24m at" \
        "150 games and a 76.5s median, so a big overrun is usually contention." >&2
 fi
 echo "results in $OUT"

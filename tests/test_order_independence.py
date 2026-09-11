@@ -26,7 +26,7 @@ tried and **the gate rejected it**, 0.434 with 13 nuclear losses, since
 therefore load-bearing and stays; determinism comes from fixing the price
 once per decision instead.
 
-See `docs/CLAUDE_NOTES.md`, "The bugs this repo actually gets".
+See `docs/notes/claude/`, "The bugs this repo actually gets".
 """
 from __future__ import annotations
 

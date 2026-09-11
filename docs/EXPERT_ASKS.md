@@ -76,7 +76,7 @@ America ~5, Africa ~4.
 **Answered**, and as rules rather than constants: Europe Control is 40 VP;
 Domination turns on a one-Battleground differential; Control matters only
 one away because it needs every Battleground; Presence only if you hold
-none; ignore country count outside Asia. See `docs/CLAUDE_NOTES.md`, "The
+none; ignore country count outside Asia. See `docs/notes/claude/`, "The
 Battleground table, answered as structure". Outstanding: the turn-1 and
 turn-4 Mid War calibration positions the maintainer offered.
 
@@ -139,7 +139,7 @@ Outstanding is the implementation, not the number. The bot charges 5.0
 *raw board units* at the point of play, which is 0.06 Ops on a measured
 board, and the maintainer's conclusion is that when to play China is a
 whole-hand planner decision rather than a constant. See
-`docs/CLAUDE_NOTES.md`, "The China charge is in the wrong units".
+`docs/notes/claude/`, "The China charge is in the wrong units".
 
 ## 8. Military Operations: when to eat the penalty
 

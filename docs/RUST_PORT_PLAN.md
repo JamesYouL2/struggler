@@ -1,7 +1,7 @@
 # Rust port plan (revised after Astra's review)
 
 Status: revision 3, Sept 2026. Astra agreed to **Option C** as a bounded
-measurement stage, with the order revised as below (`docs/CODEX_NOTES.md`,
+measurement stage, with the order revised as below (`docs/notes/codex/`,
 "Revision 2 / Option C decision"). Nothing ported. Toolchain (rustup,
 maturin) installed. Author: Claude (Fable). Reviewer: Astra. The Option C
 section is the current scope; the later sections describe the Rust stage

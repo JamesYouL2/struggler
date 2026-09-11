@@ -96,7 +96,7 @@ def test_a_seat_does_not_poke_battlegrounds_repeatedly(seed):
             f'seed {seed} {side} broke a Battleground with the minimum two Ops '
             f'{count} times; the ceiling is {MAX_POKES_PER_SEAT} a seat. '
             f'See the forward search in policy.py (`reply_model`) and '
-            f'docs/CLAUDE_NOTES.md "The poke count".')
+            f'docs/notes/claude/ "The poke count".')
 
 
 def test_the_forward_search_is_what_holds_the_rate_down():

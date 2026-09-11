@@ -3,7 +3,7 @@
 
 `scripts/gate.sh` stops a run once the seeds still unplayed cannot change
 the acceptance verdict (`benchmark._decided`). That is a prediction, and a
-prediction needs checking: docs/CODEX_NOTES.md asks for the two kinds of
+prediction needs checking: docs/notes/codex/ asks for the two kinds of
 disagreement (a stop that accepts what the full run rejects, and the
 reverse), the games saved, and a comparison against simply playing a fixed
 number of games.

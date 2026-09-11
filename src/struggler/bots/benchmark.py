@@ -340,7 +340,7 @@ ACCEPTANCE = dict(
     # symptom, not a virtue -- and a cap of 1 was pinning it there. A policy
     # that took human-like risk would expect 5 to 11 losses in a 192-game
     # gate and be rejected every time, which is exactly the "can reject a
-    # stronger policy" failure docs/CODEX_NOTES.md warns about.
+    # stronger policy" failure docs/notes/codex/ warns about.
     #
     # So the cap sits where the pooled score takes over. A policy losing a
     # fraction p of its games outright gives up about p/2 of score; the

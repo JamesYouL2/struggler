@@ -15,7 +15,7 @@ milliseconds, and a failure names the position rather than a score.
 The bar for adding one is that the maintainer would call the move forced,
 not merely best -- these are specifications, and a fixture that encodes a
 close judgement call will fossilise it (shape 8 in
-docs/CLAUDE_NOTES.md). Every case says why the move is forced.
+docs/notes/claude/). Every case says why the move is forced.
 
 All the cases below currently pass. They are regression gates, not open
 defects.

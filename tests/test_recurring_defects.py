@@ -1,6 +1,6 @@
 """One gate per defect shape that has bitten this repo more than once.
 
-`docs/CLAUDE_NOTES.md` "The bugs this repo actually gets" lists eight
+`docs/notes/claude/bug-shapes.md` lists eight
 shapes with how often each has recurred. The maintainer's rule is that a
 mistake made twice is a property of the code, not of whoever made it, and
 the only thing that fixes a property is a test.
@@ -32,7 +32,7 @@ from struggler.bots.strategic.policy import LOSS, Certain, is_certain, priced
 from struggler.engine import Engine, Side
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTES = ROOT / 'docs' / 'CLAUDE_NOTES.md'
+NOTES = ROOT / 'docs' / 'notes' / 'claude' / 'bug-shapes.md'
 TESTS = Path(__file__).resolve().parent
 
 WORD_COUNTS = {'once': 1, 'twice': 2, 'three': 3, 'four': 4, 'five': 5,
@@ -95,7 +95,10 @@ def all_test_names() -> set[str]:
 def test_the_notes_still_list_the_shapes_in_the_form_this_file_reads():
     """A parse that finds nothing would make every check below vacuous."""
     shapes = recurring_shapes()
-    assert len(shapes) >= 8, f'only parsed {sorted(shapes)} from {NOTES.name}'
+    assert len(shapes) >= 8, (
+        f'only parsed {sorted(shapes)} from {NOTES}. This file is also the\n'
+        f'canary for that document being damaged: it caught the notes being\n'
+        f'truncated to 49 lines by a bad append.')
 
 
 @pytest.mark.parametrize('shape', sorted(recurring_shapes()))

@@ -186,7 +186,7 @@ about the US and USSR openings.
 
 The maintainer's own valuations are the reference this repo fits to
 (`models/expert_valuations.json`, and the principles table in
-`docs/CLAUDE_NOTES.md`). These outside notes do not override them. Where
+`docs/notes/claude/`). These outside notes do not override them. Where
 they differ, ask.
 
 **Agreements, which raise confidence:**

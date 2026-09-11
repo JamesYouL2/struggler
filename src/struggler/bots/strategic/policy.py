@@ -68,7 +68,7 @@ class Certain(float):
         raise TypeError(
             'a certain outcome is an ordering flag, not a price: bound it '
             'with game_value() before arithmetic (see the LOSS escapes in '
-            'docs/CLAUDE_NOTES.md)')
+            'docs/notes/claude/)')
 
     __add__ = __radd__ = __sub__ = __rsub__ = _refuse
     __mul__ = __rmul__ = __truediv__ = __rtruediv__ = _refuse
@@ -125,7 +125,7 @@ def is_certain(value: float) -> bool:
 # 0 on turn 10, which changes when China is played in most games and needs
 # a gate. The maintainer's own conclusion is that it belongs in the hand
 # planner rather than in a constant at the point of play.
-# See docs/CLAUDE_NOTES.md, "The China charge is in the wrong units".
+# See docs/notes/claude/, "The China charge is in the wrong units".
 CHINA_HOLD_RAW = 5.0
 # Decisions whose `score` is in raw board units, and can therefore be blended
 # with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
@@ -307,7 +307,7 @@ class StrategicWeights:
     # battleground: we lose our position and they take the country, so the
     # stake is both. Backed, they still have to flip it to control on their
     # side: the stake is our position, `wipe_backed` of it. `wipe` scales
-    # the flip. Off until calibrated (docs/CLAUDE_NOTES.md plan step 2).
+    # the flip. Off until calibrated (docs/notes/claude/ plan step 2).
     wipe: float = 0.0
     wipe_backed: float = 0.0
     # First mover: presence in a battleground the opponent has none in but
@@ -1392,7 +1392,7 @@ class StrategicPlayer:
         the half-action-round forward search went into `_investment`, so
         it reached card pricing and the Ops-type choice and *not* the
         placement decision it was written for. Which is shape 4 in
-        `docs/CLAUDE_NOTES.md`, "two implementations of one rule", for the
+        `docs/notes/claude/`, "two implementations of one rule", for the
         fourth time.
         """
         return self._investment(obs, cid, ops)[0]
