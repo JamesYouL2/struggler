@@ -86,19 +86,27 @@
       "Egypt": -2,
       "Cuba": -1.5
     },
-    "africa_one_stability_scale": [
-      0.67,
-      0.85
-    ],
+    "africa_one_stability_scale": 0.75,
     "_africa_note": "AMBIGUITY, and mine rather than theirs. 'Discount by maybe 2/3rds or 3/4ths' was read as multiply-by-0.3, which puts Africa LAST by a distance (mean 2.2-2.4) against their stated fourth. Read as multiply-by-0.67-0.75 it lands at 3.3-3.5, and 0.85 is what actually makes it fourth (3.64). Their 'still more valuable per Op' settles the direction: a 1-stability Battleground costs one Op against two, so at 0.7 it is still the better buy per Op, which is only true of the milder reading.",
     "implied_region_means": {
       "EUROPE": 6.5,
       "SOUTH_AMERICA": 5.0,
       "ASIA": 3.83,
       "CENTRAL_AMERICA": 3.5,
-      "MIDDLE_EAST": 3.33,
-      "AFRICA": 2.32
+      "AFRICA": 3.4,
+      "MIDDLE_EAST": 3.33
     },
-    "_reconciliation": "Top three exact: Europe, South America, Asia, in their order, from a flat base and two exceptions. The open question is Asia: it falls out at 3.83 where they place it second and separately suggested 'Asia at 5'. Asia's mean only reaches 5 with a base near 5.2, which would be a THIRD region exception and break the even-except-Europe-and-Thailand hypothesis they were testing. Either their second placement was loose, or Asia earns a premium its Domination 7 / Control 9 would justify. Not resolved."
+    "_reconciliation": "Order comes out EUROPE > SOUTH_AMERICA > ASIA > CENTRAL_AMERICA > AFRICA > MIDDLE_EAST, matching the maintainer's once Asia is loose and Africa uses the corrected 0.75 discount. The bottom four are within 0.50 VP of each other and therefore indistinguishable at +/- 1.",
+    "_status": "SETTLED. Asia's second placement was loose, confirmed by the maintainer, so the flat model stands.",
+    "uncertainty_vp": 1.0,
+    "_uncertainty_note": "+/- 1 VP on every figure here, the maintainer's own band. It is the most important number in this file: applied to the six region means, only Europe and Thailand separate from the rest, and the bottom four span 0.50 VP inside a band of 1.0. Their ordering is not supported by anything, so a gate that reorders them is measuring noise.",
+    "levels": {
+      "europe_battleground": 6.5,
+      "thailand": 6.0,
+      "south_america_battleground": 5.0,
+      "ordinary_battleground": 4.0,
+      "_note": "Europe and Thailand are the two exceptions the maintainer named, and they are the only two that clear the uncertainty band. South America's 5.0 is a per-country adjustment (realignment swinginess), not a region property, and overlaps both neighbours. Everything else is one flat group."
+    },
+    "_open": "Full per-country spread is 4.5 VP (Egypt 2.0 to West Germany 6.5) against a stated spread of 2-3. Consistent if the 2-3 bounded REGION means, which run 6.5 to 3.33 for a spread of 3.2; if it was meant to bound the whole map, the per-country adjustments are collectively too large."
   }
 }
