@@ -104,10 +104,11 @@ def test_game_value_is_the_reachable_swing_not_the_whole_track():
             bot.rank_actions(obs)
             price = bot.vp_value(obs)
             seat_vp = delta if side is Side.US else -delta
+            premium = stakes.RISK_PREMIUM
             assert bot.game_value(obs, 'gain') / price == pytest.approx(
-                stakes.AUTO_VICTORY_VP - seat_vp)
+                premium * (stakes.AUTO_VICTORY_VP - seat_vp))
             assert bot.game_value(obs, 'loss') / price == pytest.approx(
-                stakes.AUTO_VICTORY_VP + seat_vp)
+                premium * (stakes.AUTO_VICTORY_VP + seat_vp))
             # A clamp must never be tighter than the outcome it bounds.
             assert bot.game_value(obs, 'cap') >= bot.game_value(obs, 'gain')
             assert bot.game_value(obs, 'cap') >= bot.game_value(obs, 'loss')
@@ -132,3 +133,12 @@ def test_a_decided_game_has_nothing_left_at_stake():
     bot2 = StrategicPlayer()
     bot2.rank_actions(obs2)
     assert bot2.game_value(obs2, 'loss') >= 0, 'a stake must never go negative'
+
+
+def test_at_par_the_premium_reproduces_the_old_flat_constant():
+    """`RISK_PREMIUM` exists because pricing defeat at its arithmetic value
+    was rejected by the gate on nuclear losses, twice -- 21 against the 16
+    allowed at score 0.464, and an earlier attempt at 0.434 with 13. At 2.0
+    the product at par is exactly the flat 40 the code used before, so the
+    change that ships is the asymmetry alone and the swing stays honest."""
+    assert stakes.RISK_PREMIUM * stakes.AUTO_VICTORY_VP == stakes.GAME_SWING_VP

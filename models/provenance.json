@@ -243,13 +243,19 @@
       "source": "guess",
       "determination": "inert",
       "note": "A logging threshold."
+    },
+    "RISK_PREMIUM": {
+      "value": 2.0,
+      "source": "gate",
+      "determination": "determined",
+      "note": "How much more than the arithmetic swing a defeat must cost for the bot to avoid it. Pricing defeat honestly (20 at par) was rejected twice on nuclear losses -- 21 against 16 allowed at score 0.464, and an earlier attempt at 0.434 with 13. Twice is a result. At 2.0 game_value at par is 40, exactly the old flat constant, so the swing can be honest while the magnitude stays where the gate wants it."
     }
   },
   "_summary": {
     "counts_by_source": {
       "expert": 6,
       "guess": 23,
-      "gate": 4,
+      "gate": 5,
       "derived": 4,
       "measured": 3
     },
@@ -259,7 +265,7 @@
       "bounded": 3,
       "inert": 6,
       "overdetermined": 6,
-      "determined": 7
+      "determined": 8
     },
     "_reading": "23 of 40 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 6 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP, the era VP rates). Nothing in the access or margin families has ever been tested against anything."
   }

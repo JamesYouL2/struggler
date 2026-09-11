@@ -26,7 +26,7 @@ from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
-from struggler.bots.strategic.stakes import AUTO_VICTORY_VP, GAME_SWING_VP
+from struggler.bots.strategic.stakes import AUTO_VICTORY_VP, GAME_SWING_VP, RISK_PREMIUM
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
 
 log = logging.getLogger('struggler.bots.strategic')
@@ -1058,7 +1058,11 @@ class StrategicPlayer:
         gain = max(0.0, AUTO_VICTORY_VP - vp)
         loss = max(0.0, AUTO_VICTORY_VP + vp)
         swing = gain if direction == 'gain' else loss if direction == 'loss' else max(gain, loss)
-        return swing * self.vp_value(obs)
+        # `RISK_PREMIUM` is why this is not simply the swing: pricing defeat
+        # at its arithmetic value was rejected by the gate on nuclear losses,
+        # twice. At par the product is 40, exactly what the flat constant
+        # gave, so this change is the asymmetry alone.
+        return RISK_PREMIUM * swing * self.vp_value(obs)
 
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
