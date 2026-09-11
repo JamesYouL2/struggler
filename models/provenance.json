@@ -158,6 +158,18 @@
       "value": 0.9,
       "source": "guess",
       "determination": "underdetermined"
+    },
+    "reply_ops": {
+      "value": 2.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "The constant Operations budget the half-action-round forward search assumes the opponent answers with, used only when `reply_model` is 1. Inert while `reply_model` is 0."
+    },
+    "reply_model": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Which reply model the forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. Off until gated. The three are being compared because the maintainer asked whether a constant is good enough before anything more is built."
     }
   },
   "SurvivalPrior": {
@@ -248,7 +260,7 @@
   "_summary": {
     "counts_by_source": {
       "expert": 6,
-      "guess": 23,
+      "guess": 25,
       "gate": 4,
       "derived": 4,
       "measured": 3
@@ -257,7 +269,7 @@
       "underdetermined": 16,
       "known-wrong": 2,
       "bounded": 3,
-      "inert": 6,
+      "inert": 8,
       "overdetermined": 6,
       "determined": 7
     },

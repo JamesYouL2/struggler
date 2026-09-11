@@ -349,6 +349,16 @@ class StrategicWeights:
     # same result (a coup on a 2-stability country loses a point of margin
     # to the roll), and it is random where placement is certain.
     coup_discount: float = 0.9
+    # Half-action-round forward search: the Ops the opponent is assumed to
+    # answer a placement plan with, or 0 to price the plan as if they never
+    # moved. See `_survives_reply` -- a break that does not take control
+    # loses the exchange 2:1, and that is invisible until one ply later.
+    # Off by default until gated. `reply_model` selects how the budget is
+    # chosen, since weights must be nonnegative and a sentinel cannot be:
+    # 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's
+    # likely holdings, 3 a weighted average over budgets 0-4.
+    reply_ops: float = 2.0
+    reply_model: float = 0.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -385,7 +395,8 @@ class StrategicWeights:
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('wipe', 'wipe_backed', 'progress_curve', 'ops')
+UNTUNED_WEIGHTS = ('wipe', 'wipe_backed', 'progress_curve', 'ops',
+                   'reply_ops', 'reply_model')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -1094,6 +1105,101 @@ class StrategicPlayer:
         self._ops_values[ops] = value
         return value
 
+    def _after_reply(self, obs: Observation, cid: str, points: int,
+                     raw: float, spent: int) -> float:
+        """`raw` -- what placing `points` in `cid` gains -- after the
+        opponent's cheapest answer to it.
+
+        The smallest possible forward search: one ply, one reply, and only
+        where there is a reply worth making. A placement that changes
+        nobody's control is left alone, because the answer to it is not
+        forced and modelling it would cost the whole board for nothing.
+        Where control *does* change, the answer is not a search at all --
+        it is the same country, and the only question is how many points
+        it takes them to put it back.
+
+        The economics this exists to see, measured at seed 4001 turn 9:
+        one point into Thailand (US 21, SU 19) was the best-rated use of
+        an Op on the entire board, above taking an empty Battleground.
+        That point is the cheapest available break and the valuation of it
+        was correct -- what was missing is that placing into an opponent-
+        **controlled** country costs two Ops a point while restoring an
+        **uncontrolled** one costs one, so **a break that does not also
+        take control loses the exchange two to one.** The defender wins
+        break wars, and forty points pile into stability-2 countries
+        because both sides keep making the same losing trade.
+        """
+        if not self.weights.reply_model:
+            return raw
+        board, them = self.board, obs.side.opponent
+        was = dict(board.influence[cid])
+        before = board.control(cid)
+        self._add_influence(cid, obs.side, points)
+        try:
+            after = board.control(cid)
+            if after is before:
+                return raw          # nothing changed hands; no forced answer
+            # What it costs them to undo it, and how often they can.
+            cost = board.influence_cost(them, cid)
+            need = self._points_to_control(cid, them)
+            if need <= 0:
+                return raw
+            undo = need * cost
+            answered = sum(w for budget, w in self._reply_budgets(obs) if undo <= budget)
+            if answered <= 0:
+                return raw          # the change stands for at least a round
+            # Charged at the odds they can afford the answer, which for a
+            # constant budget is all-or-nothing and for the averaged model
+            # is the share of their likely cards big enough to pay.
+            return raw + answered * self.delta(obs, cid, opp=need)
+        finally:
+            self._set_influence(cid, was['US'], was['USSR'])
+
+    def _reply_budgets(self, obs: Observation) -> tuple[tuple[int, float], ...]:
+        """The Operations the opponent might answer with, as
+        (budget, weight) pairs summing to 1.
+
+        Three models, selected by `weights.reply_model`:
+
+        - **1** -- the `reply_ops` constant, weight 1. Simplest, and the
+          thing to beat.
+        - **2, the median of their likely holdings.** Their hand is
+          hidden (mandate #4), but the *distribution* is not: every card
+          not in our hand, the discard or the removed pile could be in
+          theirs, and its printed Ops are public. The median of that is a
+          better single number than a guess and costs one sort.
+        - **3, a weighted average over every budget 0-4**, weighted by
+          how often the opponent holds a card of each size. Strictly more
+          information than the median for four more evaluations, and only
+          on the placements where a reply exists to make.
+
+        Eventless throughout: this prices the Ops of the answer, not its
+        event. Pricing hidden events would be guessing at the hand, which
+        is exactly what mandate #4 forbids and what the median avoids.
+        """
+        model = int(self.weights.reply_model)
+        if model == 1:
+            return ((int(self.weights.reply_ops), 1.0),)
+        pool = [CARDS[c].ops for c in CARDS
+                if card_state(obs, c) == 'unseen' and not CARDS[c].scoring]
+        if not pool:
+            return ((2, 1.0),)
+        if model == 2:
+            pool.sort()
+            return ((pool[len(pool) // 2], 1.0),)
+        counts: dict[int, int] = {}
+        for ops in pool:
+            counts[ops] = counts.get(ops, 0) + 1
+        total = len(pool)
+        return tuple((ops, n / total) for ops, n in sorted(counts.items()))
+
+    def _points_to_control(self, cid: str, side: Side) -> int:
+        """Influence points `side` needs here to control it, from the board
+        as it stands. Zero if they already do."""
+        inf = self.board.influence[cid]
+        mine, theirs = inf[side.value], inf[side.opponent.value]
+        return max(0, self.board.countries[cid].stability + theirs - mine)
+
     def _placement_ops_value(self, obs: Observation, ops: int) -> float:
         """The best greedy influence spend of `ops` on this board (no coups).
 
@@ -1152,7 +1258,8 @@ class StrategicPlayer:
                 if spent > ops:
                     break
                 self._set_influence(cid, original['US'], original['USSR'])
-                gain = self.delta(obs, cid, own=points) / spent
+                raw = self.delta(obs, cid, own=points)
+                gain = self._after_reply(obs, cid, points, raw, spent) / spent
                 if gain > best[0]:
                     best = (gain, points)
                 self._add_influence(cid, obs.side, points)
