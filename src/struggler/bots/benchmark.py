@@ -215,6 +215,26 @@ def openings_for_seed(seed: int) -> dict[str, str]:
             'USSR': OPENINGS['USSR'][(seed // len(OPENINGS['US'])) % len(OPENINGS['USSR'])]}
 
 
+def parse_openings(text: str) -> dict[str, str]:
+    """`US=france,USSR=austria` -> {'US': 'france', 'USSR': 'austria'}.
+
+    Both seats must be named. Defaulting the unnamed one would make two
+    runs differ in a book nobody wrote down, which is the confound the
+    whole option exists to remove.
+    """
+    from struggler.bots.strategic.policy import OPENINGS
+    books = {}
+    for part in text.split(','):
+        side, _, name = part.strip().partition('=')
+        if side not in OPENINGS or name not in OPENINGS[side]:
+            raise ValueError(f'bad opening {part!r}; known: '
+                             + '; '.join(f'{s}={"|".join(n)}' for s, n in OPENINGS.items()))
+        books[side] = name
+    if set(books) != set(OPENINGS):
+        raise ValueError(f'--openings must name both seats, got {sorted(books)}')
+    return books
+
+
 def build(kind: str, seed: int, simulations: int, model: str | None = None,
           openings: dict[str, str] | None = None):
     """`kind` is mcts | strategic | greedy, optionally `strategic@<file.py>` to
@@ -266,7 +286,9 @@ def play(job: tuple) -> dict:
     else:
         logging.disable(logging.CRITICAL)
     side = Side(side_value)
-    books = openings_for_seed(seed) if vary_openings else None
+    # `vary_openings` is False, True (seed-keyed), or an explicit dict.
+    books = (openings_for_seed(seed) if vary_openings is True
+             else vary_openings or None)
     players = {side: build(bot, seed, simulations, model, books),
                side.opponent: build(opponent, seed, simulations, None, books)}
     engine = Engine.new_game(seed=seed, setup_bonus=True)
@@ -774,6 +796,12 @@ def main(argv=None):
     parser.add_argument('--held-seeds', help='a second, disjoint seed range played in the same pool '
                                              'as --seeds; with --held-report the two are written separately')
     parser.add_argument('--held-report', help='where the --held-seeds games go')
+    parser.add_argument('--openings', metavar='US=name,USSR=name',
+                        help='pin each seat to one opening book '
+                             '(bots.strategic.policy.OPENINGS). Holding one seat fixed '
+                             'and moving the other measures that book directly: the two '
+                             'runs share their seeds and their opponent, so the opening '
+                             'is the only thing that differs.')
     parser.add_argument('--vary-openings', action='store_true',
                         help='give each seed one of the nine opening-book combinations '
                              '(bots.strategic.policy.OPENINGS), the same one for both arms. '
@@ -817,8 +845,11 @@ def main(argv=None):
         order = [(index, seed)
                  for row in itertools.zip_longest(seeds, held)
                  for index, seed in enumerate(row) if seed is not None]
+    if args.openings and args.vary_openings:
+        parser.error('--openings pins the books and --vary-openings moves them; pick one')
+    books = parse_openings(args.openings) if args.openings else None
     jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn,
-             args.log_dir, args.bot_weights, args.vary_openings)
+             args.log_dir, args.bot_weights, books or args.vary_openings)
             for _, seed in order for side in ('US', 'USSR')]
     sample_of = {seed: index for index, seed in order}
     planned = collections.Counter(index for index, _ in order)

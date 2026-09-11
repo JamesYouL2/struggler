@@ -173,3 +173,21 @@ def test_a_baseline_without_opening_books_is_refused_not_silently_paired():
             build('strategic', 4000, 24, None, {'US': 'france', 'USSR': 'poland'})
     finally:
         bm.StrategicPlayer = original
+
+
+def test_openings_can_be_pinned_explicitly():
+    from struggler.bots.benchmark import parse_openings
+    assert parse_openings('US=france,USSR=austria') == {'US': 'france', 'USSR': 'austria'}
+    assert parse_openings(' US=italy , USSR=poland ') == {'US': 'italy', 'USSR': 'poland'}
+
+
+def test_pinning_must_name_both_seats():
+    """Defaulting the unnamed seat would let two runs differ in a book
+    nobody wrote down -- the confound the option exists to remove."""
+    import pytest as _pytest
+
+    from struggler.bots.benchmark import parse_openings
+    with _pytest.raises(ValueError, match='both seats'):
+        parse_openings('US=france')
+    with _pytest.raises(ValueError, match='bad opening'):
+        parse_openings('US=nope,USSR=austria')

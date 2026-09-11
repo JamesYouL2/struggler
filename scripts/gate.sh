@@ -15,6 +15,12 @@
 # in either direction.
 # Read the verdict, and mind the exit status: piping this script into `tail`
 # hands you tail's status, not the gate's.
+# TIME BUDGET (the maintainer's): stay under an hour; ten minutes preferred.
+# Last measured 46m09s, and that was with other jobs on the same eight cores
+# -- so run a gate alone. The floor is not the seed count: acceptance needs
+# 150 finished games, which at a 76.5s median game over 8 workers is 24
+# minutes before anything else runs. Ten minutes needs a ~2.5x faster game,
+# not fewer seeds. See docs/CLAUDE_NOTES.md "The gate's time budget".
 # Usage: scripts/gate.sh [base-ref=HEAD~1] [pre-session-ref] [seeds=4000-4031] [workers=8] [held-out=5000-5063]
 # Results go to logs/game-check/gate-<head>/ and a one-line summary is printed.
 # The candidate is a snapshot: HEAD is checked out into a temporary
@@ -37,6 +43,11 @@ PY=${PYTHON:-$ROOT/.venv/bin/python}
 HEAD_SHA=$(git rev-parse --short HEAD)
 OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
 mkdir -p "$OUT"
+# The maintainer has a time budget for this script, so it reports against it
+# instead of leaving the number to be recovered from file mtimes afterwards
+# (which is how the 46m09s in the notes was found).
+GATE_STARTED=$(date +%s)
+elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
 # Each baseline gets its own directory holding that revision's whole
 # `struggler/bots` package: benchmark.load_module resolves every
 # `struggler.bots.*` import to it while `strategic.py` loads, so the baseline
@@ -136,5 +147,16 @@ fi
 echo "== 4. acceptance"
 STATUS=0
 $PY -m struggler.bots.benchmark --accept "$OUT/full-vs-base.json" "$OUT/full-vs-held.json" || STATUS=$?
+TOOK=$(elapsed)
+SECONDS_TAKEN=$(( $(date +%s) - GATE_STARTED ))
+echo "took $TOOK (budget: under 60m; $( [ "$SECONDS_TAKEN" -lt 3600 ] && echo ok || echo OVER ))"
+if [ "$SECONDS_TAKEN" -ge 3600 ]; then
+  # Not a failure -- the verdict is about the bot, not the clock -- but the
+  # maintainer wants to know, and a gate that drifts past an hour stops
+  # being run.
+  echo "  WARN over the hour. Was anything else using the cores? See" \
+       "docs/CLAUDE_NOTES.md 'The gate's time budget': the floor is ~24m at" \
+       "150 games and a 76.5s median, so a big overrun is usually contention." >&2
+fi
 echo "results in $OUT"
 exit $STATUS
