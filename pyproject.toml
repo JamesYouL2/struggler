@@ -23,3 +23,34 @@ where = ["src"]
 struggler = ["data/*.json"]
 "struggler.bots.llm" = ["*.json"]
 
+
+# -- static checking ---------------------------------------------------------
+# Both are advisory, not gates: the codebase was never type-checked and has a
+# backlog (248 ty diagnostics at `--error all`, 420 ruff findings on the
+# default rules). Working through it is queued, not a precondition. What
+# earns them their place is what each caught the day they were tried:
+#   ty    -- `CARDS[c].side is Side.US` compares a CardSide against a Side and
+#            is therefore always False. The term ran, priced nothing, and
+#            returned a plausible zero. mypy missed it in both the `is` and
+#            `==` forms; pyright, basedpyright and ty all caught it.
+#   ruff  -- `assert key.startswith('_') or key in CARDS or True`, an
+#            assertion that cannot fail, sitting in the test suite. That is
+#            shape 8 in docs/notes/claude/bug-shapes.md, found mechanically.
+[tool.ty.rules]
+# `--error all` is what catches the always-False comparison above; the rest
+# of the backlog is mostly missing annotations on internal helpers.
+unsupported-operator = "error"
+
+[tool.ruff]
+line-length = 110          # the prose-in-comments style runs long by design
+target-version = "py312"
+
+[tool.ruff.lint]
+# Correctness first. The style families (E501 and friends) are deliberately
+# not selected: reformatting a codebase whose comments carry the reasoning
+# would churn every line and hide the next real finding.
+select = ["F", "B", "SIM", "RUF", "PLE", "PLW"]
+ignore = [
+    "SIM105",  # `contextlib.suppress` is slower and this is a hot path
+    "RUF012",  # ClassVar annotations on mutable defaults: noise here
+]

@@ -62,15 +62,18 @@ def report(games: list[dict]) -> None:
     by_seed: dict[int, dict] = collections.defaultdict(dict)
     for game in games:
         by_seed[game['seed']][(game['US'], game['USSR'])] = game
-    complete = {seed: cells for seed, cells in by_seed.items()
-                if len(cells) == len(OPENINGS['US']) * len(OPENINGS['USSR'])}
-    print(f'{len(games)} games, {len(complete)} seeds complete in all nine cells')
+    cells = len({(g['US'], g['USSR']) for g in games})
+    # Only seeds present in every cell can be compared pairwise; a seed that
+    # lost a game would otherwise bias whichever book kept it.
+    complete = {seed: c for seed, c in by_seed.items() if len(c) == cells}
+    print(f'{len(games)} games, {len(complete)} seeds complete in all {cells} cells')
     if not complete:
         return
 
     def summarise(side: str, other: str) -> None:
+        present = sorted({g['US'] if side == 'US' else g['USSR'] for g in games})
         print(f'\n  {side} book       mean VP (US-positive)   US win rate   n')
-        for book in OPENINGS[side]:
+        for book in present:
             picked = [g for cells in complete.values() for (u, s), g in cells.items()
                       if (u if side == 'US' else s) == book]
             vp = statistics.fmean(g['vp'] for g in picked)
@@ -83,7 +86,7 @@ def report(games: list[dict]) -> None:
     # Paired within seed: the same seed in every cell, so the seed's own
     # luck subtracts out. This is the comparison that carries the weight.
     print('\n  paired within seed, US books (positive favours the row):')
-    books = OPENINGS['US']
+    books = sorted({g['US'] for g in games})
     print('              ' + '  '.join(f'{b:>10}' for b in books))
     for a in books:
         row = []
@@ -104,15 +107,27 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--seeds', default='4000-4015')
+    parser.add_argument('--us-books', help='comma-separated subset of the US books')
+    parser.add_argument('--ussr-books', help='comma-separated subset of the USSR books')
     parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--report', help='write every game here as JSON')
     args = parser.parse_args()
 
     seeds = parse_seeds(args.seeds)
+    # Pinning one side and moving the other spends every game on that side's
+    # contrast. The full factorial costs the same per game but splits the
+    # budget across both questions, trading independent deals for
+    # opponent-book generality.
+    books = {'US': tuple(args.us_books.split(',')) if args.us_books else OPENINGS['US'],
+             'USSR': tuple(args.ussr_books.split(',')) if args.ussr_books else OPENINGS['USSR']}
+    for side, chosen in books.items():
+        unknown = set(chosen) - set(OPENINGS[side])
+        if unknown:
+            parser.error(f'unknown {side} book(s) {sorted(unknown)}; known {OPENINGS[side]}')
     jobs = [(seed, us, ussr) for seed in seeds
-            for us, ussr in itertools.product(OPENINGS['US'], OPENINGS['USSR'])]
-    print(f'{len(jobs)} games: {len(seeds)} seeds x {len(OPENINGS["US"])} US x '
-          f'{len(OPENINGS["USSR"])} USSR books', file=sys.stderr)
+            for us, ussr in itertools.product(books['US'], books['USSR'])]
+    print(f'{len(jobs)} games: {len(seeds)} seeds x {len(books["US"])} US x '
+          f'{len(books["USSR"])} USSR books', file=sys.stderr)
     games = []
     with Pool(args.workers) as pool:
         for game in pool.imap_unordered(one_game, jobs, chunksize=1):

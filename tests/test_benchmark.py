@@ -4,11 +4,17 @@ def test_expert_valuations_file_is_well_formed_and_the_check_runs(tmp_path):
     import io
     from struggler.bots.benchmark import expert_check, to_ops
     from struggler.bots.strategic.public_cards import CARDS
+    from struggler.engine import Engine
     import json
     expert = json.load(open('models/expert_valuations.json'))
     assert set(expert['cards']) <= set(CARDS)
+    # Foothold keys are *countries*, not cards. This read `key in CARDS or
+    # True` -- the wrong set, with the failure silenced by an `or True` that
+    # made the whole assertion vacuous rather than by fixing the set. Found
+    # by ruff's SIM222, which is the kind of thing no reviewer catches twice.
+    countries = Engine(seed=0).board.countries
     for key in expert.get('footholds', {}):
-        assert key.startswith('_') or key in CARDS or True  # countries validated by the check itself
+        assert key.startswith('_') or key in countries, f'unknown foothold {key}'
     scale = {1: 10., 2: 18., 3: 24., 4: 28.}
     assert to_ops(0, scale) == 0
     assert to_ops(10., scale) == 1
