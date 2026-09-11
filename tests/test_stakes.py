@@ -78,3 +78,57 @@ def test_an_estimator_is_never_allowed_to_be_certain(raw, expected):
     board, and that inverts the term it feeds: the point of knowing you are
     behind is to start taking DEFCON and Europe Control shots."""
     assert stakes.clipped_win_probability(raw) == pytest.approx(expected)
+
+
+def test_game_value_is_the_reachable_swing_not_the_whole_track():
+    """`game_value` was `GAME_SWING_VP * vp_value` -- the whole -20..+20
+    track, identical from every position. The track *ends* at +/-20, so
+    what is actually reachable from VP `v` is `20 - v` up and `20 + v`
+    down, equal only at par.
+
+    This is the change that had to come first. The previous attempt to
+    reprice a VP failed the gate at 0.434 with 13 nuclear losses precisely
+    because `game_value` was chained to `vp_value`: cheapening a VP
+    cheapened losing the game and the bot stopped avoiding nuclear war. The
+    chain is what the maintainer identified as the defect -- three prices
+    that vary with different things, related by constant multipliers.
+    """
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.engine import Engine, Side
+    for delta in (0, 10, -10):
+        engine = Engine.new_game(seed=4000, setup_bonus=True)
+        engine._change_vp_by(delta)
+        for side in (Side.US, Side.USSR):
+            obs = engine.observe(side)
+            bot = StrategicPlayer()
+            bot.rank_actions(obs)
+            price = bot.vp_value(obs)
+            seat_vp = delta if side is Side.US else -delta
+            assert bot.game_value(obs, 'gain') / price == pytest.approx(
+                stakes.AUTO_VICTORY_VP - seat_vp)
+            assert bot.game_value(obs, 'loss') / price == pytest.approx(
+                stakes.AUTO_VICTORY_VP + seat_vp)
+            # A clamp must never be tighter than the outcome it bounds.
+            assert bot.game_value(obs, 'cap') >= bot.game_value(obs, 'gain')
+            assert bot.game_value(obs, 'cap') >= bot.game_value(obs, 'loss')
+
+
+def test_a_decided_game_has_nothing_left_at_stake():
+    """At +/-20 the game is over, so one direction is worth nothing. A
+    negative stake would invert the sign of every risk term that charges
+    against it."""
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.engine import Engine, Side
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    engine._change_vp_by(19)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    assert bot.game_value(obs, 'gain') > 0
+    assert bot.game_value(obs, 'gain') < bot.game_value(obs, 'loss')
+    engine2 = Engine.new_game(seed=4000, setup_bonus=True)
+    engine2._change_vp_by(-25, auto_victory=False)   # past the floor
+    obs2 = engine2.observe(Side.US)
+    bot2 = StrategicPlayer()
+    bot2.rank_actions(obs2)
+    assert bot2.game_value(obs2, 'loss') >= 0, 'a stake must never go negative'
