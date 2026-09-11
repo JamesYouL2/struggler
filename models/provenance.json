@@ -1,0 +1,266 @@
+{
+  "version": 1,
+  "_what": "Every tunable constant in the strategic bot, classified by where its value came from and how much that value is pinned down. Written because the code documents each number's *reasoning* well and its *standing* nowhere, so a reader cannot tell a figure measured over 973 samples from one that has never been questioned. `tests/test_provenance.py` fails if a constant is added without an entry.",
+  "_source": {
+    "measured": "counted or fitted from data in this repository",
+    "gate": "validated by a paired-seat gate run, or bounded by one that failed",
+    "expert": "the maintainer's figure",
+    "derived": "arithmetic from the rules, with nothing to estimate",
+    "guess": "no recorded basis; a plausible number nobody has tested"
+  },
+  "_determination": {
+    "overdetermined": "several independent lines agree on it",
+    "determined": "one solid line supports it",
+    "bounded": "not pinned, but a gate or fixture rules out nearby values",
+    "underdetermined": "plausible and unconstrained; could be wrong by a lot without anyone noticing",
+    "known-wrong": "measured to disagree with the reference, and not yet fixed",
+    "inert": "does not affect behaviour"
+  },
+  "StrategicWeights": {
+    "control": {
+      "value": 1.5,
+      "source": "expert",
+      "determination": "underdetermined",
+      "note": "Expert reasoning recorded: a 1-stability non-battleground sits between a battleground's 1.25-1.67 per Op. But the region model it belongs to is measured wrong overall, so this inherits that doubt."
+    },
+    "battleground": {
+      "value": 5.0,
+      "source": "guess",
+      "determination": "known-wrong",
+      "note": "Measured: a battleground swings ~1 VP of board value where the maintainer puts the floor at 4, the whole map spans 0.49 VP against a stated 2-3, and the region order is inverted at the top (Europe 5th of 6). Three separate defects."
+    },
+    "progress": {
+      "value": 2.8,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "reserve": {
+      "value": 0.35,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
+    },
+    "wipe": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Off until calibrated."
+    },
+    "wipe_backed": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Off until calibrated."
+    },
+    "first_mover": {
+      "value": 0.6,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_presence": {
+      "value": 1.0,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "3.0 everywhere lost 0.375 against its base, so the ceiling is real."
+    },
+    "margin_battleground": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_country": {
+      "value": 0.05,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_live": {
+      "value": 1.0,
+      "source": "gate",
+      "determination": "bounded"
+    },
+    "access": {
+      "value": 1.5,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "access_redundant": {
+      "value": 0.35,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "access_chain": {
+      "value": 0.4,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "access_contested": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "region": {
+      "value": 1.3,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Multiplies region_vp into the board value, and is one of the three terms that together let a full Africa swing read as 9.1 VP where the rules pay 22."
+    },
+    "vp_early": {
+      "value": 0.5,
+      "source": "expert",
+      "determination": "overdetermined",
+      "note": "The maintainer's era rule, confirmed three ways: the opening-board fixture (Olympic Games 0.3, Korean War -1), the uncontested tier rate of 1.76 Ops per VP, and their own account of why it doubles late ('everything is contested')."
+    },
+    "vp_mid": {
+      "value": 1.0,
+      "source": "expert",
+      "determination": "overdetermined"
+    },
+    "vp_late": {
+      "value": 2.0,
+      "source": "expert",
+      "determination": "overdetermined"
+    },
+    "military": {
+      "value": 1.0,
+      "source": "derived",
+      "determination": "overdetermined",
+      "note": "Rule 6.3.5 is exact: one Op of deficit closed is one VP, nothing to estimate. And the change that fixed its scale is the only gate in this project's history whose lower bound cleared 0.500."
+    },
+    "ops": {
+      "value": 2.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Retired; kept so saved weights still load."
+    },
+    "scoring_hand": {
+      "value": 1.2,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "scoring_discount": {
+      "value": 0.8,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "scoring_final": {
+      "value": 1.0,
+      "source": "measured",
+      "determination": "determined",
+      "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
+    },
+    "progress_curve": {
+      "value": 1.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Listed in UNTUNED_WEIGHTS."
+    },
+    "coup_discount": {
+      "value": 0.9,
+      "source": "guess",
+      "determination": "underdetermined"
+    }
+  },
+  "SurvivalPrior": {
+    "opponent_lowers_defcon": {
+      "value": 0.15,
+      "source": "measured",
+      "determination": "determined",
+      "note": "Base rate measured at 0.098 on 973 test samples and 0.108 on 697 validation samples. Set deliberately above it, because those are games against this bot. Was 0.75, seven times the rate."
+    },
+    "opponent_hand_attack": {
+      "value": 0.1,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Deliberately left alone when its neighbour was measured. Measurable by the same method and not yet measured."
+    },
+    "unknown_chain_loss": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "replacement_hazard": {
+      "value": 0.15,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "max_states": {
+      "value": 20000,
+      "source": "guess",
+      "determination": "inert",
+      "note": "A search budget, not a valuation."
+    }
+  },
+  "constants": {
+    "AUTO_VICTORY_VP": {
+      "value": 20.0,
+      "source": "measured",
+      "determination": "overdetermined",
+      "note": "Three lines agree: half the VP track by the rules; the maintainer's stated 20-to-40 range; and measured at mean 20.0, median 20 over all 1094 corpus position-seats, in every slice including where Europe Control is in reach. The single parameter the other stakes derive from."
+    },
+    "GAME_SWING_VP": {
+      "value": 40.0,
+      "source": "derived",
+      "determination": "determined",
+      "note": "2 x AUTO_VICTORY_VP. Known to be an overstatement away from par: the reachable swing is 20-vp up and 20+vp down."
+    },
+    "EUROPE_CONTROL_VP": {
+      "value": 20.0,
+      "source": "derived",
+      "determination": "determined",
+      "note": "= AUTO_VICTORY_VP. Was an arbitrary 100. The number is not what makes Europe Control cheap; the routing is."
+    },
+    "WIN_PROBABILITY_CEILING": {
+      "value": 0.9,
+      "source": "expert",
+      "determination": "determined",
+      "note": "'You cannot force a win': 0.75 to 0.90 even from a dominant board. A constraint on an estimator's output, not something the data teaches. The stated USSR asymmetry is NOT yet measured."
+    },
+    "CHINA_HOLD_RAW": {
+      "value": 5.0,
+      "source": "guess",
+      "determination": "known-wrong",
+      "note": "Subtracted from a board-unit value where one Op is 84 raw, so it charges 0.06 Ops. The maintainer's figure for playing China is 8 Ops, flat until turn 10, then a comparison against the worst card in hand. Left as measured rather than multiplied by thirty, because the correction is a decaying term and not a rescale."
+    },
+    "CARD_DENIAL_OPS": {
+      "value": 1.5,
+      "source": "expert",
+      "determination": "determined"
+    },
+    "HAND_ATTACK_REALISED": {
+      "value": 0.5,
+      "source": "gate",
+      "determination": "determined",
+      "note": "Face value priced Grain Sales at 8.2 and Missile Envy at 6.0 against the expert's 4 and 3, and the gate rejected it at 0.428; at half they price 4.1 and 3.0 and scored 0.539. Both an expert fixture and a gate agree."
+    },
+    "VALUE_RADIUS": {
+      "value": 3,
+      "source": "derived",
+      "determination": "overdetermined",
+      "note": "A property of what `access` walks, not a choice, and a test enforces that it matches."
+    },
+    "RISK_WARNING": {
+      "value": 0.5,
+      "source": "guess",
+      "determination": "inert",
+      "note": "A logging threshold."
+    }
+  },
+  "_summary": {
+    "counts_by_source": {
+      "expert": 6,
+      "guess": 23,
+      "gate": 4,
+      "derived": 4,
+      "measured": 3
+    },
+    "counts_by_determination": {
+      "underdetermined": 16,
+      "known-wrong": 2,
+      "bounded": 3,
+      "inert": 6,
+      "overdetermined": 6,
+      "determined": 7
+    },
+    "_reading": "23 of 40 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 6 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP, the era VP rates). Nothing in the access or margin families has ever been tested against anything."
+  }
+}
