@@ -555,6 +555,27 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
     return extra, ignored
 
 
+# What Europe Control is worth, in VP, when `region_vp` has to name a
+# number for a tier the rules give none.
+#
+# It stood at 100, which was arbitrary. The honest value is the distance to
+# the auto-victory it triggers: `20 - vp`, so 20 at par and up to 40 from
+# far behind -- the maintainer's range. 20 is the value at par and the
+# default here, since `region_vp` is a pure function of the board and does
+# not see the VP track.
+#
+# **Changing this number is not the fix, and lowering it alone makes things
+# worse.** The constant only fires once Europe Control already exists,
+# which the trial placements that drive every decision never reach, and it
+# is then multiplied by `w.region * urgency / vp_value` ~ 0.027 -- so
+# winning the game reads as 2.7 VP of board value at 100, and would read as
+# 0.5 at 20. The real defect is that Europe Control is priced as a very
+# large *scoring* when it is a *terminal outcome*, and belongs on
+# `game_value`'s scale rather than the region term's. See
+# docs/CLAUDE_NOTES.md, "Europe Control is priced as a scoring, not a win".
+EUROPE_CONTROL_VP = 20.0
+
+
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
               ignored: frozenset[int] = frozenset()) -> int:
@@ -562,10 +583,9 @@ def region_vp(t: Terrain, pos: Position, region: Region,
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
 
-    Europe's Control tier has no scoring value (controlling all of Europe is
-    an immediate win, not a card outcome), so it stands in as +/-100, which is
-    what `StrategicPlayer.region_score` did with the exception `score_region`
-    raises there.
+    Europe's Control tier has no scoring value -- controlling all of Europe
+    is an immediate win, not a card outcome -- so it stands in as
+    `EUROPE_CONTROL_VP`.
     """
     presence_vp, domination_vp, control_vp = t.scoring_vp[region]
     control, battleground, home = pos.control, t.battleground, t.home
@@ -598,10 +618,10 @@ def region_vp(t: Terrain, pos: Position, region: Region,
 
     us_value = value_for(US)
     if us_value is None:
-        return 100
+        return EUROPE_CONTROL_VP
     ussr_value = value_for(USSR)
     if ussr_value is None:
-        return -100
+        return -EUROPE_CONTROL_VP
     return us_value - ussr_value
 
 

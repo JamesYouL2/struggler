@@ -3399,3 +3399,101 @@ Southeast Asia contribution = 0.95 * (Southeast Asia VP swing on this board)
 
 with the swing read off the position exactly as the six tiered regions
 already are. One measured constant near 1, and no per-country table.
+
+### Europe Control is priced as a scoring, not a win -- and the U-shape is already there
+
+Measuring what the next European Battleground is worth, by how many the
+US already holds (seed 4002, turn 4):
+
+| Already held | Next one is worth |
+| ---: | ---: |
+| **0 of 5** | **2.30 VP** |
+| 1 of 5 | 0.95 VP |
+| 2 of 5 | 1.05 VP |
+| 3 of 5 | 0.90 VP |
+| **4 of 5** | **2.24 VP** |
+
+The maintainer, independently: "the 0th BG and 5th BG in Europe are the
+most important countries on the map, unless you need to gamble on DEFCON
+or are looking to force 20 VP before Europe scoring comes back."
+
+**So the bot already has the right shape and the wrong magnitude.** The
+U is there -- the first and the last are worth twice the middle -- which
+is more than the region model deserves credit for, and it comes out of
+the tier structure rather than from anything anyone tuned. What is wrong
+is that the fifth one *wins the game* and is priced at 2.24 VP.
+
+The arithmetic of why:
+
+```
+region_vp returns 100 for Europe Control
+  x w.region 1.3  x urgency 1.752  /  vp_value 83.8   =   2.7 VP
+```
+
+**Which is why capping the constant, as the maintainer asked, is right but
+cannot help on its own -- and alone makes it worse.** 100 was arbitrary
+and 20 is the honest value at par (`20 - vp`, up to 40 from behind), so
+the constant is now `EUROPE_CONTROL_VP = 20.0` and named. But at 20 the
+same arithmetic gives 0.5 VP for winning the game, against 2.7 before.
+The parity corpus reproduces every ranking unchanged after the switch,
+which confirms the point: **no position in 547 ever reaches the branch.**
+
+The defect is the routing, not the number. Europe Control is a *terminal
+outcome* and it is priced as a very large *scoring*, so it is discounted
+by `urgency` (how soon the region will score -- irrelevant to a win) and
+by `w.region` (a scoring weight). It belongs on `game_value`'s scale,
+where `LOSS` and the certain outcomes already live.
+
+**A correction to withdraw.** Before measuring, this looked like the
+region term being ~37x under-scaled, and that was wrong. A full Africa
+swing pays 22 VP by the rules and moves the bot's board value by 9.1 VP:
+the bot sees **41%**, not 3%. `country_value` and the margin terms carry
+most of the weight, and the region term is one contributor among three.
+
+### One source of truth for what winning is worth
+
+The maintainer: "all of the 'win the game' constants should either be
+static or based off win probability. I guess, ideally, it's better to
+just have one win probability function. But I think it might be
+practically better to have the VP constant. At the very least, the VP
+constant should calibrate what the win probability is."
+
+There are currently **four** of them and no two agree:
+
+| Constant | Value | Where |
+| --- | --- | --- |
+| `LOSS` | −1,000,000 | the certain-outcome sentinel |
+| `GAME_SWING_VP` | 40 | `game_value`, the whole VP track |
+| `EUROPE_CONTROL_VP` | 20 | `region_vp`'s stand-in |
+| the win-probability ceiling | 0.75–0.90 | not implemented |
+
+They are supposed to be the same fact seen from different angles: what it
+is worth to convert this position into a certain win. The directive is
+that they be made consistent -- and that whichever is chosen as primary
+calibrates the others, rather than each being tuned where it sits.
+
+### VP are not linear, and two places are discontinuous
+
+The maintainer: "the 20th VP is much, much more important than the 19th.
+I guess the 20th VP, and the 6th and 7th VP in the Late War, are
+discontinuously important. It's probably some kind of very sharp
+exponential in early/mid war."
+
+`vp_value` is **one price per VP per era** (`vp_early` 0.5, `vp_mid` 1.0,
+`vp_late` 2.0), so the twentieth VP costs exactly what the first does.
+Two discontinuities it cannot express:
+
+- **The 20th ends the game.** Going +19 to +20 is winning; +18 to +19 is
+  nothing. The auto-victory is a step, not a slope.
+- **The 6th and 7th in the Late War are Wargames.** It ends the game and
+  hands the opponent 6 VP, so at +6 you tie and at +7 you win. The
+  seventh VP is worth the game and the sixth is worth a draw -- which is
+  exactly the maintainer's earlier reading of Wargames as
+  `(1 - win_pct) * game_value`, now placed on the VP curve rather than on
+  the card.
+
+And a convexity underneath both: being further ahead is worth more than
+linearly, sharply so in the Early and Mid War. That is the same quantity
+as win probability, which is what makes the previous section's directive
+coherent -- a VP curve and a win-probability function are two
+parameterisations of one thing, and calibrating either fixes both.
