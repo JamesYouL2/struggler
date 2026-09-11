@@ -66,5 +66,39 @@
       "at": "start of turn 4",
       "why": "-1 VP for Fidel (wipes US Influence in Cuba outright) and -0.5 for Ortega, whose free Coup reaches Cuba because Cuba is adjacent to Nicaragua (verified in countries.json). Deck-conditional like every other per-country adjustment."
     }
+  },
+  "calibration_turn4": {
+    "_form": "The maintainer's question -- 'what numbers line up with every BG being even except Europe and Thailand?' -- turns out to reproduce their own region ordering at the top with NO region weights at all. So the model is a flat base plus two exceptions plus a per-country table, not six region constants.",
+    "base_vp": 4.0,
+    "_base_note": "Every ordinary Battleground, their stated floor. The bot measures ~1.0.",
+    "europe_vp": 6.5,
+    "europe_uncertainty_vp": 1.0,
+    "_europe_note": "'I really like that 6.5 number for Europe, but I could be off by a full VP' -- so 5.5 to 7.5. The only stated uncertainty band on any constant in this project, and worth more than the point estimate: it says a gate that moves Europe inside this range is not measuring anything.",
+    "thailand_extra_vp": 2.0,
+    "_thailand_note": "Its Southeast Asia contribution on top of the ordinary Asia Battleground, giving 6.0. Not a multiplier: '1 + discounted scoring of 4 VP'.",
+    "per_country": {
+      "south_america_all": 1.0,
+      "India": -1,
+      "Pakistan": -1,
+      "South_Korea": -1,
+      "Israel": -1,
+      "Iran": -1,
+      "Egypt": -2,
+      "Cuba": -1.5
+    },
+    "africa_one_stability_scale": [
+      0.67,
+      0.85
+    ],
+    "_africa_note": "AMBIGUITY, and mine rather than theirs. 'Discount by maybe 2/3rds or 3/4ths' was read as multiply-by-0.3, which puts Africa LAST by a distance (mean 2.2-2.4) against their stated fourth. Read as multiply-by-0.67-0.75 it lands at 3.3-3.5, and 0.85 is what actually makes it fourth (3.64). Their 'still more valuable per Op' settles the direction: a 1-stability Battleground costs one Op against two, so at 0.7 it is still the better buy per Op, which is only true of the milder reading.",
+    "implied_region_means": {
+      "EUROPE": 6.5,
+      "SOUTH_AMERICA": 5.0,
+      "ASIA": 3.83,
+      "CENTRAL_AMERICA": 3.5,
+      "MIDDLE_EAST": 3.33,
+      "AFRICA": 2.32
+    },
+    "_reconciliation": "Top three exact: Europe, South America, Asia, in their order, from a flat base and two exceptions. The open question is Asia: it falls out at 3.83 where they place it second and separately suggested 'Asia at 5'. Asia's mean only reaches 5 with a base near 5.2, which would be a THIRD region exception and break the even-except-Europe-and-Thailand hypothesis they were testing. Either their second placement was loose, or Asia earns a premium its Domination 7 / Control 9 would justify. Not resolved."
   }
 }
