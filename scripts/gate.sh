@@ -51,6 +51,15 @@
 # historical verdict changes); GATE_DECIDE=0 plays every game.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# --check runs everything up to the first game and exits: the setup, the
+# helpers, the snapshots and the worktree. It exists because this script
+# is only ever exercised by a 50-minute run, so a mistake in the preamble
+# is found 50 minutes late -- or, once, instantly and after the wait:
+# `MACHINE_AT_START=$(machine)` was placed above `machine()`'s definition,
+# which `bash -n` accepts because it is a runtime error, not a syntax one.
+# Gated by tests/test_gate_script.py.
+CHECK=0
+if [ "${1:-}" = "--check" ]; then CHECK=1; shift; fi
 BASE=${1:-HEAD~1}
 OLD=${2:-v0.1.0}
 SEEDS=${3:-4000-4031}
@@ -58,26 +67,31 @@ DRIFT=${6:-6000-6015}   # the drift run's own seeds, disjoint from both samples
 WORKERS=${4:-8}
 HELD=${5:-5000-5047}
 ROOT=$(pwd)
-PY=${PYTHON:-$ROOT/.venv/bin/python}
-MACHINE_AT_START=$(machine)
-HEAD_SHA=$(git rev-parse --short HEAD)
-OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
-mkdir -p "$OUT"
-# The maintainer has a time budget for this script, so it reports against it
-# instead of leaving the number to be recovered from file mtimes afterwards
-# (which is how the 46m09s in the notes was found).
-GATE_STARTED=$(date +%s)
-elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
 # Overlapping other work with a gate is allowed: the seeds are deterministic,
 # so contention moves the clock and never the verdict. It does make the wall
 # time uninterpretable unless it is written down, so it is. `load` is the
 # 1-minute average; `busy` counts python processes that are not this gate's.
 machine() {
+  # `pgrep -c` prints 0 *and* exits 1 when nothing matches, so `|| echo 0`
+  # emits a second line and the arithmetic below sees "0\n0". Assign, then
+  # default on the exit status.
+  local all busy
+  all=$(pgrep -cf '[p]ython' 2>/dev/null) || all=0
+  busy=$(pgrep -cf '[b]ots.benchmark' 2>/dev/null) || busy=0
   printf 'load %s, %s other python processes, %s cores' \
-    "$(cut -d' ' -f1 /proc/loadavg)" \
-    "$(( $(pgrep -cf '[p]ython' 2>/dev/null || echo 0) - $(pgrep -cf '[b]ots.benchmark' 2>/dev/null || echo 0) ))" \
-    "$(nproc)"
+    "$(cut -d' ' -f1 /proc/loadavg)" "$(( all - busy ))" "$(nproc)"
 }
+
+PY=${PYTHON:-$ROOT/.venv/bin/python}
+MACHINE_AT_START=$(machine)
+HEAD_SHA=$(git rev-parse --short HEAD)
+OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
+mkdir -p "$OUT"
+GATE_STARTED=$(date +%s)
+elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
+# The maintainer has a time budget for this script, so it reports against it
+# instead of leaving the number to be recovered from file mtimes afterwards
+# (which is how the 46m09s in the notes was found).
 # Each baseline gets its own directory holding that revision's whole
 # `struggler/bots` package: benchmark.load_module resolves every
 # `struggler.bots.*` import to it while `strategic.py` loads, so the baseline
@@ -129,6 +143,13 @@ git worktree add -q --detach "$SNAP" HEAD
 trap 'git worktree remove --force "$SNAP"' EXIT
 cd "$SNAP"
 export PYTHONPATH=src
+if [ "$CHECK" = "1" ]; then
+  echo "--check: setup, helpers, snapshots and worktree all fine."
+  echo "  machine: $MACHINE_AT_START"
+  echo "  base $BASE -> $OUT/base; drift $OLD -> $OUT/old (ok=$ANCHOR_OK)"
+  echo "  elapsed $(elapsed)"
+  exit 0
+fi
 echo "== 1. turn-1 table (seed ${SEEDS%%-*})"
 $PY -m struggler.bots.benchmark --table --seeds "$SEEDS" | tee "$OUT/table.txt"
 # A benchmark step that dies used to surface as a JSONDecodeError from this
