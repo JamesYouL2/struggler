@@ -171,15 +171,65 @@ class SandboxUnsupported(RuntimeError):
     as long as it existed: the two dice-contest events could never resolve,
     and their crude estimate was reported as a simulated value."""
 
-# Opening book: the setup placements in order, per stage. The USSR's 6 in
-# Eastern Europe and the US's 7 in Western Europe keep control through
-# East European Unrest / Socialist Governments and take the access points
-# strong players take; the US +2 handicap goes to Iran, then West Germany.
-OPENING_BOOK = {
-    ('USSR', 'EASTERN_EUROPE'): ('East_Germany', 'Poland', 'Poland', 'Poland', 'Poland', 'Austria'),
-    ('US', 'WESTERN_EUROPE'): ('West_Germany',) * 4 + ('Italy',) * 3,
-    ('US', None): ('Iran', 'West_Germany'),
+# Opening books: the setup placements in order, per stage. The USSR's 6 in
+# Eastern Europe and the US's 7 in Western Europe keep control through East
+# European Unrest / Socialist Governments and take the access points strong
+# players take; the US +2 handicap always puts one in Iran and varies the
+# other.
+#
+# Three per side, named, because one book is one starting position and every
+# game the gate has ever measured began from it -- the bot carries no RNG, so
+# the deal and the dice were the whole of the variation. These are the
+# maintainer's, all legal and all spending the allowance exactly (see
+# `tests/test_openings.py`); they are alternatives a strong player would
+# choose between, not perturbations.
+#
+# Naming is by the country that tells them apart, which is also how players
+# refer to them. The three USSR books agree on East Germany to 4 and Poland
+# to 4 -- only the sixth point moves.
+#
+# Which one a player takes is keyed to the hand, which a book cannot do (see
+# docs/EXPERT_STRATEGY.md "Openings", plan step 4). That is a strength gap,
+# not a correctness one, and deliberately not what this selects on: keying
+# the opening to the hand would make the two correlate, and the reason these
+# exist is to vary the starting position *independently* of the deal.
+OPENING_BOOKS = {
+    # The maintainer's line (docs/EXPERT_STRATEGY.md, 2026-09-09), and the
+    # only one of the three that contests France at setup.
+    ('US', 'france'): {
+        'WESTERN_EUROPE': ('West_Germany',) * 3 + ('France',) * 2 + ('Italy',) * 2,
+        None: ('Iran', 'France'),
+    },
+    # Sankt's 4/4/2. The maintainer has ruled it outdated as *the* book and
+    # it is not the default; it is here because it is a real opening that
+    # real opponents play, which is exactly what a second starting position
+    # is for.
+    ('US', 'italy'): {
+        'WESTERN_EUROPE': ('West_Germany',) * 4 + ('Italy',) * 3,
+        None: ('Iran', 'Italy'),
+    },
+    # West Germany to 5: a point of overprotection on the most expensive
+    # country in Europe. What this bot shipped before any of them were named.
+    ('US', 'germany'): {
+        'WESTERN_EUROPE': ('West_Germany',) * 4 + ('Italy',) * 3,
+        None: ('Iran', 'West_Germany'),
+    },
+    ('USSR', 'austria'): {
+        'EASTERN_EUROPE': ('East_Germany',) + ('Poland',) * 4 + ('Austria',),
+    },
+    ('USSR', 'poland'): {
+        'EASTERN_EUROPE': ('East_Germany',) + ('Poland',) * 5,
+    },
+    ('USSR', 'yugoslavia'): {
+        'EASTERN_EUROPE': ('East_Germany',) + ('Poland',) * 4 + ('Yugoslavia',),
+    },
 }
+OPENINGS = {'US': ('france', 'italy', 'germany'),
+            'USSR': ('austria', 'poland', 'yugoslavia')}
+# What `StrategicPlayer()` plays when nobody says otherwise. Not yet the
+# maintainer's line: changing it is a behaviour change and wants its own
+# gate, so it stays on what shipped until that runs.
+DEFAULT_OPENINGS = {'US': 'germany', 'USSR': 'austria'}
 
 
 def _copy_state(value):
@@ -411,8 +461,19 @@ TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
 
 class StrategicPlayer:
     def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None,
-                 opponent_model=None):
+                 opponent_model=None, openings: dict[str, str] | None = None):
         self.weights = weights or StrategicWeights()
+        # Which setup book each seat plays. A dict rather than one name
+        # because this player answers for whichever seat it is given, and
+        # because the two seats' openings should be able to vary
+        # independently -- a harness that moved them together would explore
+        # three starting positions instead of nine.
+        self.openings = dict(DEFAULT_OPENINGS if openings is None else openings)
+        unknown = {f'{side}:{name}' for side, name in self.openings.items()
+                   if (side, name) not in OPENING_BOOKS}
+        if unknown:
+            raise ValueError(f'unknown opening(s) {sorted(unknown)}; '
+                             f'known: {OPENINGS}')
         self.board = Board()
         # The static map, and the snapshot of `self.board` that every
         # evaluation term reads instead of re-deriving control and
@@ -2083,6 +2144,14 @@ class StrategicPlayer:
         value = scorer(self, obs, action, kind, p, ctx)
         return 0.0 if value is None else value
 
+    def opening_book(self, side: Side) -> dict:
+        """The setup placements this seat plays, by subregion stage.
+
+        `None` keys the US +2 handicap, which is placed anywhere and so has
+        no subregion of its own.
+        """
+        return OPENING_BOOKS[(side.value, self.openings[side.value])]
+
     def _score_place_influence(self, obs: Observation, action: Action, kind, p, ctx):
         """Where a point of Influence goes: the opening book while the setup is still being placed, otherwise the greedy per-country value.
 
@@ -2096,7 +2165,7 @@ class StrategicPlayer:
             # The opening is a book, not a search: the standard openings
             # keep control through East European Unrest / Socialist
             # Governments and take the access points strong players take.
-            book = OPENING_BOOK.get((obs.side.value, ctx.get('subregion')), ())
+            book = self.opening_book(obs.side).get(ctx.get('subregion'), ())
             index = len(book) - int(ctx['remaining'])
             wanted = book[index] if 0 <= index < len(book) else None
             if wanted is not None and any(a.payload['country'] == wanted for a in obs.pending_decision.options):
