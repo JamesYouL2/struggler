@@ -21,18 +21,31 @@
 # 150 finished games, which at a 76.5s median game over 8 workers is 24
 # minutes before anything else runs. Ten minutes needs a ~2.5x faster game,
 # not fewer seeds. See docs/notes/claude/ "The gate's time budget".
-# Usage: scripts/gate.sh [base-ref=HEAD~1] [pre-session-ref] [seeds=4000-4031] [workers=8] [held-out=5000-5063]
+# Usage: scripts/gate.sh [base-ref=HEAD~1] [drift-ref=v0.1.0] [seeds=4000-4031] [workers=8] [held-out=5000-5047] [drift-seeds=6000-6015]
 # Results go to logs/game-check/gate-<head>/ and a one-line summary is printed.
 # The candidate is a snapshot: HEAD is checked out into a temporary
 # worktree and every benchmark runs from there, so editing the working
 # tree while a gate runs cannot change what it measures (it did, once:
 # a gate blamed a nuclear loss on a commit that never produced one).
-# The anchor run (3c) plays the candidate against the oldest tag still
+# The drift run (3c) plays the candidate against the oldest tag still
 # believed sound (docs/VERSIONING.md, default v0.1.0) rather than against
 # HEAD~1. One baseline cannot see drift: a run of individually-neutral
-# changes can walk the bot downward with every single gate accepting. It is
-# off by default because it roughly doubles the wall time and the budget is
-# an hour -- run it periodically, not per commit. GATE_ANCHOR=1 turns it on.
+# changes can walk the bot downward with every single gate accepting.
+#
+# It gets its own 16 seeds, paid for by taking the verdict from 96 down to
+# 80 -- so the whole gate still plays 192 games and costs what it did.
+#
+# Not a half-and-half split, which is the obvious version and costs more
+# than it looks: 48 seeds widens the verdict's half-width from +/-0.032 to
+# +/-0.045, and a wider interval makes the gate *more permissive* exactly
+# where it is meant to be strict. It also leaves ~96 games, under the 150
+# `benchmark.ACCEPTANCE` requires. At 80 the half-width is +/-0.035, 9%
+# wider, and 160 games clears the floor with room -- `_decided` will not
+# stop below 150 whatever the score says, so early stopping can shave at
+# most five seeds here rather than its usual 15%.
+#
+# The drift check is a canary, not a verdict, so it does not need matching
+# power. GATE_ANCHOR=0 turns it off if the hour is tight.
 # Step 3 runs both samples in one pool and stops once the seeds still
 # unplayed cannot change the verdict (about 15% of the games, and no
 # historical verdict changes); GATE_DECIDE=0 plays every game.
@@ -41,8 +54,9 @@ cd "$(dirname "$0")/.."
 BASE=${1:-HEAD~1}
 OLD=${2:-v0.1.0}
 SEEDS=${3:-4000-4031}
+DRIFT=${6:-6000-6015}   # the drift run's own seeds, disjoint from both samples
 WORKERS=${4:-8}
-HELD=${5:-5000-5063}
+HELD=${5:-5000-5047}
 ROOT=$(pwd)
 PY=${PYTHON:-$ROOT/.venv/bin/python}
 MACHINE_AT_START=$(machine)
@@ -161,12 +175,16 @@ DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE --vary-openings \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
-if [ "${GATE_ANCHOR:-0}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
+if [ "${GATE_ANCHOR:-1}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
   # No --vary-openings here: a baseline from before the opening books cannot
   # be given one, and falling back would start the two arms from *different*
   # boards. The drift question does not need varied openings anyway.
-  echo "== 3c. drift: full games vs $OLD (fixed opening)"
-  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
+  echo "== 3c. drift: full games vs $OLD on seeds $DRIFT (fixed opening)"
+  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" \
+     --seeds "$DRIFT" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
+  # Deliberately not fed to step 4. Acceptance decides against HEAD~1; this
+  # is a reading to look at, and a small sample cannot carry a verdict.
+  echo "  (informational: drift is read by eye, not by the acceptance rules)"
 fi
 echo "== 4. acceptance"
 STATUS=0
