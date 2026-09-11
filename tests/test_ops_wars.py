@@ -98,27 +98,36 @@ def test_five_ops_takes_the_country_instead_of_merely_breaking_it():
     assert engine.board.control("Italy") is Side.USSR
 
 
-def test_bare_control_is_still_broken_by_one_point():
+def test_bare_control_is_broken_for_two_ops():
     """The trap inside the rule: taking the country at *exactly* stability
     leaves it breakable for two Ops, so five Ops buys control and not
-    security."""
+    security. Counted in Ops, not points -- the defender pays the doubled
+    rate for as long as the attacker holds it."""
     engine = bare_engine()
     _board(engine, Italy=(2, 0), Greece=(0, 1))
     spend(engine, Side.USSR, "Italy", 5)                 # (2, 4), margin 2
     assert engine.board.control("Italy") is Side.USSR
-    engine.board.influence["Italy"]["US"] += 1           # 2 Ops
-    assert engine.board.control("Italy") is None
+    engine.board.influence["Italy"]["US"] += 1           # one point, 2 Ops
+    assert engine.board.control("Italy") is None, 'bare control costs 2 Ops to break'
 
 
-def test_a_point_of_margin_is_what_survives_the_cheap_answer():
-    """Over-protection, and why it is a Mid and Late War move: it costs an
-    extra Op that turns 1-4 cannot spare."""
+def test_over_protection_doubles_the_price_of_breaking_it():
+    """One point of margin past control means two points to break, and
+    both are charged at the doubled rate because the attacker still
+    controls throughout -- so **four Ops**, not two.
+
+    Which is why over-protection is a Mid and Late War move: on turns 1-4
+    neither side can spare four Ops to undo one country.
+    """
     engine = bare_engine()
     _board(engine, Italy=(2, 0), Greece=(0, 1))
     spend(engine, Side.USSR, "Italy", 6)                 # (2, 5), margin 3
     assert engine.board.control("Italy") is Side.USSR
-    engine.board.influence["Italy"]["US"] += 1
-    assert engine.board.control("Italy") is Side.USSR, 'margin 3 survives one point'
+    assert engine.board.influence_cost(Side.US, "Italy") == 2
+    engine.board.influence["Italy"]["US"] += 1           # 2 Ops -> margin 2
+    assert engine.board.control("Italy") is Side.USSR, 'two Ops is not enough'
+    engine.board.influence["Italy"]["US"] += 1           # 2 more -> margin 1
+    assert engine.board.control("Italy") is None, 'it takes four Ops in total'
 
 
 def test_a_break_the_opponent_cannot_reach_is_not_repaired_at_all():
