@@ -107,7 +107,12 @@ def test_replay_history_matches_run_replay_and_the_logged_actions(tmp_path):
     play_game(engine, players, log_path=str(log_path))
     log = json.loads(log_path.read_text(encoding="utf-8"))
 
-    replayed_engine, history = replay_history(log)
+    replayed_engine, builder = replay_history(log)
+    # `finalize()` because this log is a *finished* game: flushing an
+    # unpaired headline is right once there is no second pick coming.
+    # A resume must not do this -- see
+    # tests/test_replay_and_isolation.py.
+    history = builder.finalize()
 
     assert replayed_engine.serialize() == run_replay(log).serialize()
     # The game ended, so any secretly-buffered headline pick has been
@@ -148,7 +153,8 @@ def test_resuming_from_a_trimmed_log_continues_the_same_on_disk_record(tmp_path)
     # from that earlier point instead of letting the game finish.
     cut = len(full_actions) // 2
     trimmed_log = {**full_log, "actions": full_actions[:cut], "winner": None}
-    resumed_engine, history = replay_history(trimmed_log)
+    resumed_engine, resumed_builder = replay_history(trimmed_log)
+    history = resumed_builder.history
     assert not resumed_engine.is_terminal
 
     resume_path = tmp_path / "resumed.json"
@@ -156,7 +162,7 @@ def test_resuming_from_a_trimmed_log_continues_the_same_on_disk_record(tmp_path)
         resumed_engine,
         {Side.US: FirstLegalPlayer(), Side.USSR: RandomPlayer(seed=4)},
         log_path=str(resume_path),
-        history_builder=HistoryBuilder(initial_history=history),
+        history_builder=resumed_builder,
         initial_actions=trimmed_log["actions"],
     )
 

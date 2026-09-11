@@ -131,10 +131,51 @@ class Card:
     event_summary: str | None
 
 
+class FrozenPayload(dict):
+    """A payload that refuses to be edited.
+
+    A `dict` subclass rather than `MappingProxyType`, which was tried
+    first and is the more obviously correct answer -- it is a genuine
+    read-only view and costs no copy. It also broke three things at once:
+    `json.dumps` cannot serialise a `mappingproxy`, `pickle` cannot either
+    (and the benchmark runs games across processes), and the several
+    `isinstance(value, dict)` checks around the codebase silently stopped
+    matching, which left an unhashable value in a rollout cache key.
+
+    Staying a `dict` keeps all of that working and still stops the defect,
+    which was accidental mutation through a handed-out observation. It is
+    not tamper-proof -- `dict.__setitem__(payload, ...)` still works -- and
+    it is not meant to be: the threat is a Player editing what it was
+    given, not one attacking the engine.
+    """
+
+    __slots__ = ()
+
+    def _immutable(self, *_args, **_kwargs):
+        raise TypeError(
+            "an Action payload is read-only: it is shared with the engine's "
+            "own legal actions, so editing it would change what is legal. "
+            "Copy it with dict(payload) if you need to change something.")
+
+    __setitem__ = __delitem__ = _immutable          # type: ignore[assignment]
+    clear = pop = popitem = setdefault = update = _immutable  # type: ignore[assignment]
+
+    def __reduce__(self):
+        return (FrozenPayload, (dict(self),))
+
+
 @dataclass(frozen=True)
 class Action:
     kind: DecisionKind
     payload: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # `frozen=True` protects the *fields*, not what they point at. The
+        # payload was a plain dict handed straight through `observe()` to a
+        # Player, so `observed.payload["country"] = "INVALID"` changed what
+        # `engine.legal_actions()` returned.
+        if not isinstance(self.payload, FrozenPayload):
+            object.__setattr__(self, "payload", FrozenPayload(self.payload))
 
 
 @dataclass(frozen=True)
@@ -144,6 +185,38 @@ class Decision:
     kind: DecisionKind
     options: tuple[Action, ...]
     context: Mapping[str, Any] = field(default_factory=dict)
+
+    def public(self) -> "Decision":
+        """This decision as anyone other than its actor may see it.
+
+        Who is acting and what they are being asked are public -- the
+        table can see both -- so `id`, `actor`, `kind` and `context`
+        survive. What does not is an option list that **names cards**: a
+        headline's options are the actor's hand, one card each, and eight
+        of them were recoverable by anyone handed the Decision.
+
+        Only card identity is hidden, because only card identity is
+        private. Which countries may be placed in, Couped or Realigned is
+        derived from the board everyone can see, and `observe(side)` is
+        used throughout as "the board from this seat" whoever happens to
+        be to move -- hiding those would break that for no gain.
+
+        And only a *player's* cards are private. A CHANCE decision has no
+        owner to keep a secret from: the cards in a random discard's
+        option list are a public reveal, and hiding them would make the
+        engine more secretive than the rules.
+
+        Returns `self` when there is nothing to hide, so callers can apply
+        it unconditionally. Used by `observe()` for a non-acting seat and
+        by `replay.build_event` for the shared history, which closes the
+        leak wherever a Decision crosses a seat boundary.
+        """
+        if self.actor not in (Side.US, Side.USSR):
+            return self
+        if not any("card" in option.payload for option in self.options):
+            return self
+        return Decision(id=self.id, actor=self.actor, kind=self.kind,
+                        options=(), context=self.context)
 
 
 @dataclass(frozen=True)

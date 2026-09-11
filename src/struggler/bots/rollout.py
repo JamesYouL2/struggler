@@ -11,6 +11,8 @@ Observation-only, like its parent: it never receives a live engine.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 
 from struggler.engine import DecisionKind as K
 from struggler.bots.strategic.defcon import DefconPlanner
@@ -19,7 +21,13 @@ from struggler.bots.strategic import (LOSS, StrategicPlayer, _bonus_ops, _coup_r
 
 
 def _freeze(value):
-    if isinstance(value, dict):
+    # `Mapping`, not `dict`: an Action's payload is a read-only view
+    # (`MappingProxyType`, so a Player cannot edit the engine's legal moves
+    # through its own observation), and a proxy is not a dict subclass. This
+    # said "frozen generically" while type-checking one concrete class, so
+    # the proxy fell straight through and left an unhashable value in a
+    # cache key.
+    if isinstance(value, Mapping):
         return tuple((k, _freeze(v)) for k, v in sorted(value.items()))
     if isinstance(value, (tuple, list)):
         return tuple(map(_freeze, value))

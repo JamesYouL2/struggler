@@ -227,7 +227,8 @@ def main() -> None:
     if args.resume_game_log:
         with open(args.resume_game_log, encoding="utf-8") as f:
             log = json.load(f)
-        engine, history = replay_history(log)
+        engine, history_builder = replay_history(log)
+        history = history_builder.history
         seed = log["seed"]
         if log.get("physical_mode"):
             physical_side = Side(log["physical_side"])
@@ -259,7 +260,9 @@ def main() -> None:
             engine,
             players,
             log_path=args.resume_game_log,
-            history_builder=HistoryBuilder(initial_history=history),
+            # The builder itself, so a headline pick buffered at the cut
+            # stays buffered instead of being flushed into view.
+            history_builder=history_builder,
             initial_actions=log["actions"],
         )
         print(f"\nWinner: {winner}")

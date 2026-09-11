@@ -243,6 +243,15 @@ class Engine:
             # both mappings to isolate the observation without a generic
             # recursive deepcopy on this rollout hot path.
             influence={cid: dict(values) for cid, values in self.board.influence.items()},
+            # NOT `public()`, deliberately -- see `Decision.public` and
+            # docs/CLAUDE_NOTES.md, "The audit's fourth defect is a design
+            # question". Hiding the actor's card options here is correct for
+            # a Player and wrong for the rest of the codebase, which uses
+            # `observe(side)` as "the board from this seat" whoever is to
+            # move: `benchmark.expert_check` needs a full US view while the
+            # USSR is to move, because its valuations are US-signed. The
+            # leak is real and no production path reaches it; closing it
+            # needs a separate analysis view, which is a design change.
             pending_decision=self.pending_decision,
             # Own hand in full; the opponent's hand only as a count (mandate
             # #4). The draw pile is a count too — its order never leaks.

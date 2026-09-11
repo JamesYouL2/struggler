@@ -71,6 +71,15 @@ def make_engine(log: dict[str, Any]) -> Engine:
             events=log.get("events", False),
             physical_mode=log.get("physical_mode", False),
             physical_side=Side(physical_side) if physical_side else None,
+            # Defaults False so logs written before it was recorded still
+            # replay -- those games were played without the handicap only if
+            # they were, which is unknowable, but False was `new_game`'s own
+            # default and is the safer reconstruction. The CLI turns it on,
+            # so *every default game's log was unreplayable* until this was
+            # recorded: replay diverged at the first action, with the log
+            # still placing bonus Influence while the rebuild expected a
+            # headline.
+            setup_bonus=log.get("setup_bonus", False),
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
@@ -150,7 +159,15 @@ def build_event(decision: Decision, action: Action, engine: Engine) -> Event:
         country_control = control.value if control is not None else None
     return Event(
         actor=decision.actor,
-        decision=decision,
+        # `decision.public()`, not `decision`: a recorded Event is handed to
+        # *both* players by the runner, and the full Decision carries every
+        # legal option -- which after a headline pick is the actor's whole
+        # remaining hand. Eight opponent cards were recoverable from one
+        # recorded event. Nothing reads `event.decision.options` today, so
+        # this was a latent breach of mandate #4 rather than an exploited
+        # one, and it stays closed by construction rather than by nobody
+        # happening to look.
+        decision=decision.public(),
         action=action,
         defcon=engine.defcon,
         vp=engine.vp,
@@ -201,7 +218,7 @@ class HistoryBuilder:
         return self.history
 
 
-def replay_history(log: dict[str, Any]) -> tuple[Engine, list[Event]]:
+def replay_history(log: dict[str, Any]) -> tuple[Engine, "HistoryBuilder"]:
     """Like `run_replay`, but also reconstruct the Player-facing `history`
     exactly as `runner.play_game` would have built it up to this point.
 
@@ -220,7 +237,15 @@ def replay_history(log: dict[str, Any]) -> tuple[Engine, list[Event]]:
         action = decode_action(action_data)
         engine.step(action)
         builder.record(decision, action, engine)
-    return engine, builder.finalize()
+    # The *builder*, not `builder.finalize()`. Finalizing flushes a
+    # still-unpaired headline pick into the visible history, so a game
+    # resumed between the two picks showed the second player the first
+    # player's card -- information the uninterrupted game buffers precisely
+    # to withhold. Returning the builder carries the pending buffer across
+    # the resume, so a resumed game and an uninterrupted one show the same
+    # history at every point. Callers wanting the flushed list call
+    # `finalize()` themselves, which is correct once the game is over.
+    return engine, builder
 
 
 class GameLogWriter:
@@ -266,6 +291,7 @@ class GameLogWriter:
         self._seed = state["seed"]
         self._include_optional = engine.include_optional
         self._events_enabled = engine.events_enabled
+        self._setup_bonus = engine.setup_bonus
         self._physical_mode = engine.physical_mode
         self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
         self._actions: list[dict[str, Any]] = list(initial_actions) if initial_actions is not None else []
@@ -286,6 +312,7 @@ class GameLogWriter:
             "new_game": True,
             "include_optional": self._include_optional,
             "events": self._events_enabled,
+            "setup_bonus": self._setup_bonus,
             "physical_mode": self._physical_mode,
             "physical_side": self._physical_side,
             "actions": self._actions,
