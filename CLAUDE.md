@@ -33,7 +33,11 @@ the tests.
   (conda) and `pip install -e ".[test]"` still work but are not what this
   repo is developed against.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
-  the full suite before committing; it takes about 80 seconds.
+  the full suite before committing; it takes about three and a half minutes.
+  Two files are most of that: `test_parity_corpus.py` rebuilds a bot per
+  record and takes ~150s, and `test_poke_rate.py` plays four games and takes
+  ~33s. Both earn it -- one is the exactness oracle, the other is the only
+  behavioural rate the suite measures -- but run a subset while iterating.
 - **License**: MIT.
 - **Language**: all code, comments, docstrings, and commit messages in
   English.

@@ -353,12 +353,20 @@ class StrategicWeights:
     # answer a placement plan with, or 0 to price the plan as if they never
     # moved. See `_survives_reply` -- a break that does not take control
     # loses the exchange 2:1, and that is invisible until one ply later.
-    # Off by default until gated. `reply_model` selects how the budget is
-    # chosen, since weights must be nonnegative and a sentinel cannot be:
-    # 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's
-    # likely holdings, 3 a weighted average over budgets 0-4.
+    # `reply_model` selects how the reply budget is chosen, since weights
+    # must be nonnegative and a sentinel cannot be: 0 off, 1 the
+    # `reply_ops` constant, 2 the median of the opponent's likely
+    # holdings, 3 a weighted average over budgets 0-4.
+    #
+    # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
+    # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
+    # only says "not a measurable regression"), and what earns it is the
+    # behaviour. The maintainer's instrument -- breaking an opponent's
+    # Battleground with the single cheapest point -- falls from 6.27 a
+    # seat a game to 0.08, and no seat in 48 does it more than once.
+    # Gated by `tests/test_poke_rate.py`.
     reply_ops: float = 2.0
-    reply_model: float = 0.0
+    reply_model: float = 3.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):

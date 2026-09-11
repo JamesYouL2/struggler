@@ -114,18 +114,48 @@ def test_paired_full_games_finish_and_are_reproducible():
     assert all(r['winner'] in ('US','USSR',None) for r in a['records'])
 
 
-def test_influence_search_prices_breaking_enemy_control():
+def _pakistan_break(reply_model):
+    """The US pricing three Ops into a Pakistan the USSR controls."""
+    import dataclasses
     engine = Engine(seed=0)
     engine.board.influence['Pakistan']['USSR'] = 2
     obs = engine.observe(Side.US)
-    bot = StrategicPlayer()
+    bot = StrategicPlayer(dataclasses.replace(StrategicWeights(), reply_model=reply_model))
     bot.board.load_influence(engine.board.serialize())
+    return bot, obs
+
+
+def test_influence_search_prices_breaking_enemy_control():
+    """The cost arithmetic, with the forward search off so nothing else
+    moves the number: the first point breaks control and costs two, the
+    second costs one, and the best of those rates is what three Ops buy."""
+    bot, obs = _pakistan_break(0.)
     before = bot.board.serialize()
-    # First point breaks control and costs two; the second costs only one.
     expected = max(bot.delta(obs, 'Pakistan', own=1)/2,
                    bot.delta(obs, 'Pakistan', own=2)/3)
     assert bot.influence(obs, 'Pakistan', 3) == pytest.approx(expected)
     assert bot.board.serialize() == before
+
+
+def test_the_forward_search_discounts_the_same_break():
+    """And with it on -- the shipped setting -- the same break is worth
+    less, because the USSR can take Pakistan straight back.
+
+    This is the whole point of `reply_model`, and it is asserted as a
+    *direction*: the discount's size is a weighted average over reply
+    budgets and will be retuned, but a break that can be answered must
+    never price at or above one that cannot. When this term's sign
+    inverted it priced higher, and every value test of it still passed.
+    """
+    plain, obs = _pakistan_break(0.)
+    searched, _ = _pakistan_break(3.)
+    before = searched.board.serialize()
+    undiscounted = plain.influence(obs, 'Pakistan', 3)
+    discounted = searched.influence(obs, 'Pakistan', 3)
+    assert discounted < undiscounted, (
+        f'the forward search did not discount an answerable break: '
+        f'{discounted} vs {undiscounted}')
+    assert searched.board.serialize() == before
 
 
 def test_evaluation_rejects_empty_seed_set():
