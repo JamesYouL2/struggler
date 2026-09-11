@@ -1106,7 +1106,7 @@ class StrategicPlayer:
         return value
 
     def _after_reply(self, obs: Observation, cid: str, points: int,
-                     raw: float, spent: int) -> float:
+                     raw: float) -> float:
         """`raw` -- what placing `points` in `cid` gains -- after the
         opponent's cheapest answer to it.
 
@@ -1259,7 +1259,7 @@ class StrategicPlayer:
                     break
                 self._set_influence(cid, original['US'], original['USSR'])
                 raw = self.delta(obs, cid, own=points)
-                gain = self._after_reply(obs, cid, points, raw, spent) / spent
+                gain = self._after_reply(obs, cid, points, raw) / spent
                 if gain > best[0]:
                     best = (gain, points)
                 self._add_influence(cid, obs.side, points)
@@ -2087,7 +2087,19 @@ class StrategicPlayer:
         amount = int(ctx.get('amount', 1))
         if ctx['op'] == 'remove':
             amount = -self.board.influence[cid][ctx['inf_side']] if ctx.get('whole') else -amount
-        return self.delta(obs, cid, **{'own' if ctx['inf_side'] == obs.side.value else 'opp': amount})
+        ours = ctx['inf_side'] == obs.side.value
+        raw = self.delta(obs, cid, **{'own' if ours else 'opp': amount})
+        # Event-placed Influence is answered exactly like Ops-placed
+        # Influence, so it gets the same one-ply look. The maintainer's
+        # own example is OAS Founded: "empty Battleground, zero access --
+        # one ply look ahead makes this obvious", and OAS places through
+        # `EVENT_INFLUENCE`, which reached `delta` directly and never saw
+        # the reply. The Ops cost is nil here, which changes nothing: the
+        # question is whether the placement is still there next round, not
+        # what it cost.
+        if ours and amount > 0:
+            return self._after_reply(obs, cid, amount, raw)
+        return raw
 
     def _score_coup_target(self, obs: Observation, action: Action, kind, p, ctx):
         """Which country to Coup.
