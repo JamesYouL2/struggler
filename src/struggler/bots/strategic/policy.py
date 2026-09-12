@@ -2110,25 +2110,56 @@ class StrategicPlayer:
         helps_us = (target is obs.side) == (delta > 0)
         return total if helps_us else -total
 
-    def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
-        """A card played from hand: its Ops (the opponent's event fires too,
-        unless this is the card UN Intervention is kept for) or, for our own
-        and neutral cards, its event if that is better."""
-        opponents = CARDS[cid].side.value == obs.side.opponent.value
-        fires = opponents and cid != self.un_card(obs)
+    def value_as_ops(self, obs: Observation, cid: str, ops: int, event: float) -> float:
+        """This card spent for its Operations, and nothing else.
+
+        An opponent's card fires their event anyway -- that is the rules,
+        not a choice -- so the harm is part of the Ops value, unless this
+        is the card UN Intervention is being kept for, which is what makes
+        UN plus Marshall Plan so strong.
+
+        One of the four gross per-mode values. They exist separately
+        because a hand planner has to compare *this card as an event*
+        against *that card as Ops* against *a third as a Space Race
+        attempt*, and cannot do that with a function that has already
+        taken the maximum. See
+        docs/notes/claude/2026-09-11-the-hand-planner-plan.md.
+        """
+        fires = (CARDS[cid].side.value == obs.side.opponent.value
+                 and cid != self.un_card(obs))
         if is_certain(event):
-            # Certain defeat or certain victory is an ordering flag: pass it
-            # through rather than adding it to an Ops value. `min(0, LOSS)`
-            # then `ops + LOSS` used to be how "this play loses" was said,
-            # which is arithmetic on a number chosen to be unreachable.
-            if fires and event < 0:
-                return event
-            if not opponents and event > 0:
-                return event
-            return self.ops_value(obs, ops)
-        harm = min(0, event) if fires else 0
-        value = self.ops_value(obs, ops) + harm
-        return value if opponents else max(value, event)
+            # A certain outcome is an ordering flag, not a price. `ops +
+            # LOSS` used to be how "this play loses" was said, which is
+            # arithmetic on a number chosen to be unreachable.
+            return event if fires and event < 0 else self.ops_value(obs, ops)
+        return self.ops_value(obs, ops) + (min(0, event) if fires else 0)
+
+    def value_as_event(self, obs: Observation, cid: str, event: float) -> float:
+        """This card played for its event, and nothing else.
+
+        Only ours and the neutrals can be *played* for their event; an
+        opponent's card fires theirs whatever we choose, so choosing it is
+        not a mode we have. LOSS for one we cannot pick keeps it out of a
+        maximum without a special case at every call site.
+        """
+        if CARDS[cid].side.value == obs.side.opponent.value:
+            return LOSS
+        return event
+
+    def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
+        """The best use of a card played from hand.
+
+        Now the degenerate one-card case of the planner: the maximum over
+        the modes a play can take. Kept because every current caller wants
+        exactly this, and because it is the thing the parity corpus pins.
+        """
+        as_ops = self.value_as_ops(obs, cid, ops, event)
+        if CARDS[cid].side.value == obs.side.opponent.value:
+            return as_ops
+        as_event = self.value_as_event(obs, cid, event)
+        if is_certain(event):
+            return as_event if event > 0 else as_ops
+        return max(as_ops, as_event)
 
     def un_card(self, obs: Observation) -> str | None:
         """The opponent's card UN Intervention in hand is kept for: the one
@@ -2143,8 +2174,28 @@ class StrategicPlayer:
             self._un_card = worst[1] if worst[0] < 0 else ''
         return self._un_card or None
 
+    def value_as_space(self, obs: Observation) -> float:
+        """The Space Race attempt itself, gross: expected VP times what a VP
+        is worth. Positive whenever the rules allow an attempt, which is the
+        maintainer's "space is better than nothing"
+        (tests/test_value_signs.py).
+
+        No opportunity charge here. What the attempt costs is the card's
+        other modes, and comparing them is the planner's job, not this
+        function's -- see `space_value` below for the version that does
+        both at once and the note on why that blocks a planner.
+        """
+        return self.vp_value(obs) * _space_race_expected_vp(obs, obs.side)
+
     def space_value(self, obs: Observation, ops: int) -> float:
-        return self.vp_value(obs) * _space_race_expected_vp(obs, obs.side) - 0.4 * self.ops_value(obs, ops)
+        """The attempt, net of a flat 0.4 charge for the Ops it gives up.
+
+        A comparison baked into a value, which is why it can be negative
+        for a big card. Retained for the current callers and pinned by the
+        parity corpus; a planner should use `value_as_space` and weigh the
+        alternative itself.
+        """
+        return self.value_as_space(obs) - 0.4 * self.ops_value(obs, ops)
 
     def space_card(self, obs: Observation) -> str | None:
         """The card this turn's space slot is for: the opponent's card whose

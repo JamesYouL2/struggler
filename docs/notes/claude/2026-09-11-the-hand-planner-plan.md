@@ -103,6 +103,36 @@ having because this repo's failures are sign failures: the forward
 search's discount inverted and looked like a no-op for a day, and a
 `CardSide is Side.US` comparison priced a term at zero.
 
+## The commitment unit: the action round (maintainer, 2026-09-11)
+
+Re-plan every action round, and commit to the plan *within* it -- the
+card, the mode, and the whole Ops spend -- unless that turns out to be
+stupid expensive.
+
+This is the answer that makes the planner fix the break finding rather
+than re-derive current behaviour. The 4th Op wanders off because the
+ranking re-computes after every *point*; a plan made once at the start of
+the action round and followed through the spend keeps it. Nothing else in
+the design had to change to get that.
+
+**The machinery already exists, as a speed hack.** `RolloutPolicy`
+commits the same way below the MCTS root: `_placement_plan` spends "the
+Ops as the parent would, but commit each country's best point count at
+once instead of re-ranking after every point", and `_served` answers the
+rest of the action round from it. It was written to make rollouts cheap.
+The same shape in the main policy is a correctness fix, and it is already
+tested (`tests/test_rollout.py`).
+
+Cost: about 7 plans per turn per side, 140 a game, against one per turn.
+Each plan is over hand x modes, which is smaller than the per-decision
+ranking it replaces -- and it *removes* the re-rank after every point,
+which is where the current cost is. It should be cheaper, not dearer, but
+that is a claim to measure rather than assert.
+
+Re-planning every round also dissolves the staleness problem: no
+precondition triggers, no plan going stale across the opponent's turn.
+The plan only has to survive the round it was made in.
+
 ## Division
 
 Steps 1 and 2 are mechanical and parity-checkable, and they are
