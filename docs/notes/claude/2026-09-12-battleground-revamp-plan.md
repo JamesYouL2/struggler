@@ -75,9 +75,20 @@ throughout**: what matters is the swing from *they hold it* to *we hold it*,
 not what we gain from nobody holding it. `region_vp` already computes
 `Board.score_region` exactly, and its per-country term is rule 10.1.2.
 
-    vp_per_scoring(i) = 2 * ( 1.0 if bg(i)
-                            + 0.5 if i adjacent to enemy SP
-                            + tier_share(i) )
+    importance(i) = ( direct(i) + tier(i) ) * retention(i) * urgency(i)
+
+TWO TERMS, on the maintainer's call, and the split is the point: they answer
+different questions and only one of them is about being a battleground.
+
+    direct(i) = 2 * ( 1.0 if bg(i)                  [10.1.2, per battleground]
+                    + 0.5 if adj to enemy SP )      [10.1.2, one-sided, hence half]
+
+    tier(i)   = 2 * tier_share(i)                   [threshold contribution]
+
+`direct` is what the country pays by existing under your control. `tier` is
+what its control does to the presence/domination/control thresholds, and
+EVERY country has it -- a non-battleground earns no 10.1.2 VP at all, so its
+whole worth is `tier`.
 
 **Why the battleground term is 1.0 and adjacency is 0.5.** 10.1.2 pays 1 VP
 per controlled battleground and 1 VP per controlled country adjacent to the
@@ -109,6 +120,34 @@ positions:
     measured ratio  0.465
     shipped         0.300   (control 1.5 / battleground 5.0)
     target          <= 0.333, preferably < 0.250
+
+**The two-term split makes this exact rather than a preference.** The
+measurement decomposes almost perfectly:
+
+    non-bg swing  2.057  =  tier alone (no 10.1.2 VP to earn)
+    bg swing      4.425  =  tier + direct
+    difference    2.368
+
+and rule 10.1.2's 1 VP per battleground is 2.000 two-sided -- so 2.368 is the
+direct award plus 0.368 for a battleground ALSO gating domination and
+control. The rules account for the gap between the two kinds of country to
+within a third of a VP.
+
+Which means the ratio is DERIVED, not set:
+
+    non-bg : bg  =  tier / (tier + direct)
+
+    at the measured direct of 2.37  ->  0.465
+    to reach 0.333                  ->  direct must be 4.12   (1.7x the rules)
+    to reach 0.250                  ->  direct must be 6.17   (2.6x the rules)
+
+So the maintainer's target is the claim that **a battleground is worth about
+two to three times its printed scoring value**, and that is not obviously
+wrong: a battleground also gates control outright, absorbs coups, and is what
+wars and events aim at, none of which is scoring VP. It is now a single
+number with a single meaning -- a multiplier on `direct` -- which is
+sweepable against the inversion count and gateable, where "non-bgs feel
+underweighted" was neither.
 
 **The rules value non-battlegrounds HIGHER than either the shipped weight or
 the target.** That is a real disagreement and this plan does not average it
