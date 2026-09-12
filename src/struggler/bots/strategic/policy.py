@@ -2614,6 +2614,18 @@ class StrategicPlayer:
             return self.delta(obs, choice, own=-1) + gains
         if event == 'Blockade' and choice == 'refuse':
             return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])
+        if event in US_PAYABLE_DISCARDS and choice in CARDS:
+            # What the payment costs is the card we give up, which is
+            # `hold_value` -- the same rule `Missile_Envy_pick` uses for the
+            # same question. It fell through to the generic `-CARDS.ops`,
+            # which picks the smallest *printed* Ops and so cannot tell a
+            # USSR 3-Op card from Containment. Discarding an opponent's card
+            # is nearly free: we were never going to play it without firing
+            # their event, so the double-sided cost is avoided rather than
+            # paid. Discarding Containment throws away far more than 3 Ops.
+            # The same proxy failed three branches above, where the comment
+            # records it "picking the *weakest* card".
+            return -self.hold_value(obs, choice)
         if event == 'Independent_Reds' and choice in self.board.countries:
             inf = self.board.influence[choice]
             return self.delta(obs, choice, own=max(0, inf['USSR']-inf['US']))
