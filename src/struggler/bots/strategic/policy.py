@@ -350,7 +350,7 @@ class StrategicWeights:
     margin_live: float = 1.0
     access: float = 1.5
     access_redundant: float = 0.35
-    access_chain: float = 0.4
+    access_chain: float = 0.0
     # Reach into a battleground the opponent can already place in is a race
     # they may win first (Israel -> Egypt for the USSR, with the US already
     # next door): worth this fraction of exclusive reach.
@@ -379,20 +379,43 @@ class StrategicWeights:
     # a VP overnight at turn 4 -- halving every board value in VP terms
     # between one round and the next, which nothing in the game does.
     #
-    # 2.0, not 4.0, because that is what the evidence supports: expected VP
-    # still to be scored falls about 35% over the game, a 1.55x swing, and
-    # linear and exponential fits to it agree on that to within 3%. The
-    # maintainer wants 4.0 gated too, for reasons the scarcity curve cannot
-    # see -- pushing and defending the 20 VP threshold, and a Late War deck
-    # carrying more variance. Both are effects on what a VP is *worth*
-    # rather than on how many remain.
+    # 1.0 -- flat -- as of 2026-09-12, on the maintainer's call and three
+    # independent lines of evidence.
+    #
+    # The reliability curve (`scripts/vp_spread.py`) fits spread(turn) from
+    # 668 decided games: the VP scale over which a game's outcome flips.
+    # From turn 3 it is flat, 8.07 -> 6.63, a ratio of 1.22. Its headline
+    # ratio is anchored on turn 2 and should not be quoted: turn 1 separates
+    # outright and turn 2 barely identifies (slope 0.048 against turn 3's
+    # 0.124), so the anchor produced 2.32 and then 3.13 on overlapping data
+    # as the sample grew. See
+    # docs/notes/claude/2026-09-12-the-reliability-curve-says-anchor-at-t3.md.
+    #
+    # In play the term is close to inert at any setting: 4.0 measured 0.491
+    # +/-0.026 over 256 seeds, and 1.0 measured 0.497 +/-0.072 over 78.
+    # Neither run can see a difference, and the second is the weaker gate --
+    # it resolves a 7-point regression, not a 5-point one.
+    #
+    # And the maintainer's reading of why: "VP value stays the same, ops
+    # value is what changes a ton." The 4x era swing the old three-step
+    # rates encoded is real, but it belongs on the Ops side -- `ops_value`
+    # already measures what an Op buys on *this* board -- so pricing it here
+    # as well charged for the same effect twice. That is the reason 2.0 was
+    # a guess that no measurement ever supported: it was modelling the wrong
+    # half.
+    #
+    # This does NOT retire the expert rule in models/expert_valuations_*.json
+    # (1 Op = 2 VP Early, 1 = 1 Mid, 2 Ops = 1 VP Late). That rule is an
+    # exchange rate; spread(turn) measures decisiveness. A VP can get no
+    # harder to convert into a win while getting harder to buy, and the
+    # exchange rate is the Ops side's business.
     #
     # Deliberately *not* in here: "the 20th VP matters more than the 19th".
     # That is a VP-level effect and belongs in a term keyed on the score,
     # where it can be sharp; folded into a turn curve it would fire on
     # turn 9 whatever the VP.
     vp_base: float = 0.5
-    vp_swing: float = 2.0
+    vp_swing: float = 1.0
     # Military Operations, priced in VP like everything else. Rule 6.3.5 is
     # exact and there is nothing to estimate: at the end of the turn a side
     # whose Military Ops are below the DEFCON level hands the *difference*
