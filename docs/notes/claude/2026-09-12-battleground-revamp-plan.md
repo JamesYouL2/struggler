@@ -70,19 +70,70 @@ Applied to the tier value:
 
     importance(i) = vp_per_scoring(i) * retention(i) * urgency(i)
 
-**vp_per_scoring(i)** -- from the RULES, not a constant. `region_vp` already
-computes `Board.score_region` exactly, and its per-country term is rule
-10.1.2:
+**vp_per_scoring(i)** -- from the RULES, not a constant, and **DOUBLE-SIDED
+throughout**: what matters is the swing from *they hold it* to *we hold it*,
+not what we gain from nobody holding it. `region_vp` already computes
+`Board.score_region` exactly, and its per-country term is rule 10.1.2.
 
-    vp_per_scoring(i) = 1 if bg(i)                       [10.1.2, per battleground]
-                      + 1 if i adjacent to enemy SP      [10.1.2, per such country]
-                      + tier_share(i)                    [what control of i swings]
+    vp_per_scoring(i) = 2 * ( 1.0 if bg(i)
+                            + 0.5 if i adjacent to enemy SP
+                            + tier_share(i) )
 
-`tier_share` is the part that still needs defining: how much of the
-presence/domination/control step `i` can move, which depends on how close the
-region is to flipping and how many countries it has. `region_vp` can answer
-it by difference -- score the region with `i` held and without -- at the cost
-of two evaluations per country.
+**Why the battleground term is 1.0 and adjacency is 0.5.** 10.1.2 pays 1 VP
+per controlled battleground and 1 VP per controlled country adjacent to the
+enemy superpower, so at first glance they are equal. They are not, because
+**no country on the board is adjacent to both superpowers** (checked: US-side
+Canada, Japan, Mexico, Cuba; USSR-side Finland, Poland, Romania, Afghanistan,
+North Korea, Turkey; intersection empty).
+
+So a battleground pays whichever side holds it -- flipping it is a two-sided
+swing of 2 VP -- while an adjacency VP can only ever be earned by one side,
+a swing of 1. Half a battleground, in the same units. The outer `2 *` carries
+the two-sidedness and the 0.5 corrects the one term that is not.
+
+### tier_share(i), broken down
+
+Not one quantity. Region scoring is three thresholds, and control of `i`
+moves different ones depending on where the region stands:
+
+    tier_share(i) = SUM over tiers T of  step(T) * P(i decides T)
+
+with the steps being the VP actually gained by crossing each threshold, not
+the tier's face value:
+
+    step(presence)    = presence_vp                 [from nothing to presence]
+    step(domination)  = domination_vp - presence_vp
+    step(control)     = control_vp - domination_vp
+
+and `P(i decides T)` the chance control of `i` is what puts the region over
+that threshold. Holding `i` changes four counts:
+
+    our countries  += 1        their countries -= 1 if they held it
+    our bgs        += 1 if bg  their bgs       -= 1 if bg and they held it
+
+which feed the three conditions `region_vp` already encodes:
+
+    presence:    our_count > 0
+    domination:  our_count > their_count AND our_bgs > their_bgs
+                 AND our_count > our_bgs           [10.1.1: at least one non-bg]
+    control:     our_bgs == total_bgs AND our_count > their_count
+
+**So a battleground's tier_share is large only where a threshold is live.**
+The same country is worth a lot in a region one country from domination and
+almost nothing in a region already lost -- which is the discrimination the
+flat 5.0 cannot express, and the reason Iraq and Israel currently score
+identically.
+
+`P(i decides T)` is computable by difference rather than modelled: evaluate
+`region_vp` with `i` held and without, over the region as it stands. Two
+evaluations per country, and `margin_basis` already walks the region for the
+partial-credit term, so the counts are in hand.
+
+Note what this makes of `region`, the 1.3 multiplier: it is scaling an
+exactly-known VP quantity and should be 1.0. And note the 10.1.1 clause --
+domination needs at least one NON-battleground -- which is a place where a
+non-battleground can carry a whole tier on its own, and nothing in the
+current model can say so.
 
 **retention(i)** -- measured:
 
