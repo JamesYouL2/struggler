@@ -49,9 +49,15 @@ commit() {  # commit <message> <paths...>
   git commit -q -m "$msg" -m "$ATTRIB" && say "  committed: $(git log --oneline -1)"
 }
 
-say "space check queued; waiting for the morning queue"
-while $PY scripts/gate_running.py --match morning.sh --quiet; do sleep 60; done
-say "morning queue finished; starting"
+# Waits for the access_chain bisect too, which the maintainer put ahead of
+# this one: it is the experiment with a structural payoff, this is a
+# no-regression check on a change that already shipped.
+say "space check queued; waiting for the morning queue and the access_chain check"
+while $PY scripts/gate_running.py --match morning.sh --quiet \
+   || $PY scripts/gate_running.py --match access_chain_check.sh --quiet; do
+  sleep 60
+done
+say "machine free; starting"
 
 run_ab "space-abilities-off" \
   '{"version": 1, "weights": {"space_ability_2": 0.0, "space_ability_4": 0.0, "space_ability_6": 0.0, "space_ability_8": 0.0}}' \
