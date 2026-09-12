@@ -44,9 +44,11 @@ removal rate of 1-3 a turn brings the reshuffle forward to turn 7. It is a
 knife edge, and what tips it is how many cards leave the game entirely.
 
 **Cards leave the game by being evented.** `remove_after_event` is true
-for **70 of 110** cards, and **21 of the 35 Early War cards -- 60%**. A
-card spent for its Operations is discarded and comes back; the same card
-evented is gone for good.
+for **70 of 110** cards, and **21 of the 35 Early War cards that can be
+evented away at all -- 60%** (39 cards are Early War; the three scoring
+cards and the China Card are not removals of this kind). A card spent for
+its Operations is discarded and comes back; the same card evented is gone
+for good.
 
 And the bot spends for Operations. From the 2026-09-11 gate's card table,
 across 78 seeds:

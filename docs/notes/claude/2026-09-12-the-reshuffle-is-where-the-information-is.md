@@ -54,7 +54,7 @@ Over captured turn-1 to turn-4 positions:
 | 4 | 54.7 | 5.7 | 49.0 | 10.2% |
 
 It doubles from turn 1 to turn 2 as the pile drains, the turn-3 reshuffle
-halves it back, and the Mid War influx at turn 4 -- 46 cards -- craters it.
+halves it back, and the Mid War influx at turn 4 -- 49 cards -- craters it.
 The maintainer's instinct that the reshuffle is the moment is right; the
 correction is that the *approach* is rich and the reshuffle destroys it.
 

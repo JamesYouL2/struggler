@@ -12,7 +12,9 @@ both.
 """
 from __future__ import annotations
 
-from struggler.bots.strategic.public_cards import ENTERING
+import re
+
+from struggler.bots.strategic.public_cards import ENTERING, turns_to_reshuffle
 from struggler.engine import Engine, Side
 from struggler.engine.cards import ENTRY_TURN
 from struggler.bots.greedy import GreedyPlayer
@@ -51,3 +53,23 @@ def test_entering_matches_what_the_engine_adds(caplog):
 
 def test_entering_covers_every_period_after_the_first():
     assert set(ENTERING) == {t for t in ENTRY_TURN.values() if t > 1}
+
+
+def test_the_docstring_quotes_the_counts_the_constant_derives():
+    """The counts drift in prose after they are fixed in code.
+
+    `ENTERING` was three cards short per period because it took
+    `Engine.__init__`'s flag rather than `Engine.new_game`'s; the constant
+    was corrected and the same wrong numbers survived in the docstring
+    twenty lines below it, and from there into two working notes. That is
+    shape 4 -- two statements of one rule, drifting -- so the prose is
+    checked against the constant rather than trusted to be re-read.
+    """
+    doc = turns_to_reshuffle.__doc__ or ''
+    quoted = {period: int(count) for count, period
+              in re.findall(r'(\d+)\s+(Mid|Late) War', doc)}
+    assert quoted == {'Mid': ENTERING[4], 'Late': ENTERING[8]}, (
+        f'the docstring quotes {quoted} but ENTERING derives '
+        f'{{"Mid": {ENTERING[4]}, "Late": {ENTERING[8]}}}. Fix the prose, '
+        f'not this test: the constant is checked against the engine by '
+        f'test_entering_matches_what_the_engine_adds.')

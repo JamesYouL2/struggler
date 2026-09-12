@@ -98,7 +98,8 @@ def p_opponent_holds(obs: Observation, card: str) -> float:
     interesting part. The interesting part is that the pool shrinks: the draw
     pile empties before every reshuffle, so this rises toward 1 for every
     unseen card as the reshuffle approaches. At the end of turn 2 the Early War
-    pile is down to about five cards, and what is left is known *as a set* --
+    pile is down to about nine cards (8.8 measured, against the ~5 the first
+    arithmetic predicted), and what is left is known *as a set* --
     which is why a strong player knows most of an opponent's hand going into
     turn 3, and why the turn-3 reshuffle is where the information is.
 
@@ -132,8 +133,9 @@ def turns_to_reshuffle(obs: Observation) -> int:
     """Turns until the draw pile runs out and the discards come back.
 
     Walked forward turn by turn rather than divided, because the pile is
-    refilled twice on a fixed schedule -- 46 Mid War cards at turn 4 and 21
-    Late War at turn 8 -- and dividing today's pile by the draw rate
+    refilled twice on a fixed schedule -- 49 Mid War cards at turn 4 and 22
+    Late War at turn 8, the counts `ENTERING` derives -- and dividing
+    today's pile by the draw rate
     silently assumes neither happens.
 
     Measured over 16 self-play games before this was fixed: reshuffles land

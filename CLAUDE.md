@@ -81,8 +81,8 @@ by remembering harder.
   Rule 6.1.1 freezes reachability at the start of the action round; see the
   reachability section of `docs/ARCHITECTURE.md`.
 - **The full list, with the practice that stops each, is
-  `docs/notes/claude/bug-shapes.md`.** Eight
-  shapes; six have recurred. Read it before adding a cache, a sentinel, a
+  `docs/notes/claude/bug-shapes.md`.** Nine
+  shapes; every one has recurred. Read it before adding a cache, a sentinel, a
   fallback, or a second copy of a rule.
 - **Don't move the board mid-ranking without calling `_invalidate_base()`.**
   `delta` prices against per-decision caches keyed on the board as synced;
