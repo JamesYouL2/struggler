@@ -229,6 +229,29 @@ VARY=$([ "${GATE_VARY:-1}" = "1" ] && echo --vary-openings || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE $VARY \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
+echo "== 3b. cards, by what the bot chose to do with them (advisory)"
+# Revealed preference: which cards each side pays to *event* rather than
+# spend for Ops. Scoring cards are excluded -- they have no Ops and must be
+# played, so they measure the rules. Intervals are Wilson and are a floor
+# on the width, since plays inside one game are not independent.
+$PY - "$OUT/full-vs-base.json" <<'PYEND' || true
+import json, sys
+d = json.load(open(sys.argv[1]))
+s = d.get('summary', {})
+if not s.get('evented_top5'):
+    print('  (no card data in this report)'); raise SystemExit
+print(f"  plays by mode: {s.get('plays_by_mode')}"
+      f"  (+{s.get('forced_scoring_plays', 0)} forced scoring plays, excluded)")
+for side in ('US', 'USSR'):
+    rows = s['evented_top5'].get(side, [])
+    print(f'  {side} evented most:')
+    for card, ev, total, lo, hi in rows:
+        print(f'    {ev:3}/{total:<3} {ev/total:4.0%}  [{lo:.2f},{hi:.2f}]  {card}')
+    never = s.get('never_for_ops', {}).get(side, [])
+    if never:
+        print(f'    never for Ops (3+ plays): '
+              + ', '.join(f'{c} x{n}' for c, n in never))
+PYEND
 if [ "${GATE_ANCHOR:-1}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
   # No --vary-openings here: a baseline from before the opening books cannot
   # be given one, and falling back would start the two arms from *different*

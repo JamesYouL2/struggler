@@ -29,7 +29,8 @@ import sys
 import time
 from multiprocessing import Pool
 
-from struggler.engine import Engine, Region, Side, Subregion
+from struggler.engine import DecisionKind, Engine, Region, Side, Subregion
+from struggler.engine.cards import load_cards
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.replay import HistoryBuilder
 from struggler.bots.strategic.public_cards import scoring_schedule, turns_to_final_scoring
@@ -38,6 +39,7 @@ from struggler.bots.strategic import StrategicPlayer
 # Checkpoint projection: how many more times each region is expected to
 # score, and how soon (bots.public_cards.scoring_schedule). Each turn of
 # distance discounts the scoring by TURN_DISCOUNT.
+CARDS = load_cards()
 TURN_DISCOUNT = 0.8
 SEA_WEIGHT = 0.8
 
@@ -289,6 +291,13 @@ def play(job: tuple) -> dict:
     # `vary_openings` is False, True (seed-keyed), or an explicit dict.
     books = (openings_for_seed(seed) if vary_openings is True
              else vary_openings or None)
+    # What each side did with each card. `mode` is the *chosen* one, so a
+    # US event that fires because the USSR spent the card for Ops does not
+    # count here -- that is the rules, not a preference. Headlines are
+    # always events and are counted apart, since picking a headline is a
+    # different decision from choosing event mode in an action round.
+    card_modes: collections.Counter = collections.Counter()
+    pending_card: dict = {}
     players = {side: build(bot, seed, simulations, model, books),
                side.opponent: build(opponent, seed, simulations, None, books)}
     engine = Engine.new_game(seed=seed, setup_bonus=True)
@@ -302,6 +311,22 @@ def play(job: tuple) -> dict:
         else:
             player = players[d.actor]
             action = player.choose_action(engine.observe(d.actor), history.history)
+            if d.kind is DecisionKind.HEADLINE_PLAY and 'card' in action.payload:
+                card_modes[f"{d.actor.value}|{action.payload['card']}|headline"] += 1
+            elif d.kind is DecisionKind.ACTION_ROUND_PLAY and 'card' in action.payload:
+                pending_card[d.actor] = action.payload['card']
+            elif d.kind is DecisionKind.PLAY_MODE and d.actor in pending_card:
+                card_modes[f"{d.actor.value}|{pending_card[d.actor]}|"
+                           f"{action.payload['mode']}"] += 1
+                # The modes that were *offered*, not just the one taken.
+                # Without this a card whose event is ineligible reads as
+                # "never preferred" when it was never possible -- the same
+                # category error as counting scoring cards, which have no
+                # Ops and must be evented. NATO is the live case: its event
+                # needs Marshall Plan or Warsaw Pact in effect.
+                if any(o.payload.get('mode') == 'event' for o in d.options):
+                    card_modes[f"{d.actor.value}|{pending_card[d.actor]}|"
+                               f"_event_offered"] += 1
             last = getattr(player, 'last_search', None)
             if player is players[side] and last:
                 searches += 1
@@ -313,7 +338,8 @@ def play(job: tuple) -> dict:
     winner = engine.winner
     value = StrategicPlayer().value(engine.board, side)
     outlook = projection(engine, side)
-    return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal, **outlook,
+    return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
+                card_modes=dict(card_modes), **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
                 winner=None if winner is None else winner.value, reason=engine.game_over_reason,
                 final_scoring=engine.final_scoring_ran, turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
@@ -631,6 +657,30 @@ def parse_seeds(spec: str) -> list[int]:
     return seeds
 
 
+def wilson(hits: int, total: int, z: float = 1.96) -> tuple[float, float]:
+    """A two-sided Wilson interval for a share, as (low, high).
+
+    Wilson rather than the normal approximation because these shares sit
+    at the extremes: a card evented 12 times out of 12 has a normal
+    interval of zero width, which is exactly wrong -- twelve plays is not
+    proof. Wilson gives (0.76, 1.00) there.
+
+    **The plays are not independent**, so read this as a floor on the
+    width rather than the width. Several plays of one card inside one
+    game share a position lineage, and the two seats of a seed share a
+    deal. The honest unit is the seed, but a card played once or twice a
+    game leaves too few per-seed shares to average, so this counts plays
+    and says so.
+    """
+    if total <= 0:
+        return (0., 0.)
+    p = hits / total
+    denom = 1 + z * z / total
+    centre = (p + z * z / (2 * total)) / denom
+    half = z * ((p * (1 - p) / total + z * z / (4 * total * total)) ** 0.5) / denom
+    return (round(max(0., centre - half), 3), round(min(1., centre + half), 3))
+
+
 def summarize(games: list[dict], stop_turn: int) -> dict:
     finished = [g for g in games if g['finished']]
     summary = dict(games=len(games), stop_turn=stop_turn, finished=len(finished),
@@ -658,6 +708,98 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
             summary['score_se'] = round(se, 4)
             # One-sided 95%, the same convention `acceptance` decides on.
             summary['score_halfwidth'] = round(ACCEPTANCE['confidence'] * se, 3)
+    # Tournament-shaped reporting: the three things a tournament writes up
+    # about a field of games, which this harness had the data for and never
+    # aggregated. Kept here rather than in a script so every report carries
+    # them (scripts/game_endings.py reads the same fields for the
+    # FINAL_SCORING_ODDS table).
+    if finished:
+        # Win rate by *seat*, not by bot. The bot plays both sides, so a
+        # seat imbalance is a property of the game or of the bot's grasp of
+        # one side, and it hides inside a score of 0.500 either way.
+        wins = collections.Counter(g['winner'] for g in finished if g['winner'])
+        draws = sum(1 for g in finished if not g['winner'])
+        summary['wins_by_side'] = {side: wins.get(side, 0) for side in ('US', 'USSR')}
+        summary['draws'] = draws
+        if wins:
+            summary['us_win_rate'] = round(wins.get('US', 0) / len(finished), 3)
+        # How games end, and when. Most end well before final scoring, on
+        # the 20 VP track or a nuclear war, and which of those it is changes
+        # what the late game is worth.
+        summary['endings'] = dict(collections.Counter(
+            g['reason'] or 'unknown' for g in finished).most_common())
+        summary['mean_end_turn'] = round(statistics.fmean(g['turn'] for g in finished), 2)
+        summary['reached_late_war'] = round(
+            sum(1 for g in finished if g['turn'] >= 8) / len(finished), 3)
+    # Which cards each side chooses to *event*, ranked. Revealed
+    # preference rather than valuation: it never reads what the bot thinks
+    # a card is worth, only what it did with it. Most useful where it
+    # disagrees with the maintainer -- a card they rate highly that the bot
+    # always spends for Ops is a pricing bug, the same instrument as the
+    # poke count.
+    modes: collections.Counter = collections.Counter()
+    for game in games:
+        modes.update(game.get('card_modes', {}))
+    if modes:
+        evented: dict[str, collections.Counter] = {
+            'US': collections.Counter(), 'USSR': collections.Counter()}
+        by_mode: collections.Counter = collections.Counter()
+        for key, count in modes.items():
+            side, card, mode = key.split('|')
+            by_mode[mode] += count
+            # A headline is always an event, and choosing one is the same
+            # judgement: this card is worth more as its event than as Ops.
+            #
+            # Scoring cards are excluded, and the first version of this
+            # table was four-fifths scoring cards because they were not.
+            # A scoring card has no Ops and cannot be spaced or held past
+            # the turn, so playing it as an event is forced -- it measures
+            # the rules, not the bot. The point of the table is the cards
+            # that had a choice.
+            if mode in ('event', 'headline') and not CARDS[card].scoring:
+                evented[side][card] += count
+        summary['plays_by_mode'] = dict(by_mode.most_common())
+        summary['forced_scoring_plays'] = sum(
+            n for key, n in modes.items() if CARDS[key.split('|')[1]].scoring)
+        # Every play of each card, so the *share* is visible and not just
+        # the count. The two answer different questions: the count says
+        # which events actually decided games, the share says which cards
+        # are never worth their Ops. The maintainer's reading of Junta --
+        # "pretty much never played for ops" -- is a share claim, and a
+        # card drawn twice looks identical to one drawn twenty without it.
+        plays: dict[str, collections.Counter] = {
+            'US': collections.Counter(), 'USSR': collections.Counter()}
+        offered: dict[str, collections.Counter] = {
+            'US': collections.Counter(), 'USSR': collections.Counter()}
+        for key, count in modes.items():
+            side, card, mode = key.split('|')
+            if CARDS[card].scoring:
+                continue
+            if mode == '_event_offered':
+                offered[side][card] += count
+            else:
+                plays[side][card] += count
+        summary['event_offered'] = {
+            side: dict(counter.most_common()) for side, counter in offered.items()}
+        # [card, events, plays, wilson_low, wilson_high].
+        summary['evented_top5'] = {
+            side: [[card, n, plays[side][card], *wilson(n, plays[side][card])]
+                   for card, n in counter.most_common(5)]
+            for side, counter in evented.items()}
+        combined, all_plays = evented['US'] + evented['USSR'], plays['US'] + plays['USSR']
+        summary['evented_top5']['both'] = [
+            [c, n, all_plays[c], *wilson(n, all_plays[c])] for c, n in combined.most_common(5)]
+        # Cards a side essentially never spends for Ops, which is the
+        # other end of the same measurement. Per side, not pooled: a card
+        # the US always events and the USSR once spends is still a US
+        # never-for-Ops card, and pooling hid every one of them. Three
+        # plays is a low bar and deliberately so -- a diagnostic to read,
+        # not a statistic.
+        summary['never_for_ops'] = {
+            side: [[card, plays[side][card]]
+                   for card, n in evented[side].most_common()
+                   if plays[side][card] >= 3 and n == plays[side][card]][:8]
+            for side in ('US', 'USSR')}
     total = sum(g['searches'] for g in games)
     if total:
         summary['mean_search_seconds'] = round(sum(g['search_seconds'] for g in games) / total, 2)
