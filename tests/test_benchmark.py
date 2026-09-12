@@ -269,13 +269,31 @@ def test_acceptance_measures_nuclear_losses_against_their_rate():
     ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=1)),
                             ('held-out', _report(range(5000, 5048), 0.5))])
     assert ok, lines
-    warning = next(line for line in lines if 'WARN nuclear' in line)
-    assert 'seed 4000' in warning  # named so it can be replayed
+    # A single loss at the bot's ordinary rate is a NOTE, not a warning --
+    # but it still names its seed, which is the part that matters. `WARN`
+    # used to fire on any nonzero count, and since the bot runs at ~12.6% it
+    # therefore fired on every run ever printed, which is the same as not
+    # firing at all. Five runs on 2026-09-12 carried it before anyone asked.
+    # 'nuclear losses' also appears in each sample's summary line, so match
+    # the verdict line specifically.
+    note = next(line for line in lines if 'note nuclear losses' in line)
+    assert 'WARN' not in note, f'the usual rate should not raise an alarm: {note}'
+    assert 'seed 4000' in note  # named so it can be replayed
 
-    # A human-like rate passes where the old cap of 1 rejected it.
+    # A human-like rate passes where the old cap of 1 rejected it, and is
+    # still below the warn threshold.
     ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=5)),
                             ('held-out', _report(range(5000, 5048), 0.5, nuclear=5))])
     assert ok, lines
+    assert not any('WARN nuclear' in line for line in lines), lines
+
+    # ELEVATED but under the cap: this is what the warning is for. 192 games,
+    # warn above 18% (34.5), cap at 25% (48).
+    ok, lines = acceptance([('gate', _report(range(4000, 4048), 0.5, nuclear=40)),
+                            ('held-out', _report(range(5000, 5048), 0.5))])
+    assert ok, lines
+    warning = next(line for line in lines if 'WARN nuclear' in line)
+    assert 'seed 4000' in warning
 
     # Past the rate -- where the strength score would catch it anyway -- fails.
     over = nuclear_cap(192) + 1
@@ -288,8 +306,11 @@ def test_the_nuclear_cap_scales_with_the_gate_and_never_fails_a_small_one():
     """A fixed count means different things at 76 seeds and 96. The floor
     keeps a small gate from failing on one or two."""
     from struggler.bots.benchmark import nuclear_cap
-    assert nuclear_cap(192) == 48
-    assert nuclear_cap(152) == 38
+    # Hardcoded on purpose: these pin the shipped rate, so changing it has to
+    # be a deliberate edit here rather than something a test derives and
+    # therefore cannot notice. 30% since 2026-09-12 (was 25%).
+    assert nuclear_cap(192) == 57
+    assert nuclear_cap(152) == 45
     assert nuclear_cap(10) == 3  # the floor, not 2
     # The case that forced the rate to 20%: a 12.6% rate, shared with the
     # baseline, failed a 10% cap once the sample dropped from 192 games to

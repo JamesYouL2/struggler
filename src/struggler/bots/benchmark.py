@@ -445,9 +445,32 @@ ACCEPTANCE = dict(
     # trip this if it ever climbs past 20%. If that happens the fix is a
     # paired comparison against the baseline's rate in the same run, not a
     # higher number.
-    max_nuclear_rate=0.25,
+    max_nuclear_rate=0.30,
     min_nuclear=3,      # never fail a small gate on one or two
-    warn_nuclear=1,
+    # WARN when the rate is ELEVATED, not when it is nonzero. `warn_nuclear=1`
+    # sat here and was never read: the emitting site tested `if nuclear:`, so
+    # at the bot's documented ~12.6% rate a 78-seed gate expects about 19 and
+    # the warning fired on every run ever printed. A warning that always fires
+    # carries no information, and trains the reader to skip the line where a
+    # real excursion would appear -- it did exactly that across five runs on
+    # 2026-09-12 before anyone asked what it was for.
+    #
+    # 0.20 warn, 0.30 fail, both the maintainer's numbers (2026-09-12).
+    #
+    # Sized against variation rather than by feel: the observed rate is 0.126
+    # and the SE at a 192-game gate is 2.4 points, so 20% is 3.1 SE above and
+    # fires by chance in about one run in a thousand, while 30% is 7.3 SE and
+    # effectively never does. 15% was tried first and sits ONE SE above --
+    # roughly one run in six on variation alone, which is how a warning
+    # becomes background noise a second time.
+    #
+    # The band between them is deliberate: 20-30% is elevated enough to
+    # replay and not enough to veto, which is the only range where a warning
+    # rather than a failure is the right instrument.
+    #
+    # Below the warn line the count and seeds are still printed, as a note
+    # rather than an alarm, so nothing is hidden either way.
+    warn_nuclear_rate=0.20,
 )
 
 
@@ -645,13 +668,18 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     if nuclear:
         cap = nuclear_cap(total)
         where = ', '.join(f'seed {s} {side} T{t}' for s, side, t in nuclear_seeds)
+        warn_at = ACCEPTANCE['warn_nuclear_rate'] * total
         if nuclear > cap:
             ok = False
             lines.append(f'  FAIL nuclear losses: {nuclear} is past the {cap} '
                          f'this gate allows ({where})')
+        elif nuclear > warn_at:
+            lines.append(f'  WARN nuclear losses: {nuclear} of {total} games is above the '
+                         f'{ACCEPTANCE["warn_nuclear_rate"]:.0%} this bot normally runs at, '
+                         f'under the {cap} cap but worth a replay ({where})')
         else:
-            lines.append(f'  WARN nuclear losses: {nuclear}, within the rate variance explains, '
-                         f'but replay it ({where})')
+            lines.append(f'  note nuclear losses: {nuclear} of {total}, the usual rate '
+                         f'({where})')
     if len(samples) < ACCEPTANCE['min_samples'] or overlap:
         ok = False
         lines.append(f"  FAIL evidence: need {ACCEPTANCE['min_samples']} samples over disjoint "
