@@ -47,10 +47,20 @@ GAME_SWING_VP = 2 * AUTO_VICTORY_VP
 #
 # It stood at an arbitrary 100. Note that the number is not what makes
 # Europe Control cheap today: it is multiplied by `w.region * urgency /
-# vp_value` ~ 0.027, so it reads as 0.5 VP of board value here and read as
+# vp_value` ~ 0.027, so it reads as 0.5 VP of board value at 20 and read as
 # 2.7 at 100. A terminal outcome priced as a very large scoring is the
 # defect; the constant is only the part that can be made honest cheaply.
-EUROPE_CONTROL_VP = AUTO_VICTORY_VP
+#
+# THE FULL SWING, not the threshold, on the maintainer's call (2026-09-12).
+# Controlling Europe does not move the track to +20 from par, it ends the
+# game -- which from the losing side is a 40-point swing, and that is exactly
+# what GAME_SWING_VP already names: "certain defeat to certain victory".
+# AUTO_VICTORY_VP is the threshold you must reach; the swing you gain by
+# reaching it is twice that, and Europe Control gains the swing.
+#
+# It inherits GAME_SWING_VP's recorded overstatement: the swing actually
+# reachable from VP `v` is asymmetric, and only equals the full track at par.
+EUROPE_CONTROL_VP = GAME_SWING_VP
 
 
 def value_of_win_probability(p: float) -> float:
