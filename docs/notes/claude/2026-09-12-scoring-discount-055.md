@@ -1,5 +1,13 @@
 # A steeper scoring discount: 0.55 against 0.8, 80 seeds
 
+> **DROPPED, 2026-09-12.** Not re-run at a larger sample, and not shipped.
+> The reading below is a measurement of the *superseded* model:
+> `scoring_discount` is factor 3 of value x probability x turn_discount, and
+> with factor 2 absent a steeper discount has been the only way to express
+> "that scoring may never happen". So this fitted two effects at once.
+> Recalibrate after the rebuild gives probability its own term. See
+> `2026-09-12-value-times-probability-times-discount.md`.
+
 The far buckets carry turn 1's mass (cycle 2 and cycle 3 are both at 1.0 there) and the near buckets carry turn 9's, so a steeper discount raises the urgency ratio across the game -- modelled, it moves T9/T1 from 1.51x at 0.8 to about 2.49x at 0.5, peaking there. It also decides whether the missing third cycle in scoring_schedule is worth fixing: that defect is 9% of turn-1 urgency at 0.8 and 0.6% at 0.55.
 
 ## What was measured

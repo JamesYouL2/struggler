@@ -54,12 +54,17 @@ commit "docs: measure whether scoring_discount moves Battleground VP or cancels"
   docs/notes/claude
 
 
-# --- 2. vp_swing at 1.0 --------------------------------------------------
-say "step 2: vp_swing 1.0 (flat) at $SEEDS_PER seeds"
-run_ab "vp-swing-1x" '{"version": 1, "weights": {"vp_swing": 1.0}}' \
-  "7800-7927" "7928-8055" "A flat VP curve: vp_swing 1.0 against the shipped 2.0" \
-  "Fitting the win-probability slope per turn from the gate's VP traces gives spread(T3..T10) of 7.45 -> 6.86, a ratio of 1.09 -- essentially flat -- and the headline 2.32 comes almost entirely from turn 2, where every game sits at 0 VP and the logistic is barely identified. 4.0 measured 0.491 +/-0.026. With 1.0, 2.0 and 4.0 all measured the curve has three points rather than a guess and a rejection."
-commit "docs: vp_swing 1.0 measured against the shipped 2.0" docs/notes/claude
+# --- 2. DROPPED: vp_swing at 1.0 ----------------------------------------
+# Ran 2026-09-12 (0.497 +/-0.072 over 78 seeds), shipped, and the parameter
+# was then REMOVED entirely -- per_vp is now the single constant vp_base.
+#
+# Left as a comment rather than deleted, because re-running it would have
+# been worse than useless. `StrategicWeights.load` filters unknown keys and
+# logs "ignoring retired fields", so `{"vp_swing": 1.0}` would be silently
+# dropped and both arms would play the IDENTICAL shipped bot -- a dead heat
+# by construction, reported as a result. That is shape 3, the measurement
+# comparing something against itself, six recurrences. A dropped experiment
+# whose weight no longer exists is an armed version of it.
 
 # --- 3. the final-scoring weight -----------------------------------------
 say "step 3: scoring_final 3.0 at $SEEDS_PER seeds"
@@ -68,12 +73,20 @@ run_ab "scoring-final-3x" '{"version": 1, "weights": {"scoring_final": 3.0}}' \
   "Measured over 429 corpus positions, the expected-scorings mass in every other bucket is flat or falling across the game -- 'scores this turn' sits at 0.16-0.23 with no trend -- while final_scoring_odds is the only one that rises monotonically, 0.222 -> 0.750 -> 1.0. So it is the only term that can make board value rise late, which is what the maintainer's reading requires. scoring_final is 1.0 today, the same weight as one ordinary region scoring, for the one scoring that is certain if the game runs the distance."
 commit "docs: triple the final-scoring weight, measured over 256 seeds" docs/notes/claude
 
-# --- 4. a steeper discount ------------------------------------------------
-say "step 4: scoring_discount 0.55 at $SEEDS_PER seeds"
-run_ab "scoring-discount-055" '{"version": 1, "weights": {"scoring_discount": 0.55}}' \
-  "8400-8527" "8528-8655" "A steeper scoring discount: 0.55 against 0.8" \
-  "The far buckets carry turn 1's mass (cycle 2 and cycle 3 are both at 1.0 there) and the near buckets carry turn 9's, so a steeper discount raises the urgency ratio across the game -- modelled, it moves T9/T1 from 1.51x at 0.8 to about 2.49x at 0.5, peaking there. Whether that survives into Battleground VP rather than cancelling against ops_value(1) is what step 1 measures; this measures whether it is worth anything in play."
-commit "docs: a steeper scoring discount measured over 256 seeds" docs/notes/claude
+# --- 4. DROPPED: a steeper scoring discount -----------------------------
+# scoring_discount 0.55 ran on 2026-09-12 and read 0.463 +/-0.064 over 80
+# seeds -- the weakest of the day and the only one that leaned clearly
+# negative. Dropped on the maintainer's call rather than re-run larger,
+# because the parameter is about to change meaning.
+#
+# `scoring_discount` is factor 3 of value x probability x turn_discount, and
+# factors 2 and 3 have been doing each other's work: a discount raised to a
+# power has been the ONLY way this model can express "that scoring may never
+# happen", since factor 2 -- probability -- does not exist. So any value
+# fitted now is fitting two effects at once, and the reading above is a
+# measurement of the superseded model. Recalibrate it after the rebuild
+# gives probability its own term, not before. See
+# docs/notes/claude/2026-09-12-value-times-probability-times-discount.md.
 
 say "follow-on queue finished"
 grep -E "score |done:|FAILED" "$STATUS" | sed 's/^/  /' | tee -a "$STATUS"
