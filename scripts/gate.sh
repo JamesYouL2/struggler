@@ -214,11 +214,48 @@ $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "
 sample_machine
 echo "== 1c. types and lint (advisory)"
 # Advisory on purpose: the hard gate is tests/test_types.py, five rules at
-# zero findings. This is the rest -- about 95 ty diagnostics of annotation
-# debt and 109 ruff findings -- reported so the backlog stays visible
-# without blocking a change on it.
-"$ROOT/.venv/bin/ty" check --output-format concise 2>&1 | tail -1 | sed 's/^/  ty: /' || true
-"$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1 | tail -3 | sed 's/^/  ruff: /' || true
+# zero findings. This is the rest -- annotation debt and lint backlog.
+#
+# REPORTED AS A DELTA AGAINST THE BASE, not as a total. It used to print
+# "ty: Found 113 diagnostics" and "ruff: Found 130 errors" on every run,
+# which is a standing backlog and not news: the number was the same before
+# the change and after it, so the line could never mean anything. Lines that
+# always appear are read as decoration and then the one time they move,
+# nobody notices -- the same failure as the nuclear warning that fired on
+# every gate for weeks (aaa6341).
+#
+# A gate has the base checked out, so the honest question is "did THIS change
+# add any?", and silence is the right answer when it did not.
+advisory_count() {  # advisory_count <dir> <tool>
+  # Match the "Found N" SUMMARY line, not `tail -1`. ruff --statistics ends
+  # with "[*] 28 fixable with the --fix option", so tail -1 reads the fixable
+  # count and reports 28 where the real figure is 131. ty happens to end with
+  # its summary, which is exactly how a wrong parse survives review: it is
+  # right for one of the two tools.
+  case "$2" in
+    ty)   (cd "$1" && "$ROOT/.venv/bin/ty" check --output-format concise 2>&1) ;;
+    ruff) (cd "$1" && "$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1) ;;
+  esac | grep -oE 'Found [0-9]+' | tail -1 | grep -oE '[0-9]+'
+}
+ADVISORY_BASE=$(mktemp -d)
+if git worktree add -q --detach "$ADVISORY_BASE" "$BASE" 2>/dev/null; then
+  for tool in ty ruff; do
+    now=$(advisory_count "$SNAP" "$tool"); was=$(advisory_count "$ADVISORY_BASE" "$tool")
+    now=${now:-0}; was=${was:-0}
+    if [ "$now" -gt "$was" ]; then
+      echo "  $tool: +$((now - was)) since $BASE ($was -> $now)"
+    elif [ "$now" -lt "$was" ]; then
+      echo "  $tool: -$((was - now)) since $BASE ($was -> $now), backlog down"
+    else
+      echo "  $tool: unchanged at $now"
+    fi
+  done
+  git worktree remove --force "$ADVISORY_BASE" 2>/dev/null || true
+else
+  echo "  (base worktree unavailable; advisory totals only)"
+  "$ROOT/.venv/bin/ty" check --output-format concise 2>&1 | tail -1 | sed 's/^/  ty: /' || true
+  "$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1 | tail -1 | sed 's/^/  ruff: /' || true
+fi
 sample_machine
 echo "== 2. turn-3 checkpoint vs $BASE"
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3
