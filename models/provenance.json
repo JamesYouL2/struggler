@@ -254,10 +254,10 @@
    "note": "Face value priced Grain Sales at 8.2 and Missile Envy at 6.0 against the expert's 4 and 3, and the gate rejected it at 0.428; at half they price 4.1 and 3.0 and scored 0.539. Both an expert fixture and a gate agree."
   },
   "VALUE_RADIUS": {
-   "value": 3,
+   "value": 2,
    "source": "derived",
    "determination": "overdetermined",
-   "note": "A property of what `access` walks, not a choice, and a test enforces that it matches."
+   "note": "A property of what `access` walks, not a choice, and a test enforces that it matches. Was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's neighbours and then asked whether THOSE were reachable, one hop further again. That loop went with `access_chain` (d941a5b) and the radius followed it down. At 2 the reads are: a neighbour `n`, then whether any neighbour of `n` holds influence, and `reach[n]`, which is itself a function of influence one step from `n` -- the same two hops. Verified exhaustively rather than by the sampled test: 420 placements over all 84 countries, zero countries moved outside the claimed set. Worth 37% fewer country_value calls per trial placement (mean 7.4 countries re-valued against 11.8), which lands on the event sandbox's hot path. Narrowing this is the dangerous direction -- too small serves stale values silently, too large is merely slow -- which is why it was checked over every country and not the six the test samples."
   },
   "RISK_WARNING": {
    "value": 0.5,

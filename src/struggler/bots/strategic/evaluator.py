@@ -462,13 +462,25 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     return total
 
 
-# How far `country_value` reads. `access` walks a neighbour's neighbours and
-# then asks whether *those* are reachable, which is one hop further again, so
-# a country keeps its value only when nothing within three steps of it moved.
+# How far `country_value` reads. `access` looks at a neighbour `n`, then asks
+# whether any neighbour of `n` already holds influence -- two steps out -- and
+# `reach[n]` is itself a function of influence one step from `n`, which is the
+# same two. So a country keeps its value while nothing within two steps of it
+# moved.
+#
+# It was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's
+# neighbours and then asked whether *those* were reachable, one hop further
+# again. That loop went with `access_chain` (d941a5b), and the radius follows
+# it down. Narrowing this is not cosmetic -- `dependents` is what lets the
+# event sandbox reuse a basis instead of re-valuing the board per event, so a
+# smaller radius is fewer countries re-valued on every trial placement.
+#
 # This lives next to the terms because it is a property of them: change what
 # `access` walks and this has to change with it, which
-# `test_value_dependents_covers_every_country_a_change_can_move` enforces.
-VALUE_RADIUS = 3
+# `test_value_dependents_covers_every_country_a_change_can_move` enforces --
+# and it enforces it in the dangerous direction, since a radius that is too
+# SMALL silently serves stale values while one too large is merely slow.
+VALUE_RADIUS = 2
 
 
 def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
