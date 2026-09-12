@@ -27,6 +27,14 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The suite runs `gate.sh --check`, whose default base is HEAD~1.
+          # actions/checkout is shallow by default, so HEAD~1 does not exist
+          # and four tests in test_gate_script.py fail with
+          # `fatal: bad revision 'HEAD~1..HEAD'`. drift.yml already carries
+          # this flag with a comment saying it fails silently without it; the
+          # lesson was not applied here until CI said so.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true

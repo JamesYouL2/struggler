@@ -25,6 +25,23 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _has_gate_history() -> bool:
+    """Whether `gate.sh` can run here at all.
+
+    `.git` existing is NOT the precondition and saying so cost a CI run.
+    The script's default base is HEAD~1, so a SHALLOW clone -- which has a
+    `.git` directory and one commit -- passes the old guard and then dies
+    with `fatal: bad revision 'HEAD~1..HEAD'`, reported as four failures of
+    the gate script rather than as a missing checkout depth. GitHub's
+    actions/checkout is shallow by default, which is exactly how it was
+    found (2026-09-12).
+    """
+    if not (ROOT / '.git').exists():
+        return False
+    return subprocess.run(['git', 'rev-parse', '--verify', '-q', 'HEAD~1'],
+                          cwd=ROOT, capture_output=True).returncode == 0
 GATE = ROOT / 'scripts' / 'gate.sh'
 LIB = ROOT / 'scripts' / 'lib' / 'gate_common.sh'
 
@@ -39,7 +56,7 @@ def test_the_script_is_syntactically_valid():
     assert done.returncode == 0, done.stderr
 
 
-@pytest.mark.skipif(not (ROOT / '.git').exists(), reason='needs the git history')
+@pytest.mark.skipif(not _has_gate_history(), reason='needs git history deeper than HEAD')
 def test_the_preamble_runs_end_to_end():
     """Setup, helpers, snapshots, worktree. Anything that would die in the
     first twenty lines dies here in seconds instead of in an hour."""
@@ -54,7 +71,7 @@ def test_the_preamble_runs_end_to_end():
     assert 'gawk' not in done.stderr, done.stderr
 
 
-@pytest.mark.skipif(not (ROOT / '.git').exists(), reason='needs the git history')
+@pytest.mark.skipif(not _has_gate_history(), reason='needs git history deeper than HEAD')
 def test_the_machine_line_reports_one_number_per_field():
     """The `0\\n0` bug produced a multi-line field. One line, three counts."""
     done = run_check()
@@ -66,7 +83,7 @@ def test_the_machine_line_reports_one_number_per_field():
     assert int(counts[0]) >= 0, f'negative process count: {line!r}'
 
 
-@pytest.mark.skipif(not (ROOT / '.git').exists(), reason='needs the git history')
+@pytest.mark.skipif(not _has_gate_history(), reason='needs git history deeper than HEAD')
 def test_the_check_run_reports_a_contention_verdict():
     """--check must exercise sample_machine and contention_verdict, or the
     dry run stops covering the helpers it exists to cover."""
