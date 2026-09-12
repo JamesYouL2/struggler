@@ -39,8 +39,9 @@
 # `ACCEPTANCE['min_games']` that early stopping could shave at most 5 seeds:
 # the gate on 2026-09-11 stopped at 153 of 160.
 #
-# It is now `scripts/drift_check.sh`, scheduled by `scripts/drift_cron.sh`,
-# where it can afford a sample big enough to mean something -- at 16 seeds it
+# It is now `scripts/drift_check.sh`, scheduled by `.github/workflows/drift.yml`
+# (and runnable by hand), where it can afford a sample big enough to mean
+# something -- at 16 seeds it
 # once read 0.469 against v0.1.0 where the full 77-seed run gave 0.578. Drift
 # accumulates over many commits, so once a day is the right rate for it.
 #

@@ -19,7 +19,10 @@ it, in the manner of `test_base_cache_discipline.py`.
 """
 from __future__ import annotations
 
+import pytest
 import subprocess
+
+from conftest import gate_lock_free
 import sys
 from pathlib import Path
 
@@ -27,6 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / 'scripts' / 'gate_running.py'
 
 
+@pytest.mark.skipif(not gate_lock_free(),
+                    reason='a real gate is running, so "not running" is the wrong answer')
 def test_the_checker_does_not_see_itself():
     """The exact failure: a command line that mentions the script."""
     script = (

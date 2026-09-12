@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import os
 import subprocess
+
+from conftest import gate_lock_free
 from pathlib import Path
 
 import pytest
@@ -160,6 +162,8 @@ def test_the_drift_canary_is_no_longer_in_the_gate():
     assert (ROOT / 'scripts' / 'drift_check.sh').exists()
 
 
+@pytest.mark.skipif(not gate_lock_free(),
+                    reason='a gate holds the lock; these tests need to take it')
 def test_a_second_gate_is_refused_while_one_holds_the_lock():
     """Two gates at the same HEAD share logs/game-check/gate-<sha>/, and
     `snapshot` opens with `rm -rf` -- so the second deletes the first's
@@ -182,6 +186,8 @@ def test_a_second_gate_is_refused_while_one_holds_the_lock():
     assert 'GATE REFUSED' in done.stderr, done.stderr
 
 
+@pytest.mark.skipif(not gate_lock_free(),
+                    reason='a gate holds the lock; these tests need to take it')
 def test_check_is_not_blocked_by_the_lock():
     """`--check` writes to a mktemp directory and the suite runs it, so
     blocking there would fail the suite whenever a gate happens to be running."""

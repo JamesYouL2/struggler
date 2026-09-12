@@ -1,0 +1,129 @@
+# The gate, on runners instead of the one local box.
+#
+# WHY THIS EXISTS. `gate.sh` holds a global lock -- one gate per machine --
+# because eight shared cores mean two runs halve each other's speed and
+# corrupt both sets of timings. That lock is a property of having ONE
+# machine, not of the gate. A hosted runner is isolated, so several gates can
+# run at once and the local box stays free for the work that actually needs
+# quotable wall-clock.
+#
+# WHAT SURVIVES THE MOVE AND WHAT DOES NOT. The verdict survives: the seeds
+# are deterministic, so contention moves the clock and never the result. The
+# TIMINGS do not -- a shared runner's wall-clock means nothing, and the
+# script's "budget: under 60m" line will say OVER simply because 4 vCPU is
+# half the cores it was calibrated on. That is the runner, not contention and
+# not a regression. Anything that needs a quotable number still runs locally.
+#
+# THE EXIT STATUS IS THE VERDICT (scripts/gate.sh, line 8), so this job fails
+# exactly when the gate rejects. The codes: 0 accepted, 3 a step produced no
+# result (crashed or was killed), 4 the base predates the package split and
+# cannot be a baseline, 5 refused because another gate holds the lock -- which
+# cannot happen here, one runner per job.
+name: gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      bases:
+        description: 'JSON list of revisions to gate against, one job each'
+        default: '["HEAD~1"]'
+      seeds:
+        description: 'Verdict sample'
+        default: '4000-4063'
+      held:
+        description: 'Held-out sample, never the seeds a change was tuned on'
+        default: '5000-5063'
+  pull_request:
+    # Only when the bot actually changed. `gate.sh` says it itself: if
+    # BASE..HEAD touches no file under src/struggler/bots, both sides play
+    # byte-identical players and step 4 can only report a dead heat. Gating a
+    # docs commit would burn an hour to measure nothing, and worse, print a
+    # 0.500 that looks like evidence.
+    paths:
+      - 'src/struggler/bots/**'
+      - 'src/struggler/data/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  # Supersede a PR's older gate; never cancel a dispatch someone asked for.
+  group: gate-${{ github.ref }}-${{ github.event.inputs.bases || 'pr' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    # ~52 minutes at 79 seeds on 8 local cores, so budget roughly double for
+    # 4 vCPU and leave room for a full 128-seed run that does not curtail.
+    timeout-minutes: 300
+    strategy:
+      # A rejection is a RESULT. Cancelling the sibling jobs would throw away
+      # the comparison that tells you which base the regression entered at.
+      fail-fast: false
+      matrix:
+        base: ${{ fromJSON(github.event.inputs.bases || '["pr"]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # REQUIRED. `gate.sh` runs `git archive <base>` to snapshot the old
+          # bot and `git worktree add HEAD` for the new one, and its default
+          # base is HEAD~1. A shallow checkout has neither the history nor the
+          # tags, and fails with `fatal: bad revision`. This cost a CI run
+          # once already, in tests.yml.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # --extra test, not a bare sync: step 1c runs `ruff` and `ty`, which
+      # live in [project.optional-dependencies].test. The package itself has
+      # no runtime dependencies at all, so a bare sync installs nothing else.
+      - run: uv sync --frozen --extra test
+
+      - name: resolve the base
+        id: base
+        # On a pull_request the right base is the branch point, not HEAD~1:
+        # HEAD is the merge commit, so HEAD~1 is whatever happened to be
+        # merged last and gating against it compares the branch with main's
+        # tip rather than with where the branch started.
+        run: |
+          if [ "${{ matrix.base }}" = "pr" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ matrix.base }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: gate against ${{ steps.base.outputs.ref }}
+        run: |
+          set -o pipefail
+          scripts/gate.sh "${{ steps.base.outputs.ref }}" \
+            "${{ github.event.inputs.seeds || '4000-4063' }}" 4 \
+            "${{ github.event.inputs.held || '5000-5063' }}" \
+            2>&1 | tee gate.log
+
+      - name: summarise
+        if: always()
+        run: |
+          {
+            echo "### gate vs \`${{ steps.base.outputs.ref }}\`"
+            echo
+            echo '```'
+            grep -E "^ACCEPTED|^REJECTED|ok strength|WARN|pooled score|full-vs-|took " gate.log \
+              || tail -25 gate.log
+            echo '```'
+            echo
+            echo "_ACCEPTED means **not measurably worse**, never better._"
+            echo "_Wall time from a shared runner is not quotable; the verdict is._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-${{ matrix.base }}
+          path: |
+            gate.log
+            logs/game-check/
+          retention-days: 30

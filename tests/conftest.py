@@ -10,11 +10,14 @@ test_engine_m2.py, fixed by consolidating here).
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 from struggler.engine import Engine
 from struggler.engine.cards import ENTRY_TURN, cards_entering
 from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.rules import RULES
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def bare_engine(seed: int = 0) -> Engine:
@@ -111,3 +114,34 @@ def assert_invariants(engine: Engine) -> None:
         assert placeholder_slots == len(engine.hidden_pool)
         assert HIDDEN_CARD not in engine.discard_pile
         assert HIDDEN_CARD not in engine.removed_cards
+
+
+def gate_lock_free() -> bool:
+    """Whether nothing already holds the gate lock -- i.e. no gate is running.
+
+    A precondition several tests share and none of them used to check. The
+    lock tests in `test_gate_script.py` take the lock themselves, non-blocking,
+    to simulate a held one; `test_the_checker_does_not_see_itself` asserts
+    `gate_pids()` finds nothing. All three are true only on an idle machine,
+    and all three failed together on 2026-09-12 with a 128-seed gate live --
+    three failures about the machine, reported as failures of the code.
+
+    That matters because it is the normal case, not an exotic one: CLAUDE.md
+    says to run the full suite before committing, the queue scripts run gates,
+    and a gate takes over an hour.
+
+    The lock is used as the signal DELIBERATELY, rather than `gate_pids()`.
+    The checker test exists to catch `gate_pids()` returning a false positive,
+    so gating it on `gate_pids()` would turn exactly that defect into a skip.
+    An independent signal keeps the test honest.
+    """
+    import fcntl
+    lock = ROOT / 'logs' / 'game-check' / '.lock'
+    try:
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock, 'w') as probe:
+            fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(probe, fcntl.LOCK_UN)
+        return True
+    except (BlockingIOError, OSError):
+        return False
