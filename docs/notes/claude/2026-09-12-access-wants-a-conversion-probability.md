@@ -78,6 +78,67 @@ And `access = 1.5`, the master multiplier, is the same shape as
 `region = 1.3`: an exactly-derivable VP quantity scaled by a guess. At par
 it is 1.0.
 
+## Measured, 2026-09-12
+
+`scripts/measure_access_conversion.py`, 16 self-play games, 688 resolved
+opportunities. An opportunity is opened once per turn per (side,
+battleground) where the side holds a neighbour and does not control it, and
+resolved when that battleground's region next scores -- the horizon the
+value function prices against, since a battleground pays at scoring and not
+before.
+
+| stability | n | p |
+| ---: | ---: | ---: |
+| 1 | 57 | 0.456 |
+| 2 | 221 | 0.344 |
+| 3 | 288 | 0.306 |
+| 4 | 122 | 0.180 |
+| **all** | **688** | **0.308** |
+
+**`p` is a function of stability, monotonically, across a 2.5x range.** That
+is the derivation's central claim and it survives measurement: no constant
+can express this column.
+
+Two things follow, and both say the shipped term is wrong.
+
+**`access_redundant` should be about 0.69, not 0.35.** It is `1 - p`, and
+`p = 0.308`. The shipped 0.35 encodes `p ~ 0.65` -- the conversion rate
+roughly inverted, undervaluing a second route by half.
+
+**`1/stability` is too steep as the proxy for `p`.** Normalised it decays
+1.0 / 0.50 / 0.33 / 0.25, a 4x fall; measured `p` decays 1.0 / 0.75 / 0.67 /
+0.40, a 2.5x fall. Fitting the exponent gives `p ~ stability ** -0.67`, not
+`** -1`. High-stability countries are penalised harder than their actual
+conversion rate warrants.
+
+### And the loop has to count k
+
+The maintainer: *"It should be one number, of course... tuned
+exponentially"* and *"we do need to count k"*.
+
+Right, and that is a real change rather than a relabelling. `access()` today
+asks a BOOLEAN -- is there another holding that reaches this -- and applies
+the flat constant if so. The geometric form needs the number of existing
+routes:
+
+    route 1: p        route 2: p(1-p)        route k: p(1-p)^(k-1)
+
+Summed over three routes the flat form pays `1 + 0.35 + 0.35 = 1.70`; the
+geometric form at `p = 0.308` pays `0.308 * (1 + 0.692 + 0.479) = 0.67`.
+Different by 2.5x, and diverging further the more routes exist.
+
+### The caveat this number carries
+
+`p` is measured from THIS BOT PLAYING ITSELF, so it is the rate this bot
+converts reach into control -- a descriptive rate being used as a
+prescriptive weight. A stronger bot would convert more, which would justify
+valuing reach more, which would change how it plays. That circularity is
+real and unavoidable at this stage; it is still far better than a guess, and
+the stability curve is the part least likely to be an artifact of it.
+
+Opportunities that never resolve -- the region does not score again before
+the game ends -- are dropped, which biases toward regions that score.
+
 ## What this buys
 
 Three guessed, underdetermined weights collapse to **one measurable
