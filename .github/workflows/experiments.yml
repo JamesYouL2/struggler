@@ -1,0 +1,155 @@
+# Weight A/Bs, one runner per arm, all at once.
+#
+# The third thing the local queue could not do. `gate.yml` compares
+# revisions and `drift.yml` compares anchors; neither runs
+# `benchmark --bot-weights`, which is what an experiment actually is -- so
+# on 2026-09-12 `scoring_discount 0.93` ran for an hour on the maintainer's
+# box while CI sat idle.
+#
+# ARMS COME FROM .github/experiments.json so adding one is a data change, not
+# a workflow change. Dispatch can also take an inline arm for a one-off
+# without editing anything.
+#
+# SIZE THEM PROPERLY. The local queue's sizes were chosen against a machine
+# that runs one thing at a time; a runner per arm removes that constraint and
+# the reason to skimp with it. Several 2026-09-12 runs read +/-0.06 to
+# +/-0.075 and could not settle what they were asked -- vp_swing 1.0 and
+# access_chain both came back "not measurably worse" at a resolution that
+# could not have seen a six-point loss. Prefer more arms at full size.
+name: experiments
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Run one arm by slug (blank = every arm in experiments.json)'
+        default: ''
+      inline:
+        description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9163","held":"9164-9227","title":"t","context":"c"}'
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      arms: ${{ steps.pick.outputs.arms }}
+      count: ${{ steps.pick.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: pick
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          inline = os.environ.get('INLINE', '').strip()
+          only = os.environ.get('ONLY', '').strip()
+          if inline:
+              arms = [json.loads(inline)]
+          else:
+              arms = json.load(open('.github/experiments.json'))['experiments']
+              if only:
+                  arms = [a for a in arms if a['slug'] == only]
+          # A matrix over an empty list is a workflow error, not an empty run,
+          # so say so plainly instead of failing with a YAML message.
+          assert arms, ('no arms to run: experiments.json is empty and no inline '
+                        'arm was given. Add one to .github/experiments.json.')
+          seen = [a['slug'] for a in arms]
+          assert len(set(seen)) == len(seen), f'duplicate slugs: {seen}'
+          for a in arms:
+              assert a.get('held'), (
+                  f"{a['slug']}: 'held' is required. --decide is gated on a held "
+                  f"sample existing, so without it early stopping silently does "
+                  f"nothing and the arm always runs to full length.")
+          print(f'arms={json.dumps(arms)}')
+          print(f'count={len(arms)}')
+          PY
+        env:
+          INLINE: ${{ github.event.inputs.inline }}
+          ONLY: ${{ github.event.inputs.only }}
+
+  run:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      # An arm coming back surprising is a RESULT. Cancelling its siblings
+      # throws away the comparison that makes a set of arms worth more than
+      # the sum of its runs.
+      fail-fast: false
+      matrix:
+        arm: ${{ fromJSON(needs.plan.outputs.arms) }}
+    steps:
+      # No fetch-depth: 0 here, unlike gate.yml and drift.yml. Those snapshot
+      # a base revision with `git archive` and need history; a weight A/B runs
+      # current code on both sides and differs only in a weights file.
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # Base sync is enough: the package declares no runtime dependencies and
+      # the benchmark is stdlib. ruff and ty are only needed by the gate.
+      - run: uv sync --frozen
+
+      - name: ${{ matrix.arm.slug }}
+        run: |
+          set -o pipefail
+          echo '${{ toJSON(matrix.arm.weights) }}' \
+            | python3 -c 'import json,sys; print(json.dumps({"version":1,"weights":json.load(sys.stdin)}))' \
+            > arm.weights.json
+          cat arm.weights.json
+          # --decide AND --held-seeds, both: _decided is gated on a held sample
+          # existing, so --decide alone does nothing. --stall-timeout is not the
+          # same guard twice -- early stopping is only evaluated when a game
+          # finishes, so it cannot rescue a hang.
+          uv run python -m struggler.bots.benchmark \
+            --bot strategic --bot-weights arm.weights.json --opponent strategic \
+            --seeds '${{ matrix.arm.seeds }}' \
+            --held-seeds '${{ matrix.arm.held }}' \
+            --held-report '${{ matrix.arm.slug }}.held.json' \
+            --decide --stall-timeout 1200 --workers 4 \
+            --report '${{ matrix.arm.slug }}.json' 2>&1 | tail -40
+
+      - name: summarise
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os, statistics, math, collections, pathlib
+          slug = os.environ['SLUG']
+          games = []
+          for p in (f'{slug}.json', f'{slug}.held.json'):
+              if pathlib.Path(p).exists():
+                  games += json.load(open(p))['games']
+          print(f"### `{slug}`\n")
+          print(f"```\n{json.dumps(json.loads(os.environ['W']))}\n```\n")
+          by = collections.defaultdict(list)
+          for g in games:
+              if g.get('result') is not None:
+                  by[g['seed']].append(g['result'])
+          m = [statistics.fmean(v) for v in by.values()]
+          if len(m) > 1:
+              hw = 1.96 * statistics.stdev(m) / math.sqrt(len(m))
+              print(f"**pooled {statistics.fmean(m):.3f} +/-{hw:.3f}** over {len(m)} seeds, {len(games)} games\n")
+              print("_Pooled over both samples, by seed: both seats of a seed play the "
+                    "same deal and are one observation, not two._\n")
+          else:
+              print("_no finished games_\n")
+          print("_A score is not a verdict. This says what was measured, not what it means._")
+          PY
+        env:
+          SLUG: ${{ matrix.arm.slug }}
+          W: ${{ toJSON(matrix.arm.weights) }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: experiment-${{ matrix.arm.slug }}
+          path: |
+            ${{ matrix.arm.slug }}.json
+            ${{ matrix.arm.slug }}.held.json
+            arm.weights.json
+          retention-days: 30

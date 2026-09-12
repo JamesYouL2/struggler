@@ -1,0 +1,14 @@
+{
+  "_what": "Weight A/Bs for .github/workflows/experiments.yml. One entry per arm; every entry runs as its own job, in parallel, on its own runner.",
+  "_schema": {
+    "slug": "filename-safe id; names the artifact and the report",
+    "weights": "object merged into StrategicWeights, e.g. {\"scoring_final\": 3.0}",
+    "seeds": "the verdict sample, as lo-hi",
+    "held": "the held-out sample, disjoint from seeds -- required, because --decide is gated on a held sample existing and passing --decide alone does nothing",
+    "title": "one line for the generated note",
+    "context": "why this arm, what it should show, and what it cannot -- the runner will not interpret the result for you"
+  },
+  "_sizing": "128 seeds by default and 256 the ceiling, matching scripts/lib/queue_common.sh. The reason for 128 is early stopping: ACCEPTANCE min_games is 150 pooled, so an 80-seed run is 160 games and --decide has ten games of slack. Measured 2026-09-12: an 80-seed run saved 4%, a 128-seed run 16%. The reason for 256 as a ceiling is that half-width falls as 1/sqrt(n) and 512 would buy +/-0.028 for four and a half hours.",
+  "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
+  "experiments": []
+}
