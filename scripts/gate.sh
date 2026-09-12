@@ -93,6 +93,12 @@ PY=${PYTHON:-$ROOT/.venv/bin/python}
 MACHINE_AT_START=$(machine)
 HEAD_SHA=$(git rev-parse --short HEAD)
 OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
+# --check gets its own directory. Sharing the real one is not a tidiness
+# issue: `snapshot` begins with `rm -rf`, so a dry run at the same HEAD
+# deletes a *running* gate's baseline. That happened -- the suite runs
+# `gate.sh --check` through tests/test_gate_script.py, and doing so during
+# a gate killed it at step 3 with a missing snapshot, forty minutes in.
+[ "$CHECK" = "1" ] && OUT=$(mktemp -d)
 mkdir -p "$OUT"
 GATE_STARTED=$(date +%s)
 elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
