@@ -4,7 +4,7 @@
   "unit": "Seat-own Ops: positive is good for the seat that holds the card, so a USSR event worth 6.5 to the USSR is 6.5 under USSR, not -6.5. Matches expert_valuations_midwar.json, not the US-signed convention of expert_valuations.json.",
   "tolerance_ops": 0.75,
   "_conditional_note": "Where a card's value depends on a prerequisite, `ops` is the base and `ops_with_bonus` is the value once the condition holds. The bot has no way to express this yet: it prices one number per card. Making the condition visible is itself a finding.",
-  "_vp_scale_tension": "The maintainer's stated scale is 2 Ops = 1 VP in the Late War, which would make Glasnost's 2 VP worth about 4 Ops on its own. They price the whole base at 1.0. So either event-granted VP does not convert at the same rate as VP bought with Ops, or the DEFCON improvement is a real cost to the USSR that offsets most of it. Unresolved, and it matters: `vp_late` is 2.0 in StrategicWeights and every Late War VP event is priced through it.",
+  "_vp_scale_tension": "The maintainer's stated scale is 2 Ops = 1 VP in the Late War, which would make Glasnost's 2 VP worth about 4 Ops on its own. They price the whole base at 1.0. So either event-granted VP does not convert at the same rate as VP bought with Ops, or the DEFCON improvement is a real cost to the USSR that offsets most of it. Unresolved, and it matters: the Late War rate is now the tail of a smooth curve -- per_vp(10) = vp_base * vp_swing = 0.5 * 2.0 = 1.0, half the 2.0 the old `vp_late` step used -- and every Late War VP event is priced through it.",
   "USSR": {
     "cards": {
       "Aldrich_Ames_Remix": {

@@ -364,9 +364,34 @@ class StrategicWeights:
     # it. The old flat `vp` of 3.0 raw priced a VP at 0.08-0.23 Ops
     # everywhere, several times under on every scoring, war and VP-event
     # decision, and by 10-25x in the Late War.
-    vp_early: float = 0.5
-    vp_mid: float = 1.0
-    vp_late: float = 2.0
+    #
+    # Now a smooth curve rather than three steps, which the comment above
+    # called "the natural refinement once tuning wants it". Two parameters,
+    # separable on purpose:
+    #
+    #   vp_base   Ops per VP on turn 1. Sets the *level*.
+    #   vp_swing  how much dearer a VP is by turn 10. Sets the *shape*.
+    #
+    #     per_vp(turn) = vp_base * vp_swing ** ((turn - 1) / 9)
+    #
+    # The steps were 0.5 / 1.0 / 2.0, a 4x swing that doubled the price of
+    # a VP overnight at turn 4 -- halving every board value in VP terms
+    # between one round and the next, which nothing in the game does.
+    #
+    # 2.0, not 4.0, because that is what the evidence supports: expected VP
+    # still to be scored falls about 35% over the game, a 1.55x swing, and
+    # linear and exponential fits to it agree on that to within 3%. The
+    # maintainer wants 4.0 gated too, for reasons the scarcity curve cannot
+    # see -- pushing and defending the 20 VP threshold, and a Late War deck
+    # carrying more variance. Both are effects on what a VP is *worth*
+    # rather than on how many remain.
+    #
+    # Deliberately *not* in here: "the 20th VP matters more than the 19th".
+    # That is a VP-level effect and belongs in a term keyed on the score,
+    # where it can be sharp; folded into a turn curve it would fire on
+    # turn 9 whatever the VP.
+    vp_base: float = 0.5
+    vp_swing: float = 2.0
     # Military Operations, priced in VP like everything else. Rule 6.3.5 is
     # exact and there is nothing to estimate: at the end of the turn a side
     # whose Military Ops are below the DEFCON level hands the *difference*
@@ -378,7 +403,7 @@ class StrategicWeights:
     # War, so the requirement was priced at 3% to 14% of its real value and
     # the bot had almost no reason to cover it. This is the third weight
     # found flat against the Ops scale, after `vp` and `ops`; see the
-    # comment on vp_early.
+    # comment on vp_base.
     military: float = 1.0
     # Retired: the estimate fallback it scaled now prices through
     # `ops_value`, like every other Ops term. Kept so saved weights and the
@@ -1146,10 +1171,10 @@ class StrategicPlayer:
 
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
-        (StrategicWeights.vp_early/mid/late) times what one Op buys on this
+        (`vp_base` and `vp_swing`, a smooth curve) times what one Op buys on this
         board, so VP and Ops stay on one scale as the board's Ops value moves."""
         w = self.weights
-        per_vp = w.vp_early if obs.turn <= 3 else w.vp_mid if obs.turn <= 7 else w.vp_late
+        per_vp = w.vp_base * w.vp_swing ** ((obs.turn - 1) / 9)
         fixed = self.__dict__.get('_vp_price')
         if fixed is not None:
             return per_vp * fixed
@@ -1708,7 +1733,7 @@ class StrategicPlayer:
             # through here was priced at 0.02-0.06 Ops: CIA Created, which
             # grants a literal Op, came out at 1.6 raw against 28.6 for one
             # Op. The same defect was found and fixed for `vp` (see the
-            # StrategicWeights comment on vp_early); `ops` was left behind.
+            # StrategicWeights comment on vp_base); `ops` was left behind.
             result = sign * self.ops_value(obs, card.ops) * 0.8
         # No event is worth more than winning, so a value term is bounded by
         # the game before any risk arithmetic touches it (the convex

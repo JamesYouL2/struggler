@@ -104,22 +104,6 @@
    "determination": "underdetermined",
    "note": "Multiplies region_vp into the board value, and is one of the three terms that together let a full Africa swing read as 9.1 VP where the rules pay 22."
   },
-  "vp_early": {
-   "value": 0.5,
-   "source": "expert",
-   "determination": "overdetermined",
-   "note": "The maintainer's era rule, confirmed three ways: the opening-board fixture (Olympic Games 0.3, Korean War -1), the uncontested tier rate of 1.76 Ops per VP, and their own account of why it doubles late ('everything is contested')."
-  },
-  "vp_mid": {
-   "value": 1.0,
-   "source": "expert",
-   "determination": "overdetermined"
-  },
-  "vp_late": {
-   "value": 2.0,
-   "source": "expert",
-   "determination": "overdetermined"
-  },
   "military": {
    "value": 1.0,
    "source": "derived",
@@ -170,6 +154,18 @@
    "source": "gate",
    "determination": "bounded",
    "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
+  },
+  "vp_base": {
+   "value": 0.5,
+   "source": "expert",
+   "determination": "bounded",
+   "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit is `battleground`, already recorded here as known-wrong."
+  },
+  "vp_swing": {
+   "value": 2.0,
+   "source": "measured",
+   "determination": "bounded",
+   "note": "How much dearer a VP is by turn 10; the *shape*. 2.0 because expected VP still to be scored falls ~35% over the game, a 1.55x swing, and linear and exponential fits agree to within 3% max error -- the data cannot separate the two shapes, only the size. The old steps implied 4x, about 2.5x steeper than scarcity supports. 4.0 is to be gated as well: threshold pressure at 20 VP and Late War variance are effects on what a VP is worth that the scarcity curve cannot see. A better basis now exists and is not yet run: under P(win) = F(v_eff / s), per_vp(turn) is 1/s(turn), so vp_swing is exactly spread(T1)/spread(T10) -- a ratio of standard deviations of the VP still to be swung, not a taste parameter. `benchmark.play_game` now records a per-turn VP trace and `scripts/vp_spread.py` reduces it; the next gate's reports supply the data."
   }
  },
  "SurvivalPrior": {
@@ -260,19 +256,19 @@
  "_summary": {
   "counts_by_source": {
    "guess": 24,
-   "expert": 6,
    "gate": 5,
+   "expert": 4,
    "derived": 4,
-   "measured": 3
+   "measured": 4
   },
   "counts_by_determination": {
    "underdetermined": 16,
    "inert": 7,
    "determined": 7,
-   "overdetermined": 6,
-   "bounded": 4,
+   "bounded": 6,
+   "overdetermined": 3,
    "known-wrong": 2
   },
-  "_reading": "24 of 42 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 6 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP, the era VP rates). Nothing in the access or margin families has ever been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression."
+  "_reading": "24 of 42 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. Nothing in the access or margin families has ever been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression."
  }
 }

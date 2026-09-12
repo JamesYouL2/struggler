@@ -152,7 +152,7 @@
       }
     }
   },
-  "_vp_scale_note": "Expert rule: 1 Op = 2 VP in the Early War (a VP is 0.5 Op), 1 Op = 1 VP in the Mid War, 2 Ops = 1 VP in the Late War. Encoded as StrategicWeights.vp_early/vp_mid/vp_late.",
+  "_vp_scale_note": "Expert rule: 1 Op = 2 VP in the Early War (a VP is 0.5 Op), 1 Op = 1 VP in the Mid War, 2 Ops = 1 VP in the Late War. Encoded since 2026-09-11 as the two-parameter curve StrategicWeights.vp_base (0.5, Ops per VP on turn 1) and vp_swing (2.0, how much dearer a VP is by turn 10): per_vp(turn) = vp_base * vp_swing ** ((turn - 1) / 9). The three era steps this replaced implied a 4x total swing; 2.0 is what the scarcity of remaining VP supports, and 4.0 is to be gated against it.",
   "unpriceable": {
     "_note": "Events the sandbox cannot price: firing them on eight boards (opening, T5, T7, T9, both seats) moves no influence and no VP, so they value 0. Grouped by why. Rank or price these in Ops (seat-own) and the flag-event parameters get fitted to them. Some are 0 only because their eligibility was never met on those boards (Wargames and Cuban Missile Crisis need DEFCON 2; Solidarity needs John Paul II; Ortega needs a Nicaragua coup; Our Man in Tehran needs Iran).",
     "flag_or_defcon": {
