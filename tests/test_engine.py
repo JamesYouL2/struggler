@@ -23,7 +23,9 @@ def test_setup_bonus_places_two_more_us_points_where_the_us_already_is():
     assert Engine.deserialize(engine.serialize()).setup_bonus is True
     # Without the handicap the game goes straight to the headline, and the
     # recorded state carries no new key.
-    plain = Engine.new_game(seed=5)
+    # Explicit: the tournament default is now setup_bonus=True, and this
+    # arm is the one that checks setup ends at the headline *without* it.
+    plain = Engine.new_game(seed=5, setup_bonus=False)
     for _ in range(13):
         plain.step(plain.pending_decision.options[0])
     assert plain.phase == 'headline' and 'setup_bonus' not in plain.serialize()

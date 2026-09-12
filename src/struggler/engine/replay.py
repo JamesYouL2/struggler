@@ -67,6 +67,9 @@ def make_engine(log: dict[str, Any]) -> Engine:
         physical_side = log.get("physical_side")
         return Engine.new_game(
             seed=log["seed"],
+            # False, not the engine's True default: a log written before
+            # this key existed must replay as it was recorded. Several
+            # golden logs under tests/replays/ omit it.
             include_optional=log.get("include_optional", False),
             events=log.get("events", False),
             physical_mode=log.get("physical_mode", False),
@@ -79,9 +82,16 @@ def make_engine(log: dict[str, Any]) -> Engine:
             # recorded: replay diverged at the first action, with the log
             # still placing bonus Influence while the rebuild expected a
             # headline.
-            setup_bonus=log.get("setup_bonus", False),
+            setup_bonus=log.get("setup_bonus", False),   # as above
         )
     engine = Engine(seed=log["seed"])
+    # Sandbox logs predate both flags and have no deck of their own, but
+    # `serialize()` writes them, so a checkpoint recorded before the
+    # construction defaults changed compares against them. Same rule as the
+    # `new_game` branch above: a saved artifact replays as it was recorded,
+    # not as today's default.
+    engine.include_optional = log.get("include_optional", False)
+    engine.setup_bonus = log.get("setup_bonus", False)
     apply_setup(engine, log["setup"])
     return engine
 

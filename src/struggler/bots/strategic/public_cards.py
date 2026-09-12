@@ -55,7 +55,14 @@ def card_state(obs: Observation, card: str) -> str:
 # How many cards join the draw pile at the start of each turn, from the
 # static period schedule. The deck is not a fixed pool: it roughly doubles
 # at turn 4 and grows by half again at turn 8.
-ENTERING = {turn: len(cards_entering(CARDS, period, False))
+# `True`, matching `Engine.new_game`, which is how every played game is
+# built -- benchmark, gate and tests alike. `Engine.__init__` defaults the
+# flag the other way, for bare engines in unit tests, and taking that
+# default here made this three cards short per period in every real game.
+# Caught by the engine's new "MID_WAR enters: 49 cards" log line the day
+# it was added, against this file's 46. Gated by
+# tests/test_public_cards.py::test_entering_matches_what_the_engine_adds.
+ENTERING = {turn: len(cards_entering(CARDS, period, True))
             for period, turn in ENTRY_TURN.items() if turn > 1}
 
 

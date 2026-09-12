@@ -102,8 +102,20 @@ class Engine:
         self.log = log
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
-        self.include_optional = False
-        self.setup_bonus = False  # US handicap placement after the Western Europe setup
+        # The tournament default, and what the maintainer tunes the bot on:
+        # the seven optional cards in the deck and the US +2 handicap after
+        # the Western Europe setup. `new_game` already defaulted
+        # `include_optional` to True while this defaulted it to False, and
+        # taking the wrong one of the two made the bot's reshuffle estimate
+        # three cards short per period in every real game. One default.
+        #
+        # `deserialize` and `replay` keep their own `False` fallbacks
+        # deliberately: those read *saved* artifacts, and a log or state
+        # written before a key existed has to come back as it was written
+        # rather than as today's default. Several golden replays under
+        # tests/replays/ omit both keys.
+        self.include_optional = True
+        self.setup_bonus = True  # US handicap placement after the Western Europe setup
         self.draw_pile: list[str] = []
         self.discard_pile: list[str] = []
         self.removed_cards: list[str] = []
@@ -429,7 +441,7 @@ class Engine:
         events: bool = True,
         physical_mode: bool = False,
         physical_side: Side | None = None,
-        setup_bonus: bool = False,
+        setup_bonus: bool = True,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -873,6 +885,11 @@ class Engine:
 
     def _add_period_to_deck(self, period: Period) -> None:
         entering = cards_entering(self.cards, period, self.include_optional)
+        # Distinct from a reshuffle, and easily mistaken for one: both grow
+        # the draw pile. 46 Mid War cards at turn 4 and 21 Late War at turn
+        # 8 are what postpone the second reshuffle.
+        self.log.info("T%d %s enters: %d cards join a draw pile of %d",
+                      self.turn, period.name, len(entering), len(self.draw_pile))
         if self.physical_mode:
             # Real cards enter a real physical deck: identity is unknown
             # until an operator declares it (dealt or reshuffled in), so
@@ -910,6 +927,15 @@ class Engine:
         return self.draw_pile.pop()
 
     def _reshuffle_discard_into_draw(self) -> None:
+        # Logged because working out when reshuffles happen took a
+        # purpose-built script, and the first version of it miscounted:
+        # it watched the draw pile grow, which is also what a new period
+        # entering does. Turn 3 is forced by arithmetic; the second one
+        # turns on about one card and moves between turns 7 and 9. See
+        # docs/notes/claude/ on the reshuffle estimate.
+        self.log.info("T%d AR%d RESHUFFLE: %d discards back into a draw pile of %d",
+                      self.turn, self.action_round, len(self.discard_pile),
+                      len(self.draw_pile))
         if self.physical_mode:
             # A real reshuffle forgets identity again: the discarded cards
             # go back to being an unaccounted-for pool, not a known order.

@@ -62,7 +62,7 @@ def test_dice_driven_replay_is_deterministic():
 
 
 def test_game_log_writer_finalize_with_no_actions(tmp_path):
-    engine = Engine.new_game(seed=7)
+    engine = Engine.new_game(seed=7, setup_bonus=False)
     writer = GameLogWriter(tmp_path / "game.json", engine)
 
     writer.finalize(Side.US)
@@ -75,7 +75,7 @@ def test_game_log_writer_finalize_with_no_actions(tmp_path):
 
 def test_play_game_log_path_produces_a_readable_replayable_log(tmp_path):
     log_path = tmp_path / "full_game.json"
-    engine = Engine.new_game(seed=3)
+    engine = Engine.new_game(seed=3, setup_bonus=False)
     players = {Side.US: FirstLegalPlayer(), Side.USSR: RandomPlayer(seed=4)}
 
     winner = play_game(engine, players, log_path=str(log_path))
@@ -102,7 +102,7 @@ def test_play_game_log_path_produces_a_readable_replayable_log(tmp_path):
 
 def test_replay_history_matches_run_replay_and_the_logged_actions(tmp_path):
     log_path = tmp_path / "full_game.json"
-    engine = Engine.new_game(seed=3)
+    engine = Engine.new_game(seed=3, setup_bonus=False)
     players = {Side.US: FirstLegalPlayer(), Side.USSR: RandomPlayer(seed=4)}
     play_game(engine, players, log_path=str(log_path))
     log = json.loads(log_path.read_text(encoding="utf-8"))
@@ -121,7 +121,7 @@ def test_replay_history_matches_run_replay_and_the_logged_actions(tmp_path):
 
 
 def test_game_log_writer_continues_from_initial_actions(tmp_path):
-    engine = Engine.new_game(seed=7)
+    engine = Engine.new_game(seed=7, setup_bonus=False)
     prior_action = {
         "actor": "USSR",
         "kind": "place_influence",
@@ -142,7 +142,7 @@ def test_game_log_writer_continues_from_initial_actions(tmp_path):
 def test_resuming_from_a_trimmed_log_continues_the_same_on_disk_record(tmp_path):
     # Play a full game once to get a real, non-trivial action log.
     full_log_path = tmp_path / "full.json"
-    engine = Engine.new_game(seed=3)
+    engine = Engine.new_game(seed=3, setup_bonus=False)
     players = {Side.US: FirstLegalPlayer(), Side.USSR: RandomPlayer(seed=4)}
     play_game(engine, players, log_path=str(full_log_path))
     full_log = json.loads(full_log_path.read_text(encoding="utf-8"))

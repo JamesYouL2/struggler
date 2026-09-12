@@ -33,7 +33,7 @@ def _no_coup(actions):
 
 
 def test_new_game_opens_with_setup_and_full_hands():
-    engine = Engine.new_game(seed=1, events=False)
+    engine = Engine.new_game(seed=1, events=False, setup_bonus=False)
     decision = engine.pending_decision
     assert decision is not None
     # Opening choice is the USSR's additional Eastern Europe setup placement.
@@ -51,7 +51,7 @@ def test_new_game_opens_with_setup_and_full_hands():
 
 
 def test_setup_places_the_additional_influence_then_reaches_headline():
-    engine = Engine.new_game(seed=1, events=False)
+    engine = Engine.new_game(seed=1, events=False, setup_bonus=False)
     # Base printed totals before the additional placement.
     base_ussr = sum(v["USSR"] for v in engine.board.influence.values())
     base_us = sum(v["US"] for v in engine.board.influence.values())
@@ -79,7 +79,7 @@ def test_action_round_resets_to_1_at_the_start_of_a_new_turns_headline():
     # stale number (LLMPlayer's remaining-action-rounds calculation) badly
     # undercounts how many rounds are actually left and can wrongly mark most
     # of the hand 'hold'.
-    engine = Engine.new_game(seed=1, events=False)
+    engine = Engine.new_game(seed=1, events=False, setup_bonus=False)
     while engine.turn == 1:
         engine.step(engine.legal_actions()[0])
     assert engine.turn == 2
@@ -109,7 +109,7 @@ def test_observe_exposes_public_track_state():
     # Military ops, phase, and the event modifier maps are all public board
     # state; a player needs them to reason about the game, not just the
     # bare minimum required to stay legal.
-    engine = Engine.new_game(seed=1, events=False)
+    engine = Engine.new_game(seed=1, events=False, setup_bonus=False)
     engine.military_ops["US"] = 3
     engine.turn_effects["containment"] = True
     engine.game_effects["nato"] = True
@@ -129,7 +129,7 @@ def test_observe_exposes_public_track_state():
 def test_observe_does_not_leak_in_progress_secret_headline_pick():
     # Headline is a simultaneous, secret reveal: while USSR has picked but
     # US hasn't, US's Observation must not carry USSR's pick anywhere.
-    engine = Engine.new_game(seed=1, events=False)
+    engine = Engine.new_game(seed=1, events=False, setup_bonus=False)
     while engine.pending_decision.context.get("setup"):
         engine.step(engine.legal_actions()[0])
     assert engine.pending_decision.kind is DecisionKind.HEADLINE_PLAY
