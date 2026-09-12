@@ -1,0 +1,97 @@
+# The drift canary, one job per anchor, all at once.
+#
+# This is the thing a local machine cannot do. `scripts/gate.sh` enforces one
+# run at a time with a lock, because eight shared cores mean two runs halve
+# each other's speed and corrupt both sets of timings. A hosted runner is
+# isolated: every anchor gets its own 4 vCPU and 16 GB and cannot see the
+# others, so bisecting drift stops being sequential. Ask v0.1.0, v0.2.0 and
+# v0.2.1 in one pass instead of three, and read where the drift entered from
+# the table rather than from three runs a day apart.
+#
+# `drift_check.sh` takes no lock (only `gate.sh` does), so concurrency here
+# is safe by construction rather than by convention.
+name: drift
+
+on:
+  workflow_dispatch:
+    inputs:
+      anchors:
+        description: 'JSON list of refs to measure against'
+        default: '["v0.1.0", "v0.2.0", "v0.2.1"]'
+      seeds:
+        description: 'Seed range, the same for every anchor so the readings are commensurable'
+        default: '6000-6127'
+  schedule:
+    # Sunday 03:00 UTC. Drift is a slow signal; weekly is often enough, and
+    # a scheduled run on a quiet day competes with nothing.
+    - cron: '0 3 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    # ~2h expected at 128 seeds on 4 vCPU, against GitHub's 6h ceiling. Set
+    # explicitly so a hang is killed by us at a known point rather than by
+    # the platform at an arbitrary one.
+    timeout-minutes: 300
+    strategy:
+      # One anchor failing is a RESULT, not a reason to cancel the others --
+      # the whole point of asking three at once is to see which ones trip.
+      fail-fast: false
+      matrix:
+        anchor: ${{ fromJSON(github.event.inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1"]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # REQUIRED, and the failure is silent without it. drift_check.sh
+          # runs `git archive <anchor>` to snapshot the old bot and
+          # `git worktree add HEAD` for the new one. The default shallow
+          # checkout has neither the tags nor the history to do either.
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - run: uv sync --frozen
+
+      - name: drift vs ${{ matrix.anchor }}
+        id: drift
+        # 4 workers, not the script's default of 8: ubuntu-latest gives
+        # public repos 4 vCPU, and oversubscribing costs throughput and makes
+        # the wall clock meaningless. The VERDICT is unaffected either way --
+        # the seeds are deterministic, so contention moves the clock and never
+        # the result, which is why CI is a legitimate home for this.
+        #
+        # Exit 1 means drift was called and the job should fail. Exit 3 means
+        # the benchmark crashed, which is a different problem and also fails.
+        run: |
+          set -o pipefail
+          scripts/drift_check.sh "${{ matrix.anchor }}" "${{ github.event.inputs.seeds || '6000-6127' }}" 4 \
+            2>&1 | tee drift-${{ matrix.anchor }}.log
+
+      - name: summarise
+        if: always()
+        run: |
+          {
+            echo "### drift vs \`${{ matrix.anchor }}\`"
+            echo
+            echo '```'
+            grep -E "score |DRIFT|ok: upper bound|took |contention" \
+              drift-${{ matrix.anchor }}.log || tail -20 drift-${{ matrix.anchor }}.log
+            echo '```'
+            echo
+            echo "_Wall time from a shared runner is not quotable; the verdict is._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drift-${{ matrix.anchor }}
+          path: |
+            drift-${{ matrix.anchor }}.log
+            logs/drift/
+          retention-days: 30

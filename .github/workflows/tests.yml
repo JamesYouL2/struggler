@@ -1,0 +1,35 @@
+# The suite, on every push and pull request.
+#
+# ~7 minutes locally on an idle 8-core box; expect longer on 4 vCPU. Two
+# files are most of it -- `test_parity_corpus.py` rebuilds a bot per record
+# and is the exactness oracle, `test_poke_rate.py` plays four games and is
+# the only behavioural rate the suite measures -- and both earn it.
+#
+# This exists partly because of 52bb329: a weight default changed, the parity
+# corpus was run and passed, and the change was committed. The corpus replays
+# each record at its RECORDED weights, so it is structurally blind to a change
+# in defaults and could not have caught the behaviour regression that was
+# already there. The full suite is the check for that, and a human deciding
+# to run it is exactly the step that gets skipped.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - run: uv run pytest -q
