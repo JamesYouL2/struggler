@@ -21,6 +21,12 @@ opportunity is opened once per turn per (side, battleground) and resolved
 when `n`'s region next scores -- the horizon the value function actually
 prices against, since a battleground pays at scoring and not before.
 
+Also measures RETENTION, the same walk with the condition flipped:
+P(still control at the next scoring | control now). That is the flip
+discount -- how much of a battleground's value survives to be scored -- and
+`wipe_risk` is one component of it (a 3-4 Ops coup removing every point).
+Measuring the whole thing directly is what lets the component go.
+
     python scripts/measure_access_conversion.py --seeds 4000-4007
 
 Reports p by stability, which is the shape the formula wants: `p` should be
@@ -42,6 +48,12 @@ from struggler.bots.benchmark import parse_seeds
 SIDES = (Side.US, Side.USSR)
 
 
+def held(engine, side: Side) -> set[str]:
+    """Battlegrounds `side` controls right now."""
+    return {cid for cid, info in engine.board.countries.items()
+            if info.battleground and engine.board.control(cid) is side}
+
+
 def opportunities(engine, side: Side) -> set[str]:
     """Battlegrounds `side` reaches from a holding but does not control."""
     board = engine.board
@@ -57,11 +69,12 @@ def opportunities(engine, side: Side) -> set[str]:
     return out
 
 
-def play(seed: int, stats, opened) -> None:
+def play(seed: int, stats, opened, keep) -> None:
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     bots = {s: StrategicPlayer() for s in SIDES}
     # (side, country) -> turn it was opened; resolved at the next scoring.
     live: dict[tuple[Side, str], int] = {}
+    holding: dict[tuple[Side, str], int] = {}
     seen_turn = -1
     steps = 0
     while not engine.is_terminal and steps < 20000:
@@ -71,6 +84,8 @@ def play(seed: int, stats, opened) -> None:
             for s in SIDES:
                 for cid in opportunities(engine, s):
                     live.setdefault((s, cid), engine.turn)
+                for cid in held(engine, s):
+                    holding.setdefault((s, cid), engine.turn)
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             action = d.options[0]
@@ -89,6 +104,12 @@ def play(seed: int, stats, opened) -> None:
             stats[stab].append(got)
             opened[stab] += 1
             del live[(s, cid)]
+        for (s, cid), turn in list(holding.items()):
+            if engine.board.countries[cid].region is not region:
+                continue
+            keep[engine.board.countries[cid].stability].append(
+                engine.board.control(cid) is s)
+            del holding[(s, cid)]
 
 
 def main(argv=None) -> int:
@@ -96,10 +117,11 @@ def main(argv=None) -> int:
     ap.add_argument('--seeds', default='4000-4007')
     args = ap.parse_args(argv)
     stats: dict[int, list[bool]] = collections.defaultdict(list)
+    keep: dict[int, list[bool]] = collections.defaultdict(list)
     opened: collections.Counter = collections.Counter()
     seeds = parse_seeds(args.seeds)
     for i, seed in enumerate(seeds, 1):
-        play(seed, stats, opened)
+        play(seed, stats, opened, keep)
         print(f'  seed {seed} done ({i}/{len(seeds)})', file=sys.stderr, flush=True)
 
     print(f'\nreach -> control, over {len(seeds)} games')
@@ -117,6 +139,16 @@ def main(argv=None) -> int:
         print('  `access()` discounts the k-th route into a battleground by')
         print('  access_decay ** (1 - k), all k routes carrying the same weight.')
         print('  That is the geometric form of P(control) = 1 - (1-p)^k.')
+    print(f'\nretention -> still controlled when the region next scores')
+    print(f'{"stability":>10} {"n":>6} {"keep":>8}')
+    allk = []
+    for stab in sorted(keep):
+        v = keep[stab]; allk += v
+        print(f'{stab:>10} {len(v):>6} {statistics.fmean(v):>8.3f}')
+    if allk:
+        print(f'{"all":>10} {len(allk):>6} {statistics.fmean(allk):>8.3f}')
+        print('  This is the flip discount: the share of a battleground\'s value that')
+        print('  survives to be scored. wipe_risk models one component of it.')
     print('\n  Not a strength measurement. It says how often reach becomes control,')
     print('  not whether pricing reach that way helps the bot win.')
     return 0
