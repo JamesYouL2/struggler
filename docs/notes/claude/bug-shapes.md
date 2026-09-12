@@ -130,3 +130,30 @@ same way.
 written to pin current behaviour rather than desired behaviour, say so in
 its name or docstring so the next reader knows it is a characterisation
 test and not a specification.
+
+### 9. A process check that matches the process doing the checking (four times)
+
+`pgrep -f <pattern>` matches against full command lines, and the asking
+process has one. All four were the same bug wearing different clothes:
+
+- `pkill -f 'openings US=france'` killed the shell that ran it, because
+  that shell's own command line contained the pattern.
+- `pgrep -f 'gate.sh'` reported a gate running when none was, for the
+  same reason.
+- Six `until ! pgrep -f 'pytest -q'` wait-loops span for hours after the
+  suite finished: the loop's own `eval` string contains `pytest -q`, so
+  the condition could never become false. They were found only because
+  the maintainer asked why ten tasks were running.
+- A guard written *to prevent* this -- `pgrep -f '[g]ate.sh'`, bracketed
+  -- still matched, because the same compound command also contained
+  `bash -n scripts/gate.sh` in plain text. The bracket protects the
+  pattern from itself; it does nothing about the rest of your own
+  command line.
+
+**The practice: never ask `pgrep` whether something is running.** The
+bracket trick is not a fix, it is a narrower version of the same bug, and
+it fails the moment the command line grows. Enumerate `/proc`, exclude
+your own PID *and every ancestor*, and match on the actual executable
+plus argv -- `scripts/gate_running.py` is the worked version. If a shell
+one-liner is genuinely required, `flock` on a lock file answers "is it
+running" without pattern-matching anything.

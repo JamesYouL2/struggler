@@ -70,6 +70,9 @@ SHAPE_GATES: dict[int, list[str]] = {
         'test_a_sequential_comparison_is_fooled_by_the_same_drift'],
     8: ['test_mutation_can_be_restricted_to_named_weights',
         'test_every_characterisation_test_says_so'],
+    9: ['test_the_checker_does_not_see_itself',
+        'test_pgrep_would_have_been_fooled',
+        'test_the_bracket_trick_is_not_a_fix'],
 }
 
 
@@ -177,7 +180,7 @@ def test_the_bot_takes_its_ops_modifiers_from_the_engine():
     were missing the Containment/Brezhnev ceiling -- so a 4-Ops card under
     Containment was worth 5 to each of them, consistently and wrongly.
 
-    It is derived now (`_effective_ops_estimate` calls `effective_ops`),
+    It is derived now (`effective_ops_estimate` calls `effective_ops`),
     which is the strong fix; this proves the two still agree over every
     combination rather than trusting that nobody re-inlines it. The rule
     has three independent flags and two bounds, so the space is small
@@ -186,7 +189,7 @@ def test_the_bot_takes_its_ops_modifiers_from_the_engine():
     """
     import itertools
 
-    from struggler.bots.greedy import _effective_ops_estimate
+    from struggler.bots.rules_math import effective_ops_estimate
     from struggler.engine.core import OPS_CEILING, OPS_FLOOR, effective_ops
 
     class FakeCard:
@@ -208,7 +211,7 @@ def test_the_bot_takes_its_ops_modifiers_from_the_engine():
             effects['red_scare'] = red_scare
         expected = effective_ops(ops, effects, side)
         seat_view = dataclasses.replace(observation, turn_effects=effects)
-        assert _effective_ops_estimate(FakeCard(ops), seat_view, side) == expected, (
+        assert effective_ops_estimate(FakeCard(ops), seat_view, side) == expected, (
             f'the bot and the engine disagree at ops={ops} {effects} {side}')
         floored += expected == OPS_FLOOR
         capped += expected == OPS_CEILING

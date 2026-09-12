@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from struggler.bots.greedy import _space_race_expected_vp
+from struggler.bots.rules_math import space_race_expected_vp
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.strategic.policy import CARDS, is_certain
 from struggler.engine import Engine, Side
@@ -47,11 +47,62 @@ def test_a_space_race_attempt_is_worth_more_than_nothing(turn):
     """
     _engine, bot, obs = primed(turn)
     for side in (Side.US, Side.USSR):
-        expected = _space_race_expected_vp(obs, side)
+        expected = space_race_expected_vp(obs, side)
         assert expected >= 0, f'turn {turn} {side.value}: negative expected VP {expected}'
     # Not yet at the top of the track, so there is something to gain.
-    assert _space_race_expected_vp(obs, obs.side) > 0, (
+    assert space_race_expected_vp(obs, obs.side) > 0, (
         'the Space Race is worth nothing from the start of the track')
+
+
+@pytest.mark.parametrize('position', range(8))
+def test_a_space_race_attempt_is_worth_something_from_every_box(position):
+    """The same principle from *every* box, not only an empty track.
+
+    The original test above parametrised over turns and always started from
+    box 0, where `vp_first` is 2 -- so it never entered an ability box and
+    passed for three years of a live defect. Boxes 2, 4 and 6 award 0 VP to
+    both first and second, so the rules-faithful helper returns exactly 0.0
+    and `space_value` read the attempt as a pure cost. The track is
+    sequential: box 3 (2 VP), 5 (3) and 7 (4) are all unreachable without
+    crossing one, so a zero there is a wall in front of every reward.
+
+    The assertion is on the *bot's* valuation, not on the shared helper.
+    `space_race_expected_vp` returning 0 for an ability box is correct --
+    it reports what the rules award, and `greedy.py` and `benchmark.py`'s
+    baseline depend on that staying true. What an ability is worth is
+    strategy, and that is `StrategicPlayer._space_expected_vp`.
+    """
+    engine, bot, _obs = primed(turn=5)
+    engine.space_race[Side.US.value] = position
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    assert bot._space_expected_vp(obs) > 0, (
+        f'from box {position} the bot prices a Space Race attempt at zero or '
+        f'less; boxes 2/4/6 award no VP and their abilities must carry it')
+
+
+def test_a_space_race_ability_is_worth_nothing_once_the_opponent_holds_it():
+    """`Engine._grant_space_ability` pops the effect when the opponent draws
+    level, so a box they have already reached grants no ability. Pricing one
+    there would pay for something the rules do not hand over."""
+    engine, _bot, _obs = primed(turn=5)
+    engine.space_race[Side.US.value] = 1          # next attempt is box 2
+    engine.space_race[Side.USSR.value] = 2        # they are already there
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    held = bot._space_expected_vp(obs)
+
+    engine.space_race[Side.USSR.value] = 0        # now nobody holds it
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+    free = bot._space_expected_vp(obs)
+
+    assert free > held, (
+        f'reaching box 2 first ({free}) must beat reaching it after the '
+        f'opponent already holds the ability ({held})')
 
 
 def test_playing_our_own_or_a_neutral_card_beats_not_playing_it():

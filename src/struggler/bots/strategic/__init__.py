@@ -26,9 +26,10 @@ from struggler.bots.strategic.policy import (   # noqa: F401
     SandboxUnsupported, StrategicPlayer, StrategicWeights,
     coup_bans, scoring_flags,
 )
-# Private helpers that live in `greedy` and reach the rest of the repo
-# through this name. `import *` skips leading underscores, and the tests
-# and the corpus generator import them from here.
+# Shared rules arithmetic. It lives in `bots/rules_math.py`; this re-export
+# stays because the tests, `rollout.py` and the corpus generator reach it
+# through this name. (It used to live in `greedy.py`, which made one
+# baseline bot the home of code four other things import.)
 from struggler.bots.strategic.policy import (  # noqa: F401
-    _bonus_ops, _coup_risks_defcon, _in_bonus_region, _sync_board,
+    bonus_ops, coup_risks_defcon, in_bonus_region, sync_board,
 )

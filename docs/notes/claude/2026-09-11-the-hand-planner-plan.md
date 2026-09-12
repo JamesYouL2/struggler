@@ -165,3 +165,42 @@ loss for a scoring card.
 
 Steps 1 and 2 are mechanical and parity-checkable, and they are
 prerequisites. Step 3 is where the Twilight Struggle judgement lives.
+
+## Where the worst cards go (maintainer, 2026-09-11)
+
+> Your two worst cards are generally for space and hold. And the US hold
+> card should be Blockade based.
+
+This is a structural constraint on the assignment, and it sharpens two
+things the plan already had as loose ends.
+
+**Space and hold are the disposal slots.** Both take a card *out* of play
+without firing its event, so both are worth most when spent on the card
+whose play value is worst -- an opponent's event you do not want to fire.
+That is already how `space_card` chooses ("the opponent's card whose
+Ops-plus-event is worst, among those the Space Race accepts now"), but
+`value_as_held` has no equivalent, and nothing coordinates the two. They
+compete for the same card: the worst card can only go to one of them, and
+the *second* worst takes the other slot. An assignment planner gets this
+for free; a per-card comparison cannot.
+
+It also explains why the Space Race attempt reading as a pure cost was
+survivable for so long. `space_value` nets a flat `0.4 * ops_value(ops)`
+charge, which assumes the Ops were worth having. For a disposal card they
+are worth *negative*, so the real comparison is much more favourable than
+the one the code makes -- and the zero-VP ability boxes were sitting on
+top of that.
+
+**The US hold card is Blockade-shaped.** The maintainer's earlier rule was
+that in the Early War the US should generally play Blockade and discard a
+USSR 3-card unless it holds Containment or UN Intervention. The
+generalisation here is that *which* card the US holds is not a free choice
+at all while Blockade is live and the US controls West Germany: it must
+keep a 3+ Ops card to pay with, or lose all its Influence there.
+
+So the hold slot is contested between two jobs -- disposal (dump the worst
+card) and reservation (keep a payer) -- and they want opposite cards. That
+is the third concept the plan already identified as missing, now with a
+concrete rule attached: **when a foreseeable demand exists, reservation
+wins the hold slot and disposal falls to the Space Race.** Latin American
+Debt Crisis has the same shape, and the China Card question is adjacent.

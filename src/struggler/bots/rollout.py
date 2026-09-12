@@ -16,8 +16,8 @@ from collections.abc import Mapping
 
 from struggler.engine import DecisionKind as K
 from struggler.bots.strategic.defcon import DefconPlanner
-from struggler.bots.strategic import (LOSS, StrategicPlayer, _bonus_ops, _coup_risks_defcon,
-                                      _in_bonus_region, _sync_board)
+from struggler.bots.strategic import (LOSS, StrategicPlayer, bonus_ops, coup_risks_defcon,
+                                      in_bonus_region, sync_board)
 
 
 def _freeze(value):
@@ -94,7 +94,7 @@ class RolloutPolicy(StrategicPlayer):
     def coup_survival_risk(self, obs, country):
         # The full policy re-plans the whole hand at DEFCON-1 for every
         # target; here only the certain loss matters.
-        if not _coup_risks_defcon(obs, obs.side, self.board.countries[country]):
+        if not coup_risks_defcon(obs, obs.side, self.board.countries[country]):
             return self._planner.discard_risk(None)
         return 1. if obs.defcon - 1 <= 1 else self._planner.discard_risk(None)
 
@@ -113,7 +113,7 @@ class RolloutPolicy(StrategicPlayer):
         if cached is not None:
             self.hits += 1
             ranked, self._plan, self._placements = cached
-            _sync_board(self.board, obs)  # callers read the board after a hit too
+            sync_board(self.board, obs)  # callers read the board after a hit too
             self._position.refresh(self.board)  # ... and the snapshot goes with it
             return ranked
         ranked = self._served(obs) if self.serve_plans else None
@@ -181,7 +181,7 @@ class RolloutPolicy(StrategicPlayer):
             # country this plan would place in.
             ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
                        if outside == 0
-                       and all(_in_bonus_region(self.board.countries[c], tag) for c in options))
+                       and all(in_bonus_region(self.board.countries[c], tag) for c in options))
         super().rank_actions(obs)  # sync the board and caches
         self._base_regions = {}
         board, side = self.board, obs.side
@@ -227,7 +227,7 @@ class RolloutPolicy(StrategicPlayer):
         board, side = self.board, obs.side
         engine = self.public_engine(obs)
         coup = kind == 'coup'
-        candidates = ((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup
+        candidates = ((self.coup(obs, c, ops + bonus_ops(i, ctx.get('bonus'))) if coup
                        else self.realign(obs, c) * ops, c)
                       for c, i in board.countries.items()
                       if engine._usable_coup_realign_target(side, c, for_coup=coup))

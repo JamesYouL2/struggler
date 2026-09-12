@@ -174,8 +174,8 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
     assert weights[0] < weights[1] < weights[2]  # scored < live < held
-    from struggler.bots.greedy import _sync_board
-    _sync_board(bot.board, live)
+    from struggler.bots.rules_math import sync_board
+    sync_board(bot.board, live)
     deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
@@ -305,11 +305,11 @@ def test_country_tiers_and_coup_discount():
     assert 0 < bot.weights.control < bot.weights.battleground / 2
     # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)
-    from struggler.bots.greedy import _sync_board
-    _sync_board(bot.board, obs)
+    from struggler.bots.rules_math import sync_board
+    sync_board(bot.board, obs)
     bot.board.influence['Angola']['USSR'] = 1
     full = StrategicPlayer(StrategicWeights(coup_discount=1.0))
-    _sync_board(full.board, obs)
+    sync_board(full.board, obs)
     full.board.influence['Angola']['USSR'] = 1
     assert 0 < bot.coup(obs, 'Angola', 2) < full.coup(obs, 'Angola', 2)
     assert bot.realign(obs, 'Angola') == pytest.approx(0.9 * full.realign(obs, 'Angola'))

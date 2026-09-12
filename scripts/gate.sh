@@ -21,38 +21,31 @@
 # 150 finished games, which at a 76.5s median game over 8 workers is 24
 # minutes before anything else runs. Ten minutes needs a ~2.5x faster game,
 # not fewer seeds. See docs/notes/claude/ "The gate's time budget".
-# Usage: scripts/gate.sh [base-ref=HEAD~1] [drift-ref=v0.1.0] [seeds=4000-4031] [workers=8] [held-out=5000-5047] [drift-seeds=6000-6015]
+# Usage: scripts/gate.sh [base-ref=HEAD~1] [seeds=4000-4031] [workers=8] [held-out=5000-5063]
+# Drift against an old anchor is scripts/drift_check.sh, not this script.
 # Results go to logs/game-check/gate-<head>/ and a one-line summary is printed.
 # The candidate is a snapshot: HEAD is checked out into a temporary
 # worktree and every benchmark runs from there, so editing the working
 # tree while a gate runs cannot change what it measures (it did, once:
 # a gate blamed a nuclear loss on a commit that never produced one).
-# The drift run (3c) plays the candidate against the oldest tag still
-# believed sound (docs/VERSIONING.md, default v0.1.0) rather than against
-# HEAD~1. One baseline cannot see drift: a run of individually-neutral
-# changes can walk the bot downward with every single gate accepting.
+# THE DRIFT CANARY MOVED OUT, 2026-09-11. It ran here as step 3c, against the
+# oldest tag still believed sound, because one baseline cannot see drift: a run
+# of individually-neutral changes can walk the bot downward with every single
+# gate accepting. That reasoning still holds; running it *here* did not.
 #
-# It gets its own 16 seeds, paid for by taking the verdict from 96 down to
-# 80 -- so the whole gate still plays 192 games and costs what it did.
+# It never decided anything -- acceptance runs against HEAD~1 and never saw it
+# -- so it spent 32 of every 192 games on a reading with no authority, and it
+# cost the verdict 16 seeds (96 -> 80). That left the pool so close to
+# `ACCEPTANCE['min_games']` that early stopping could shave at most 5 seeds:
+# the gate on 2026-09-11 stopped at 153 of 160.
 #
-# Not a half-and-half split, which is the obvious version and costs more
-# than it looks: 48 seeds widens the verdict's half-width from +/-0.032 to
-# +/-0.045, and a wider interval makes the gate *more permissive* exactly
-# where it is meant to be strict. It also leaves ~96 games, under the 150
-# `benchmark.ACCEPTANCE` requires. At 80 the half-width is +/-0.035, 9%
-# wider, and 160 games clears the floor with room -- `_decided` will not
-# stop below 150 whatever the score says, so early stopping can shave at
-# most five seeds here rather than its usual 15%.
+# It is now `scripts/drift_check.sh`, scheduled by `scripts/drift_cron.sh`,
+# where it can afford a sample big enough to mean something -- at 16 seeds it
+# once read 0.469 against v0.1.0 where the full 77-seed run gave 0.578. Drift
+# accumulates over many commits, so once a day is the right rate for it.
 #
-# 32 seeds, raised from 16 after the canary read 0.469 against v0.1.0 and
-# the full 77-seed run gave 0.578 -- a reversal of 0.11, which is what a
-# 16-seed sample can do. At 32 the half-width is about +/-0.055 rather
-# than +/-0.078, and every score the gate prints now carries its interval,
-# so a reading like that cannot be mistaken for a signal again.
-#
-# The drift check is still a canary, not a verdict: acceptance decides
-# against HEAD~1 and never sees this. GATE_ANCHOR=0 turns it off if the
-# hour is tight.
+# The seeds are given back: HELD returns to 5000-5063, so the verdict is 96
+# seeds and +/-0.032 again, and early stopping has 42 games of headroom.
 # Step 3 runs both samples in one pool and stops once the seeds still
 # unplayed cannot change the verdict (about 15% of the games, and no
 # historical verdict changes); GATE_DECIDE=0 plays every game.
@@ -68,26 +61,29 @@ cd "$(dirname "$0")/.."
 CHECK=0
 if [ "${1:-}" = "--check" ]; then CHECK=1; shift; fi
 BASE=${1:-HEAD~1}
-OLD=${2:-v0.1.0}
-SEEDS=${3:-4000-4031}
-DRIFT=${6:-6000-6031}   # the drift run's own seeds, disjoint from both samples
-WORKERS=${4:-8}
-HELD=${5:-5000-5047}
+SEEDS=${2:-4000-4031}
+WORKERS=${3:-8}
+HELD=${4:-5000-5063}
 ROOT=$(pwd)
+# snapshot(), machine(), sample_machine() and contention_verdict() are shared
+# with scripts/drift_check.sh. They were copied there when the drift canary
+# moved out, which is shape 4 in docs/notes/claude/bug-shapes.md -- two
+# implementations of one rule, four recurrences -- so there is one copy, here.
+. "$ROOT/scripts/lib/gate_common.sh"
 # Overlapping other work with a gate is allowed: the seeds are deterministic,
 # so contention moves the clock and never the verdict. It does make the wall
 # time uninterpretable unless it is written down, so it is. `load` is the
 # 1-minute average; `busy` counts python processes that are not this gate's.
-machine() {
-  # `pgrep -c` prints 0 *and* exits 1 when nothing matches, so `|| echo 0`
-  # emits a second line and the arithmetic below sees "0\n0". Assign, then
-  # default on the exit status.
-  local all busy
-  all=$(pgrep -cf '[p]ython' 2>/dev/null) || all=0
-  busy=$(pgrep -cf '[b]ots.benchmark' 2>/dev/null) || busy=0
-  printf 'load %s, %s other python processes, %s cores' \
-    "$(cut -d' ' -f1 /proc/loadavg)" "$(( all - busy ))" "$(nproc)"
-}
+#
+# CONTENTION, recorded rather than assumed. Every timing this script prints --
+# `took`, and `mean_game_seconds` in each report -- is quotable only if the
+# gate had the cores to itself. "Run it alone" is a discipline nobody can
+# enforce and everybody forgets, and a timing taken under uncontrolled
+# conditions is shape 7 in docs/notes/claude/bug-shapes.md, three recurrences.
+# So `sample_machine` runs at every step boundary, the worst reading survives,
+# and the end says plainly whether the numbers can be used. Sampling only at
+# the start and end is not enough: it misses a spike that begins and ends
+# inside a 25-minute step.
 
 PY=${PYTHON:-$ROOT/.venv/bin/python}
 MACHINE_AT_START=$(machine)
@@ -110,29 +106,6 @@ elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(da
 # `struggler.bots.*` import to it while `strategic.py` loads, so the baseline
 # runs on its own code. Snapshotting `strategic.py` alone compared a
 # `public_cards.py` change against itself and reported a dead heat.
-snapshot() {  # snapshot <ref> <dir>
-  # Wipe first. `tar -x` overlays, it does not replace, so re-running a gate
-  # at the same HEAD against a different base used to leave both revisions'
-  # files side by side -- and the layout has changed shape at least once
-  # (`strategic.py` became the `strategic/` package), so the leftovers are
-  # not always shadowed by the new ones. That is a baseline made of two
-  # revisions, which is the contamination this snapshot exists to prevent.
-  rm -rf "$2"
-  mkdir -p "$2"
-  git archive "$1" src/struggler/bots | tar -x -C "$2" --strip-components=3
-  if [ ! -e "$2/strategic/policy.py" ]; then
-    # Pre-split: the bot was `strategic.py`, not `strategic/policy.py`, so
-    # `--opponent strategic@.../strategic/policy.py` cannot resolve. Fatal for
-    # the base, which decides the verdict; only disabling for the optional
-    # anchor, whose default ref is older than the split.
-    if [ "${3:-required}" = required ]; then
-      echo "GATE FAILED: base $1 has no strategic/policy.py -- it predates the package split, so it cannot be a baseline for this HEAD."
-      exit 4
-    fi
-    echo "note: anchor ref $1 predates the package split; step 3c disabled."
-    ANCHOR_OK=0
-  fi
-}
 # A rules change to the engine is not a strength change, and this script
 # cannot see it. Only `src/struggler/bots` is snapshotted -- the engine is
 # deliberately shared, as the arbiter both sides are measured under -- so a
@@ -149,8 +122,6 @@ if [ -z "$(git diff --name-only "$BASE"..HEAD -- src/struggler/bots)" ]; then
   echo "      smoke test; the rules tests are what validate an engine change."
 fi
 snapshot "$BASE" "$OUT/base"
-ANCHOR_OK=1
-snapshot "$OLD" "$OUT/old" optional
 SNAP=$(mktemp -d)
 git worktree add -q --detach "$SNAP" HEAD
 trap 'git worktree remove --force "$SNAP"' EXIT
@@ -159,10 +130,13 @@ export PYTHONPATH=src
 if [ "$CHECK" = "1" ]; then
   echo "--check: setup, helpers, snapshots and worktree all fine."
   echo "  machine: $MACHINE_AT_START"
-  echo "  base $BASE -> $OUT/base; drift $OLD -> $OUT/old (ok=$ANCHOR_OK)"
+  sample_machine
+  echo "  contention: $(contention_verdict "$WORKERS")"
+  echo "  base $BASE -> $OUT/base"
   echo "  elapsed $(elapsed)"
   exit 0
 fi
+sample_machine
 echo "== 1. turn-1 table (seed ${SEEDS%%-*})"
 $PY -m struggler.bots.benchmark --table --seeds "$SEEDS" | tee "$OUT/table.txt"
 # A benchmark step that dies used to surface as a JSONDecodeError from this
@@ -202,8 +176,10 @@ for k in ('mean_signed_vp', 'mean_total', 'nuclear_losses'):
         bits.append(f'{k} {d[k]}')
 print('  ' + ', '.join(bits))"
 }
+sample_machine
 echo "== 1b. expert valuations (US Ops)"
 $PY -m struggler.bots.benchmark --expert models/expert_valuations.json --seeds "$SEEDS" | tee "$OUT/expert.txt" | grep -E 'misses|BROKEN|PLACEMENT'
+sample_machine
 echo "== 1c. types and lint (advisory)"
 # Advisory on purpose: the hard gate is tests/test_types.py, five rules at
 # zero findings. This is the rest -- about 95 ty diagnostics of annotation
@@ -211,8 +187,10 @@ echo "== 1c. types and lint (advisory)"
 # without blocking a change on it.
 "$ROOT/.venv/bin/ty" check --output-format concise 2>&1 | tail -1 | sed 's/^/  ty: /' || true
 "$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1 | tail -3 | sed 's/^/  ruff: /' || true
+sample_machine
 echo "== 2. turn-3 checkpoint vs $BASE"
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3
+sample_machine
 echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 # One pool over both samples, not two runs. Two pools drained in sequence pay
 # the slowest game's tail twice, and --decide can only stop a run that has
@@ -235,6 +213,7 @@ VARY=$([ "${GATE_VARY:-1}" = "1" ] && echo --vary-openings || echo)
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
    --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE $VARY \
    --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
+sample_machine
 echo "== 3b. cards, by what the bot chose to do with them (advisory)"
 # Revealed preference: which cards each side pays to *event* rather than
 # spend for Ops. Scoring cards are excluded -- they have no Ops and must be
@@ -258,25 +237,16 @@ for side in ('US', 'USSR'):
         print(f'    never for Ops (3+ plays): '
               + ', '.join(f'{c} x{n}' for c, n in never))
 PYEND
-if [ "${GATE_ANCHOR:-1}" = "1" ] && [ "$ANCHOR_OK" = "1" ]; then
-  # No --vary-openings here: a baseline from before the opening books cannot
-  # be given one, and falling back would start the two arms from *different*
-  # boards. The drift question does not need varied openings anyway.
-  echo "== 3c. drift: full games vs $OLD on seeds $DRIFT (fixed opening)"
-  $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/old/strategic/policy.py" \
-     --seeds "$DRIFT" --workers "$WORKERS" --report "$OUT/full-vs-old.json" 2>"$OUT/anchor.err" | summ anchor
-  # Deliberately not fed to step 4. Acceptance decides against HEAD~1; this
-  # is a reading to look at, and a small sample cannot carry a verdict.
-  echo "  (informational: drift is read by eye, not by the acceptance rules)"
-fi
 echo "== 4. acceptance"
 STATUS=0
 $PY -m struggler.bots.benchmark --accept "$OUT/full-vs-base.json" "$OUT/full-vs-held.json" || STATUS=$?
 TOOK=$(elapsed)
 SECONDS_TAKEN=$(( $(date +%s) - GATE_STARTED ))
 echo "took $TOOK (budget: under 60m; $( [ "$SECONDS_TAKEN" -lt 3600 ] && echo ok || echo OVER ))"
+sample_machine
 echo "  machine at start: $MACHINE_AT_START"
 echo "  machine at end:   $(machine)"
+echo "  contention:       $(contention_verdict "$WORKERS")"
 if [ "$SECONDS_TAKEN" -ge 3600 ]; then
   # Not a failure -- the verdict is about the bot, not the clock -- but the
   # maintainer wants to know, and a gate that drifts past an hour stops

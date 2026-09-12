@@ -53,7 +53,7 @@ _TIER_LABEL = {
 
 def board_from_observation(observation: Observation) -> Board:
     """A `Board` loaded with the observation's influence -- the same trick
-    `GreedyPlayer._sync_board` uses. Country metadata and adjacency are
+    `rules_math.sync_board` uses. Country metadata and adjacency are
     static public data, so building one costs nothing hidden."""
     board = Board()
     for cid, values in observation.influence.items():
@@ -312,7 +312,7 @@ def possible_coup_targets(board: Board, observation: Observation) -> list[tuple[
     pact); `legal_actions()` still has final say on any specific pick.
     Each entry is `(country_id, is_battleground, would_drop_defcon)` -- the
     third flag is whether Couping it degrades DEFCON for you, folding in
-    the Nuclear Subs exemption the same way `GreedyPlayer._coup_risks_defcon`
+    the Nuclear Subs exemption the same way `rules_math.coup_risks_defcon`
     does."""
     side = observation.side
     opponent = side.opponent

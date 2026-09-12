@@ -26,6 +26,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / 'scripts' / 'gate.sh'
+LIB = ROOT / 'scripts' / 'lib' / 'gate_common.sh'
 
 
 def run_check(*args: str) -> subprocess.CompletedProcess:
@@ -48,6 +49,9 @@ def test_the_preamble_runs_end_to_end():
     # The two things the helper got wrong, asserted positively.
     assert 'command not found' not in done.stderr
     assert 'arithmetic syntax error' not in done.stderr
+    # And the third, found by --check on 2026-09-11: `load` is a gawk builtin,
+    # so `awk -v load=` aborted the contention verdict with a fatal error.
+    assert 'gawk' not in done.stderr, done.stderr
 
 
 @pytest.mark.skipif(not (ROOT / '.git').exists(), reason='needs the git history')
@@ -63,9 +67,77 @@ def test_the_machine_line_reports_one_number_per_field():
 
 
 @pytest.mark.skipif(not (ROOT / '.git').exists(), reason='needs the git history')
-def test_the_drift_baseline_resolves():
-    """v0.1.0 must still snapshot, or the drift canary silently disables
-    itself -- which is how the old anchor ref sat broken and unnoticed."""
+def test_the_check_run_reports_a_contention_verdict():
+    """--check must exercise sample_machine and contention_verdict, or the
+    dry run stops covering the helpers it exists to cover."""
     done = run_check()
-    assert 'ok=1' in done.stdout, (
-        f'the drift baseline did not resolve; the canary would be off.\n{done.stdout}')
+    line = next((l for l in done.stdout.splitlines()
+                 if l.strip().startswith('contention:')), None)
+    assert line is not None, f'no contention line in --check output:\n{done.stdout}'
+    assert 'clean' in line or 'CONTENDED' in line, line
+
+
+def test_the_contention_verdict_decides_on_load_not_process_count():
+    """The verdict must not fire on idle editor python.
+
+    Measured on the maintainer's machine, VS Code alone sits at 4-5 python
+    processes (pylance, the env server) that consume no cores. The first
+    version of this flagged `foreign > 0`, which would have marked every
+    single run contended -- and a flag that is always on is a flag nobody
+    reads. Load is what moves the clock; process count is context.
+    """
+    def verdict(peak_load, foreign, workers=8):
+        script = (f'set -euo pipefail\n. {LIB}\n'
+                  f'PEAK_LOAD={peak_load}\nPEAK_OTHER={foreign}\n'
+                  f'contention_verdict {workers}\n')
+        done = subprocess.run(['bash', '-c', script], capture_output=True,
+                              text=True, cwd=ROOT)
+        assert done.returncode == 0, done.stderr
+        assert 'gawk' not in done.stderr, f'awk rejected a variable: {done.stderr}'
+        return done.stdout
+
+    assert verdict('0.40', 5).startswith('clean'), 'idle editor python is not contention'
+    assert verdict('8.50', 0).startswith('clean'), 'a gate at its own 8 workers is not contended'
+    assert verdict('14.0', 0).startswith('CONTENDED'), 'load far above the workers is'
+    assert verdict('14.0', 3).startswith('CONTENDED')
+
+
+def test_sample_machine_survives_a_quiet_machine():
+    """`[ cond ] && assign` returns 1 when the condition is false, and under
+    `set -e` that kills the caller. The condition is false exactly when
+    nothing else is running -- so without the trailing `return 0` this aborts
+    on a QUIET machine and passes every hand check on a busy one. That is the
+    same shape as the `pgrep -c` bug this file already gates, and it was
+    verified to abort before the `return 0` was added.
+    """
+    script = (f'set -euo pipefail\n. {LIB}\n'
+              'PEAK_OTHER=999999\n'   # force the comparison false
+              'sample_machine\n'
+              'echo survived\n')
+    done = subprocess.run(['bash', '-c', script], capture_output=True,
+                          text=True, cwd=ROOT)
+    assert 'survived' in done.stdout, (
+        f'sample_machine aborted under set -e on a quiet machine.\n{done.stderr}')
+
+
+def test_the_gate_does_not_redefine_what_the_library_owns():
+    """One copy of `snapshot`. It has three hard-won details in it (the
+    `rm -rf`, `--strip-components`, the pre-split check) and a second copy
+    would be shape 4 -- two implementations of one rule, four recurrences."""
+    gate = GATE.read_text()
+    for name in ('snapshot', 'machine', 'sample_machine', 'contention_verdict'):
+        assert f'\n{name}() {{' not in gate, (
+            f'{name}() is defined in gate.sh as well as scripts/lib/gate_common.sh')
+    assert 'scripts/lib/gate_common.sh' in gate, 'gate.sh must source the library'
+
+
+def test_the_drift_canary_is_no_longer_in_the_gate():
+    """It moved to scripts/drift_check.sh on 2026-09-11. It never decided
+    anything -- acceptance runs against HEAD~1 and never saw it -- and it cost
+    the verdict 16 seeds, which left early stopping only 5 seeds of headroom."""
+    gate = GATE.read_text()
+    assert 'GATE_ANCHOR' not in gate and '3c. drift' not in gate, (
+        'the drift canary is back in gate.sh')
+    assert 'HELD=${4:-5000-5063}' in gate, (
+        'the 16 seeds the canary cost the verdict were not given back')
+    assert (ROOT / 'scripts' / 'drift_check.sh').exists()

@@ -22,6 +22,7 @@ from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG
 from struggler.engine.events import EVENTS
+from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
@@ -37,10 +38,10 @@ RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARN
 # and compares; `test_strategic.py` and `test_rollout.py` use it to pin the
 # write sites, and both were checked to fail when one is broken.
 CHECK_SNAPSHOT = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
-from struggler.bots.greedy import (
-    _coup_risks_defcon, _coup_roll_modifier_estimate, _effective_ops_estimate,
-    _bonus_ops, _in_bonus_region, _realignment_bonus, _realignment_modifier,
-    _space_race_expected_vp, _sync_board,
+from struggler.bots.rules_math import (
+    bonus_ops, coup_risks_defcon, coup_roll_modifier_estimate,
+    effective_ops_estimate, in_bonus_region, realignment_bonus,
+    realignment_modifier, space_race_expected_vp, sync_board,
 )
 
 CARDS = load_cards()
@@ -425,6 +426,32 @@ class StrategicWeights:
     # the old behaviour, which priced the last turns as if the game ran for
     # ever and then stopped without scoring.
     scoring_final: float = 1.0
+    # The Space Race ability boxes award no VP: boxes 2, 4 and 6 are worth 0
+    # to both first and second in the rules, so `space_race_expected_vp`
+    # returns exactly 0.0 there and `space_value` reads the attempt as a pure
+    # cost. The track is sequential, so that puts a zero-VP wall in front of
+    # every reward box -- box 3 (2 VP), 5 (3) and 7 (4) are all unreachable
+    # without crossing one. These price the abilities instead, in VP at par
+    # (the maintainer's numbers). They apply only when we would be *first*:
+    # `Engine._grant_space_ability` pops the effect when the opponent draws
+    # level, so a box the opponent has already reached grants nothing.
+    space_ability_2: float = 1.0   # two Space Race attempts per turn
+    space_ability_4: float = 1.0   # the opponent's headline is revealed first
+    space_ability_6: float = 1.5   # discard a held card at the end of each turn
+    # Box 8 is an extra action round, and the maintainer's reading is that it
+    # is worth *less* than box 6 despite sounding bigger: the extra round
+    # forces out the card you would otherwise have held, and the held card is
+    # your worst -- usually an opponent event you were avoiding firing, which
+    # "is negative more than half the time". Box 6 is its near-mirror (it
+    # *removes* that card), so 6 dominates 8.
+    #
+    # Their number, and their estimate of how often it matters: "maybe 1 vp,
+    # should happen once in a hundred games or something". That rate makes it
+    # effectively **inert** -- a constant reached in ~1% of games cannot be
+    # moved by a gate that plays 192, so no benchmark here will ever
+    # distinguish 0.5 from 2.0. It is priced for correctness, not for
+    # strength, and should not be tuned against results.
+    space_ability_8: float = 1.0
     # progress_curve is the exponent on (margin/stability). It stays linear:
     # progress_curve=2 scored 0.33 +/- 0.09 against this shape (see
     # docs/STRATEGIC_AI.md); option value needs lookahead, not a curve.
@@ -610,7 +637,7 @@ class StrategicPlayer:
         and the scoring weight of every country. Everything that evaluates a
         position starts here, so that nothing downstream has to ask an
         observation what a country is worth."""
-        _sync_board(self.board, observation)
+        sync_board(self.board, observation)
         self._position.sync(self.board)
         self._obs = observation
         self._urgency = self._urgency_for(observation)
@@ -1111,7 +1138,7 @@ class StrategicPlayer:
         into Zaire at DEFCON 3 created the CIA Created target); seed 2400 lost
         by couping to DEFCON 2 with its own Lone Gunman headline still pending."""
         info = self.board.countries[country]
-        if not _coup_risks_defcon(obs, obs.side, info):
+        if not coup_risks_defcon(obs, obs.side, info):
             return self._planner.discard_risk(None)
         if obs.defcon - 1 <= 1:
             # Nuclear war costs the *phasing* player the game, and the phasing
@@ -1136,7 +1163,7 @@ class StrategicPlayer:
         # A new, idle sandbox, never a clone of the live game's hidden state.
         engine = Engine(seed=0)
         engine.log = SANDBOX_LOG
-        _sync_board(engine.board, obs)
+        sync_board(engine.board, obs)
         for name in ('defcon', 'vp', 'turn', 'action_round'):
             setattr(engine, name, getattr(obs, name))
         for name in ('space_race', 'military_ops', 'space_race_attempts', 'turn_effects', 'game_effects'):
@@ -1507,10 +1534,10 @@ class StrategicPlayer:
         info = self.board.countries[cid]
         if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
             return LOSS
-        if obs.defcon <= 2 and _coup_risks_defcon(obs, obs.side, info):
+        if obs.defcon <= 2 and coup_risks_defcon(obs, obs.side, info):
             return LOSS if self._is_phasing(obs) else -LOSS
         enemy = self.board.influence[cid][obs.side.opponent.value]
-        mod = _coup_roll_modifier_estimate(obs, obs.side, info)
+        mod = coup_roll_modifier_estimate(obs, obs.side, info)
         gain = 0.0
         for roll in range(1, 7):
             margin = max(0, int(roll + ops - 2 * info.stability + mod))
@@ -1525,7 +1552,7 @@ class StrategicPlayer:
 
     def realign(self, obs: Observation, cid: str) -> float:
         side = obs.side
-        bonus = _realignment_bonus(self.board, side, cid) - _realignment_bonus(self.board, side.opponent, cid) + _realignment_modifier(obs, side)
+        bonus = realignment_bonus(self.board, side, cid) - realignment_bonus(self.board, side.opponent, cid) + realignment_modifier(obs, side)
         total = 0.0
         outcomes = {}
         for a in range(1, 7):
@@ -1812,7 +1839,7 @@ class StrategicPlayer:
             return max(-cap, min(cap, value))
         event = (self._shallow_event_value(obs, cid) if shallow
                  else self.event_value(obs, cid))
-        value = self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side), event)
+        value = self.card_play_value(obs, cid, effective_ops_estimate(card, obs, obs.side), event)
         cap = self.game_value(obs)  # GAME_SWING_VP: the whole -20..+20 track
         return max(-cap, min(cap, value))
 
@@ -1832,7 +1859,7 @@ class StrategicPlayer:
                 value = self.hold_value(obs, card.id)
                 holds.append(value if side is obs.side else -value)
             else:
-                holds.append(self.ops_value(obs, _effective_ops_estimate(card, obs, side)))
+                holds.append(self.ops_value(obs, effective_ops_estimate(card, obs, side)))
         self._unseen_hold_values[side] = holds
         return holds
 
@@ -1945,7 +1972,7 @@ class StrategicPlayer:
             unseen = [c for c in CARDS.values() if card_state(obs, c.id) == 'unseen' and not c.scoring]
             if unseen:
                 best_ops = self._expected_max(
-                    [_effective_ops_estimate(c, obs, victim) for c in unseen], obs.opponent_hand_size)
+                    [effective_ops_estimate(c, obs, victim) for c in unseen], obs.opponent_hand_size)
             else:
                 best_ops = 2
             taken = self.ops_value(obs, int(best_ops))
@@ -1967,8 +1994,8 @@ class StrategicPlayer:
                 if c.scoring:
                     options.append(floor)
                     continue
-                us_ops = self.ops_value(obs, _effective_ops_estimate(c, obs, Side.US))
-                take = (us_ops + self.ops_value(obs, _effective_ops_estimate(c, obs, Side.USSR))
+                us_ops = self.ops_value(obs, effective_ops_estimate(c, obs, Side.US))
+                take = (us_ops + self.ops_value(obs, effective_ops_estimate(c, obs, Side.USSR))
                         + denial - (0.8 * us_ops if c.side.value == 'USSR' else 0.))
                 options.append(max(floor, take))
             gain = sum(options) / len(options) if options else floor
@@ -2065,7 +2092,7 @@ class StrategicPlayer:
                   if not c.scoring and card_state(obs, c.id) == 'unseen']
         if not unseen:
             return 0.
-        draw = [self.ops_value(obs, _effective_ops_estimate(c, obs, beneficiary)) for c in unseen]
+        draw = [self.ops_value(obs, effective_ops_estimate(c, obs, beneficiary)) for c in unseen]
         mean = sum(draw) / len(draw)
         # Upgrading a card you will never get to play is worth nothing, so
         # the count is bounded by the Action Rounds left after this one --
@@ -2238,7 +2265,25 @@ class StrategicPlayer:
         function's -- see `space_value` below for the version that does
         both at once and the note on why that blocks a planner.
         """
-        return self.vp_value(obs) * _space_race_expected_vp(obs, obs.side)
+        return self.vp_value(obs) * self._space_expected_vp(obs)
+
+    def _space_expected_vp(self, obs: Observation) -> float:
+        """`space_race_expected_vp` plus what the next box's ability is worth.
+
+        The shared helper stays rules-faithful and must: it is `greedy.py`'s
+        too, and `benchmark.py` runs GreedyPlayer as a baseline, so changing
+        it there would move a comparison silently. What an ability is *worth*
+        is strategy, so the premium lives here.
+        """
+        raw = space_race_expected_vp(obs, obs.side)
+        box = obs.space_race.get(obs.side.value, 0) + 1
+        premium = getattr(self.weights, f'space_ability_{box}', 0.0)
+        if not premium:
+            return raw
+        if obs.space_race.get(obs.side.opponent.value, 0) >= box:
+            return raw          # they hold it; reaching the box grants nothing
+        chance = RULES['space_race_boxes'][str(box)]['roll_max'] / 6.0
+        return raw + chance * premium
 
     def space_value(self, obs: Observation, ops: int) -> float:
         """The attempt, net of a flat 0.4 charge for the Ops it gives up.
@@ -2262,7 +2307,7 @@ class StrategicPlayer:
                     continue
                 if cid == self.un_card(obs):
                     continue  # UN Intervention already neutralises it
-                value = self.card_play_value(obs, cid, _effective_ops_estimate(card, obs, obs.side),
+                value = self.card_play_value(obs, cid, effective_ops_estimate(card, obs, obs.side),
                                              self.event_value(obs, cid))
                 if worst is None or value < worst[0]:
                     worst = (value, cid)
@@ -2326,7 +2371,7 @@ class StrategicPlayer:
             # so far and holds this one too; two are possible at once.
             ops += sum(1 for outside, tag in zip(ctx['non_bonus'], ctx['bonus'])
                        if outside == 0
-                       and _in_bonus_region(self.board.countries[p['country']], tag))
+                       and in_bonus_region(self.board.countries[p['country']], tag))
         value = self.influence(obs, p['country'], ops)
         if log.isEnabledFor(logging.DEBUG):
             cid = p['country']
@@ -2376,7 +2421,7 @@ class StrategicPlayer:
         opinion", which `score` turns into 0.0 exactly as the old
         fall-through did.
         """
-        ops = ctx['ops'] + _bonus_ops(self.board.countries[p['country']], ctx.get('bonus'))
+        ops = ctx['ops'] + bonus_ops(self.board.countries[p['country']], ctx.get('bonus'))
         return self.coup(obs, p['country'], ops)
 
     def _score_realignment_target(self, obs: Observation, action: Action, kind, p, ctx):
@@ -2411,7 +2456,7 @@ class StrategicPlayer:
             return self._placement_ops_value(obs, ops)
         engine = self.public_engine(obs)
         coup = p['type'] == 'coup'
-        return max(((self.coup(obs, c, ops + _bonus_ops(i, ctx.get('bonus'))) if coup else self.realign(obs, c) * ops)
+        return max(((self.coup(obs, c, ops + bonus_ops(i, ctx.get('bonus'))) if coup else self.realign(obs, c) * ops)
                     for c, i in self.board.countries.items() if engine._usable_coup_realign_target(obs.side, c, for_coup=coup)), default=LOSS)
 
     def _score_card_play(self, obs: Observation, action: Action, kind, p, ctx):
@@ -2431,7 +2476,7 @@ class StrategicPlayer:
                 return value
             return value + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
         event = self.event_value(obs, cid)
-        ops = _effective_ops_estimate(card, obs, obs.side)
+        ops = effective_ops_estimate(card, obs, obs.side)
         if kind is K.HEADLINE_PLAY:
             # Headlining a card whose event is certain is that outcome;
             # the half-Ops charge for the round it costs is an
@@ -2477,7 +2522,7 @@ class StrategicPlayer:
         """
         cid = ctx['card']
         event = self.event_value(obs, cid)
-        ops = _effective_ops_estimate(CARDS[cid], obs, obs.side)
+        ops = effective_ops_estimate(CARDS[cid], obs, obs.side)
         if p['mode'] == 'event':
             return event
         if p['mode'] == 'space_race':
@@ -2582,7 +2627,7 @@ class StrategicPlayer:
             shown = ctx['card']
             if choice == 'return':
                 return self.ops_value(obs, 2)
-            theirs = self.ops_value(obs, _effective_ops_estimate(CARDS[shown], obs, obs.side.opponent))
+            theirs = self.ops_value(obs, effective_ops_estimate(CARDS[shown], obs, obs.side.opponent))
             return (self.hold_value(obs, shown) + theirs
                     + (CARD_DENIAL_OPS * self.ops_value(obs, 1) if theirs > 0 else 0.))
         if event == 'Star_Wars':

@@ -13,6 +13,8 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Shared rules arithmetic left the greedy bot](2026-09-11-shared-rules-arithmetic-left-the-greedy-bot.md) — 2026-09-11
+- [The Space Race had a zero-VP wall in front of every reward](2026-09-11-the-space-race-had-a-zero-vp-wall.md) — 2026-09-11
 - [`vp_base` cannot fix the battleground level, and what that points at](2026-09-11-vp-base-cannot-fix-the-battleground-level.md) — 2026-09-11
 - [Win probability is the objective; VP is the currency](2026-09-11-win-probability-is-the-objective-vp-is-the-currency.md) — 2026-09-11
 - [The hand planner: the plan, and what has to happen first](2026-09-11-the-hand-planner-plan.md) — 2026-09-11

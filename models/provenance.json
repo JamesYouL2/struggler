@@ -166,6 +166,30 @@
    "source": "measured",
    "determination": "bounded",
    "note": "How much dearer a VP is by turn 10; the *shape*. 2.0 because expected VP still to be scored falls ~35% over the game, a 1.55x swing, and linear and exponential fits agree to within 3% max error -- the data cannot separate the two shapes, only the size. The old steps implied 4x, about 2.5x steeper than scarcity supports. 4.0 is to be gated as well: threshold pressure at 20 VP and Late War variance are effects on what a VP is worth that the scarcity curve cannot see. A better basis now exists and is not yet run: under P(win) = F(v_eff / s), per_vp(turn) is 1/s(turn), so vp_swing is exactly spread(T1)/spread(T10) -- a ratio of standard deviations of the VP still to be swung, not a taste parameter. `benchmark.play_game` now records a per-turn VP trace and `scripts/vp_spread.py` reduces it; the next gate's reports supply the data."
+  },
+  "space_ability_2": {
+   "value": 1.0,
+   "source": "expert",
+   "determination": "bounded",
+   "note": "The Space Race ability boxes award 0 VP in the rules, so `_space_race_expected_vp` returned exactly 0.0 for boxes 2, 4 and 6 and `space_value` read the attempt as a pure cost -- a zero-VP wall in front of box 3 (2 VP), 5 (3) and 7 (4), none of which is reachable without crossing one. `tests/test_value_signs.py` did not catch it because it only ever probes an empty track (box 0 -> 1, where vp_first is 2). Two Space Race attempts per turn. The maintainer's price, in VP at par."
+  },
+  "space_ability_4": {
+   "value": 1.0,
+   "source": "expert",
+   "determination": "bounded",
+   "note": "The opponent's headline is revealed first. The maintainer's price, in VP at par."
+  },
+  "space_ability_6": {
+   "value": 1.5,
+   "source": "expert",
+   "determination": "bounded",
+   "note": "Discard a held card at the end of each turn -- the maintainer prices this highest of the four, consistent with their account of Ask Not-style discards ('replacing a negative card with a random card in the average deck is good generally')."
+  },
+  "space_ability_8": {
+   "value": 1.0,
+   "source": "expert",
+   "determination": "inert",
+   "note": "An extra action round. The maintainer rates it *below* box 6 despite sounding bigger: the extra round forces out the card you would otherwise have held, and the held card is your worst -- 'negative more than half the time'. Box 6 is its near-mirror, removing that card, so 6 dominates 8. Marked inert on their own estimate of the rate: 'should happen once in a hundred games or something'. A constant reached in ~1% of games cannot be moved by a 192-game gate, so no benchmark will distinguish 0.5 from 2.0. Priced for correctness, not strength."
   }
  },
  "SurvivalPrior": {
@@ -256,16 +280,16 @@
  "_summary": {
   "counts_by_source": {
    "guess": 24,
+   "expert": 8,
    "gate": 5,
-   "expert": 4,
    "derived": 4,
    "measured": 4
   },
   "counts_by_determination": {
    "underdetermined": 16,
-   "inert": 7,
+   "bounded": 9,
+   "inert": 8,
    "determined": 7,
-   "bounded": 6,
    "overdetermined": 3,
    "known-wrong": 2
   },

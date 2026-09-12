@@ -54,13 +54,17 @@ from struggler.engine import (
     Region,
     ScoringTier,
     Side,
-    Subregion,
 )
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SCORING_CARD_REGION, effective_ops
+from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
+from struggler.bots.rules_math import (  # noqa: F401  (re-exported for callers)
+    bonus_ops, coup_risks_defcon, coup_roll_modifier_estimate,
+    effective_ops_estimate, in_bonus_region, realignment_bonus,
+    realignment_modifier, space_race_expected_vp, sync_board,
+)
 
 _CARDS = load_cards()
 
@@ -141,52 +145,6 @@ def _marginal_gain(weights: GreedyWeights, board: Board, side: Side, country: st
     return after - before
 
 
-def _sync_board(board: Board, observation: Observation) -> None:
-    influence = board.influence
-    for cid, values in observation.influence.items():
-        target = influence[cid]
-        target["US"] = values.get("US", 0)
-        target["USSR"] = values.get("USSR", 0)
-
-
-# -- shared per-country rule replicas (public game data/rules, not hidden state) --
-
-
-def _in_bonus_region(info: CountryInfo, bonus: str | None) -> bool:
-    if bonus == "asia":
-        return info.region is Region.ASIA
-    if bonus == "se_asia":
-        return Subregion.SOUTHEAST_ASIA in info.subregions
-    return False
-
-
-def _bonus_ops(info: CountryInfo, bonuses) -> int:
-    """How many extra Ops a point spent in this country earns: the play can
-    carry two region bonuses at once (the USSR's China Card under Vietnam
-    Revolts), and South East Asia is inside Asia, so a South East Asian
-    country satisfies both."""
-    return sum(1 for tag in bonuses or () if _in_bonus_region(info, tag))
-
-
-def _coup_roll_modifier_estimate(observation: Observation, side: Side, info: CountryInfo) -> float:
-    mod = 0.0
-    te = observation.turn_effects
-    lads = te.get("la_death_squads")
-    if lads and info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA):
-        mod += 1.0 if side.value == lads else -1.0
-    if te.get("salt"):
-        mod -= 1.0
-    return mod
-
-
-def _coup_risks_defcon(observation: Observation, side: Side, info: CountryInfo) -> bool:
-    """Whether a Coup here could degrade DEFCON at all: only Battleground
-    countries do, and even those not while Nuclear Subs exempts this side."""
-    if not info.battleground:
-        return False
-    return not (side is Side.US and bool(observation.turn_effects.get("nuclear_subs")))
-
-
 def _expected_coup_gain(
     weights: GreedyWeights,
     board: Board,
@@ -201,7 +159,7 @@ def _expected_coup_gain(
     formula (margin = roll + ops - 2*stability + modifier) is linear in the
     roll, so this is the true expectation, not just a point estimate."""
     opponent = side.opponent
-    modifier = _coup_roll_modifier_estimate(observation, side, info)
+    modifier = coup_roll_modifier_estimate(observation, side, info)
     expected_margin = 3.5 + ops - 2 * info.stability + modifier
     opp_inf = board.influence[country][opponent.value]
     opp_removed = int(round(max(0.0, min(expected_margin, opp_inf))))
@@ -214,45 +172,6 @@ def _expected_coup_gain(
     board.influence[country][opponent.value] += opp_removed
     board.influence[country][side.value] -= leftover
     return after - before
-
-
-def _realignment_bonus(board: Board, side: Side, country: str) -> float:
-    """Mirrors engine.core.Engine._realignment_bonus -- kept in sync by
-    hand since this is an independent duplicate, not shared code. The
-    region-bonus extra attempt (China Card in Asia / Vietnam Revolts in SE
-    Asia) is deliberately NOT modeled here: it would add "count remaining
-    Ops-type-choice attempts as still in-region" bookkeeping to a bot that
-    already has no lookahead and only proxy (not exact) legality elsewhere
-    in this module -- disproportionate complexity for its value."""
-    bonus = 1.0 if board.is_adjacent(side.value, country) else 0.0
-    bonus += sum(1 for n in board.neighbors(country) if board.control(n) is side)
-    if board.influence[country][side.value] > board.influence[country][side.opponent.value]:
-        bonus += 1.0
-    return bonus
-
-
-def _realignment_modifier(observation: Observation, side: Side) -> float:
-    return -1.0 if (side is Side.US and observation.turn_effects.get("iran_contra")) else 0.0
-
-
-def _effective_ops_estimate(card, observation: Observation, side: Side) -> int:
-    """The Ops `card` is worth to `side`, from the observation's public turn
-    effects. The same function the engine applies, not a second copy of it:
-    this one used to be a copy, and both were missing the Containment and
-    Brezhnev ceiling."""
-    return effective_ops(card.ops, observation.turn_effects, side)
-
-
-def _space_race_expected_vp(observation: Observation, side: Side) -> float:
-    pos = observation.space_race.get(side.value, 0)
-    if pos >= RULES["space_race_max_box"]:
-        return 0.0
-    next_box = pos + 1
-    box = RULES["space_race_boxes"][str(next_box)]
-    probability = box["roll_max"] / 6.0
-    first = observation.space_race.get(side.opponent.value, 0) < next_box
-    vp = box["vp_first"] if first else box["vp_second"]
-    return probability * vp
 
 
 def _scoring_card_favorability(board: Board, side: Side, cid: str) -> float:
@@ -288,9 +207,9 @@ def _score_coup_target(weights: GreedyWeights, board: Board, observation: Observ
     decision = observation.pending_decision
     ops = decision.context["ops"]
     bonus = decision.context.get("bonus")
-    ops += _bonus_ops(info, bonus)
+    ops += bonus_ops(info, bonus)
 
-    if observation.defcon <= 2 and _coup_risks_defcon(observation, side, info):
+    if observation.defcon <= 2 and coup_risks_defcon(observation, side, info):
         return -weights.defcon_self_kill_penalty
 
     gain = _expected_coup_gain(weights, board, observation, side, country, info, ops)
@@ -304,9 +223,9 @@ def _score_realignment_target(
     side = observation.side
     opponent = side.opponent
     country = action.payload["country"]
-    own_bonus = _realignment_bonus(board, side, country)
-    opp_bonus = _realignment_bonus(board, opponent, country)
-    expected_margin = own_bonus - opp_bonus + _realignment_modifier(observation, side)
+    own_bonus = realignment_bonus(board, side, country)
+    opp_bonus = realignment_bonus(board, opponent, country)
+    expected_margin = own_bonus - opp_bonus + realignment_modifier(observation, side)
 
     before = board_value(weights, board, side)
     if expected_margin > 0:
@@ -353,9 +272,9 @@ def _best_coup_value(
             continue
         if observation.defcon < RULES["coup_min_defcon"].get(info.region.name, 1):
             continue
-        if observation.defcon <= 2 and _coup_risks_defcon(observation, side, info):
+        if observation.defcon <= 2 and coup_risks_defcon(observation, side, info):
             continue
-        target_ops = ops + _bonus_ops(info, bonus)
+        target_ops = ops + bonus_ops(info, bonus)
         gain = _expected_coup_gain(weights, board, observation, side, cid, info, target_ops)
         if best is None or gain > best:
             best = gain
@@ -370,9 +289,9 @@ def _best_realignment_value(weights: GreedyWeights, board: Board, observation: O
             continue
         if observation.defcon < RULES["coup_min_defcon"].get(info.region.name, 1):
             continue
-        own_bonus = _realignment_bonus(board, side, cid)
-        opp_bonus = _realignment_bonus(board, opponent, cid)
-        value = own_bonus - opp_bonus + _realignment_modifier(observation, side)
+        own_bonus = realignment_bonus(board, side, cid)
+        opp_bonus = realignment_bonus(board, opponent, cid)
+        value = own_bonus - opp_bonus + realignment_modifier(observation, side)
         if best is None or value > best:
             best = value
     return best if best is not None else _NO_OPTION
@@ -419,7 +338,7 @@ def _score_action_round_play(
     card = _CARDS[cid]
     if card.scoring:
         return weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
-    ops = _effective_ops_estimate(card, observation, side)
+    ops = effective_ops_estimate(card, observation, side)
     return weights.action_round_ops_weight * ops
 
 
@@ -428,10 +347,10 @@ def _score_play_mode(weights: GreedyWeights, board: Board, observation: Observat
     cid = observation.pending_decision.context["card"]
     card = _CARDS[cid]
     mode = action.payload["mode"]
-    ops = _effective_ops_estimate(card, observation, side)
+    ops = effective_ops_estimate(card, observation, side)
 
     if mode == "space_race":
-        expected_vp = _space_race_expected_vp(observation, side)
+        expected_vp = space_race_expected_vp(observation, side)
         return (
             weights.space_race_base
             + weights.space_race_vp_weight * expected_vp
@@ -488,7 +407,7 @@ class GreedyPlayer:
         scorer = _SCORERS.get(decision.kind)
         if scorer is None:
             return decision.options[0]
-        _sync_board(self._board, observation)
+        sync_board(self._board, observation)
         return max(
             decision.options,
             key=lambda action: scorer(self.weights, self._board, observation, action),
