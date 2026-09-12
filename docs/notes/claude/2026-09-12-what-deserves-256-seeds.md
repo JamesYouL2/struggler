@@ -1,5 +1,17 @@
 # What deserves the 256-seed ceiling: `battleground`
 
+> **SUPERSEDED, same day.** The diagnostic this note put first was run, and
+> it retired the experiment this note proposed. At the shipped weights a
+> Battleground reads 4.05 VP at T5 and 4.00 at T7 -- the maintainer's figure
+> -- against the 2.05 that made `battleground` known-wrong, and the decay
+> from T3 is 1.08x rather than 2.66x. The flat VP curve closed it. See
+> `2026-09-12-the-flat-curve-fixed-the-battleground-level.md`.
+>
+> The reasoning below stands and is why the answer was cheap: a ceiling on
+> sample size is only half the discipline, and the other half is asking
+> whether the question needs games at all. This one did not. The 256 is
+> unspent and free for the next thing.
+
 Sample sizes are now 128 by default and 256 as a hard ceiling, enforced in
 `scripts/lib/queue_common.sh` rather than asked for. 128 is where early
 stopping starts working at all (`ACCEPTANCE['min_games']` is 150 pooled

@@ -16,6 +16,7 @@ path because `tests/test_recurring_defects.py` parses it.
 - [Handoff, 2026-09-12](2026-09-12-handoff.md) — 2026-09-12
 - [`access` is the tiebreaker, so the ablation cannot accept](2026-09-12-access-is-the-tiebreaker.md) — 2026-09-12
 - [The reliability curve, and why the headline number is the least trustworthy part of it](2026-09-12-the-reliability-curve-says-anchor-at-t3.md) — 2026-09-12
+- [The flat VP curve fixed the battleground level, and the Ops rate is still a parameter](2026-09-12-the-flat-curve-fixed-the-battleground-level.md) — 2026-09-12
 - [`access` should be a conversion probability, not three guessed weights](2026-09-12-access-wants-a-conversion-probability.md) — 2026-09-12
 - [The Ops-to-VP rate is a parameter, and the rule cannot be expressed](2026-09-12-the-ops-vp-rate-is-a-parameter-not-a-measurement.md) — 2026-09-12
 - [Board value is three variables per battleground](2026-09-12-value-times-probability-times-discount.md) — 2026-09-12
