@@ -31,5 +31,8 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-      - run: uv sync --frozen
+      # --extra test, or the sync installs the package and nothing else:
+      # pytest, hypothesis, ty and ruff are in [project.optional-dependencies]
+      # rather than being runtime deps (the package itself has none).
+      - run: uv sync --frozen --extra test
       - run: uv run pytest -q
