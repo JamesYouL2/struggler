@@ -13,6 +13,12 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [`vp_base` cannot fix the battleground level, and what that points at](2026-09-11-vp-base-cannot-fix-the-battleground-level.md) — 2026-09-11
+- [Win probability is the objective; VP is the currency](2026-09-11-win-probability-is-the-objective-vp-is-the-currency.md) — 2026-09-11
+- [The hand planner: the plan, and what has to happen first](2026-09-11-the-hand-planner-plan.md) — 2026-09-11
+- [Tournament-shaped stats, and where the bot field differs from a human one](2026-09-11-tournament-shaped-stats-and-how-the-bot-field-differs.md) — 2026-09-11
+- [When the deck reshuffles, and why the estimate was early](2026-09-11-when-the-deck-reshuffles-and-why-the-estimate-was-early.md) — 2026-09-11
+- [Would a full Rust port give ten times, and is numpy a correctness tool?](2026-09-11-would-a-full-rust-port-give-ten-times.md) — 2026-09-11
 - [2026-09-11 — The gate's time budget: under an hour, and why ten minutes is not close](2026-09-11-the-gate-s-time-budget-under-an-hour-and-why-ten-minutes-is.md) — 2026-09-11
 - [2026-09-11 — Breaks by Operations spent: the maintainer's 4 > 3 > 2, measured](2026-09-11-breaks-by-operations-spent-the-maintainer-s-4-3-2-measured.md) — 2026-09-11
 - [Wipe exposure is a variance term, not a discount — and turn 1 is not turn 4](archive/2026-09-10-wipe-exposure-is-a-variance-term-not-a-discount-and-turn-1-i.md) — 2026-09-10

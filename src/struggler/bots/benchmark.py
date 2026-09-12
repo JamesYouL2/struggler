@@ -304,7 +304,14 @@ def play(job: tuple) -> dict:
     history = HistoryBuilder()
     start = time.time()
     searches = search_seconds = 0.
+    # VP on the track at the first decision of each turn. The value function
+    # prices a VP at `per_vp(turn)`, which under `P(win) = F(v_eff / s)` is
+    # `1 / s(turn)` -- the spread of VP still to be swung. `vp_swing` is
+    # therefore `s(1) / s(10)`, a ratio of standard deviations rather than a
+    # taste parameter, and this trace is what measures it. One int per turn.
+    vp_by_turn: dict = {}
     while not engine.is_terminal and not (stop_turn and engine.turn > stop_turn):
+        vp_by_turn.setdefault(engine.turn, engine.vp)
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             action = d.options[0]
@@ -339,7 +346,7 @@ def play(job: tuple) -> dict:
     value = StrategicPlayer().value(engine.board, side)
     outlook = projection(engine, side)
     return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
-                card_modes=dict(card_modes), **outlook,
+                card_modes=dict(card_modes), vp_by_turn=vp_by_turn, **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
                 winner=None if winner is None else winner.value, reason=engine.game_over_reason,
                 final_scoring=engine.final_scoring_ran, turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
