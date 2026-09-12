@@ -108,10 +108,12 @@ action = bot.choose_action(observation, history)
 - Access is the battlegrounds a stake lets its side reach (`_access`),
   each worth its control value over its stability: full weight when this
   holding alone reaches one, `access_redundant` when another holding
-  already does (insurance, one more direction to contest from), and
-  `access_chain` for a battleground two steps away through a country not
-  yet held (Israel -> Egypt -> Libya, Iran -> Pakistan -> India, Australia
-  -> Malaysia -> Thailand). Reach into a battleground the opponent can
+  already does (insurance, one more direction to contest from). Chains --
+  a battleground two steps away through a country not yet held -- counted
+  too until 2026-09-12, weighted `access_chain`; ablated alone over 128
+  seeds it was not measurably worse (0.491 +/-0.063), while being 92% of
+  the traversal `access` can do, so it was removed. Reach into a
+  battleground the opponent can
   already place in is a race they may win first, worth `access_contested`
   (0.25) of exclusive reach. Nothing for ground held. Getting to
   battlegrounds first is most of what a non-battleground is for, and it is

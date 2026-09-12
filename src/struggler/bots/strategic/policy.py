@@ -350,7 +350,6 @@ class StrategicWeights:
     margin_live: float = 1.0
     access: float = 1.5
     access_redundant: float = 0.35
-    access_chain: float = 0.0
     # Reach into a battleground the opponent can already place in is a race
     # they may win first (Israel -> Egypt for the USSR, with the US already
     # next door): worth this fraction of exclusive reach.
@@ -366,21 +365,16 @@ class StrategicWeights:
     # everywhere, several times under on every scoring, war and VP-event
     # decision, and by 10-25x in the Late War.
     #
-    # Now a smooth curve rather than three steps, which the comment above
-    # called "the natural refinement once tuning wants it". Two parameters,
-    # separable on purpose:
+    # ONE parameter, flat: `per_vp(turn) = vp_base`. There was a second,
+    # `vp_swing`, setting the shape of a curve; it was shipped at 1.0 on
+    # 2026-09-12 and removed, because at 1.0 the curve is the constant.
     #
-    #   vp_base   Ops per VP on turn 1. Sets the *level*.
-    #   vp_swing  how much dearer a VP is by turn 10. Sets the *shape*.
-    #
-    #     per_vp(turn) = vp_base * vp_swing ** ((turn - 1) / 9)
-    #
-    # The steps were 0.5 / 1.0 / 2.0, a 4x swing that doubled the price of
-    # a VP overnight at turn 4 -- halving every board value in VP terms
-    # between one round and the next, which nothing in the game does.
-    #
-    # 1.0 -- flat -- as of 2026-09-12, on the maintainer's call and three
-    # independent lines of evidence.
+    # The history matters, because the parameter is coming back in a
+    # different place. The era rates were once three steps, 0.5 / 1.0 / 2.0
+    # -- a 4x swing that doubled a VP's price overnight at turn 4, halving
+    # every board value in VP terms between one round and the next, which
+    # nothing in the game does. Those became a smooth curve with `vp_swing`
+    # as its exponent, and the curve is now flat. Three lines of evidence.
     #
     # The reliability curve (`scripts/vp_spread.py`) fits spread(turn) from
     # 668 decided games: the VP scale over which a game's outcome flips.
@@ -410,12 +404,24 @@ class StrategicWeights:
     # harder to convert into a win while getting harder to buy, and the
     # exchange rate is the Ops side's business.
     #
+    # AND THE OPS SIDE CANNOT CARRY IT YET, which is the open problem this
+    # removal leaves behind rather than solves. `vp_value` is defined as
+    # `per_vp * ops_value(1)`, so VP-per-Op is `1 / per_vp` identically --
+    # the rate carries no information from the board, it is the parameter
+    # read back. With per_vp flat, VP per Op is now 2.00 at every turn
+    # against the rule's 2.0 -> 0.5: at turn 10 the model says an Op buys 2
+    # VP where the maintainer says 0.5. Satisfying the rule under THIS
+    # structure would require per_vp to rise 0.5 -> 2.0, i.e. the vp_swing
+    # of 4.0 that just measured inert. The rule cannot be expressed on the
+    # Ops side until board value is denominated in VP to begin with, which
+    # is the rebuild in
+    # docs/notes/claude/2026-09-12-value-times-probability-times-discount.md.
+    #
     # Deliberately *not* in here: "the 20th VP matters more than the 19th".
     # That is a VP-level effect and belongs in a term keyed on the score,
     # where it can be sharp; folded into a turn curve it would fire on
     # turn 9 whatever the VP.
     vp_base: float = 0.5
-    vp_swing: float = 1.0
     # Military Operations, priced in VP like everything else. Rule 6.3.5 is
     # exact and there is nothing to estimate: at the end of the turn a side
     # whose Military Ops are below the DEFCON level hands the *difference*
@@ -1221,10 +1227,10 @@ class StrategicPlayer:
 
     def vp_value(self, obs: Observation) -> float:
         """What one VP is worth here, in raw units: the era's Ops-per-VP
-        (`vp_base` and `vp_swing`, a smooth curve) times what one Op buys on this
+        (`vp_base`, flat since 2026-09-12) times what one Op buys on this
         board, so VP and Ops stay on one scale as the board's Ops value moves."""
         w = self.weights
-        per_vp = w.vp_base * w.vp_swing ** ((obs.turn - 1) / 9)
+        per_vp = w.vp_base
         fixed = self.__dict__.get('_vp_price')
         if fixed is not None:
             return per_vp * fixed

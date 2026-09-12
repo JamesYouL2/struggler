@@ -430,14 +430,16 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     The adjacent battlegrounds it does not control, each worth its control
     value scaled by 1/stability. Full weight when this holding alone reaches
     one, `access_redundant` when another holding already does (insurance, and
-    one more direction to contest from). Chains count too, discounted by
-    `access_chain`: a battleground two steps away through a country not yet
-    held (Israel -> Egypt -> Libya, Iran -> Pakistan -> India, Australia ->
-    Malaysia -> Thailand). Getting to battlegrounds first is most of what a
-    non-battleground is for.
+    one more direction to contest from). Getting to battlegrounds first is most
+    of what a non-battleground is for.
 
-    This reads influence up to two hops out, which is why it is not memoised
-    on the country it prices: see the commit that removed that memo.
+    Chains -- a battleground two steps away through a country not yet held
+    (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- used to count
+    here too, discounted by `access_chain`. Removed 2026-09-12: ablated alone
+    at 128 seeds and not measurably worse (0.491 +/-0.063 over 109 seeds,
+    215 games), while being 92% of the traversal this function can do. It was
+    also the only reason this read influence two hops out, which is what made
+    it unmemoisable on the country it prices.
     """
     other = 1 - s
     inf_s = pos.inf[s]
@@ -445,7 +447,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     battleground, stability, neighbors = t.battleground, t.stability, t.neighbors
     home = t.home[s]
     first = neighbors[i]
-    first_set = t.neighbor_set[i]
     total = 0.
     for n in first:
         if battleground[n] and control[n] != s:
@@ -458,16 +459,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
             if reach_them[n]:
                 weight *= w.access_contested
             total += weight * importance(t, w, urgency, n) / stability[n]
-        if inf_s[n] > 0 or control[n] == other:
-            continue  # already ours to build from, or not a step we take
-        for m in neighbors[n]:
-            if (not battleground[m] or m == i or m in first_set
-                    or control[m] == s or inf_s[m] > 0 or m in home):
-                continue
-            if any(inf_s[k] > 0 for k in neighbors[m]):
-                continue  # reachable directly from somewhere already
-            contested = w.access_contested if reach_them[m] else 1.
-            total += w.access_chain * contested * importance(t, w, urgency, m) / stability[m]
     return total
 
 

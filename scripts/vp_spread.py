@@ -2,7 +2,8 @@
 """Measure `spread(turn)`: the VP scale over which a game's outcome flips.
 
 Why this exists. The value function prices one VP at `per_vp(turn) =
-vp_base * vp_swing ** ((turn - 1) / 9)`, and `vp_swing` was a guess. Under
+vp_base` -- flat since 2026-09-12, when the `vp_swing` exponent was
+measured inert and removed. Under
 `P(win) = F(v_eff / s)` the marginal value of a VP at par is `1 / (4s)`,
 so
 

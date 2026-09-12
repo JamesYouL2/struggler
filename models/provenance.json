@@ -88,12 +88,6 @@
    "source": "guess",
    "determination": "underdetermined"
   },
-  "access_chain": {
-   "value": 0.0,
-   "source": "gate",
-   "determination": "bounded",
-   "note": "Chains: a battleground two steps away through a country not yet held. 0.0 since 2026-09-12, and the code is being removed with it. Ablated alone at 128 seeds -- the bisected form of the retired whole-family access ablation, which had no accepting branch because `access` is the master multiplier and zeroing it makes countries tie exactly. access_chain gates only the second loop inside access(), so at zero the family still discriminates: measured 0.491 +/-0.063 over 109 seeds, 215 games, not measurably worse. It was also where the cost is -- counted over the board, 224 first-hop iterations against 670 second-hop and 2056 third-hop reachability scans, so the chain walk is 92% of the traversal access() can do, and access is the largest term in the profile at ~11% of a game. Removing it lets VALUE_RADIUS fall from 3 to 2 and ends the two-hops-out read behind two of the seven shape-1 caching defects. Caveat on the evidence: +/-0.063 cannot separate 'identical' from 'six points worse', and this was one of three reductions measured the same day that all landed just below 0.500."
-  },
   "access_contested": {
    "value": 0.25,
    "source": "guess",
@@ -161,12 +155,6 @@
    "source": "expert",
    "determination": "bounded",
    "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit is `battleground`, already recorded here as known-wrong."
-  },
-  "vp_swing": {
-   "value": 1.0,
-   "source": "measured",
-   "determination": "bounded",
-   "note": "How much dearer a VP is by turn 10; the *shape*. 1.0 -- flat -- since 2026-09-12. Measured rather than argued: scripts/vp_spread.py fits spread(turn), the VP scale over which a game's outcome flips, from 668 decided games, and from turn 3 it is flat (8.07 -> 6.63, a ratio of 1.22). The script's headline ratio is anchored on turn 2 and must not be quoted: turn 1 separates outright and turn 2 barely identifies (slope 0.048 against turn 3's 0.124), which is why it printed 2.32 and then 3.13 on overlapping data. In play the term is inert at any setting tried -- 4.0 measured 0.491 +/-0.026 over 256 seeds, 1.0 measured 0.497 +/-0.072 over 78. The old 2.0 rested on expected VP still to be scored falling ~35% over the game; that reasoning priced the wrong half. The maintainer: 'VP value stays the same, ops value is what changes a ton.' The era swing is real and belongs to ops_value, which already measures what an Op buys on this board, so charging for it here as well was a double count. This does not retire the expert rule in expert_valuations_*.json (1 Op = 2 VP Early, 2 Ops = 1 VP Late): that is an exchange rate, spread(turn) is decisiveness, and a VP can get harder to buy without getting harder to win with. See docs/notes/claude/2026-09-12-the-reliability-curve-says-anchor-at-t3.md."
   },
   "space_ability_2": {
    "value": 1.0,
@@ -280,20 +268,20 @@
  },
  "_summary": {
   "counts_by_source": {
-   "guess": 24,
    "expert": 8,
+   "guess": 23,
    "gate": 5,
    "derived": 4,
-   "measured": 4
+   "measured": 3
   },
   "counts_by_determination": {
-   "underdetermined": 16,
-   "bounded": 9,
+   "underdetermined": 15,
+   "known-wrong": 2,
+   "bounded": 8,
    "inert": 8,
-   "determined": 7,
    "overdetermined": 3,
-   "known-wrong": 2
+   "determined": 7
   },
-  "_reading": "24 of 42 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. Nothing in the access or margin families has ever been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression."
+  "_reading": "24 of 42 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression."
  }
 }
