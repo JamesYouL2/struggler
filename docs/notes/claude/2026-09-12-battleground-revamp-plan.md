@@ -91,6 +91,48 @@ swing of 2 VP -- while an adjacency VP can only ever be earned by one side,
 a swing of 1. Half a battleground, in the same units. The outer `2 *` carries
 the two-sidedness and the 0.5 corrects the one term that is not.
 
+### The non-battleground ratio: measured, and it disagrees
+
+The maintainer: *"Non bgs scaling to being worth a lot less than bgs seems
+weird... it should be worth at most a 1/3rd of equivalent bg, preferably
+less than a quarter. We should test/measure that, not fake it."*
+
+Measured by difference through `region_vp` -- for every country, the
+two-sided swing from *they hold it* to *we hold it* -- over 60 corpus
+positions:
+
+| kind | mean swing | n |
+| --- | ---: | ---: |
+| battleground | **4.425** | 1740 |
+| non-battleground | **2.057** | 3300 |
+
+    measured ratio  0.465
+    shipped         0.300   (control 1.5 / battleground 5.0)
+    target          <= 0.333, preferably < 0.250
+
+**The rules value non-battlegrounds HIGHER than either the shipped weight or
+the target.** That is a real disagreement and this plan does not average it
+away. Three candidate explanations, and they are distinguishable:
+
+1. **The measure is incomplete.** It captures the scoring swing and nothing
+   else. It does not capture that CONTROL requires every battleground -- a
+   gate no non-battleground can satisfy at any count -- nor that
+   battlegrounds are what get couped and contested. Flipping each country in
+   isolation assumes a freedom of choice the game does not give.
+2. **Controllability belongs inside it**, the maintainer's reading: how
+   easily a battleground can be taken is part of what makes it important.
+   The per-stability split is suggestive and not clean -- battleground swing
+   runs 3.16 / 4.27 / 5.19 across stability 1-3 and then falls to 3.50 at 4,
+   which may be composition rather than signal (n=180 there).
+3. **The rules-swing is simply the wrong quantity** for what `importance`
+   should carry, and 0.30 is right for reasons this measure cannot see.
+
+Breaking the tie is a measurement, not a decision: score the swing again
+holding CONTROL of the region fixed as a requirement, so the all-battlegrounds
+gate is counted. If the ratio falls under 0.333 that settles it in favour of
+(1); if it does not, (2) and (3) remain and the ratio wants a strength
+measurement rather than a derivation.
+
 ### tier_share(i), broken down
 
 Not one quantity. Region scoring is three thresholds, and control of `i`
