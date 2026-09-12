@@ -16,6 +16,7 @@ path because `tests/test_recurring_defects.py` parses it.
 - [Handoff, 2026-09-12](2026-09-12-handoff.md) — 2026-09-12
 - [`access` is the tiebreaker, so the ablation cannot accept](2026-09-12-access-is-the-tiebreaker.md) — 2026-09-12
 - [The reliability curve, and why the headline number is the least trustworthy part of it](2026-09-12-the-reliability-curve-says-anchor-at-t3.md) — 2026-09-12
+- [The battleground revamp: every formula, current and target](2026-09-12-battleground-revamp-plan.md) — 2026-09-12
 - [Importance is a function of Ops efficiency, and that alone makes the bot worse](2026-09-12-importance-is-ops-efficiency-but-not-alone.md) — 2026-09-12
 - [The reshuffle fix was correct and cost eight points](2026-09-12-the-reshuffle-fix-cost-eight-points.md) — 2026-09-12
 - [The flat VP curve fixed the battleground level, and the Ops rate is still a parameter](2026-09-12-the-flat-curve-fixed-the-battleground-level.md) — 2026-09-12
