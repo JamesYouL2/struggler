@@ -27,7 +27,7 @@
    "value": 5.0,
    "source": "guess",
    "determination": "known-wrong",
-   "note": "Measured: a battleground swings ~1 VP of board value where the maintainer puts the floor at 4, the whole map spans 0.49 VP against a stated 2-3, and the region order is inverted at the top (Europe 5th of 6). Three separate defects."
+   "note": "A flat tier value for every battleground, and that flatness is the defect rather than the number. Re-measured 2026-09-12 at the shipped weights, two of the three recorded symptoms are GONE, both closed by the flat VP curve (52bb329) rather than by anything aimed at them: a best battleground now prices at 4.53 VP against the maintainer's floor of 4 (was ~1), and the map spans 2.88 VP max-region-to-min-region against a stated 2-3 (was 0.49). WHAT REMAINS: Europe ranks 3rd of 6 and the maintainer says it should be 1st. The mechanism is in the rules table, not the weight -- Europe and Asia share presence and domination (3/7), and Asia's control tier pays 9 and is reachable where Europe's is an auto-win standing in as EUROPE_CONTROL_VP=20 that almost never fires. So tier VP alone cannot make Europe first; what does in real play (contested every game, early cards, losing it loses the game) is not a tier value. AND the flatness: importance() returns the same 9.31 for Iraq, South Korea, Saudi Arabia and Israel alike, so the term carries no discrimination and every distinction falls to access, progress and wipe. Against the maintainer's placement_rank the bot scores 5 inversions (US) and 7 of 10 possible pairs (USSR), ranking Israel first where the expert ranks it last. That inversion count is the number a fix must move."
   },
   "progress": {
    "value": 2.8,
