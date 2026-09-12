@@ -42,7 +42,28 @@ stale 46 was corrected this morning (e384ba7).
 So a correct model is measurably weaker than the wrong one it replaced,
 which is the interesting part and not a reason to revert.
 
-### The hypothesis that fits
+### THE HYPOTHESIS BELOW WAS TESTED AND FAILED
+
+`scoring_discount 0.93` -- the value derived below as restoring the
+pre-regression turn-3 urgency -- measured **0.428 +/-0.075 over 76 seeds**
+against the shipped 0.8. It is worse, not better. With `0.55` having measured
+0.463 +/-0.064 earlier the same day, BOTH directions from 0.8 are worse and
+0.8 is a local optimum.
+
+So the 8 points are real and isolated, and the discount is not the parameter
+that recovers them. The reasoning below is left standing because the
+arithmetic in it is correct and the conclusion drawn from it was not: turn-3
+urgency really does fall 22.7%, and that really is equivalent to steepening
+the discount, and restoring the urgency by shallowing the discount
+nevertheless loses. Something else absorbs the horizon change.
+
+What that implies: `scoring_discount` is not "the parameter fitted around the
+old estimate". Either several are, and moving one alone is a net loss, or the
+regression is not about scoring urgency at all and the 22.7% is a coincidence
+of size. The next probe should hold the discount and look at what else reads
+`turns_to_reshuffle`.
+
+### The hypothesis that fits (superseded -- see above)
 
 `turns_to_reshuffle` feeds `scoring_schedule`, which is the turn-discount
 factor in every scoring card's valuation. The old estimate was *early* --
