@@ -154,7 +154,7 @@ written to pin current behaviour rather than desired behaviour, say so in
 its name or docstring so the next reader knows it is a characterisation
 test and not a specification.
 
-### 9. A process check that matches the process doing the checking (four times)
+### 9. A process check that matches the process doing the checking (five times)
 
 `pgrep -f <pattern>` matches against full command lines, and the asking
 process has one. All four were the same bug wearing different clothes:
@@ -180,3 +180,22 @@ your own PID *and every ancestor*, and match on the actual executable
 plus argv -- `scripts/gate_running.py` is the worked version. If a shell
 one-liner is genuinely required, `flock` on a lock file answers "is it
 running" without pattern-matching anything.
+
+The fifth was the guard itself. `gate_running.py` required argv[0] to be the
+interpreter, on the theory that this separates a script *running* from one
+merely named -- and a monitoring loop is `/bin/bash -c '... gate_running.py
+--match gate.sh ...'`, whose argv[0] IS bash and whose `-c` body mentions the
+script. It passed the interpreter test and the substring test both, and
+reported a finished gate as running for a whole session, to the agent that
+had written the guard, while it was reading the log saying the gate had
+finished.
+
+**The practice: match argv elements, never the joined line.** A `-c` body is
+program text, not a path, and is never evidence that anything is running.
+Gated by `test_a_monitoring_loop_is_not_a_gate`, and -- because a checker
+that is too strict silently breaks every `while gate_running; do sleep; done`
+in the queue scripts -- by `test_the_matcher_still_finds_a_real_gate` beside
+it. The first of those was vacuous when written: `bash -c 'sleep 30 # ...'`
+is exec-optimised, so bash replaced itself with `sleep` and the command line
+under test vanished. The mutation check caught that; running it is why this
+entry is not a sixth.
