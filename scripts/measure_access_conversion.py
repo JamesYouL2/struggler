@@ -112,10 +112,11 @@ def main(argv=None) -> int:
     if allv:
         p = statistics.fmean(allv)
         print(f'{"all":>10} {len(allv):>6} {p:>8.3f}')
-        print(f'\n  implied access_redundant = 1 - p = {1 - p:.3f}   (shipped: 0.35)')
-        print('  A second route into the same battleground is worth (1-p) of the')
-        print('  first; the k-th is worth (1-p)^(k-1). The shipped constant is flat,')
-        print('  so it over-values the third and fourth direction whatever p is.')
+        print(f'\n  implied access_decay = 1/(1-p) = {1 / (1 - p):.3f}'
+              f'   (shipped: 1.445)')
+        print('  `access()` discounts the k-th route into a battleground by')
+        print('  access_decay ** (1 - k), all k routes carrying the same weight.')
+        print('  That is the geometric form of P(control) = 1 - (1-p)^k.')
     print('\n  Not a strength measurement. It says how often reach becomes control,')
     print('  not whether pricing reach that way helps the bot win.')
     return 0

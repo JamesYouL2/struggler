@@ -351,7 +351,16 @@ class StrategicWeights:
     margin_country: float = 0.05
     margin_live: float = 1.0
     access: float = 1.5
-    access_redundant: float = 0.35
+    # x in `x ** (1 - k)`, the geometric discount on the k-th route into a
+    # battleground. Replaces `access_redundant`, a flat 0.35 applied to any
+    # redundant route however many there were.
+    #
+    # 1.445 is MEASURED, not guessed: 1/(1-p) with p = 0.308, the rate at
+    # which a holding converts an adjacent battleground into control before
+    # that battleground's region next scores (688 resolved opportunities over
+    # 16 self-play games, scripts/measure_access_conversion.py). The old 0.35
+    # encoded p ~ 0.65, roughly the inverse.
+    access_decay: float = 1.445
     # Reach into a battleground the opponent can already place in is a race
     # they may win first (Israel -> Egypt for the USSR, with the US already
     # next door): worth this fraction of exclusive reach.

@@ -427,11 +427,15 @@ def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: 
 def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """Reach a holding in country `i` gives side `s`.
 
-    The adjacent battlegrounds it does not control, each worth its control
-    value scaled by 1/stability. Full weight when this holding alone reaches
-    one, `access_redundant` when another holding already does (insurance, and
-    one more direction to contest from). Getting to battlegrounds first is most
-    of what a non-battleground is for.
+    Summed over EVERY adjacent battleground it does not control -- France pays
+    for both Italy and West Germany -- each worth its control value scaled by
+    1/stability, discounted by how many routes already reach it. Getting to
+    battlegrounds first is most of what a non-battleground is for.
+
+    The discount is `access_decay ** (1 - k)` for k routes, and all k carry
+    the SAME weight: which route you call "first" is arbitrary, so the term is
+    symmetric in them. See the loop for why the exponent is geometric and
+    where its value was measured.
 
     Chains -- a battleground two steps away through a country not yet held
     (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- used to count
@@ -450,12 +454,34 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     total = 0.
     for n in first:
         if battleground[n] and control[n] != s:
-            if n in home or inf_s[n] > 0:
-                weight = w.access_redundant  # present already; this adds a direction
-            elif any(inf_s[m] > 0 for m in neighbors[n] if m != i):
-                weight = w.access_redundant  # reachable through another holding
-            else:
-                weight = 1.
+            # COUNT THE ROUTES, then discount geometrically. With `p` the
+            # chance one route converts reach into control before `n` scores,
+            # k routes give P(control) = 1 - (1-p)^k, so each additional route
+            # is worth (1-p) of the one before. Symmetric by construction: all
+            # k routes carry the SAME weight, because which one you call
+            # "first" is arbitrary -- the maintainer's point, and the reason
+            # this is `x ** (1 - k)` rather than a per-route ordering.
+            #
+            # `access_decay` is x. At the measured p = 0.308 (688 resolved
+            # opportunities, scripts/measure_access_conversion.py) the matching
+            # value is 1/(1-p) = 1.445, which is the shipped default. It
+            # replaces `access_redundant`, a flat 0.35 applied to any redundant
+            # route however many there were -- so three routes paid
+            # 1 + 0.35 + 0.35 while this pays 3 * x**-2.
+            # `i` counts as one route BY CONSTRUCTION -- this function prices
+            # what holding `i` would give, so it is a route whether or not the
+            # board already shows influence there. Counting only occupied
+            # neighbours made a prospective holding score the same as a sole
+            # one, and `test_access_prices_reach_first_footholds_and_chains`
+            # caught it: Venezuela's reach into Brazil did not fall when the
+            # USSR took Brazil, because routes stayed at 1 either way.
+            routes = 1
+            routes += sum(1 for m in neighbors[n] if m != i and inf_s[m] > 0)
+            if n in home:
+                routes += 1      # the superpower reaches it without a holding
+            if inf_s[n] > 0:
+                routes += 1      # already standing in it, not merely reaching
+            weight = w.access_decay ** (1 - routes)
             if reach_them[n]:
                 weight *= w.access_contested
             total += weight * importance(t, w, urgency, n) / stability[n]
