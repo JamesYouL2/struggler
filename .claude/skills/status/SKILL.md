@@ -72,8 +72,15 @@ has been wrong at least once here:
   Background the job directly instead, and treat any suspiciously fast
   completion as a wrapper exit until the log says otherwise.
 - **`pgrep -f 'gate.sh'` matches itself** and reports a finished gate as
-  running. Twice. Use `pgrep -af` and read the output, or match on the
-  worker processes (`pgrep -cf 'bots.benchmark'`).
+  running. Four times now, and the advice that used to sit here -- read
+  `pgrep -af`, or bracket the pattern as `[g]ate.sh` -- failed too: the
+  bracket protects the pattern from itself and does nothing about the
+  rest of your own command line, so a guard also containing
+  `bash -n scripts/gate.sh` still matched. **Do not ask `pgrep`.** Use
+  `scripts/gate_running.py`, which walks `/proc` and excludes the whole
+  ancestor chain, or `flock`. Shape 9 in
+  `docs/notes/claude/bug-shapes.md`, gated by
+  `tests/test_process_checks.py`.
 - **Exit code 0 from the launcher is not the job's verdict.** The gate's
   verdict is its own exit status, and the log's last line. Read the log.
 - **A gate that "passed" may have crashed.** `summ` reports a step that
