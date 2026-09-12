@@ -39,17 +39,79 @@ def final_scoring_odds(obs: Observation) -> float:
 
 def card_state(obs: Observation, card: str) -> str:
     """'hand' (ours), 'discard', 'removed', 'future' (its period has not entered
-    the deck yet: a static, public schedule), else 'unseen' (draw pile or the
-    opponent's hand -- deliberately indistinguishable, mandate #4)."""
+    the deck yet: a static, public schedule), 'china' (face up in front of a
+    player, and whose owner is public), else 'unseen'.
+
+    'unseen' means "in the draw pile or the opponent's hand" and the engine
+    will not say which -- but that is a statement about `observe()`, not about
+    what may be inferred. The docstring here used to say the two were
+    "deliberately indistinguishable, mandate #4", which misread the mandate:
+    it forbids `observe()` exposing the opponent's card *identities* and the
+    identity of undrawn cards, and in the same breath makes the opponent's
+    hand *count* public. `p_opponent_holds` below does the inference from
+    public counts alone, which is what a strong player does at the table.
+    """
     if card in obs.removed_cards:
         return 'removed'
     if card in obs.hand:
         return 'hand'
     if card in obs.discard_pile:
         return 'discard'
+    if card == CHINA_CARD:
+        # Face up in front of whoever holds it: `obs.china_card_owner` is
+        # public and it counts toward nobody's hand size. Left as 'unseen' it
+        # was a permanent phantom in the unseen pool, inflating it by one for
+        # the whole game and mispricing every per-card probability drawn from
+        # it.
+        return 'china'
     if obs.turn < entry_turn(CARDS[card]):
         return 'future'
     return 'unseen'
+
+
+CHINA_CARD = 'The_China_Card'
+
+
+def unseen_cards(obs: Observation) -> tuple[str, ...]:
+    """Every card that is either in the opponent's hand or the draw pile.
+
+    By elimination from public information: the full card set for the eras in
+    play, less what has been played, removed, is in our own hand, or is the
+    China Card.
+    """
+    return tuple(cid for cid in CARDS if card_state(obs, cid) == 'unseen')
+
+
+def unseen_split(obs: Observation) -> tuple[int, int]:
+    """`(cards of theirs, cards in the pile)` -- both public counts."""
+    return obs.opponent_hand_size, obs.draw_pile_size
+
+
+def p_opponent_holds(obs: Observation, card: str) -> float:
+    """How likely the opponent holds `card`, from public information alone.
+
+    Every input is something mandate #4 explicitly leaves public: their hand
+    *count*, the draw pile *size*, the discard pile, the removed cards, and
+    our own hand. No card identity of theirs is read.
+
+    Uniform over the unseen pool, which is the right prior and is not the
+    interesting part. The interesting part is that the pool shrinks: the draw
+    pile empties before every reshuffle, so this rises toward 1 for every
+    unseen card as the reshuffle approaches. At the end of turn 2 the Early War
+    pile is down to about five cards, and what is left is known *as a set* --
+    which is why a strong player knows most of an opponent's hand going into
+    turn 3, and why the turn-3 reshuffle is where the information is.
+
+    Returns 0.0 for a card that is not unseen -- ours, played, removed, the
+    China Card, or one whose era has not entered.
+    """
+    if card_state(obs, card) != 'unseen':
+        return 0.0
+    theirs, pile = unseen_split(obs)
+    pool = theirs + pile
+    if pool <= 0:
+        return 0.0
+    return min(1.0, theirs / pool)
 
 
 # How many cards join the draw pile at the start of each turn, from the

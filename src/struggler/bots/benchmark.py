@@ -310,8 +310,25 @@ def play(job: tuple) -> dict:
     # therefore `s(1) / s(10)`, a ratio of standard deviations rather than a
     # taste parameter, and this trace is what measures it. One int per turn.
     vp_by_turn: dict = {}
+    # Which turns the deck reshuffled on, and how many cards left the game.
+    # The maintainer's reading is that humans reach the second reshuffle on
+    # turn 7 almost always while this bot reaches it on turn 9, because cards
+    # leave the game by being *evented* -- `remove_after_event` is true for 21
+    # of the 35 Early War cards -- and the bot spends 68% of its plays for
+    # Operations. A player who events less removes less, drains the pile
+    # slower, and cycles fewer cards through a game. Both numbers are free
+    # here and neither costs a gate, so measure before touching a valuation.
+    #
+    # `_reshuffle_discard_into_draw` empties the discard, so a discard that
+    # was non-empty and is now empty is exactly one reshuffle. No engine
+    # change and no threshold to tune.
+    reshuffle_turns: list = []
+    prev_discard = 0
     while not engine.is_terminal and not (stop_turn and engine.turn > stop_turn):
         vp_by_turn.setdefault(engine.turn, engine.vp)
+        if prev_discard and not engine.discard_pile:
+            reshuffle_turns.append(engine.turn)
+        prev_discard = len(engine.discard_pile)
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             action = d.options[0]
@@ -346,7 +363,9 @@ def play(job: tuple) -> dict:
     value = StrategicPlayer().value(engine.board, side)
     outlook = projection(engine, side)
     return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
-                card_modes=dict(card_modes), vp_by_turn=vp_by_turn, **outlook,
+                card_modes=dict(card_modes), vp_by_turn=vp_by_turn,
+                reshuffle_turns=reshuffle_turns, removed_cards=len(engine.removed_cards),
+                **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
                 winner=None if winner is None else winner.value, reason=engine.game_over_reason,
                 final_scoring=engine.final_scoring_ran, turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
