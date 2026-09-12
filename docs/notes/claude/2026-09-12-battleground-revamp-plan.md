@@ -75,10 +75,45 @@ throughout**: what matters is the swing from *they hold it* to *we hold it*,
 not what we gain from nobody holding it. `region_vp` already computes
 `Board.score_region` exactly, and its per-country term is rule 10.1.2.
 
-    importance(i) = ( direct(i) + tier(i) ) * retention(i) * urgency(i)
+    importance(i) = swing(i) * [ p_this_turn(i)
+                               + (rest_of_cycle(i) + later(i)) * retention(i) ]
 
-TWO TERMS, on the maintainer's call, and the split is the point: they answer
-different questions and only one of them is about being a battleground.
+    swing(i) = direct(i) + tier(i)
+
+VP PER SWING, SPLIT BY WHEN IT ARRIVES, on the maintainer's call -- and
+"immediate" means THIS TURN, not this cycle. Measured over corpus positions:
+
+| when | value | share |
+| --- | ---: | ---: |
+| this turn | 0.187 | **15.8%** |
+| rest of this cycle | 0.359 | 30% |
+| later cycles | 0.637 | 54% |
+
+Only a sixth of a country's scoring value arrives this turn. A first attempt
+put it at 54% by taking `scoring_schedule`'s `turns == 0` as immediate --
+that is THIS CYCLE, and it fuses buckets 1 and 2 exactly as
+`2026-09-12-value-times-probability-times-discount.md` warned. The two are
+separable because SCORING CARDS CANNOT BE HELD past end of turn, so a card
+in either hand fires now: `p_this_turn` is 1 if we hold it and
+`p_opponent_holds` if we do not.
+
+**This is where retention belongs, and only here.** If the region scores this
+turn you hold it now and no flip risk applies; everything else must survive
+to be scored. So retention discounts 84% of the value, not all of it and not
+half of it. Applying it to the whole term -- tried 2026-09-12 -- over-
+discounted and cost an inversion, making Israel MORE attractive rather than
+less.
+
+Still missing: retention is measured against ONE horizon, "when the region
+next scores". Holding until the end of this cycle is easier than holding
+until the second reshuffle, so the `rest_of_cycle` and `later` buckets want
+different retention curves. That is the same measurement with the horizon as
+a parameter, not a new one.
+
+### The two terms of `swing`
+
+Two terms, and the split is the point: they answer different questions and
+only one of them is about being a battleground.
 
     direct(i) = 2 * ( 1.0 if bg(i)                  [10.1.2, per battleground]
                     + 0.5 if adj to enemy SP )      [10.1.2, one-sided, hence half]
