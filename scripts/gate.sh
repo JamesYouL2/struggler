@@ -96,6 +96,37 @@ OUT=$ROOT/logs/game-check/gate-${HEAD_SHA}
 # a gate killed it at step 3 with a missing snapshot, forty minutes in.
 [ "$CHECK" = "1" ] && OUT=$(mktemp -d)
 mkdir -p "$OUT"
+
+# ONE GATE AT A TIME, enforced rather than asked for.
+#
+# Two gates at the same HEAD share this directory, and `snapshot` begins with
+# `rm -rf` -- so the second deletes the first's baseline mid-run and the first
+# dies at its next step with FileNotFoundError. That is not hypothetical: it
+# killed the v0.2.1 gate forty minutes in. The fix then was to give `--check`
+# its own directory, which was too narrow; two *real* gates still collide, and
+# they also clobber each other's report files, so acceptance can read a
+# verdict computed from the other run's games.
+#
+# At different HEADs the directories differ, but both ask for `--workers 8` on
+# eight cores, so each runs at roughly half speed and every timing either
+# prints is meaningless. The lock is global for that reason: the constraint is
+# one gate per machine, not one per revision.
+#
+# `--check` does not take it. It writes to a mktemp directory, costs seconds,
+# and the test suite runs it -- blocking there would make the suite fail
+# whenever a gate happens to be running.
+if [ "$CHECK" != "1" ]; then
+  exec 8>"$ROOT/logs/game-check/.lock"
+  if [ "${GATE_WAIT:-0}" = "1" ]; then
+    flock 8
+  elif ! flock -n 8; then
+    echo "GATE REFUSED: another gate holds $ROOT/logs/game-check/.lock." >&2
+    echo "  Two gates at once delete each other's baseline and halve each" >&2
+    echo "  other's speed. Wait, or re-run with GATE_WAIT=1 to queue behind it." >&2
+    "$PY" "$ROOT/scripts/gate_running.py" 2>/dev/null | grep -v "^not running$" >&2 || true
+    exit 5
+  fi
+fi
 GATE_STARTED=$(date +%s)
 elapsed() { printf '%dm%02ds' $(( ($(date +%s) - GATE_STARTED) / 60 )) $(( ($(date +%s) - GATE_STARTED) % 60 )); }
 # The maintainer has a time budget for this script, so it reports against it

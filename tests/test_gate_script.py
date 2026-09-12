@@ -141,3 +141,37 @@ def test_the_drift_canary_is_no_longer_in_the_gate():
     assert 'HELD=${4:-5000-5063}' in gate, (
         'the 16 seeds the canary cost the verdict were not given back')
     assert (ROOT / 'scripts' / 'drift_check.sh').exists()
+
+
+def test_a_second_gate_is_refused_while_one_holds_the_lock():
+    """Two gates at the same HEAD share logs/game-check/gate-<sha>/, and
+    `snapshot` opens with `rm -rf` -- so the second deletes the first's
+    baseline mid-run and the first dies at its next step. That killed the
+    v0.2.1 gate forty minutes in. The fix then gave `--check` its own
+    directory, which was too narrow: two real gates still collided, and they
+    clobber each other's reports as well, so acceptance can compute a verdict
+    from the other run's games.
+    """
+    import fcntl
+    lock = ROOT / 'logs' / 'game-check' / '.lock'
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, 'w') as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        done = subprocess.run(['bash', str(GATE), 'HEAD~1'], cwd=ROOT,
+                              capture_output=True, text=True, timeout=120)
+    assert done.returncode == 5, (
+        f'a second gate was not refused (exit {done.returncode}).\n'
+        f'{done.stdout[-600:]}\n{done.stderr[-600:]}')
+    assert 'GATE REFUSED' in done.stderr, done.stderr
+
+
+def test_check_is_not_blocked_by_the_lock():
+    """`--check` writes to a mktemp directory and the suite runs it, so
+    blocking there would fail the suite whenever a gate happens to be running."""
+    import fcntl
+    lock = ROOT / 'logs' / 'game-check' / '.lock'
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock, 'w') as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        done = run_check()
+    assert done.returncode == 0, f'--check was blocked by the gate lock\n{done.stderr}'

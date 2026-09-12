@@ -36,10 +36,16 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--discounts', default='0.8,0.6,0.5')
     ap.add_argument('--per-turn', type=int, default=4)
+    # The parity corpus samples turns 1/3/5/7/9 only and must keep doing so --
+    # it is the exactness oracle and `test_parity_corpus.py` rebuilds a bot per
+    # record, so doubling it doubles the slowest test in the suite. A side
+    # capture (`capture_corpus.py --turns 1,2,3,...`) goes in its own file and
+    # is what fills in the even turns.
+    ap.add_argument('--corpus', default=str(CORPUS))
     a = ap.parse_args(argv)
     discounts = [float(x) for x in a.discounts.split(',')]
 
-    corpus = json.loads(gzip.open(CORPUS, 'rt').read())
+    corpus = json.loads(gzip.open(a.corpus, 'rt').read())
     sample, seen = [], collections.Counter()
     for rec in corpus['records']:
         if seen[rec['turn']] < a.per_turn:

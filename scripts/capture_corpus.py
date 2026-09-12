@@ -133,17 +133,20 @@ def outputs(bot: StrategicPlayer, engine: Engine, side: Side) -> dict:
     return rec
 
 
-def capture(seed: int) -> list[dict]:
+def capture(seed: int, turns: tuple[int, ...] = CAPTURE_TURNS,
+            stop_turn: int = 0) -> list[dict]:
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     bots = {Side.US: StrategicPlayer(), Side.USSR: StrategicPlayer()}
     records = []
     while not engine.is_terminal:
+        if stop_turn and engine.turn > stop_turn:
+            break    # a side capture of early turns need not play the endgame
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             engine.step(d.options[0])
             continue
         side = d.actor
-        want = (d.kind in CAPTURE_KINDS and engine.turn in CAPTURE_TURNS
+        want = (d.kind in CAPTURE_KINDS and engine.turn in turns
                 and (engine.action_round in CAPTURE_ROUNDS or d.kind is K.HEADLINE_PLAY)
                 and not d.context.get('setup'))
         if want:
@@ -159,6 +162,14 @@ def capture(seed: int) -> list[dict]:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--seeds', default='4000-4003')
+    # The parity corpus samples 1/3/5/7/9 and must keep doing so -- it is the
+    # exactness oracle and regenerating it is an explicit, reviewed act. These
+    # two exist for *side* captures written elsewhere, e.g. sampling turn 2 to
+    # see where board value collapses between turns 1 and 3.
+    parser.add_argument('--turns', default=','.join(str(t) for t in CAPTURE_TURNS),
+                        help='turns to capture at (default: the parity corpus set)')
+    parser.add_argument('--stop-turn', type=int, default=0,
+                        help='abandon each game after this turn; 0 plays it out')
     parser.add_argument('--out', default='tests/corpus/positions.json.gz')
     args = parser.parse_args(argv)
     import hashlib, pathlib, subprocess
@@ -170,7 +181,8 @@ def main(argv=None):
     generator_sha = hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
     records = []
     for seed in parse_seeds(args.seeds):
-        records.extend(capture(seed))
+        records.extend(capture(seed, tuple(int(t) for t in args.turns.split(',')),
+                               args.stop_turn))
         print(f'seed {seed}: {len(records)} records so far', file=sys.stderr)
     with gzip.open(args.out, 'wt') as f:
         json.dump({'version': 3, 'source_revision': revision, 'dirty_paths': dirty.splitlines(),
