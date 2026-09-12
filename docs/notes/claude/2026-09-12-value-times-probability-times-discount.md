@@ -176,7 +176,31 @@ And it explains why `vp_base` could not fix the battleground level
 constant factor, so it scales all three at once, and the defect is in one
 of them.
 
-## Order to build it
+## This is a rebuild, not a migration -- and it waits
+
+The maintainer, on the staged order below: *"I think this is a full
+rebuild, not incremental. Needs to wait."*
+
+That is the right read and the staged order was wrong. Each step below
+changes every ranking, so each would re-capture the parity corpus, and a
+sequence of four re-captures means four baselines nobody can compare
+across -- the oracle would be rebuilt under the thing it exists to check,
+four times. Worse, the intermediate states are not coherent models: factor
+1 priced in VP against factor 2's missing probabilities gives a board
+value in no consistent unit at all, and any gate run against it measures a
+model nobody intends to ship.
+
+So the order below is a **dependency order, not a release plan**. It says
+what has to be true before what; it does not license landing them one at a
+time. One rebuild, one corpus re-capture, one gate.
+
+What that changes about everything queued: measurements taken now are
+readings of the **superseded** model. They are still worth having -- a
+null result on the old model is evidence about the old model -- but none
+of them should be shipped as a calibration, because the parameter they
+calibrate either changes meaning or stops existing.
+
+## Dependency order within the rebuild
 
 1. **Widen `scoring_schedule` to the five buckets.** Nothing else can be
    built until the sum can name its terms: today two of them are fused,
