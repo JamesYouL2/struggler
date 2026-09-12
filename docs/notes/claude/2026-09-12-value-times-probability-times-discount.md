@@ -30,6 +30,65 @@ turns at which it can still score. What it accumulates is
 this loop *is* the maintainer's formula -- the structure is right and two
 of the three factors are missing or guessed.
 
+## The two factors are cleanly separable, and both change meaning
+
+The maintainer, sharpening it:
+
+> "Importance is really vp value for one scoring."
+
+So factor 1 is **per scoring event**, not an aggregate. That splits the
+contribution exactly:
+
+    contribution(bg) = importance(bg)          x   urgency(bg)
+                       VP for ONE scoring          SUM over buckets of
+                       (derived from the rules)    P(bucket) x discount(bucket)
+
+Both halves change meaning from what they are today. `importance` stops
+being a guessed board-unit tier and becomes a VP amount the rules fix.
+`urgency` stops being a bare sum of discounts and becomes an expected
+number of *discounted, probability-weighted* scorings -- dimensionless, so
+the product is in VP.
+
+## The five buckets, and which exist
+
+> "You need to have terms for scoring this turn, scoring before reshuffle
+> not this turn, scoring after reshuffle, scoring after reshuffle 2, and
+> final scoring."
+
+| # | bucket | expressible today? |
+| --- | --- | --- |
+| 1 | scores **this turn** | no -- conflated with 2 |
+| 2 | before the reshuffle, **not** this turn | no -- conflated with 1 |
+| 3 | after reshuffle 1 | yes, `turns_to_reshuffle` |
+| 4 | after reshuffle 2 | **no -- cannot be expressed at all** |
+| 5 | final scoring | yes, but outside the sum |
+
+`scoring_schedule` returns at most two entries:
+
+    schedule = (0,) if once else (0, reshuffle)
+
+- **1 and 2 are the same entry.** `turns = 0` means "this cycle", which
+  merges "must be played this turn" with "may come later before the
+  reshuffle". The distinction is real and sharp, not a refinement: scoring
+  cards cannot be held past the end of a turn, so a scoring card *in hand*
+  has P(scores this turn) = 1, while one still in the pile does not.
+  `2026-09-12-the-reshuffle-is-where-the-information-is.md` found the same
+  edge from the other side -- a scoring card in the turn-2 remnant is dealt
+  on turn 3 and must be played that turn, so its true "scores this turn"
+  probability is near 1 against the 22.9% the uniform model assigns it.
+- **Bucket 4 does not exist.** Two entries is the maximum, so the second
+  reshuffle is unreachable, and the measured bucket masses say a third
+  cycle carries a full 1.0 of expected scorings at turn 1.
+- **Bucket 5 is computed but lives outside the sum**, as
+  `w.scoring_final * final_scoring_odds(obs)` -- and it is the only bucket
+  that currently carries a probability at all. It is also the only one
+  whose mass rises monotonically across the game (0.222 -> 0.750 -> 1.0),
+  which is what makes it the only term able to make board value rise late.
+
+So the five-bucket structure is not a re-parameterisation of what is
+there. Two buckets are fused, one is unreachable, and one is outside the
+sum.
+
 ## Factor 1: value -- the VP it pays. Derived, not guessed.
 
 Today this is `w.battleground = 5.0`, inside
@@ -119,13 +178,23 @@ of them.
 
 ## Order to build it
 
-1. **Factor 1 first**, because it is derivable and needs no measurement:
-   take the battleground's VP from `region_vp`'s own accounting rather than
-   from `w.battleground`, and put `region` at par. This is where the
+1. **Widen `scoring_schedule` to the five buckets.** Nothing else can be
+   built until the sum can name its terms: today two of them are fused,
+   one is unreachable and one is outside the sum. This step is pure
+   plumbing and can be made behaviour-preserving -- bucket 1 + bucket 2 at
+   equal probability and the old discount reproduces today's numbers
+   exactly, which makes it checkable against the parity corpus before any
+   pricing changes.
+2. **Factor 1**, because it is derivable and needs no measurement: take the
+   battleground's VP-per-scoring from `region_vp`'s own accounting rather
+   than from `w.battleground`, and put `region` at par. This is where the
    known-wrong reading gets fixed.
-2. **Factor 2 second**, since it is the missing one and the machinery
-   (`final_scoring_odds`) is imported one line from where it is needed.
-3. **Factor 3 last, recalibrated**, once it is no longer standing in for
+3. **Factor 2**, the probabilities, one bucket at a time. Bucket 1 is the
+   sharpest and the cheapest: a scoring card in hand scores this turn with
+   probability 1, because scoring cards cannot be held. Bucket 5 already
+   has its measured odds. Buckets 2, 3 and 4 need the deck model that
+   `public_cards.py` now has the inputs for.
+4. **Factor 3 last, recalibrated**, once it is no longer standing in for
    factor 2. The 0.55 arm running now is measuring the *current* meaning of
    the parameter and should be read as a reading of the old model.
 
