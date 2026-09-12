@@ -360,5 +360,50 @@ def test_a_snapshotted_package_binds_its_own_submodules(tmp_path):
     # And the candidate's own modules are restored afterwards.
     import struggler.bots.strategic as live
     assert getattr(live, 'MARKER', None) is None
+
+
+def test_a_baseline_inside_a_package_still_shadows_the_bots_root(tmp_path):
+    """The entry file one level down must still bind the whole snapshot.
+
+    This is the production layout and the one above is not: the gate passes
+    `<base>/strategic/policy.py`, not `<base>/entry.py`. `load_module` rooted
+    the finder at `os.path.dirname(path)`, so it looked for
+    `struggler.bots.greedy` inside `<base>/strategic/` and missed -- and
+    missed every other name too, including its own package. From the split
+    (136a8c6) until 2026-09-12 the finder therefore resolved *nothing*: each
+    baseline ran on the candidate's evaluator, defcon, public_cards and
+    greedy, with only its own policy.py its own. Nothing failed, because
+    every name it wanted still existed in the candidate; c0ccd95 moved nine
+    functions out of greedy.py and the silence became an ImportError.
+
+    So this reconstructs the real shape: a name that lives in the snapshot's
+    greedy.py and NOT in the candidate's. Without the fix it raises exactly
+    what the 2026-09-12 gate raised.
+    """
+    snapshot = tmp_path / 'base'
+    pkg = snapshot / 'strategic'
+    pkg.mkdir(parents=True)
+    (snapshot / '__init__.py').write_text('')
+    (pkg / '__init__.py').write_text('')
+    # Gone from the candidate's greedy.py, exactly like `_coup_risks_defcon`.
+    (snapshot / 'greedy.py').write_text("RETIRED_HELPER = 'baseline'\n")
+    (pkg / 'evaluator.py').write_text("MARKER = 'baseline-evaluator'\n")
+    (pkg / 'policy.py').write_text(
+        'from struggler.bots.greedy import RETIRED_HELPER\n'
+        'from struggler.bots.strategic.evaluator import MARKER\n')
+
+    import struggler.bots.greedy as candidate_greedy
+    assert not hasattr(candidate_greedy, 'RETIRED_HELPER'), (
+        'this test is only meaningful while the candidate lacks the name')
+
+    from struggler.bots import benchmark
+    loaded = benchmark.load_module(str(pkg / 'policy.py'))
+    assert loaded.RETIRED_HELPER == 'baseline', 'bound the candidate greedy'
+    assert loaded.MARKER == 'baseline-evaluator', 'bound the candidate evaluator'
+
+    # The candidate's modules come back, by identity not just by name.
+    import struggler.bots.greedy as after
+    assert after is candidate_greedy
+    assert not hasattr(after, 'RETIRED_HELPER')
     import sys as _sys
     assert 'struggler.bots.sibling' not in _sys.modules

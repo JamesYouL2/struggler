@@ -162,7 +162,24 @@ def load_module(path: str):
     function called after this returns, still gets the candidate's.
     """
     directory = os.path.dirname(os.path.abspath(path))
-    target = os.path.basename(path)
+    # The finder is rooted at the snapshot's `src/struggler/bots`, which is
+    # NOT always the entry file's own directory. Since the strategic bot
+    # became a package the gate passes `<base>/strategic/policy.py`, whose
+    # dirname is the *package* -- one level too deep, so `struggler.bots.X`
+    # resolved to `<base>/strategic/X.py` and every single name missed. The
+    # finder answered nothing at all, the baseline ran entirely on the
+    # candidate's evaluator, defcon, public_cards and greedy, and the only
+    # symptom was silence until c0ccd95 moved a function out of greedy.py
+    # and turned it into an ImportError. Walk up while the parent is still a
+    # package, which lands on the bots root from either layout: `<base>/
+    # strategic/policy.py` (post-split) and `<base>/strategic.py` (pre-).
+    while (os.path.isfile(os.path.join(directory, '__init__.py'))
+           and os.path.isfile(os.path.join(os.path.dirname(directory), '__init__.py'))):
+        directory = os.path.dirname(directory)
+    # Only meaningful when the entry file sits in the root itself: it is
+    # executed under a synthetic name and must not also be shadowed.
+    target = (os.path.basename(path)
+              if os.path.dirname(os.path.abspath(path)) == directory else None)
     finder = _SnapshotFinder(directory)
     # Top-level modules *and* packages: a snapshot that contains
     # `strategic/__init__.py` must shadow the candidate's `strategic`

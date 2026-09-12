@@ -34,7 +34,7 @@ versus a float price -- so the type checker refuses the mean of a hand
 containing defeat. Codex proposed this independently. Clamps are a fourth
 patch on a design that invites the mistake.
 
-### 3. The measurement comparing something against itself (six times)
+### 3. The measurement comparing something against itself (seven times)
 
 `871b170` snapshotting two files instead of the package; the gate running
 against a dirty working tree; counting the opponent's nuclear losses as
@@ -61,6 +61,29 @@ force at capture (`reply_model=0`, the search not yet existing), which
 restores the oracle without re-running anything, and gated by
 `test_every_record_pins_every_weight` -- every field of the dataclass
 must appear in every record.
+
+The seventh is the same package loader as the fifth, from the other side,
+and it is the worst of them because nothing failed. `load_module` rooted
+its finder at `os.path.dirname(path)`, which stopped being the bots
+directory the day the strategic bot became a package (`136a8c6`): the gate
+passes `<base>/strategic/policy.py`, so the finder looked for
+`struggler.bots.greedy` inside `<base>/strategic/` and missed -- and missed
+its own package too. It resolved **nothing**. From 2026-09-10 every gate
+ran a baseline made of its own `policy.py` and the candidate's evaluator,
+defcon, public_cards, greedy and rollout, so a change confined to any of
+those was compared against itself and could only come back a dead heat.
+The fifth's test passed throughout, because it puts its entry file at the
+snapshot root and production never does.
+
+It surfaced only because `c0ccd95` moved nine functions out of `greedy.py`
+into `rules_math.py`, which turned the silent miss into an ImportError two
+seconds into a gate. Gated by
+`test_a_baseline_inside_a_package_still_shadows_the_bots_root`, which
+reconstructs the production layout -- entry file one level down, a name
+present in the snapshot's `greedy.py` and absent from the candidate's --
+and fails with the rooting reverted. **The lesson is about the negative
+control above, not about paths: the fifth's gate was a real negative
+control and still missed this, because it controlled the wrong layout.**
 
 ### 4. Two implementations of one rule, drifting (four times)
 
