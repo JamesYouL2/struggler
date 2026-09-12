@@ -28,6 +28,8 @@ SEEDS_PER=256
 
 say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$STATUS"; }
 
+. "$ROOT/scripts/lib/queue_common.sh"  # run_ab, shared with overnight.sh
+
 commit() {  # commit <message> <paths...>
   local msg=$1; shift
   git add "$@" 2>/dev/null
@@ -51,31 +53,6 @@ fi
 commit "docs: measure whether scoring_discount moves Battleground VP or cancels" \
   docs/notes/claude
 
-run_ab() {  # run_ab <slug> <json> <seeds> <held-seeds> <title> <context>
-  local slug=$1 json=$2 seeds=$3 held=$4 title=$5 context=$6
-  say "  $slug: $json over $seeds + $held"
-  echo "$json" > "$RUN/$slug.weights.json"
-  # --decide AND --held-seeds, both of them. `_decided` is gated on a held
-  # sample existing, so passing --decide alone does nothing -- which is half
-  # of why the 2026-09-12 ablation ran to 511 of 512 and then hung for four
-  # hours on the last game with nothing able to stop it. --stall-timeout is
-  # the other half and is defence in depth: early stopping is only evaluated
-  # when a game *finishes*, so it cannot rescue a hang on its own.
-  if $PY -m struggler.bots.benchmark --bot strategic \
-       --bot-weights "$RUN/$slug.weights.json" --opponent strategic \
-       --seeds "$seeds" --held-seeds "$held" --held-report "$RUN/$slug.held.json" \
-       --decide --stall-timeout 1200 \
-       --workers 8 --report "$RUN/$slug.json" \
-       > "$RUN/$slug.out" 2>"$RUN/$slug.err"; then
-    $PY scripts/report_note.py "$RUN/$slug.json" --title "$title" \
-        --slug "$slug" --context "$context" >> "$STATUS" 2>&1
-    say "  $slug: $($PY -c "
-import json;s=json.load(open('$RUN/$slug.json')).get('summary',{})
-print(f\"score {s.get('score')} +/-{s.get('score_halfwidth')} over {s.get('seeds')} seeds\")")"
-  else
-    say "  $slug FAILED (see $RUN/$slug.err)"; tail -5 "$RUN/$slug.err" | tee -a "$STATUS"
-  fi
-}
 
 # --- 2. vp_swing at 1.0 --------------------------------------------------
 say "step 2: vp_swing 1.0 (flat) at $SEEDS_PER seeds"
