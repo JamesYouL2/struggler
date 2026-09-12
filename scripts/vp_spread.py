@@ -7,10 +7,14 @@ vp_base * vp_swing ** ((turn - 1) / 9)`, and `vp_swing` was a guess. Under
 so
 
     per_vp(turn) ~ 1 / spread(turn)
-    vp_swing      = spread(turn 1) / spread(turn 10)
 
-which makes `vp_swing` a ratio of standard deviations rather than a taste
-parameter. This reads the `vp_by_turn` traces `benchmark.play_game`
+**This does not measure `vp_swing`, and used to say it did.** What it
+measures is how decisiveness moves across the game. The maintainer's model
+is that it does not: "VP value stays the same, ops value is what changes a
+ton." The 4x era swing in the conversion rules (1 Op = 2 VP Early, 2 Ops =
+1 VP Late) is about what an *Op* buys, so it belongs to `ops_value`. A flat
+curve here is the model being right; a slope that survives is a fact about
+`ops_value`, not a curve to put back on the VP side. This reads the `vp_by_turn` traces `benchmark.play_game`
 records into every report.
 
     python scripts/vp_spread.py logs/game/*/report.json
@@ -41,6 +45,10 @@ import sys
 
 # `engine.vp` is signed with the US positive: the probe game finished at
 # vp=-7 on the track and the USSR won it.
+# Turn 1 separates outright and turn 2's slope is a fifth of turn 3's, so a
+# ratio anchored on either measures the anchor rather than the game.
+ANCHOR_TURN = 3
+
 US_POSITIVE = True
 
 
@@ -147,11 +155,45 @@ def main(argv=None):
     if len(spreads) < 2:
         print('\nnot enough turns with a finite slope to take a ratio', file=sys.stderr)
         return 1
-    lo, hi = min(spreads), max(spreads)
-    print(f'\nvp_swing = spread(T{lo}) / spread(T{hi}) = '
-          f'{spreads[lo]:.2f} / {spreads[hi]:.2f} = {spreads[lo] / spreads[hi]:.2f}')
-    print('(per_vp is dP(win)/dVP at par -- the shape, not the level; '
-          'vp_base still sets where the curve sits.)')
+    # ANCHOR AT T3, NOT T1/T2, and do not call the ratio `vp_swing`.
+    #
+    # Two corrections, both from 2026-09-12.
+    #
+    # The anchor: turn 1 separates outright (every game sits at the same VP,
+    # so the logistic has nothing to fit) and turn 2 barely identifies -- its
+    # slope came out 0.048 against turn 3's 0.124, and spread is 1/slope, so
+    # that near-zero slope produced a spread of 20.76 towering over every
+    # other row. Anchored there this printed 2.32 and then 3.13 on
+    # overlapping data as the sample grew, which is the behaviour of an
+    # artifact, not a measurement. From turn 3 the curve is well behaved.
+    #
+    # The name: the ratio is NOT `vp_swing` and never should have been
+    # reported as one. What this measures is how decisiveness -- dP(win)/dVP
+    # -- moves across the game, and the maintainer's model says that is flat:
+    # "VP value stays the same, ops value is what changes a ton." The 4x era
+    # swing in the conversion rules (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is
+    # a statement about what an *Op* buys, not about what a VP is worth. So a
+    # flat curve here is the model being right, and any slope that survives
+    # belongs to `ops_value`, not to a curve on the VP side.
+    anchored = {t_: s for t_, s in spreads.items() if t_ >= ANCHOR_TURN}
+    if len(anchored) < 2:
+        print(f'\nnot enough turns at or past T{ANCHOR_TURN} to take a ratio',
+              file=sys.stderr)
+        return 1
+    lo, hi = min(anchored), max(anchored)
+    ratio = anchored[lo] / anchored[hi]
+    print(f'\ndecisiveness ratio = spread(T{lo}) / spread(T{hi}) = '
+          f'{anchored[lo]:.2f} / {anchored[hi]:.2f} = {ratio:.2f}')
+    print(f'(anchored at T{ANCHOR_TURN}: T1 separates and T2 barely identifies,')
+    print(' so a ratio taken from them measures the anchor, not the game.)')
+    if lo > min(spreads):
+        skipped = ', '.join(f'T{t_} {spreads[t_]:.2f}' for t_ in sorted(spreads)
+                            if t_ < ANCHOR_TURN)
+        print(f'(excluded from the ratio, shown above only: {skipped})')
+    print('This is NOT vp_swing. It measures how decisiveness moves across')
+    print('the game; the conversion rules are about what an Op buys, so the')
+    print('era swing belongs to ops_value. A flat ratio here is the model')
+    print('being right, not a missing curve on the VP side.')
     return 0
 
 
