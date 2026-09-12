@@ -114,3 +114,22 @@ routed to the operator is described in [BOTS.md](BOTS.md).
   asks the model to avoid this; the mechanism itself does not enforce it.
 - **The OpenAI adapter's exact SDK call shape is unverified** against a
   live API. The Anthropic adapter's is current.
+
+## A scoring card is forced, not fatal
+
+The rules: a player holding a scoring card at the end of a turn loses the
+game immediately. This engine never lets it happen -- `_push_action_round_play`
+sets `must_play_scoring` once a side holds as many scoring cards as it has
+action rounds left, and offers only those.
+
+That is equivalent to the rule in every line but one. You can still delay a
+scoring card to the last legal round; what you cannot do is reach the
+end-of-turn check holding one. The exception is the case where that would
+have been right: on the last action round, holding a scoring card, where
+playing some *other* card wins outright. The rules let you play the winner
+and win before the check; here the scoring card is the only option offered.
+
+The bot carries the loss value regardless (`value_as_held` returns the
+certain-loss flag for a scoring card), so a hand planner's objective and
+the engine's legality agree rather than the objective relying on the
+engine to refuse.

@@ -75,3 +75,36 @@ def test_playing_our_own_or_a_neutral_card_beats_not_playing_it():
         'these are ours or neutral and price below zero, so the bot would '
         'rather hold them than play them, which the Ops alone forbid: '
         f'{negative[:8]}')
+
+
+def test_holding_a_scoring_card_is_a_loss_not_a_discount():
+    """The maintainer: holding a scoring card past end of turn loses the
+    game, so it is worth -40 -- the whole track -- and the only line where
+    you would take it is one where you win before the turn ends.
+
+    Carried as the certain-loss flag rather than a number, because that is
+    what it is. The engine makes it unreachable by forcing the play (see
+    docs/LIMITATIONS.md), and this keeps a planner's objective agreeing
+    with that rather than depending on the engine to refuse an illegal
+    plan.
+    """
+    _engine, bot, obs = primed(5)
+    scoring = [c for c in CARDS if CARDS[c].scoring]
+    assert scoring, 'no scoring cards in the deck'
+    for cid in scoring:
+        held = bot.value_as_held(obs, cid)
+        assert is_certain(held) and held < 0, (
+            f'holding {cid} prices at {held}, not a certain loss')
+        # And it must be worse than any ordinary hold, not merely negative.
+        ordinary = bot.value_as_held(obs, 'Duck_and_Cover')
+        assert held < ordinary
+
+
+def test_holding_an_ordinary_card_is_not_a_loss():
+    """The flag is for scoring cards specifically. A negative hold value is
+    ordinary -- an opponent's card you would rather not be carrying -- and
+    must stay a price, since callers average these."""
+    _engine, bot, obs = primed(5)
+    for cid in ('Duck_and_Cover', 'NATO', 'Decolonization', 'The_China_Card'):
+        if cid in CARDS:
+            assert not is_certain(bot.value_as_held(obs, cid)), cid

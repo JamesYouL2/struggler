@@ -133,6 +133,34 @@ Re-planning every round also dissolves the staleness problem: no
 precondition triggers, no plan going stale across the opponent's turn.
 The plan only has to survive the round it was made in.
 
+## Two more requirements from the maintainer
+
+**Reservation, which is not mode assignment.** In the Early War the US
+must plan to hold a 3+ Ops card while Blockade is live and it controls
+West Germany, or lose all its Influence there. Blockade *is* modelled --
+`US_PAYABLE_DISCARDS` in `defcon.py`, and `policy.py` prices the choice
+when it fires -- but only reactively. The survival planner's own comment
+says why it never reserves: "refusing is always allowed (a board hit,
+never a loss)". Correct for a survival search, and exactly wrong for a
+value one.
+
+So the planner needs a third concept beside assignment and commitment:
+**keeping a card against a foreseeable demand**. Latin American Debt
+Crisis is the other card in that set, and the China Card question has the
+same shape.
+
+**Held value costs a draw.** Holding a card means being dealt one fewer
+next turn, so the value of a hold is the card's value next turn *minus*
+the expected value of the card that would have been drawn instead -- a
+discount on every hand, which `_unseen_holds` already has the pool to
+compute. The maintainer adds that it does not apply the same way when a
+reshuffle falls next turn, since the pool drawn from is then the returned
+discards rather than the remaining draw pile. Reshuffles land on turn 3
+and turn 9 (measured), so this is a per-turn condition and not a constant.
+
+Currently `value_as_held` applies no discount at all beyond the certain
+loss for a scoring card.
+
 ## Division
 
 Steps 1 and 2 are mechanical and parity-checkable, and they are

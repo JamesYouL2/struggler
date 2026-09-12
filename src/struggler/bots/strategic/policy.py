@@ -2146,6 +2146,34 @@ class StrategicPlayer:
             return LOSS
         return event
 
+    def value_as_held(self, obs: Observation, cid: str) -> float:
+        """This card kept past the end of the turn.
+
+        A **scoring card cannot be held: holding one loses the game.** So
+        this is the certain-loss flag for them, not a discount -- the
+        maintainer's "-40, and the only way you ever do it is if you know
+        you win before the turn ends".
+
+        The engine does not model that as a loss; it makes it unreachable,
+        forcing a scoring play once a side holds as many scoring cards as
+        it has action rounds left. That is faithful in every line except
+        one: on the last action round, holding a scoring card, where some
+        *other* card would win outright, the rules let you take it and win
+        before the end-of-turn check. See docs/LIMITATIONS.md.
+
+        The flag is still worth carrying here. A planner that reasons about
+        holds must not be free to plan an illegal one, and its objective
+        and its constraints should agree rather than relying on the engine
+        to refuse.
+
+        Anything else is worth what it will be worth next turn. No discount
+        is applied yet: whether a held card should also carry option value
+        for the flexibility itself is open (see the hand planner plan).
+        """
+        if CARDS[cid].scoring:
+            return LOSS
+        return self.hold_value(obs, cid)
+
     def card_play_value(self, obs: Observation, cid: str, ops: int, event: float) -> float:
         """The best use of a card played from hand.
 
