@@ -33,11 +33,17 @@ the tests.
   (conda) and `pip install -e ".[test]"` still work but are not what this
   repo is developed against.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
-  the full suite before committing; it takes about eleven minutes (10:49
-  measured 2026-09-12, 774 tests, on an otherwise idle machine). It said
-  three and a half minutes for a long time and the number was never
-  re-measured as tests were added, so budget from this one and re-measure
-  it when it starts to hurt. `test_parity_corpus.py` (a bot rebuilt per
+  the full suite before committing; it takes about three minutes (2:58 for
+  774 tests on an idle machine, 3:13 on a CI runner, both 2026-09-12).
+  `test_parity_corpus.py` is 1:26 of that -- half the suite -- so skipping it
+  saves ninety seconds and there is no reason to. ALWAYS RUN THE WHOLE
+  THING.
+  This entry was wrong twice on 2026-09-12. It said three and a half minutes
+  from before the tests that make up the difference existed, and was then
+  "corrected" to eleven minutes from a run taken while a 128-seed gate held
+  all eight cores -- contention recorded as fact, in the file that documents
+  `sample_machine` and `contention_verdict` for exactly that reason. Time the
+  suite on an idle machine or do not time it. `test_parity_corpus.py` (a bot rebuilt per
   record) and `test_poke_rate.py` (four played games) are the largest
   single files; both earn it -- one is the exactness oracle, the other the
   only behavioural rate the suite measures -- but run a subset while

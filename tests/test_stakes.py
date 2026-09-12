@@ -26,7 +26,9 @@ DERIVED = ('GAME_SWING_VP', 'EUROPE_CONTROL_VP')
 
 def test_every_stake_is_derived_from_the_one_parameter():
     assert stakes.GAME_SWING_VP == 2 * stakes.AUTO_VICTORY_VP
-    assert stakes.EUROPE_CONTROL_VP == stakes.AUTO_VICTORY_VP
+    # The full swing, not the threshold: controlling Europe ends the game,
+    # which from the losing side is the whole -20..+20 (9a2b3c7).
+    assert stakes.EUROPE_CONTROL_VP == stakes.GAME_SWING_VP
 
 
 def test_moving_the_parameter_moves_everything(monkeypatch):
@@ -40,7 +42,7 @@ def test_moving_the_parameter_moves_everything(monkeypatch):
     exec(compile(src, 'stakes.py', 'exec'), namespace)
     assert namespace['AUTO_VICTORY_VP'] == 30.0
     assert namespace['GAME_SWING_VP'] == 60.0, 'GAME_SWING_VP stopped following'
-    assert namespace['EUROPE_CONTROL_VP'] == 30.0, 'EUROPE_CONTROL_VP stopped following'
+    assert namespace['EUROPE_CONTROL_VP'] == 60.0, 'EUROPE_CONTROL_VP stopped following'
 
 
 def test_no_other_module_defines_its_own_stake():

@@ -71,6 +71,10 @@ jobs:
 
   run:
     needs: plan
+    # Without this the job is titled from EVERY matrix field, so a run reads
+    # `run (smoke, 1.3, 9100-9103, 9104-9107, smoke, end-to-end check of...)`
+    # and the arm you are looking for is unfindable in a list of twenty.
+    name: ${{ matrix.arm.slug }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
