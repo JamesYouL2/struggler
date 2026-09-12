@@ -1,6 +1,7 @@
 """Tactical regressions and the observation-only policy contract."""
 import dataclasses
 
+import math
 import pytest
 
 from struggler.bots.strategic import evaluator as ev
@@ -570,6 +571,49 @@ def _event_position():
     engine.hands['USSR'] = ['Nasser', 'Marshall_Plan', 'Truman_Doctrine']
     engine._push_action_round_play(Side.USSR)
     return engine.observe(Side.USSR)
+
+
+def test_the_debt_crisis_is_priced_on_the_board_and_never_simulated(monkeypatch):
+    """Latin American Debt Crisis must not reach the sandbox.
+
+    The sandbox cannot drive it. It pushes a US discard choice whose options
+    are priced by `hold_value`, which prices other cards, which re-enter the
+    sandbox -- and then two more USSR doubling choices on top. That recursed
+    to the interpreter limit and fell back to the generic Ops estimate, so
+    the card was mispriced on every evaluation it touched (found 2026-09-12,
+    on corpus record 480: turn 9, US seat, headline play).
+
+    It hid because it FAILED SOFTLY: `event_value` caught it, logged
+    `RecursionError ... using the estimate`, and returned a plausible number.
+    It is also position-dependent -- lowering the recursion limit made it stop
+    recursing -- so nothing would have surfaced it except reading the log.
+
+    Blockade is the same pay-or-suffer card and is fine, because it is one
+    choice deep and prices its refuse branch directly. This asserts the same
+    is now true here: the card is priced on the board, and
+    `_public_event_value` is never asked about it.
+    """
+    obs = _event_position()
+    bot = StrategicPlayer()
+    bot.rank_actions(obs)
+
+    seen = []
+    real = StrategicPlayer._public_event_value
+
+    def watch(self, o, cid):
+        seen.append(cid)
+        return real(self, o, cid)
+
+    monkeypatch.setattr(StrategicPlayer, '_public_event_value', watch)
+    bot._events = {}
+    value = bot.event_value(obs, 'Latin_American_Debt_Crisis')
+
+    assert 'Latin_American_Debt_Crisis' not in seen, (
+        'the card reached the sandbox; it recurses there and falls back to '
+        'the Ops estimate')
+    assert 'Latin_American_Debt_Crisis' not in bot.sandbox_failures, (
+        f'priced by fallback: {bot.sandbox_failures}')
+    assert math.isfinite(value)
 
 
 def test_a_broken_event_simulation_is_reported_not_silently_estimated(caplog, monkeypatch):

@@ -289,6 +289,8 @@ HAND_ATTACK_EVENTS = frozenset(('Five_Year_Plan', 'Terrorism', 'Aldrich_Ames_Rem
 # nothing, so the card stayed in PUBLIC_EVENTS and was simulated in a sandbox
 # whose draw pile is empty. It returned 0.0 and recorded no failure, which
 # reads as a supported value rather than an artifact.
+DEBT_CRISIS = 'Latin_American_Debt_Crisis'
+
 PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
                           if not c.scoring and c.id not in HIDDEN_INFO_EVENTS
                           and c.id not in OPS_MODIFIER_EVENTS)
@@ -1752,7 +1754,18 @@ class StrategicPlayer:
     def _event_value_uncached(self, obs: Observation, cid: str, card, sign: int) -> float:
         result = None
         sandbox_owns_ending = False
-        if cid in OPS_MODIFIER_EVENTS:
+        if cid == DEBT_CRISIS:
+            # Priced on the board, never simulated. The sandbox CANNOT drive
+            # this card: it pushes a US discard choice whose options are
+            # priced by `hold_value`, which prices other cards, which re-enter
+            # the sandbox -- and then two more USSR doubling choices on top.
+            # That recursed to the interpreter limit on every evaluation
+            # (found 2026-09-12), logged `RecursionError ... using the
+            # estimate`, and fell back to the generic Ops number. Blockade is
+            # the same pay-or-suffer shape and survives only because it is one
+            # choice deep.
+            result = self._debt_crisis_doubling(obs)
+        elif cid in OPS_MODIFIER_EVENTS:
             result = self._ops_modifier_value(obs, cid)
         elif cid in PUBLIC_EVENTS:
             try:
@@ -1811,6 +1824,40 @@ class StrategicPlayer:
             result = (1-risk)*result - risk*self.game_value(obs)
         self._events[cid] = result
         return result
+
+    def _debt_crisis_doubling(self, obs: Observation) -> float:
+        """What Latin American Debt Crisis's doubling is worth, priced on the
+        board rather than simulated.
+
+        The card doubles USSR Influence in up to two South America countries.
+        The maintainer's reading: it is a Late War card that only matters when
+        that can break US control of a South America battleground -- so in most
+        positions this is near zero, and the cases that are not are the ones
+        worth getting right.
+
+        Doubling `u` influence adds `u`, so each candidate is a single
+        `delta`, the same idiom `Blockade`'s refuse branch uses. THE USSR
+        CHOOSES, so the best two are picked by its gain and not ours: from the
+        US seat the USSR wants the most negative delta, which is why the sort
+        key flips with the seat.
+
+        Deliberately ignores the US's option to discard a 3+-Ops card to
+        prevent it, which makes this an UPPER bound on the USSR's gain -- the
+        US pays only when paying is cheaper than suffering. Pricing that
+        branch properly is what recursed, and the payment itself is already
+        priced one branch below by `hold_value`.
+        """
+        ours = obs.side is Side.USSR
+        gains = []
+        for cid, info in self.board.countries.items():
+            if info.region is not Region.SOUTH_AMERICA:
+                continue
+            u = self.board.influence[cid]['USSR']
+            if u > 0:
+                gains.append(self.delta(obs, cid, own=u) if ours
+                             else self.delta(obs, cid, opp=u))
+        gains.sort(reverse=ours)
+        return sum(gains[:2])
 
     def _event_eligible(self, obs: Observation, cid: str) -> bool:
         """Whether `cid`'s event can occur at all here, asked of the engine
@@ -2713,6 +2760,21 @@ class StrategicPlayer:
             return self.delta(obs, choice, own=-1) + gains
         if event == 'Blockade' and choice == 'refuse':
             return self.delta(obs, 'West_Germany', own=-self.board.influence['West_Germany'][obs.side.value])
+        if event == 'Latin_American_Debt_Crisis' and choice == 'refuse':
+            # The other half of the pay-or-suffer pair, and it was missing.
+            # Without it this branch fell through to the generic path, which
+            # drives the sandbox -- and this card's sandbox pushes a US
+            # discard choice AND then two USSR doubling choices, each calling
+            # back into the evaluator. That recursed to the interpreter limit
+            # on every evaluation, logged `RecursionError ... using the
+            # estimate`, and priced the card at the generic Ops fallback
+            # (found 2026-09-12). Blockade survives because it is one choice
+            # deep and has the line above; this is that line.
+            return self._debt_crisis_doubling(obs)
+        if event == 'Latin_American_Debt_Crisis_double':
+            # Which country the USSR doubles in. Doubling `u` adds `u`, so it
+            # is one `delta`, and the actor asked is always the USSR.
+            return self.delta(obs, choice, own=self.board.influence[choice]['USSR'])
         if event in US_PAYABLE_DISCARDS and choice in CARDS:
             # What the payment costs is the card we give up, which is
             # `hold_value` -- the same rule `Missile_Envy_pick` uses for the
