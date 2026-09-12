@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Handoff, 2026-09-12](2026-09-12-handoff.md) — 2026-09-12
 - [The bot does not cycle the deck, and the third scoring is rarer than it looks](2026-09-12-the-bot-does-not-cycle-the-deck.md) — 2026-09-12
 - [The reshuffle is where the information is](2026-09-12-the-reshuffle-is-where-the-information-is.md) — 2026-09-12
 - [Shared rules arithmetic left the greedy bot](2026-09-11-shared-rules-arithmetic-left-the-greedy-bot.md) — 2026-09-11

@@ -51,13 +51,21 @@ fi
 commit "docs: measure whether scoring_discount moves Battleground VP or cancels" \
   docs/notes/claude
 
-run_ab() {  # run_ab <slug> <json> <seeds> <title> <context>
-  local slug=$1 json=$2 seeds=$3 title=$4 context=$5
-  say "  $slug: $json over $seeds"
+run_ab() {  # run_ab <slug> <json> <seeds> <held-seeds> <title> <context>
+  local slug=$1 json=$2 seeds=$3 held=$4 title=$5 context=$6
+  say "  $slug: $json over $seeds + $held"
   echo "$json" > "$RUN/$slug.weights.json"
+  # --decide AND --held-seeds, both of them. `_decided` is gated on a held
+  # sample existing, so passing --decide alone does nothing -- which is half
+  # of why the 2026-09-12 ablation ran to 511 of 512 and then hung for four
+  # hours on the last game with nothing able to stop it. --stall-timeout is
+  # the other half and is defence in depth: early stopping is only evaluated
+  # when a game *finishes*, so it cannot rescue a hang on its own.
   if $PY -m struggler.bots.benchmark --bot strategic \
        --bot-weights "$RUN/$slug.weights.json" --opponent strategic \
-       --seeds "$seeds" --workers 8 --report "$RUN/$slug.json" \
+       --seeds "$seeds" --held-seeds "$held" --held-report "$RUN/$slug.held.json" \
+       --decide --stall-timeout 1200 \
+       --workers 8 --report "$RUN/$slug.json" \
        > "$RUN/$slug.out" 2>"$RUN/$slug.err"; then
     $PY scripts/report_note.py "$RUN/$slug.json" --title "$title" \
         --slug "$slug" --context "$context" >> "$STATUS" 2>&1
@@ -72,21 +80,21 @@ print(f\"score {s.get('score')} +/-{s.get('score_halfwidth')} over {s.get('seeds
 # --- 2. vp_swing at 1.0 --------------------------------------------------
 say "step 2: vp_swing 1.0 (flat) at $SEEDS_PER seeds"
 run_ab "vp-swing-1x" '{"version": 1, "weights": {"vp_swing": 1.0}}' \
-  "7800-8055" "A flat VP curve: vp_swing 1.0 against the shipped 2.0" \
+  "7800-7927" "7928-8055" "A flat VP curve: vp_swing 1.0 against the shipped 2.0" \
   "Fitting the win-probability slope per turn from the gate's VP traces gives spread(T3..T10) of 7.45 -> 6.86, a ratio of 1.09 -- essentially flat -- and the headline 2.32 comes almost entirely from turn 2, where every game sits at 0 VP and the logistic is barely identified. 4.0 measured 0.491 +/-0.026. With 1.0, 2.0 and 4.0 all measured the curve has three points rather than a guess and a rejection."
 commit "docs: vp_swing 1.0 measured against the shipped 2.0" docs/notes/claude
 
 # --- 3. the final-scoring weight -----------------------------------------
 say "step 3: scoring_final 3.0 at $SEEDS_PER seeds"
 run_ab "scoring-final-3x" '{"version": 1, "weights": {"scoring_final": 3.0}}' \
-  "8100-8355" "Tripling the final-scoring weight" \
+  "8100-8227" "8228-8355" "Tripling the final-scoring weight" \
   "Measured over 429 corpus positions, the expected-scorings mass in every other bucket is flat or falling across the game -- 'scores this turn' sits at 0.16-0.23 with no trend -- while final_scoring_odds is the only one that rises monotonically, 0.222 -> 0.750 -> 1.0. So it is the only term that can make board value rise late, which is what the maintainer's reading requires. scoring_final is 1.0 today, the same weight as one ordinary region scoring, for the one scoring that is certain if the game runs the distance."
 commit "docs: triple the final-scoring weight, measured over 256 seeds" docs/notes/claude
 
 # --- 4. a steeper discount ------------------------------------------------
 say "step 4: scoring_discount 0.55 at $SEEDS_PER seeds"
 run_ab "scoring-discount-055" '{"version": 1, "weights": {"scoring_discount": 0.55}}' \
-  "8400-8655" "A steeper scoring discount: 0.55 against 0.8" \
+  "8400-8527" "8528-8655" "A steeper scoring discount: 0.55 against 0.8" \
   "The far buckets carry turn 1's mass (cycle 2 and cycle 3 are both at 1.0 there) and the near buckets carry turn 9's, so a steeper discount raises the urgency ratio across the game -- modelled, it moves T9/T1 from 1.51x at 0.8 to about 2.49x at 0.5, peaking there. Whether that survives into Battleground VP rather than cancelling against ops_value(1) is what step 1 measures; this measures whether it is worth anything in play."
 commit "docs: a steeper scoring discount measured over 256 seeds" docs/notes/claude
 

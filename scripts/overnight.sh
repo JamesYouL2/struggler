@@ -97,9 +97,14 @@ run_weight_ab() {  # run_weight_ab <slug> <json> <seeds> <title> <context>
   local slug=$1 json=$2 seeds=$3 title=$4 context=$5
   say "  $slug: seeds $seeds"
   echo "$json" > "$RUN/$slug.weights.json"
+  # --stall-timeout, because one game hung this script for four hours on
+  # 2026-09-12 with nothing able to interrupt it. Early stopping cannot help:
+  # it is evaluated only when a game finishes, and `_decided` is additionally
+  # gated on a held sample this path does not pass.
   if $PY -m struggler.bots.benchmark --bot strategic \
        --bot-weights "$RUN/$slug.weights.json" --opponent strategic \
-       --seeds "$seeds" --workers 8 --report "$RUN/$slug.json" \
+       --seeds "$seeds" --stall-timeout 1200 \
+       --workers 8 --report "$RUN/$slug.json" \
        > "$RUN/$slug.out" 2>"$RUN/$slug.err"; then
     $PY scripts/report_note.py "$RUN/$slug.json" --title "$title" \
         --slug "$slug" --context "$context" >> "$STATUS" 2>&1
@@ -120,8 +125,15 @@ commit "docs: 4x vp_swing measured against the shipped 2x over 256 seeds"
 
 # --- 5. the access ablation ----------------------------------------------
 say "step 5: access ablation at 256 seeds"
-run_weight_ab "ablate-access" '{"version": 1, "weights": {"access": 0.0}}' \
-  "7300-7555" "Ablating the access family, 256 seeds" \
+# 0.01, NOT 0.0, on the maintainer's instruction and it is the better
+# experiment as well as the safer one. Zero makes the term vanish, so
+# positions that differed only in it tie *exactly* and whatever breaks ties
+# explores far more -- which is almost certainly what made the 0.0 run hang
+# for four hours on one game. At 0.01 the ordering survives while ~99% of the
+# magnitude is gone, which separates "does this term's size matter" from
+# "does this term discriminate at all". Zero conflated the two.
+run_weight_ab "ablate-access" '{"version": 1, "weights": {"access": 0.01}}' \
+  "7300-7555" "Ablating the access family to 1%, 256 seeds" \
   "All four access weights are guesses and all four are recorded underdetermined; access=1.5 is the master multiplier, so zeroing it removes the family in one move. It is also the expensive term -- it reads influence two hops out and has caused two of the seven caching defects -- so if this accepts, the family is a deletion candidate and every later game gets cheaper. At +/-0.020 this distinguishes 'worth nothing' from 'worth 2%'; it cannot rule out a smaller real effect."
 commit "docs: ablate the access family over 256 seeds"
 

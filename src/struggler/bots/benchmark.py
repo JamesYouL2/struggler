@@ -27,6 +27,7 @@ import random
 import statistics
 import sys
 import time
+import multiprocessing
 from multiprocessing import Pool
 
 from struggler.engine import DecisionKind, Engine, Region, Side, Subregion
@@ -992,6 +993,9 @@ def main(argv=None):
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
     parser.add_argument('--simulations', type=int, default=24)
     parser.add_argument('--stop-turn', type=int, default=0, help='0 plays the whole game')
+    parser.add_argument('--stall-timeout', type=int, default=1200,
+                        help='seconds with no game finishing before abandoning the rest '
+                             'and reporting what completed (0 waits for ever)')
     parser.add_argument('--report', help='write per-game records and the summary here')
     parser.add_argument('--log-dir', help='write each game\'s INFO log here as <seed>-<side>.info.log')
     parser.add_argument('--bot-weights', help='strategic weights JSON for --bot only (the opponent keeps defaults)')
@@ -1066,7 +1070,36 @@ def main(argv=None):
     stopped = None
     with Pool(args.workers) as pool:
         results = pool.imap_unordered(play, jobs, chunksize=1)
-        for game in results:
+        while True:
+            # A STALL TIMEOUT, because one game can hang a whole night.
+            #
+            # On 2026-09-12 an `access: 0.0` ablation reached 511 of 512
+            # games and then sat on the last one -- seed 7500, USSR -- for
+            # FOUR HOURS at 97% CPU, blocking two queued experiment runs
+            # behind it. Zeroing a discriminating family makes positions that
+            # differed only in that term tie exactly, and whatever breaks
+            # ties then explores far more; the ablation caused its own hang.
+            #
+            # Nothing caught it. Early stopping could not: it needs `held`,
+            # and it is evaluated only when a game *finishes*. And the report
+            # is written after this loop, so killing the run by hand lost all
+            # 511 finished games.
+            #
+            # This measures the gap between finishes across all workers, not
+            # the length of any one game -- a slow game is fine as long as
+            # something is completing. On a timeout, take what we have: 511
+            # games is a result, and an unbounded wait is not.
+            try:
+                game = results.next(timeout=args.stall_timeout)
+            except multiprocessing.TimeoutError:
+                print(f'STALLED: no game finished in {args.stall_timeout}s. '
+                      f'Abandoning the remaining {len(jobs) - len(games)} and '
+                      f'reporting the {len(games)} that did.', file=sys.stderr, flush=True)
+                stopped = len(games)
+                pool.terminate()
+                break
+            except StopIteration:
+                break
             games.append(game)
             print(f"{len(games):3d}/{len(jobs)} seed {game['seed']} {game['bot_side']:<4} T{game['turn']} "
                   f"vp={game['signed_vp']:+d} proj={game['projected_vp']:+.1f} defcon={game['defcon']} "
@@ -1077,6 +1110,12 @@ def main(argv=None):
                       f'the rest cannot change the verdict', file=sys.stderr, flush=True)
                 pool.terminate()
                 break
+    if not games:
+        # `summarize` averages over the games, so an empty list raises from
+        # `statistics.fmean` rather than saying what happened. Reachable only
+        # via a stall timeout short enough that nothing finished at all.
+        print('no games completed; nothing to report', file=sys.stderr, flush=True)
+        return 4
     games.sort(key=lambda g: (g['seed'], g['bot_side']))
     reports = [(args.report, [g for g in games if sample_of.get(g['seed']) == 0])]
     if held:
