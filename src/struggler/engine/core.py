@@ -142,11 +142,13 @@ class Engine:
         # cleared at end of turn; its values are JSON primitives (mandate #5).
         self.events_enabled = False
         self.turn_effects: dict[str, object] = {}
-        # Our Man in Tehran reveals the top few draw-pile cards to the US one at
-        # a time; the not-yet-decided cards wait here (serialized state, mandate
-        # #5) but are deliberately *not* surfaced by observe(), so only the card
-        # currently being decided is exposed — the rest of the draw order stays
-        # hidden (mandate #4).
+        # Our Man in Tehran shows the US the top few draw-pile cards and asks
+        # keep or discard for each in turn; the not-yet-decided cards wait here
+        # (serialized state, mandate #5). observe(US) surfaces them as
+        # `Observation.examined_cards` -- the US is the seat the event shows
+        # them to -- and observe(USSR) never does (mandate #4). Kept cards
+        # wait in `_our_man_kept` until the reshuffle and are surfaced to
+        # nobody: the rest of the draw order stays hidden.
         self._our_man_queue: list[str] = []
         self._our_man_kept: list[str] = []
         # Persistent effects that last for the rest of the *game* (not just the
@@ -285,6 +287,12 @@ class Engine:
             # Revealed headlines still to resolve: public once both are
             # picked (the resolving one has already been popped).
             headline_pending=tuple((s, c) for s, c in self._headline_pending),
+            # Our Man in Tehran's examined cards, to the US only. They were
+            # once hidden from both seats, which left the US answering
+            # keep/remove about a card it could not see (Codex audit F6).
+            # Not on the Decision: both seats get the same pending_decision
+            # and the shared history is built from it.
+            examined_cards=tuple(self._our_man_queue) if player is Side.US else (),
         )
 
     @property

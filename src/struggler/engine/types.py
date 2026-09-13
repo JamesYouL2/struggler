@@ -291,6 +291,16 @@ class Observation:
     still waiting to resolve (in resolution order, as `(side, card)`
     pairs) appear here -- a player acting during the opponent's headline
     can see its own headline is still to come.
+
+    `examined_cards` is, besides `hand`, the only field that names cards
+    one seat sees and the other does not: cards an event lets *this* seat
+    look at and still waiting for
+    its decision, in decision order, so the first is the card the pending
+    choice is about. Today that is Our Man in Tehran's top of the draw
+    pile, shown to the US and to nobody else. It is not on the Decision,
+    because `observe()` hands both seats the same `pending_decision` and
+    the shared history is built from it; an observation field reaches the
+    entitled seat and no one else.
     """
 
     side: Side
@@ -318,3 +328,4 @@ class Observation:
     turn_effects: Mapping[str, Any]
     game_effects: Mapping[str, Any]
     headline_pending: tuple[tuple[str, str], ...] = ()
+    examined_cards: tuple[str, ...] = ()

@@ -2584,7 +2584,10 @@ def test_our_man_in_tehran_discards_rather_than_removing_from_the_game():
     assert engine.removed_cards == []
 
 
-def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
+def test_our_man_in_tehran_examines_up_to_five_cards_and_shows_only_those():
+    """The top five and no deeper. The decision still names no card -- both
+    seats are handed it -- but the US is shown exactly the examined cards,
+    in the order it decides them, and never the sixth."""
     engine = _us_holds_the_middle_east(_bare())
     engine.draw_pile = ["Fidel", "Nasser", "Allende", "COMECON", "Duck_and_Cover", "Blockade"]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
@@ -2592,21 +2595,82 @@ def test_our_man_in_tehran_examines_up_to_five_cards_without_leaking_identity():
     d = engine.pending_decision
     assert d.actor is Side.US
     assert {a.payload["choice"] for a in d.options} == {"keep", "remove"}  # never the card id
+    shown = engine.observe(Side.US).examined_cards
+    assert shown == tuple(engine._our_man_queue)
+    assert "Fidel" not in shown  # the sixth card down was not examined
     for choice in ("keep", "remove", "keep", "keep", "remove"):
+        assert engine.observe(Side.US).examined_cards[0] == engine._our_man_queue[0]
         engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": choice}))
     assert engine.pending_decision is None
+    assert engine.observe(Side.US).examined_cards == ()
     assert len(engine.discard_pile) == 2  # discarded, not removed from the game
     assert len(engine.draw_pile) == 4  # 1 untouched + 3 kept, reshuffled back in
     assert engine._our_man_queue == [] and engine._our_man_kept == []
 
 
-def test_our_man_in_tehran_never_leaks_the_examined_card_via_observe():
-    engine = _us_holds_the_middle_east(_bare())
-    engine.draw_pile = ["Fidel", "Nasser", "Allende"]
+def _tehran_over(top_card: str):
+    """The audit's reproduction: events on, seed 123, US Israel 4, one card
+    in the draw pile, Our Man in Tehran fired."""
+    engine = _us_holds_the_middle_east(_bare(seed=123))
+    engine.draw_pile = [top_card]
     engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    return engine
+
+
+def test_our_man_in_tehran_shows_the_us_the_card_and_not_the_ussr():
+    """The boundary moved (Codex audit F6). These tests used to assert that
+    *neither* seat could see the examined card, which protected the USSR's
+    information by also hiding what the US needs to perform the event: two
+    engines differing only in that card gave identical US observations, so
+    no observation-only player could tell keeping Fidel from keeping the
+    Marshall Plan. The US is the seat the card shows them to; the USSR
+    still is not."""
+    fidel, marshall = _tehran_over("Fidel"), _tehran_over("Marshall_Plan")
+    assert fidel.observe(Side.US) != marshall.observe(Side.US)
+    assert fidel.observe(Side.US).examined_cards == ("Fidel",)
+    assert marshall.observe(Side.US).examined_cards == ("Marshall_Plan",)
+    assert fidel.observe(Side.USSR) == marshall.observe(Side.USSR)
+    assert fidel.observe(Side.USSR).examined_cards == ()
     for player in (Side.US, Side.USSR):
-        opts = engine.observe(player).pending_decision.options
+        opts = fidel.observe(player).pending_decision.options
         assert {a.payload["choice"] for a in opts} == {"keep", "remove"}
+
+
+def test_our_man_in_tehran_keeps_a_kept_card_out_of_the_shared_history():
+    """Both players are handed the shared history. A discarded card is
+    public once it reaches the discard pile; a kept one must never be named
+    there, in any recorded decision, option or action."""
+    from struggler.engine.replay import HistoryBuilder
+    engine = _us_holds_the_middle_east(_bare(seed=123))
+    card_ids = frozenset(engine.cards)
+    engine.draw_pile = ["Nasser", "Allende"]  # popped from the end: Allende first
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    builder = HistoryBuilder()
+    for choice in ("keep", "remove"):
+        decision = engine.pending_decision
+        action = Action(DecisionKind.EVENT_CHOICE, {"choice": choice})
+        engine.step(action)
+        builder.record(decision, action, engine)
+    assert engine.discard_pile == ["Nasser"] and engine.draw_pile == ["Allende"]
+    assert len(builder.history) == 2
+    for event in builder.history:
+        named = [value for payload in (event.decision.context, event.action.payload,
+                                       *(o.payload for o in event.decision.options))
+                 for value in payload.values() if isinstance(value, str) and value in card_ids]
+        assert "Allende" not in named, f"the shared history names the kept card: {event}"
+
+
+def test_our_man_in_tehran_is_still_a_no_op_in_physical_mode():
+    """docs/LIMITATIONS.md: in physical mode the draw pile's contents are
+    unknown to the engine itself, so there is nothing to show the US."""
+    from test_physical_mode import _bare_physical
+    engine = _us_holds_the_middle_east(_bare_physical(Side.US, seed=123))
+    engine.draw_pile = ["Fidel"]
+    engine._fire_event(Side.US, "Our_Man_In_Tehran")
+    assert engine.pending_decision is None
+    assert engine.draw_pile == ["Fidel"] and engine._our_man_queue == []
+    for player in (Side.US, Side.USSR):
+        assert engine.observe(player).examined_cards == ()
 
 
 def test_our_man_in_tehran_no_op_with_an_empty_draw_pile():

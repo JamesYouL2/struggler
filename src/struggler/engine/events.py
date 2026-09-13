@@ -1662,10 +1662,12 @@ def _our_man_in_tehran(engine: "Engine", side: Side) -> None:
     # The US (regardless of who phases this) looks at the top 5 cards of the
     # draw pile one at a time, removing or keeping each; kept cards return to
     # the draw pile, which is then reshuffled. The cards examined are held in
-    # engine state deliberately excluded from observe() (mandate #4): the
-    # EVENT_CHOICE decision itself only ever offers "keep"/"remove", never the
-    # card identity, so the opponent's observation never sees which card is
-    # under consideration.
+    # `_our_man_queue`, which observe(US) surfaces as `examined_cards` and
+    # observe(USSR) does not (mandate #4). The EVENT_CHOICE decision itself
+    # only ever offers "keep"/"remove", never the card identity, because
+    # both seats are handed the same pending decision and the shared history
+    # is built from it. A discarded card is revealed by reaching the discard
+    # pile; a kept one stays the US's secret.
     # Physical mode, not yet wired (see docs/LIMITATIONS.md's "Physical mode"
     # limitation): the draw pile's real contents are unknown to the engine
     # itself in physical mode (not just hidden from a player) — there is no

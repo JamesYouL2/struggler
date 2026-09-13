@@ -351,15 +351,21 @@ the China Card, +2 VP for the US; otherwise the US takes it, face down and
 unusable this turn (card text overriding rule 9.4's face-up default). There
 is no discard-to-keep option and no eligibility condition.
 
-**A hidden peek at the draw pile.** Our Man in Tehran. The examined cards
+**A private peek at the draw pile.** Our Man in Tehran. The examined cards
 live in `Engine._our_man_queue`/`_our_man_kept` — plain serialized state
-(mandate #5) deliberately excluded from `observe()` — while the
-`EVENT_CHOICE` decision offered to the US only ever contains
-`"keep"`/`"remove"`, never the card identity, so the opponent's observation
-cannot infer which card is under consideration even though
-`pending_decision` is otherwise shared (mandate #4). Kept cards return to
-the draw pile, which is reshuffled through the seeded RNG once all (up to
-5) cards are decided.
+(mandate #5). The US is shown them: `observe(Side.US)` carries the
+undecided ones as `Observation.examined_cards`, in decision order, the
+first being the card the pending keep/remove choice is about.
+`observe(Side.USSR)` never carries them, and neither does the shared
+history, because the `EVENT_CHOICE` decision itself only ever contains
+`"keep"`/`"remove"` — both seats are handed the same `pending_decision`
+and the history is built from it (mandate #4). A discarded card is
+revealed by reaching the discard pile; a kept card is never named to the
+USSR. Kept cards return to the draw pile, which is reshuffled through the
+seeded RNG once all (up to 5) cards are decided.
+
+Until the Codex audit's F6 (2026-09-13) the cards were hidden from the US
+as well, so the US answered keep/remove about a card it could not see.
 
 **A headline-cancellation interaction plus a separate action-round
 trigger.** Defectors has no `EVENTS` entry — neither of its two printed

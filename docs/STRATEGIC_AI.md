@@ -294,10 +294,14 @@ action = bot.choose_action(observation, history)
   only when its hold plus what the USSR loses beats 2 Ops (a Soviet event's
   harm is in the hold, so those go back); Star Wars picks the best event in
   the pile, or none; Missile Envy's giver hands over the tied card worth
-  least; Aldrich Ames discards the US card worth most to the US. The first
-  two used to fall through to the generic card-choice rule, which scored a
-  card at *minus* its Ops -- so Star Wars fetched the weakest card in the
-  pile, and the gate rejected the terms for it.
+  least; Aldrich Ames discards the US card worth most to the US; Our Man In
+  Tehran discards the shown card only when `tehran_discard_gain` -- the same
+  per-card rule its event price averages -- says the US gains by it, and
+  keeps it otherwise. The first two used to fall through to the generic
+  card-choice rule, which scored a card at *minus* its Ops -- so Star Wars
+  fetched the weakest card in the pile, and the gate rejected the terms for
+  it. Our Man In Tehran's choice tied at 0 and kept every card, because the
+  engine did not show the US the card (Codex audit F6).
 
 All decisions use only `Observation`; history is currently ignored. The event
 sandbox is constructed from public fields with an independent fixed RNG and

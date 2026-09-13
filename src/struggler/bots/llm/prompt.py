@@ -425,6 +425,15 @@ def _situation_text(
         parts.append(events_text)
     parts.append(build_board_report(observation, new_events, history))
     parts.append(_hand_text(observation))
+    if observation.examined_cards:
+        # Our Man in Tehran: the keep/remove choice names no card, so the
+        # card it is about has to be said here or the model decides blind.
+        current, *rest = observation.examined_cards
+        parts.append(
+            f"EXAMINED CARDS (shown to you alone by the event): the pending "
+            f"keep/remove choice is about {current}."
+            + (f" Still to decide after it: {', '.join(rest)}." if rest else "")
+        )
     parts.append(_cards_in_play_text(observation))
     return parts
 
