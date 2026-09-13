@@ -198,3 +198,46 @@ def test_check_is_not_blocked_by_the_lock():
         fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
         done = run_check()
     assert done.returncode == 0, f'--check was blocked by the gate lock\n{done.stderr}'
+
+
+def test_the_advisory_step_cannot_end_the_gate():
+    """An advisory step must not be able to fail the run, and must not
+    invent a clean result when it could not measure one.
+
+    `advisory_count` ended in `grep -oE '[0-9]+'`, which exits 1 when the
+    tool printed no "Found N" line -- and `now=$(advisory_count ...)` under
+    `set -euo pipefail` makes that fatal, so the `${now:-0}` default on the
+    next line could never run. Both CI gate jobs died 0.3s into step 1c,
+    before a single game, on a step whose own comment says "Advisory on
+    purpose"; and the tool's output was captured into the pipe, so the log
+    did not say why.
+
+    THE SAME SHAPE AS THE `pgrep -c` DEFECT IN THIS FILE'S HEADER: a command
+    that exits non-zero to mean "nothing found", used where non-zero means
+    "abort". Second occurrence, so it gets a test rather than a comment.
+    """
+    body = GATE.read_text()
+    start = body.index('advisory_count() {')
+    end = body.index('\n}', start) + 2
+    harness = (
+        'set -euo pipefail\n'
+        f'ROOT={ROOT}\n'
+        + body[start:end] +
+        '\nROOT=/nonexistent/no/such/venv\n'
+        'got=$(advisory_count /tmp ty)\n'
+        'echo "SURVIVED:[$got]"\n'
+    )
+    done = subprocess.run(['bash', '-c', harness], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, (
+        'a missing tool aborted the advisory helper under set -e; an advisory '
+        f'step must never end the gate.\n{done.stdout}\n{done.stderr}')
+    assert 'SURVIVED:[]' in done.stdout, (
+        'the helper must return EMPTY when it cannot parse a count, so the '
+        f'caller can say "unavailable" instead of comparing zeroes.\n{done.stdout}')
+    assert 'no count parsed' in done.stderr, (
+        'when it cannot answer it has to say so out loud -- the CI failure '
+        f'was silent because the tool output went into the pipe.\n{done.stderr}')
+    # And the caller must not turn a missing count into "unchanged at 0".
+    assert 'now=${now:-0}' not in body, (
+        'defaulting a missing count to 0 reports a clean bill of health that '
+        'nobody measured')

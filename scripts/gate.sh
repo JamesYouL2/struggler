@@ -226,22 +226,43 @@ echo "== 1c. types and lint (advisory)"
 #
 # A gate has the base checked out, so the honest question is "did THIS change
 # add any?", and silence is the right answer when it did not.
-advisory_count() {  # advisory_count <dir> <tool>
+advisory_count() {  # advisory_count <dir> <tool> -> a count, or empty
   # Match the "Found N" SUMMARY line, not `tail -1`. ruff --statistics ends
   # with "[*] 28 fixable with the --fix option", so tail -1 reads the fixable
   # count and reports 28 where the real figure is 131. ty happens to end with
   # its summary, which is exactly how a wrong parse survives review: it is
   # right for one of the two tools.
-  case "$2" in
+  #
+  # NEVER FAILS. This used to end in `grep -oE '[0-9]+'`, which exits 1 when
+  # the tool printed no "Found N" -- and `now=$(advisory_count ...)` under
+  # `set -euo pipefail` makes that fatal, so the `${now:-0}` default on the
+  # next line could never run and an ADVISORY step killed the whole gate
+  # before a single game was played. It did, the first time this block ran on
+  # a runner (2026-09-13): both jobs died 0.3s into step 1c. Worse, the
+  # tool's own output is captured into the pipe, so the log said nothing
+  # about why. A step that cannot change the verdict must not be able to end
+  # the run, and when it cannot answer it has to say so out loud.
+  local out n
+  out=$(case "$2" in
     ty)   (cd "$1" && "$ROOT/.venv/bin/ty" check --output-format concise 2>&1) ;;
     ruff) (cd "$1" && "$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1) ;;
-  esac | grep -oE 'Found [0-9]+' | tail -1 | grep -oE '[0-9]+'
+  esac) || true
+  n=$(printf '%s\n' "$out" | grep -oE 'Found [0-9]+' | tail -1 | grep -oE '[0-9]+') || true
+  if [ -z "$n" ]; then
+    echo "  $2: no count parsed in $1 -- $(printf '%s' "$out" | head -1)" >&2
+  fi
+  printf '%s' "$n"
 }
 ADVISORY_BASE=$(mktemp -d)
 if git worktree add -q --detach "$ADVISORY_BASE" "$BASE" 2>/dev/null; then
   for tool in ty ruff; do
     now=$(advisory_count "$SNAP" "$tool"); was=$(advisory_count "$ADVISORY_BASE" "$tool")
-    now=${now:-0}; was=${was:-0}
+    if [ -z "$now" ] || [ -z "$was" ]; then
+      # Say it, rather than defaulting both to 0 and printing "unchanged at
+      # 0" -- which is a clean bill of health invented out of a missing tool.
+      echo "  $tool: unavailable (no count from $([ -z "$now" ] && echo HEAD) $([ -z "$was" ] && echo "$BASE"))"
+      continue
+    fi
     if [ "$now" -gt "$was" ]; then
       echo "  $tool: +$((now - was)) since $BASE ($was -> $now)"
     elif [ "$now" -lt "$was" ]; then
