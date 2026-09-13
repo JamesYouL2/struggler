@@ -31,6 +31,11 @@ For comparison on the same seeds (drift canary): HEAD scored 0.551 vs v0.1.0,
   mean end turn 8.34, endings {'final_vp': 119, 'vp': 114, 'wargames': 16, 'europe_control': 4, 'defcon_1': 3}
   openings: HEAD plays iran/austria, the anchor its own pre-book default (a confound)
 
+b375ae5 (legacy_b375ae5): HEAD scores 0.596 +/-0.049 over 128 seeds, 256 games, 25 nuclear losses; stop_reason None
+  one-sided 95% upper bound 0.645; below 0.500 would mean the anchor is measurably stronger than HEAD
+  mean end turn 7.99, endings {'vp': 111, 'final_vp': 88, 'defcon_1': 27, 'wargames': 25, 'unknown': 3, 'europe_control': 2}
+  openings: HEAD plays iran/austria, the anchor its own pre-book default (a confound)
+
 ```
 
 ## What this does not say
