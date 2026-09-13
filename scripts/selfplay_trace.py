@@ -74,15 +74,25 @@ class _Catch(logging.Handler):
         if record.levelno < logging.WARNING:
             return
         exc = sys.exc_info()
+        # Only the sandbox fallback's first argument is a card id. Everything
+        # else (NUCLEAR WAR lines, the planner's budget warning) is grouped by
+        # its message template, or it groups under a turn number.
+        sandbox = 'failed in the sandbox' in str(record.msg)
         entry = dict(logger=record.name, template=str(record.msg),
-                     card=str(record.args[0]) if record.args else '',
+                     card=str(record.args[0]) if sandbox and record.args else '',
                      message=record.getMessage()[:300])
         if exc[2] is not None:
             frames = [_frame(f) for f in traceback.extract_tb(exc[2])]
-            counts = collections.Counter(frames)
+            # extract_tb holds only the frames from the except clause DOWN to
+            # the raise. A RecursionError's loop is usually ABOVE the catch --
+            # the first run kept 17 frames of a 1000-deep stack and missed it
+            # entirely -- so keep the live stack above as well.
+            above = [_frame(f) for f in traceback.extract_stack()[:-1]
+                     if '/logging/' not in f.filename and f.name != 'emit']
+            counts = collections.Counter(above + frames)
             entry.update(
-                exc_type=exc[0].__name__, depth=len(frames),
-                head=frames[:15], tail=frames[-8:],
+                exc_type=exc[0].__name__, depth=len(frames), depth_above=len(above),
+                head=frames[:15], tail=frames[-8:], above_head=above[:25], above_tail=above[-25:],
                 cycle=sorted(((fr, n) for fr, n in counts.items() if n >= CYCLE_MIN),
                              key=lambda x: -x[1]))
         _Catch.records.append(entry)
@@ -133,7 +143,7 @@ def run(args) -> int:
 
     grouped: dict[tuple, dict] = {}
     for r in failures:
-        key = (r['card'], r.get('exc_type', ''), tuple(fr for fr, _ in r.get('cycle', [])))
+        key = (r['card'] or r['template'], r.get('exc_type', ''), tuple(fr for fr, _ in r.get('cycle', [])))
         g = grouped.setdefault(key, dict(card=r['card'], exc_type=r.get('exc_type'),
                                          template=r['template'], count=0, seeds=[],
                                          example=r))
