@@ -477,11 +477,6 @@ class StrategicWeights:
     # distinguish 0.5 from 2.0. It is priced for correctness, not for
     # strength, and should not be tuned against results.
     space_ability_8: float = 1.0
-    # A coup or realignment is priced on the same board change as placing
-    # influence, then discounted: it is the less Ops-efficient route to the
-    # same result (a coup on a 2-stability country loses a point of margin
-    # to the roll), and it is random where placement is certain.
-    coup_discount: float = 0.9
     # Half-action-round forward search: the Ops the opponent is assumed to
     # answer a placement plan with, or 0 to price the plan as if they never
     # moved. See `_survives_reply` -- a break that does not take control
@@ -1573,7 +1568,10 @@ class StrategicPlayer:
             margin = max(0, int(roll + ops - 2 * info.stability + mod))
             removed = min(enemy, margin)
             gain += self.delta(obs, cid, own=margin-removed, opp=-removed) / 6
-        gain *= self.weights.coup_discount
+        # No discount on top of the dice. A `coup_discount` of 0.9 multiplied
+        # this until 2026-09-13; the expectation over the six rolls, each
+        # priced on the board it leaves, is already what the coup is worth,
+        # including the rolls that lose margin to stability.
         if military:
             gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
@@ -1592,7 +1590,7 @@ class StrategicPlayer:
                     outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
                 # Keep the original addition order (and floating-point ties).
                 total += outcomes[margin]
-        return total * self.weights.coup_discount
+        return total  # the expectation over 36 rolls; no discount on top (see `coup`)
 
     def _public_event_value(self, obs: Observation, cid: str) -> float:
         """Simulate a whitelisted event in an idle sandbox and value the change.

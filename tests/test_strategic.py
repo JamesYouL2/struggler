@@ -61,7 +61,7 @@ def test_coup_expectation_accounts_for_each_die_and_clamps_removal():
     bot.choose_action(obs, [])
     # Mexico stability 2: margins are 0,1,2,3,4,5 for a 3-op coup.
     expected = sum(bot.delta(obs, 'Mexico', own=max(0,m-2), opp=-min(2,m)) for m in range(6))/6
-    assert bot.coup(obs, 'Mexico', 3) == pytest.approx(expected * bot.weights.coup_discount)
+    assert bot.coup(obs, 'Mexico', 3) == pytest.approx(expected)  # the dice, and nothing on top
 
 
 def test_event_removes_enemy_battleground_influence():
@@ -279,7 +279,7 @@ def test_influence_value_is_linear_and_spare_points_are_not_a_flat_reserve():
     # A flat reserve per spare point.
     assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2) > 0
 
-def test_country_tiers_and_coup_discount():
+def test_country_tiers():
     engine = Engine(seed=0)
     bot = StrategicPlayer()
     board = bot.board
@@ -297,16 +297,6 @@ def test_country_tiers_and_coup_discount():
     # A plain country is a quarter to a third of a battleground.
     assert bot.importance(board.countries['Malaysia']) == bot.weights.control
     assert 0 < bot.weights.control < bot.weights.battleground / 2
-    # A coup is priced on the same board change as placement, then discounted.
-    obs = engine.observe(Side.US)
-    from struggler.bots.rules_math import sync_board
-    sync_board(bot.board, obs)
-    bot.board.influence['Angola']['USSR'] = 1
-    full = StrategicPlayer(StrategicWeights(coup_discount=1.0))
-    sync_board(full.board, obs)
-    full.board.influence['Angola']['USSR'] = 1
-    assert 0 < bot.coup(obs, 'Angola', 2) < full.coup(obs, 'Angola', 2)
-    assert bot.realign(obs, 'Angola') == pytest.approx(0.9 * full.realign(obs, 'Angola'))
 
 
 def test_opening_book_plays_the_standard_setup_and_the_handicap():
@@ -373,32 +363,22 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     assert two > one and four > two
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Broken by removing access_chain on 2026-09-12, deliberately and with the "
-    "cost known. Isolated: with access_chain at 0.4 the marginal two Ops buy "
-    "36.56 against a first two of 34.43 (convex); at 0.0 they buy 33.44 "
-    "against 34.41 (not). vp_swing makes no difference here at all -- this is "
-    "a turn-1 position, where vp_base * swing**0 is the same either way.\n\n"
-    "Kept rather than weakened, and strict so that an xpass fails. Weakening "
-    "the assertion to fit current behaviour is shape 8 -- a test that encodes "
-    "the defect as the contract, twice recurred. The property is real: the Op "
-    "that completes control should be worth more than the one before it, "
-    "because control is worth VP and a partial stake is not. It held here "
-    "only because controlling a country opened chains to battlegrounds two "
-    "hops out, which is a side effect of a guessed weight rather than a "
-    "reason.\n\n"
-    "The 128-seed ablation could not see this: 0.491 +/-0.063 over 215 games "
-    "cannot resolve a 3% shortfall on one property in one position. Both "
-    "readings are true.\n\n"
-    "Expected to xpass once the value x probability x turn_discount rebuild "
-    "lands, where access becomes VP(n) x dP(control n) x discount and "
-    "convexity at a threshold is a consequence of the model rather than of a "
-    "chain term. When it does, strict xfail turns that into a failure telling "
-    "whoever is there to remove this marker. See "
-    "docs/notes/claude/2026-09-12-value-times-probability-times-discount.md "
-    "and 2026-09-12-access-wants-a-conversion-probability.md."))
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
-    """The property the concavity assertion was hiding.
+    """The property the concavity assertion was hiding: after the `iran` book,
+    the Op that completes control is worth more than the one before it,
+    because control is worth VP and a partial stake is not.
+
+    HISTORY, because the reason it holds has changed twice. It held first only
+    through `access_chain` (chains to battlegrounds two hops out -- a side
+    effect of a guessed weight). Removing that chain on 2026-09-12 broke it by
+    0.2 (4-2 Ops bought 33.44 against 34.41 for the first two), and it was kept
+    as a strict xfail rather than weakened, expected to come back with the
+    value x probability x turn_discount rebuild. It came back first on
+    2026-09-13 when `coup_discount` was deleted: undiscounted, a four-Op coup
+    crosses the threshold two Ops cannot, and 4-2 Ops buy 41.70 against 34.41.
+    Whether coup pricing is the right carrier of this property, rather than
+    the rebuild's model of control, is the maintainer's call; the numbers above
+    are what moved.
 
     Pinning the openings rather than using the default, so this says what
     it means and does not move when the default does.

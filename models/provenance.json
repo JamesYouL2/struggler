@@ -104,11 +104,6 @@
       "determination": "determined",
       "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
     },
-    "coup_discount": {
-      "value": 0.9,
-      "source": "guess",
-      "determination": "underdetermined"
-    },
     "reply_ops": {
       "value": 2.0,
       "source": "guess",
@@ -263,13 +258,13 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 18,
+      "guess": 17,
       "gate": 5,
       "derived": 4,
       "measured": 6
     },
     "counts_by_determination": {
-      "underdetermined": 14,
+      "underdetermined": 13,
       "known-wrong": 2,
       "bounded": 8,
       "inert": 4,

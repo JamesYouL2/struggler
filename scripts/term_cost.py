@@ -22,7 +22,6 @@ import argparse
 import dataclasses
 import gzip
 import json
-import statistics
 import time
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
@@ -40,7 +39,6 @@ ARMS = {
     'first_mover=0': {'first_mover': 0.0},
     'reserve=0': {'reserve': 0.0},
     'region=0': {'region': 0.0},
-    'coup_discount=1': {'coup_discount': 1.0},
     'scoring_hand=1': {'scoring_hand': 1.0},
 }
 
