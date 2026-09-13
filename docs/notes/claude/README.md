@@ -14,6 +14,13 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Handoff, 2026-09-13 — written for Codex, for a second viewpoint](2026-09-13-handoff-for-codex.md) — 2026-09-13
+- [Overnight 2026-09-12: what came back, and what was checked before reading it](2026-09-13-overnight-readings.md) — 2026-09-13 (the reading of the six generated notes below)
+  - [Self-play lengths and sandbox stacks](2026-09-12-selfplay-lengths-and-sandbox-stacks.md) (generated)
+  - [CI games replayed locally](2026-09-12-ci-games-replayed-locally.md) (generated)
+  - [The route-decay gate with every game played](2026-09-12-gate-without-early-stopping.md) (generated)
+  - [Conversion and retention after F1](2026-09-12-conversion-and-retention-after-f1.md) (generated)
+  - [Gate ladder since 05b6690](2026-09-12-gate-ladder-since-05b6690.md) (generated)
+  - [Seven ablations on CI](2026-09-12-ablations-on-ci.md) (generated)
 - [The Blockade recursion is a chain of fresh helpers, and the guard cannot see it](2026-09-12-the-blockade-recursion-is-a-chain-of-fresh-helpers.md) — 2026-09-12 (answers the handoff's 4c)
 - [Astra's 2026-09-11 audit lists, item by item](2026-09-12-astra-audit-status.md) — 2026-09-12 (superseded in part by `docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md`)
 - [What a random move costs](2026-09-12-what-a-random-move-costs.md) — 2026-09-12
