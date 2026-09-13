@@ -104,7 +104,7 @@ def test_placement_plan_spends_every_op_legally_and_restores_the_board():
     engine._push_ops_type(Side.US, 4)
     policy = RolloutPolicy()
     obs = engine.observe(Side.US)
-    influence = policy.rank_actions(obs)[0][1]
+    policy.rank_actions(obs)  # primes the policy's board; the ranking itself is not asserted
     engine.step(Action(K.OPS_TYPE, {'type': 'influence'}))
     before = {c: dict(v) for c, v in policy.board.influence.items()}
     placed = run_ops(engine, policy)

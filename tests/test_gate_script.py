@@ -18,7 +18,6 @@ cost a few seconds and catch anything that cannot survive the preamble.
 """
 from __future__ import annotations
 
-import os
 import subprocess
 
 from conftest import gate_lock_free

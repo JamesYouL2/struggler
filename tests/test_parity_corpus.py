@@ -87,8 +87,8 @@ def _ranking(ranked):
 def _same_ranking(got, want):
     if [g['payload'] for g in got] != [w['payload'] for w in want]:
         return 'order'
-    for g, w in zip(got, want):
-        if len(g['key']) != len(w['key']) or not all(_close(x, y) for x, y in zip(g['key'], w['key'])):
+    for g, w in zip(got, want, strict=True):
+        if len(g['key']) != len(w['key']) or not all(_close(x, y) for x, y in zip(g['key'], w['key'], strict=True)):
             return ('key', g['payload'], g['key'], w['key'])
     return None
 
@@ -152,10 +152,10 @@ def test_evaluator_and_planner_reproduce_the_corpus(corpus):
         probe = StrategicPlayer(weights, survival_prior=prior)
         probe.rank_actions(obs)
         board = probe.board
-        checks = [('country_value', lambda c: probe.country_value(board, c, side)),
-                  ('region_score', lambda r: probe.region_score(board, Region[r], side)),
-                  ('region_margin', lambda r: probe.region_margin(board, Region[r], side)),
-                  ('ops_value', lambda n: probe.ops_value(obs, int(n)))]
+        checks = [('country_value', lambda c, p=probe, b=board, s=side: p.country_value(b, c, s)),
+                  ('region_score', lambda r, p=probe, b=board, s=side: p.region_score(b, Region[r], s)),
+                  ('region_margin', lambda r, p=probe, b=board, s=side: p.region_margin(b, Region[r], s)),
+                  ('ops_value', lambda n, p=probe, o=obs: p.ops_value(o, int(n)))]
         for field, fn in checks:
             for k, v in rec[field].items():
                 if not _close(fn(k), v):
@@ -173,7 +173,9 @@ def test_evaluator_and_planner_reproduce_the_corpus(corpus):
             pl = rec['placements']
             for c in pl['candidates']:
                 got = [probe.delta(obs, c, own=k) for k in range(1, pl['ops'] + 1)]
-                if not all(_close(a, b) for a, b in zip(got, pl['delta'][c])):
+                # strict: a recomputed list shorter than the recorded one must
+                # fail, not pass on the overlap.
+                if not all(_close(a, b) for a, b in zip(got, pl['delta'][c], strict=True)):
                     mismatches.append((i, 'delta', c, got, pl['delta'][c]))
                     break
             for c in pl['candidates']:

@@ -24,7 +24,6 @@ from __future__ import annotations
 import os
 import pathlib
 
-import pytest
 
 # The two ways a method moves the board.
 PROBE = """

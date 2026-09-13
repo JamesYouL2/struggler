@@ -57,7 +57,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from struggler.bots.benchmark import (ACCEPTANCE, _decided, acceptance,  # noqa: E402
+from struggler.bots.benchmark import (ACCEPTANCE, _decided, acceptance,
                                       seed_scores, summarize)
 
 BASE, HELD = "full-vs-base.json", "full-vs-held.json"

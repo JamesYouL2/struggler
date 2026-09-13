@@ -5,7 +5,7 @@ from pathlib import Path
 
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Engine, Side
-from struggler.engine.replay import GameLogWriter, HistoryBuilder, replay_history, run_replay, run_with_checkpoints
+from struggler.engine.replay import GameLogWriter, replay_history, run_replay, run_with_checkpoints
 from struggler.runner import play_game
 
 REPLAY_DIR = Path(__file__).parent / "replays"
@@ -20,7 +20,7 @@ def test_golden_replay_matches_recorded_checkpoints():
     log = _load("influence_basic.json")
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])
-    for rec, checkpoint in zip(recorded, log["checkpoints"]):
+    for rec, checkpoint in zip(recorded, log["checkpoints"], strict=True):
         assert rec["after_step"] == checkpoint["after_step"]
         assert rec["state"] == checkpoint["state"]
 
@@ -29,7 +29,7 @@ def test_golden_physical_replay_matches_recorded_checkpoints():
     log = _load("physical_basic.json")
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])
-    for rec, checkpoint in zip(recorded, log["checkpoints"]):
+    for rec, checkpoint in zip(recorded, log["checkpoints"], strict=True):
         assert rec["after_step"] == checkpoint["after_step"]
         assert rec["state"] == checkpoint["state"]
     final_state = recorded[-1]["state"]
@@ -154,7 +154,6 @@ def test_resuming_from_a_trimmed_log_continues_the_same_on_disk_record(tmp_path)
     cut = len(full_actions) // 2
     trimmed_log = {**full_log, "actions": full_actions[:cut], "winner": None}
     resumed_engine, resumed_builder = replay_history(trimmed_log)
-    history = resumed_builder.history
     assert not resumed_engine.is_terminal
 
     resume_path = tmp_path / "resumed.json"

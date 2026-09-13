@@ -55,7 +55,8 @@ def recomputed(pos: ev.Position) -> int:
 
 @pytest.fixture(scope='module')
 def boards():
-    records = json.loads(gzip.open(CORPUS).read())['records']
+    with gzip.open(CORPUS) as f:
+        records = json.loads(f.read())['records']
     return [Engine.deserialize(r['engine']).board for r in records[::37]]
 
 

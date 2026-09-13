@@ -18,7 +18,7 @@ import pytest
 
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.strategic.policy import DEFAULT_OPENINGS, OPENINGS, OPENING_BOOKS
-from struggler.engine import DecisionKind as K, Engine, Side
+from struggler.engine import Engine, Side
 from struggler.engine.rules import RULES
 
 ALLOWANCE = {'US': RULES['setup_additional']['WESTERN_EUROPE']['amount'],

@@ -493,8 +493,8 @@ def nuclear_cap(total_games: int) -> int:
     number means something different at 76 seeds than at 96. See ACCEPTANCE
     for why the rate is where it is: above any human-plausible policy,
     at the point the pooled score becomes decisive on its own."""
-    return max(ACCEPTANCE['min_nuclear'],
-               int(ACCEPTANCE['max_nuclear_rate'] * total_games))
+    return int(max(ACCEPTANCE['min_nuclear'],
+                   int(ACCEPTANCE['max_nuclear_rate'] * total_games)))
 
 
 def candidate_nuclear_loss(game: dict) -> bool:
@@ -591,10 +591,10 @@ def stable_verdict(observed, remaining, games_per_seed: int = 2,
                        len(records) * games_per_seed)
 
     now = apply(observed)
-    for _ in range(trials):
-        if apply(list(observed) + draw_unplayed(pools, remaining, rng)) != now:
-            return False
-    return True
+    # `all` short-circuits exactly where the loop returned, so the rng is
+    # drawn the same number of times.
+    return all(apply(list(observed) + draw_unplayed(pools, remaining, rng)) == now
+               for _ in range(trials))
 
 
 def draw_unplayed(pools, remaining, rng) -> list:
@@ -931,7 +931,7 @@ def to_ops(value: float, scale: dict[int, float]) -> float:
     sign = -1 if value < 0 else 1
     v = abs(value)
     points = [(0, 0.)] + sorted(scale.items())
-    for (n0, v0), (n1, v1) in zip(points, points[1:]):
+    for (n0, v0), (_, v1) in itertools.pairwise(points):
         if v <= v1:
             return sign * (n0 + (v-v0) / (v1-v0) if v1 > v0 else n0)
     (n0, v0), (n1, v1) = points[-2], points[-1]
@@ -945,7 +945,8 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
     misses (differences over the file's tolerance, plus broken orders)."""
     from struggler.bots.strategic import StrategicPlayer
     from struggler.bots.strategic.public_cards import CARDS
-    expert = json.load(open(path))
+    with open(path) as f:
+        expert = json.load(f)
     engine, _ = opening_board(seed)
     obs = engine.observe(Side.US)
     bot = StrategicPlayer(weights)
@@ -953,11 +954,11 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
     scale = {n: bot.ops_value(obs, n) for n in (1, 2, 3, 4)}
     tol = expert.get('tolerance_ops', 0.5)
     got: dict[str, float] = {}
-    for cid, row in expert['cards'].items():
+    for cid in expert['cards']:
         if cid not in CARDS:
             raise ValueError(f'expert_valuations: unknown card {cid}')
         got[cid] = to_ops(bot.event_value(obs, cid), scale)
-    for cid, row in expert.get('footholds', {}).items():
+    for cid in expert.get('footholds', {}):
         if cid.startswith('_'):
             continue
         got['foothold:' + cid] = to_ops(bot.country_value(bot.board, cid, Side.US), scale)

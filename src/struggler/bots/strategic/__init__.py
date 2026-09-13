@@ -19,7 +19,7 @@ distinct jobs; splitting *it* is the next step, and the gate's snapshot
 loader was taught about packages first so a baseline binds its own code
 (`benchmark._SnapshotFinder`).
 """
-from struggler.bots.strategic.policy import *   # noqa: F401,F403
+from struggler.bots.strategic.policy import *   # noqa: F403
 from struggler.bots.strategic.policy import (   # noqa: F401
     ASK, CARDS, HAND_ATTACK_EVENTS, HIDDEN_INFO_EVENTS, LOSS,
     OPS_MODIFIER_EVENTS, PUBLIC_EVENTS, TUNABLE_WEIGHTS, UNTUNED_WEIGHTS,

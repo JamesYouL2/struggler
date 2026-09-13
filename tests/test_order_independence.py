@@ -49,7 +49,8 @@ STRIDE = 11
 
 @pytest.fixture(scope='module')
 def positions():
-    records = json.loads(gzip.open(CORPUS).read())['records']
+    with gzip.open(CORPUS) as f:
+        records = json.loads(f.read())['records']
     return records[::STRIDE]
 
 

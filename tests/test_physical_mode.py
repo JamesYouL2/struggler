@@ -127,7 +127,6 @@ def test_headline_box4_physical_holder_keeps_bot_first_default(physical_side):
     ussr_card, us_card = "Fidel", "Duck_and_Cover"
     _headline_setup(engine, ussr_card, us_card)
     bot_card = us_card if physical_side is Side.USSR else ussr_card
-    physical_card = ussr_card if physical_side is Side.USSR else us_card
 
     d = engine.pending_decision
     assert d.kind is DecisionKind.HEADLINE_PLAY and d.actor is physical_side.opponent

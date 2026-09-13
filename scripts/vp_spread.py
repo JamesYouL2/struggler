@@ -87,7 +87,7 @@ def logistic_slope(xs, ys, iterations=50):
     a = b = 0.0
     for _ in range(iterations):
         g0 = g1 = h00 = h01 = h11 = 0.0
-        for x, y in zip(xs, ys):
+        for x, y in zip(xs, ys, strict=True):
             p = 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, a + b * x))))
             r, wgt = y - p, p * (1.0 - p)
             g0 += r

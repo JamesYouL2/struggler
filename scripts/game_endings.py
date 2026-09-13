@@ -36,7 +36,7 @@ def report(games, out=sys.stdout) -> list[float]:
     print(f'{total} finished games', file=out)
     print('\nhow they ended:', file=out)
     for reason, count in collections.Counter(g.get('reason') for g in games).most_common():
-        print(f'  {str(reason):16s}{count:5d}{100 * count / total:7.1f}%', file=out)
+        print(f'  {reason!s:16s}{count:5d}{100 * count / total:7.1f}%', file=out)
     print('\nturn | alive | P(final scoring | alive) | per-turn survival', file=out)
     odds = []
     for turn in range(1, LAST_TURN + 1):

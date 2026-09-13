@@ -260,9 +260,7 @@ def _copy_state(value):
 # the idle sandbox has none, so they keep an explicit estimate. Every
 # other event is simulated in the sandbox, with the helper policy playing
 # every choice it raises and chance taking its middle outcome.
-HIDDEN_INFO_EVENTS = frozenset('''Five_Year_Plan Grain_Sales_to_Soviets Missile_Envy
-Aldrich_Ames_Remix Terrorism Ask_Not_What_Your_Country_Can_Do_For_You Star_Wars
-Our_Man_In_Tehran CIA_Created Lone_Gunman Salt_Negotiations The_China_Card'''.split())
+HIDDEN_INFO_EVENTS = frozenset(['Five_Year_Plan', 'Grain_Sales_to_Soviets', 'Missile_Envy', 'Aldrich_Ames_Remix', 'Terrorism', 'Ask_Not_What_Your_Country_Can_Do_For_You', 'Star_Wars', 'Our_Man_In_Tehran', 'CIA_Created', 'Lone_Gunman', 'Salt_Negotiations', 'The_China_Card'])
 # Duration effects priced by the marginal Ops they add to or take from the hands they touch.
 OPS_MODIFIER_EVENTS = ('Containment', 'Brezhnev_Doctrine', 'Red_Scare_Purge')
 # Hidden-information cards whose value is nonetheless derivable from what a
@@ -875,7 +873,7 @@ class StrategicPlayer:
                 immediate = planner.event_risk(cid)
                 risk = planner.headline_pick_risk(cid)
             elif kind is K.PLAY_MODE:
-                fires = p['mode'] == 'event' or p['mode'] == 'ops' and planner.opponent_event(cid)
+                fires = p['mode'] == 'event' or (p['mode'] == 'ops' and planner.opponent_event(cid))
                 immediate = planner.event_risk(cid) if fires else 0.
                 risk = planner.risk(cid, p['mode'])
             elif cid == 'Missile_Envy' and obs.game_effects.get('missile_envy_forced') == obs.side.value:
@@ -1656,7 +1654,7 @@ class StrategicPlayer:
                         if not dice or not all(isinstance(v, int) and 1 <= v <= 6 for v in dice.values()):
                             raise SandboxUnsupported(
                                 '%s carries %r, which is not a set of dice' % (d.kind.name, dice))
-                        faces = tuple(Action(d.kind, dict(zip(dice, values)))
+                        faces = tuple(Action(d.kind, dict(zip(dice, values, strict=True)))
                                       for values in itertools.product(range(1, 7), repeat=len(dice)))
                     total = 0.
                     for option in faces:
@@ -1966,7 +1964,7 @@ class StrategicPlayer:
         ranked = sorted(values, reverse=True)
         return ranked[min(len(ranked) - 1, len(ranked) // (max(1, n) + 1))]
 
-    def _hand_attack_value(self, obs: Observation, cid: str) -> float:
+    def _hand_attack_value(self, obs: Observation, cid: str) -> float | None:
         """The hidden-information cards that take, discard or reveal cards,
         priced by what the cards involved are worth to whoever holds them.
 

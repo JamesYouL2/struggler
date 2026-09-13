@@ -115,7 +115,7 @@ class MCTSPlayer:
         targets = [c for c, info in board.countries.items()
                    if info.battleground and board.control(c) is not obs.side
                    and board.is_reachable(obs.side, c)
-                   and (info.region in regions or sea and Subregion.SOUTHEAST_ASIA in info.subregions)]
+                   and (info.region in regions or (sea and Subregion.SOUTHEAST_ASIA in info.subregions))]
         def priority(cid):
             info = board.countries[cid]
             own, enemy = (board.influence[cid][s.value] for s in (obs.side, obs.side.opponent))
@@ -146,9 +146,9 @@ class MCTSPlayer:
         chosen = safe[0]
         if steer:
             for action in safe:
-                if (d.kind is K.PLAY_MODE and action.payload.get('mode') == 'ops'
-                    or d.kind is K.OPS_TYPE and action.payload.get('type') == 'influence'
-                    or d.kind is K.PLACE_INFLUENCE and action.payload.get('country') == target):
+                if ((d.kind is K.PLAY_MODE and action.payload.get('mode') == 'ops')
+                    or (d.kind is K.OPS_TYPE and action.payload.get('type') == 'influence')
+                    or (d.kind is K.PLACE_INFLUENCE and action.payload.get('country') == target)):
                     chosen = action
                     break
         return chosen

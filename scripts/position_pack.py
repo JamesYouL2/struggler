@@ -253,7 +253,8 @@ def main(argv=None):
     ap.add_argument('--boards', type=int, default=2)
     args = ap.parse_args(argv)
 
-    records = json.loads(gzip.open(CORPUS).read())['records']
+    with gzip.open(CORPUS) as f:
+        records = json.loads(f.read())['records']
 
     doc = [
         '# Annotated position pack',

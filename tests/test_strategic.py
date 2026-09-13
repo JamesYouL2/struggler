@@ -231,7 +231,7 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
                     10, 8, 8, 1, 10, 5, 8, 4, 5, 9, 3, 4, 5)
     expected = tuple(6 / sum(end >= turn for end in ending_turns)
                      for turn in range(1, 11))
-    assert FINAL_SCORING_ODDS == pytest.approx(expected)
+    assert pytest.approx(expected) == FINAL_SCORING_ODDS
     assert all(0 <= p <= 1 for p in FINAL_SCORING_ODDS)
     assert final_scoring_odds(dataclasses.replace(obs, turn=0)) == expected[0]
     assert final_scoring_odds(dataclasses.replace(obs, turn=11)) == expected[-1]
@@ -1525,7 +1525,7 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
     obs = engine.observe(Side.US)
     bot.rank_actions(obs)
     one_op = bot.ops_value(obs, 1)
-    assert CHINA_HOLD_RAW < 0.2 * one_op, (
+    assert 0.2 * one_op > CHINA_HOLD_RAW, (
         'the charge has become a real price; if that is intended, it needs '
         'the maintainer\'s number for what *playing* China costs and a gate')
 

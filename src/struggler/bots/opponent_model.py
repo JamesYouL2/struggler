@@ -191,8 +191,10 @@ class OpponentModel:
     def forward(self, x):
         if len(x) != self.width:
             raise ValueError('feature width does not match checkpoint')
-        h = [math.tanh(sum(a*b for a, b in zip(row, x))+bias) for row, bias in zip(self.w, self.b)]
-        return {head: _sigmoid(sum(a*b for a, b in zip(h, self.out[head]))+self.bias[head]) for head in HEADS}, h
+        h = [math.tanh(sum(a*b for a, b in zip(row, x, strict=True))+bias)
+             for row, bias in zip(self.w, self.b, strict=True)]
+        return {head: _sigmoid(sum(a*b for a, b in zip(h, self.out[head], strict=True))+self.bias[head])
+                for head in HEADS}, h
 
     def predict(self, x) -> dict[str, float]:
         return self.forward(x)[0]

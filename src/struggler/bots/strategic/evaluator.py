@@ -184,7 +184,7 @@ class Position:
     part of reachability that a change at a *neighbour* can move.
     """
 
-    __slots__ = ('terrain', 'inf', 'control', 'reach', 'near', 'digest', '_zobrist')
+    __slots__ = ('_zobrist', 'control', 'digest', 'inf', 'near', 'reach', 'terrain')
 
     def __init__(self, t: Terrain | None = None):
         t = t if t is not None else terrain()
@@ -654,7 +654,7 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
 
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
-              ignored: frozenset[int] = frozenset()) -> int:
+              ignored: frozenset[int] = frozenset()) -> float:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
@@ -787,7 +787,7 @@ def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
     new = _contribution(is_bg, stability, pos.inf[US][i], pos.inf[USSR][i])
     where = t.member_pos[i]
     adjusted = [None, None]
-    for s, (o, n) in enumerate(zip(old, new)):
+    for s, (o, n) in enumerate(zip(old, new, strict=True)):
         a = agg[s]
         if o[2] > 0 and o[2] >= a[2] and n[2] < o[2]:
             return margin_basis(t, pos, region, w, urgency)[0]

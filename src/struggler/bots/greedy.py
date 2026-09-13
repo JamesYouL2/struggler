@@ -162,8 +162,8 @@ def _expected_coup_gain(
     modifier = coup_roll_modifier_estimate(observation, side, info)
     expected_margin = 3.5 + ops - 2 * info.stability + modifier
     opp_inf = board.influence[country][opponent.value]
-    opp_removed = int(round(max(0.0, min(expected_margin, opp_inf))))
-    leftover = int(round(max(0.0, expected_margin - opp_removed)))
+    opp_removed = round(max(0.0, min(expected_margin, opp_inf)))
+    leftover = round(max(0.0, expected_margin - opp_removed))
 
     before = board_value(weights, board, side)
     board.influence[country][opponent.value] -= opp_removed
@@ -229,12 +229,12 @@ def _score_realignment_target(
 
     before = board_value(weights, board, side)
     if expected_margin > 0:
-        removed = int(round(min(expected_margin, board.influence[country][opponent.value])))
+        removed = round(min(expected_margin, board.influence[country][opponent.value]))
         board.influence[country][opponent.value] -= removed
         after = board_value(weights, board, side)
         board.influence[country][opponent.value] += removed
     elif expected_margin < 0:
-        removed = int(round(min(-expected_margin, board.influence[country][side.value])))
+        removed = round(min(-expected_margin, board.influence[country][side.value]))
         board.influence[country][side.value] -= removed
         after = board_value(weights, board, side)
         board.influence[country][side.value] += removed

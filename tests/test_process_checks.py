@@ -42,7 +42,7 @@ def test_the_matcher_still_finds_a_real_gate():
     ones rather than trusted.
     """
     sys.path.insert(0, str(CHECKER.parent))
-    from gate_running import _names_script  # noqa: PLC0415
+    from gate_running import _names_script
 
     assert _names_script(['bash', 'scripts/gate.sh', '91f26d1'], 'scripts/gate.sh')
     assert _names_script(['bash', 'scripts/gate.sh', '91f26d1'], 'gate.sh')
@@ -73,7 +73,7 @@ def test_a_monitoring_loop_is_not_a_gate():
     script is running.
     """
     sys.path.insert(0, str(CHECKER.parent))
-    from gate_running import pids_matching  # noqa: PLC0415
+    from gate_running import pids_matching
 
     body = ("cd /repo && until ! .venv/bin/python scripts/gate_running.py "
             "--match gate.sh --quiet; do sleep 60; done; tail logs/gate.log")

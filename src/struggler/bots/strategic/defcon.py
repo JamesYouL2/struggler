@@ -225,7 +225,7 @@ class DefconPlanner:
         if CARDS[cid].scoring:
             return ('event',)
         modes = ['ops']
-        if cid in RAISERS or cid == ASK and self.side is Side.US or cid == 'Five_Year_Plan':
+        if cid in RAISERS or (cid == ASK and self.side is Side.US) or cid == 'Five_Year_Plan':
             modes.append('event')
         if self.space_ok(cid, pos, attempts):
             modes.append('space_race')

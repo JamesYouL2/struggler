@@ -24,7 +24,7 @@ from struggler.engine import Engine, Side
 from struggler.engine.human import HumanPlayer
 from struggler.engine.physical import BotHeadlineAnnouncer, OperatorConsolePlayer
 from struggler.engine.player import Player
-from struggler.engine.replay import HistoryBuilder, replay_history
+from struggler.engine.replay import replay_history
 from struggler.runner import play_game
 
 
@@ -228,7 +228,6 @@ def main() -> None:
         with open(args.resume_game_log, encoding="utf-8") as f:
             log = json.load(f)
         engine, history_builder = replay_history(log)
-        history = history_builder.history
         seed = log["seed"]
         if log.get("physical_mode"):
             physical_side = Side(log["physical_side"])

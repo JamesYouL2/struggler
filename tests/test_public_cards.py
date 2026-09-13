@@ -26,9 +26,7 @@ def test_entering_matches_what_the_engine_adds(caplog):
     import logging
     sizes: dict[int, int] = {}
     engine = Engine.new_game(seed=4000, setup_bonus=True)
-    before = len(engine.draw_pile)
     bots = {Side.US: GreedyPlayer(), Side.USSR: GreedyPlayer()}
-    seen_turn = engine.turn
     with caplog.at_level(logging.INFO, logger='struggler.engine'):
         steps = 0
         while not engine.is_terminal and engine.turn <= 8 and steps < 8000:

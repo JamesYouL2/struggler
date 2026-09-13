@@ -45,7 +45,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     discounts = [float(x) for x in a.discounts.split(',')]
 
-    corpus = json.loads(gzip.open(a.corpus, 'rt').read())
+    with gzip.open(a.corpus, 'rt') as f:
+        corpus = json.loads(f.read())
     sample, seen = [], collections.Counter()
     for rec in corpus['records']:
         if seen[rec['turn']] < a.per_turn:

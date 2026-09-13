@@ -36,7 +36,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from struggler.engine.replay import decode_action, make_engine  # noqa: E402
+from struggler.engine.replay import decode_action, make_engine
 
 
 def _matches(action, options) -> bool:

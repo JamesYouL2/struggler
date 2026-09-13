@@ -86,7 +86,7 @@ class RolloutPolicy(StrategicPlayer):
         # in a rollout, or every simulation from it suicides and the root
         # learns nothing. Elsewhere the immediate guard suffices.
         planner = DefconPlanner(obs, self.public_engine(obs), self.survival_prior, self.opponent_model)
-        if self.full_planner or obs.defcon <= 3 and any(planner.hazardous(c) for c in planner.hand):
+        if self.full_planner or (obs.defcon <= 3 and any(planner.hazardous(c) for c in planner.hand)):
             return planner
         planner.__class__ = ImmediatePlanner
         return planner

@@ -99,7 +99,7 @@ def test_coup_forbidden_matches_the_engine_under_every_prohibition():
     fired = {name: 0 for name in names}
     for flags in itertools.product((False, True), repeat=len(names)):
         bans = ev.Prohibitions(*flags)
-        kwargs = dict(zip(names, flags))
+        kwargs = dict(zip(names, flags, strict=True))
         for side, attacker in ((Side.USSR, ev.USSR), (Side.US, ev.US)):
             for i, cid in enumerate(t.ids):
                 expected = board.coup_prohibited(side, cid, **kwargs)
@@ -178,7 +178,7 @@ def test_refresh_updates_only_what_moved_and_still_matches_a_full_sync():
 def test_terrain_drops_the_superpower_nodes_and_orders_neighbours_by_name():
     t = ev.terrain()
     board = ev.Board()
-    for cid, adjacent in zip(t.ids, t.neighbors):
+    for cid, adjacent in zip(t.ids, t.neighbors, strict=True):
         names = [t.ids[i] for i in adjacent]
         assert names == sorted(n for n in board.neighbors(cid) if n in t.index)
         assert 'US' not in names and 'USSR' not in names
@@ -219,7 +219,7 @@ def test_value_dependents_covers_every_country_a_change_can_move():
         for us, ussr in ((3, 0), (0, 3), (1, 1), (0, 0)):
             base = values()
             was = pos.place(i, us, ussr)
-            moved = {j for j, (now, then) in enumerate(zip(values(), base)) if now != then}
+            moved = {j for j, (now, then) in enumerate(zip(values(), base, strict=True)) if now != then}
             pos.place(i, *was)
             claimed = ev.dependents(t, {i})
             assert moved <= claimed, (cid, us, ussr, sorted(t.ids[j] for j in moved - claimed))

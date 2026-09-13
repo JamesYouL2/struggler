@@ -25,7 +25,7 @@ import pytest
 
 from struggler.engine import DecisionKind as K, Engine, Side
 from struggler.engine.cards import load_cards
-from struggler.engine.replay import HistoryBuilder, build_event
+from struggler.engine.replay import HistoryBuilder
 
 CARD_IDS = frozenset(load_cards())
 

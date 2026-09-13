@@ -175,7 +175,7 @@ def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:
     where the remaining scorings decide the result."""
     state = card_state(obs, card)
     once = card == 'Southeast_Asia_Scoring'
-    if state == 'removed' or once and state == 'discard':
+    if state == 'removed' or (once and state == 'discard'):
         return ()
     horizon = turns_to_final_scoring(obs)
     reshuffle = turns_to_reshuffle(obs)

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from struggler.engine import Action, DecisionKind as K, Side
+from struggler.engine import DecisionKind as K, Side
 from conftest import bare_engine
 
 SIDES = (Side.US, Side.USSR)

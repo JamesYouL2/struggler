@@ -77,7 +77,8 @@ def test_labels_count_only_opponent_removals_and_drops():
 
 
 def test_collect_rows_from_a_real_replay_log():
-    log = json.load(open('tests/replays/events.json'))
+    with open('tests/replays/events.json') as f:
+        log = json.load(f)
     rows = collect_rows(log)
     assert rows and all(len(x) == len(FEATURE_NAMES) for x, _ in rows)
     assert all(set(labels) == set(HEADS) and all(v in (0, 1) for v in labels.values()) for _, labels in rows)

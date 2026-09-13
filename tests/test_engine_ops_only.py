@@ -213,7 +213,7 @@ def test_golden_full_game_replay_matches_checkpoints():
         log = json.load(f)
     recorded = run_with_checkpoints(log)
     assert len(recorded) == len(log["checkpoints"])
-    for rec, checkpoint in zip(recorded, log["checkpoints"]):
+    for rec, checkpoint in zip(recorded, log["checkpoints"], strict=True):
         assert rec["after_step"] == checkpoint["after_step"]
         assert rec["state"] == checkpoint["state"]  # exact, diffable equality
 

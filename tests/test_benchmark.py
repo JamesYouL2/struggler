@@ -6,7 +6,8 @@ def test_expert_valuations_file_is_well_formed_and_the_check_runs(tmp_path):
     from struggler.bots.strategic.public_cards import CARDS
     from struggler.engine import Engine
     import json
-    expert = json.load(open('models/expert_valuations.json'))
+    with open('models/expert_valuations.json') as f:
+        expert = json.load(f)
     assert set(expert['cards']) <= set(CARDS)
     # Foothold keys are *countries*, not cards. This read `key in CARDS or
     # True` -- the wrong set, with the failure silenced by an `or True` that
@@ -204,7 +205,7 @@ def test_early_stopping_agrees_with_the_full_run_on_random_gates():
 
     rng = random.Random(11)
     stops = disagreements = 0
-    for trial in range(60):
+    for _trial in range(60):
         edge = rng.choice((0.30, 0.45, 0.50, 0.55, 0.70))
         total = 96
         observed = [(n % 2, rng.choice((0.0, 0.5, 1.0)) if edge == 0.5
@@ -212,7 +213,7 @@ def test_early_stopping_agrees_with_the_full_run_on_random_gates():
                     for n in range(total)]
         planned = collections.Counter(index for index, _, _ in observed)
 
-        def at(k):
+        def at(k, observed=observed):
             partial = collections.defaultdict(dict)
             for n, (index, score, _) in enumerate(observed[:k]):
                 partial[index][n] = score
@@ -315,7 +316,7 @@ def test_the_nuclear_cap_scales_with_the_gate_and_never_fails_a_small_one():
     # The case that forced the rate to 20%: a 12.6% rate, shared with the
     # baseline, failed a 10% cap once the sample dropped from 192 games to
     # 152 and the absolute cap fell from 19 to 15.
-    assert 19 <= nuclear_cap(152), 'a 12.6% rate must not fail a 152-game gate'
+    assert nuclear_cap(152) >= 19, 'a 12.6% rate must not fail a 152-game gate'
 
 
 def test_an_opponent_nuclear_defeat_is_not_a_candidate_nuclear_loss():
