@@ -36,7 +36,6 @@ ARMS = {
     'progress=0': {'progress': 0.0},
     'reply_model=0': {'reply_model': 0.0},
     'margin guesses=0': {'margin_battleground': 0.0, 'margin_country': 0.0},
-    'first_mover=0': {'first_mover': 0.0},
     'reserve=0': {'reserve': 0.0},
     'region=0': {'region': 0.0},
     'coup_discount=1': {'coup_discount': 1.0},
