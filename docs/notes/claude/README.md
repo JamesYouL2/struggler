@@ -14,6 +14,7 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Handoff, 2026-09-13 — written for Codex, for a second viewpoint](2026-09-13-handoff-for-codex.md) — 2026-09-13
+- [The Blockade recursion is a chain of fresh helpers, and the guard cannot see it](2026-09-12-the-blockade-recursion-is-a-chain-of-fresh-helpers.md) — 2026-09-12 (answers the handoff's 4c)
 - [Astra's 2026-09-11 audit lists, item by item](2026-09-12-astra-audit-status.md) — 2026-09-12 (superseded in part by `docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md`)
 - [What a random move costs](2026-09-12-what-a-random-move-costs.md) — 2026-09-12
 - [Handoff, 2026-09-12](2026-09-12-handoff.md) — 2026-09-12

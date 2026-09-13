@@ -1768,9 +1768,12 @@ class StrategicPlayer:
             # the sandbox -- and then two more USSR doubling choices on top.
             # That recursed to the interpreter limit on every evaluation
             # (found 2026-09-12), logged `RecursionError ... using the
-            # estimate`, and fell back to the generic Ops number. Blockade is
-            # the same pay-or-suffer shape and survives only because it is one
-            # choice deep.
+            # estimate`, and fell back to the generic Ops number. Blockade and
+            # ABM Treaty hit the SAME loop whenever the hand priced holds UN
+            # Intervention (`un_card` calls `event_value`), 24 of 192 self-play
+            # games: the re-entry guard below is per player and every sandbox
+            # helper is a fresh player, so it never sees the chain. See
+            # docs/notes/claude/2026-09-12-the-blockade-recursion-is-a-chain-of-fresh-helpers.md.
             result = self._debt_crisis_doubling(obs)
         elif cid in OPS_MODIFIER_EVENTS:
             result = self._ops_modifier_value(obs, cid)
