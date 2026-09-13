@@ -36,6 +36,11 @@ b375ae5 (legacy_b375ae5): HEAD scores 0.596 +/-0.049 over 128 seeds, 256 games, 
   mean end turn 7.99, endings {'vp': 111, 'final_vp': 88, 'defcon_1': 27, 'wargames': 25, 'unknown': 3, 'europe_control': 2}
   openings: HEAD plays iran/austria, the anchor its own pre-book default (a confound)
 
+372609e (legacy_372609e): HEAD scores 0.502 +/-0.045 over 128 seeds, 256 games, 29 nuclear losses; stop_reason None
+  one-sided 95% upper bound 0.547; below 0.500 would mean the anchor is measurably stronger than HEAD
+  mean end turn 8.02, endings {'final_vp': 99, 'vp': 95, 'defcon_1': 37, 'wargames': 20, 'europe_control': 4, 'unknown': 1}
+  openings: HEAD plays iran/austria, the anchor its own pre-book default (a confound)
+
 ```
 
 ## What this does not say
