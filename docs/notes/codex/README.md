@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-13 — Full repository audit since v0.1.0](2026-09-13-full-audit-since-v0-1-0.md) — 2026-09-13
 - [2026-09-09 — Revised nuclear-loss policy and early stopping](2026-09-09-revised-nuclear-loss-policy-and-early-stopping.md) — 2026-09-09
 - [2026-09-09 — Review of Claude's night plan](2026-09-09-review-of-claude-s-night-plan.md) — 2026-09-09
 - [2026-09-09 — Preferred architecture for an 8-core personal laptop](2026-09-09-preferred-architecture-for-an-8-core-personal-laptop.md) — 2026-09-09
