@@ -538,6 +538,17 @@ def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
     return affected
 
 
+@functools.lru_cache(maxsize=None)
+def others_moved_by(t: Terrain, i: int) -> tuple[int, ...]:
+    """`dependents(t, {i})` without `i` itself, in index order: the other
+    countries whose `country_value` a change at `i` can move.
+
+    Cached on its whole input -- the static map and one index -- because
+    `delta` asks it for every placement that moves presence or control. It
+    reads nothing else, so the cache cannot go stale."""
+    return tuple(sorted(dependents(t, {i}) - {i}))
+
+
 def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """What country `i` is worth to side `s` on this board."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
