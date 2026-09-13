@@ -54,6 +54,14 @@ machine. So three of the local rules below stop applying to them:
 - **A dispatch can fail in seconds.** Gate run 34730247700 died in 17s.
   Check `gh run list --workflow <name> --limit 3` a minute after
   dispatching, not in the morning.
+- **A dispatch can fail while the status page is green.** On 2026-09-13
+  every `gh workflow run` returned HTTP 500/502 for over half an hour while
+  githubstatus.com said All Systems Operational and reads, pushes and running
+  jobs were fine. So: retry a dispatch in the background with a cap, look the
+  run id up afterwards and record `NOT FOUND` rather than waiting on it, and
+  classify a failed *run* by its failing step before blaming GitHub -- every
+  failed run in the repo's history so far was ours. See
+  `docs/notes/claude/2026-09-13-github-dispatch-degradation.md`.
 - **Quote a runner's verdict, never its wall-clock.** The hardware is
   shared and its load is unknown.
 - **Nothing lands in git by itself.** The workflows have `contents: read`
