@@ -13,6 +13,8 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Handoff, 2026-09-13 — written for Codex, for a second viewpoint](2026-09-13-handoff-for-codex.md) — 2026-09-13
+- [What a random move costs](2026-09-12-what-a-random-move-costs.md) — 2026-09-12
 - [Handoff, 2026-09-12](2026-09-12-handoff.md) — 2026-09-12
 - [`access` is the tiebreaker, so the ablation cannot accept](2026-09-12-access-is-the-tiebreaker.md) — 2026-09-12
 - [The reliability curve, and why the headline number is the least trustworthy part of it](2026-09-12-the-reliability-curve-says-anchor-at-t3.md) — 2026-09-12
