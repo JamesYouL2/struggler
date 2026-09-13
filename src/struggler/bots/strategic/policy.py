@@ -1444,15 +1444,17 @@ class StrategicPlayer:
                     remaining -= cost
                     total += gain * cost
                     self._add_influence(c, side, 1)
-                self._base_regions = {} if self._base_regions is not None else None
-                self._base_margins = {} if self._base_margins is not None else None
-                self._base_country = {} if self._base_country is not None else None
+                # Not the three caches cleared by hand: that dropped them
+                # correctly but left `_base_digest` on the old board, so the
+                # CHECK_SNAPSHOT guard fired on every multi-step spend and 31
+                # tests in test_strategic.py failed with the checker on --
+                # which is how the guard for this repo's commonest defect
+                # stopped being run on the placement path at all.
+                self._invalidate_base()
         finally:
             for c, inf in original.items():
                 self._set_influence(c, inf['US'], inf['USSR'])
-            self._base_regions = {} if self._base_regions is not None else None
-            self._base_margins = {} if self._base_margins is not None else None
-            self._base_country = {} if self._base_country is not None else None
+            self._invalidate_base()
         if cache is not None:
             cache[ops] = total
         return total
