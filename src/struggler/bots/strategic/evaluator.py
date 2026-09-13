@@ -40,7 +40,7 @@ import random
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from struggler.engine import Region, Side
+from struggler.engine import Region, Side, Subregion
 from struggler.engine.board import Board
 from struggler.bots.strategic.stakes import EUROPE_CONTROL_VP
 from struggler.engine.rules import RULES
@@ -73,6 +73,10 @@ class Terrain:
     # Where a country sits in its own region's member tuple, which is the key
     # the margin aggregates index their battleground fractions by.
     member_pos: tuple[int, ...]
+    # A member of each region that only the region's own scoring cards
+    # count -- the first outside Southeast Asia -- whose urgency is
+    # therefore the region's. See `region_urgency`.
+    region_anchor: dict[Region, int]
     scoring_vp: dict[Region, tuple[int, int, int | None]]
     coup_min_defcon: tuple[int, ...]
     # The three countries the Coup prohibitions name, as indices, so the
@@ -96,6 +100,9 @@ def terrain() -> Terrain:
     for group in members.values():
         for where, i in enumerate(group):
             member_pos[i] = where
+    region_anchor = {r: next(i for i in group
+                             if Subregion.SOUTHEAST_ASIA not in board.countries[ids[i]].subregions)
+                     for r, group in members.items()}
     return Terrain(
         ids=ids,
         index=index,
@@ -108,6 +115,7 @@ def terrain() -> Terrain:
                    for side in SIDE_OF),
         members=members,
         member_pos=tuple(member_pos),
+        region_anchor=region_anchor,
         scoring_vp={r: tuple(RULES['scoring'][r.name]) for r in Region},
         japan=index['Japan'],
         france=index['France'],
@@ -320,6 +328,22 @@ def ones(t: Terrain) -> tuple[float, ...]:
 def importance(t: Terrain, w, urgency, i: int) -> float:
     """A country's tier times what its region will still score."""
     return (w.battleground if t.battleground[i] else w.control) * urgency[i]
+
+
+def region_urgency(t: Terrain, region: Region, urgency) -> float:
+    """How much `region`'s own scoring is still worth: its scoring card's
+    schedule and Final Scoring, as `urgency` carries them.
+
+    Read from a member that nothing else scores. `urgency` is per country,
+    and a Southeast Asian country's also counts Southeast Asia Scoring, which
+    pays per country and never scores Asia's presence, domination or control
+    tiers -- so reading Asia's urgency off Thailand would weight Asia's tiers
+    at Southeast Asia's horizon. Southeast Asia Scoring stays where it
+    belongs, in those countries' own importance.
+
+    The one place a region's urgency is looked up: the regional VP term, the
+    margin unit and the Shuttle Diplomacy tiebreak all call it."""
+    return urgency[t.region_anchor[region]]
 
 
 class Prohibitions(NamedTuple):
@@ -685,7 +709,7 @@ def _bg_total(fractions: dict) -> float:
 
 def _unit(t: Terrain, region: Region, w, urgency) -> tuple[float, bool, float]:
     presence_vp, domination_vp, _ = t.scoring_vp[region]
-    sw = urgency[t.members[region][0]]
+    sw = region_urgency(t, region, urgency)
     # One battleground's control value in this region is the unit; the
     # domination gap is in presence units.
     return w.battleground * sw, sw >= w.margin_live, (domination_vp - presence_vp) / presence_vp
@@ -761,6 +785,25 @@ def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
 NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
 
 
+def region_potential(t: Terrain, w, urgency, nets) -> float:
+    """The regional term of the board potential: for each `(region, net)`
+    pair, the signed VP the region would score now, weighted by that
+    region's own scoring urgency, summed and times `w.region`.
+
+    ONE rule, called by `board_value`, by `StrategicPlayer.delta` (with one
+    region's VP before and after a change) and by the event sandbox, because
+    three copies of it did not agree: `board_value` and the sandbox applied
+    no urgency, while `delta` applied the changed country's, which for a
+    Southeast Asian country includes Southeast Asia Scoring -- so Thailand
+    and Pakistan credited the same Asia tier change differently and two
+    placement orders reaching one board summed to different values
+    (Codex M2). A region's VP is only paid when its region scores, so here
+    it is weighted by when that is, on every path.
+
+    `sum()`, like the rest of `board_value`."""
+    return w.region * sum(region_urgency(t, r, urgency) * net for r, net in nets)
+
+
 def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -> float:
     """Every country, every region score, every region margin, for side `s`.
 
@@ -773,5 +816,7 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     ov = (lambda _r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
     return (sum(country_value(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
-            + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)
+            + region_potential(t, w, urgency,
+                               ((region, sign * region_vp(t, pos, region, *ov(region)))
+                                for region in Region))
             + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))

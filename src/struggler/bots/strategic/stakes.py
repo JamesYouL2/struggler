@@ -47,7 +47,8 @@ GAME_SWING_VP = 2 * AUTO_VICTORY_VP
 #
 # It stood at an arbitrary 100. Note that the number is not what makes
 # Europe Control cheap today: it is multiplied by `w.region * urgency /
-# vp_value` ~ 0.027, so it reads as 0.5 VP of board value at 20 and read as
+# vp_value` ~ 0.027, with `urgency` Europe's own (`evaluator.region_urgency`),
+# so it reads as 0.5 VP of board value at 20 and read as
 # 2.7 at 100. A terminal outcome priced as a very large scoring is the
 # defect; the constant is only the part that can be made honest cheaply.
 #

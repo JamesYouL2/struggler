@@ -17,6 +17,12 @@ found two ways they disagreed:
   other countries' access reads it -- controlling Nigeria consumes a US
   Cameroon's access to an uncontrolled Nigeria. Raw delta 13.95 against a
   board difference of 8.44.
+- **M2**: `delta` multiplied the regional VP change by the changed
+  country's scoring urgency, while `value` and the event sandbox applied
+  none. A Southeast Asian country's urgency includes Southeast Asia
+  Scoring, so the same Asia tier change was worth more from Thailand than
+  from Pakistan. Variant b: the regional VP is weighted by its own region's
+  scoring urgency (`evaluator.region_urgency`) on every path.
 """
 from __future__ import annotations
 
@@ -27,10 +33,12 @@ import pytest
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.bots.strategic import evaluator as ev
-from struggler.engine import Engine, Side
+from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
 
 # Weight overrides the exactness properties are asserted under.
 POTENTIALS = (
+    pytest.param({}, id='shipped-weights'),
+    pytest.param({'access': 0.}, id='no-access'),
     pytest.param({'region': 0.}, id='no-region-vp'),
 )
 
@@ -155,7 +163,10 @@ def test_delta_is_the_board_difference_on_random_boards(overrides):
             seen['southeast asia'] += southeast
             seen['other asia'] += asia and not southeast
             seen['warm cache'] += warm
-    assert all(n >= 15 for n in seen.values()), seen
+    # With access off no neighbour's value can move, so that one count is
+    # only required where the weights give it something to count.
+    required = {k: n for k, n in seen.items() if k != 'neighbour moved' or bot.weights.access}
+    assert all(n >= 15 for n in required.values()), seen
 
 
 @pytest.mark.parametrize('overrides', POTENTIALS)
@@ -221,3 +232,69 @@ def test_cameroon_and_nigeria_sum_to_the_same_board_in_either_order(first, secon
     total, board = _placements_in_order(_cameroon_then_nigeria, [(first, 1), (second, 1)])
     assert board == pytest.approx(23.6419555556, abs=1e-9)
     assert total == pytest.approx(board, rel=0, abs=1e-9)
+
+
+def _no_access():
+    """Codex's M2 weights: access off, so what is left of any gap is the
+    regional term."""
+    return _player(access=0)
+
+
+@pytest.mark.parametrize('make_bot', [_no_access, _player], ids=['no-access', 'shipped-weights'])
+@pytest.mark.parametrize('placements', [
+    (('Thailand', 2), ('Pakistan', 2)), (('Pakistan', 2), ('Thailand', 2)),
+    (('Cameroon', 1), ('Nigeria', 1)), (('Nigeria', 1), ('Cameroon', 1)),
+], ids=['thailand-pakistan', 'pakistan-thailand', 'cameroon-nigeria', 'nigeria-cameroon'])
+def test_placements_sum_to_the_same_board_in_either_order(make_bot, placements):
+    """Codex M2: US +2 Thailand and +2 Pakistan, reply and access off,
+    summed 118.5570666667 in one order and 116.5602666667 in the other, to
+    a board worth 109.2502222222 either way. Each order must sum to the
+    board, so both orders sum the same; under the shipped weights too, where
+    M1's access spillover is also in play."""
+    total, board = _placements_in_order(make_bot, list(placements))
+    assert total == pytest.approx(board, rel=0, abs=1e-9)
+
+
+@pytest.mark.parametrize('make_bot', [_no_access, _player], ids=['no-access', 'shipped-weights'])
+def test_fidel_is_worth_the_placement_that_makes_the_same_change(make_bot):
+    """Codex M2: on an empty board Fidel is exactly USSR +3 Cuba -- no VP,
+    no Military Ops -- yet the event sandbox and `delta` priced it
+    differently (21.22 against 22.26 here with access off, the whole gap the
+    regional urgency only `delta` applied). Events and Ops price one
+    potential."""
+    engine = _empty_engine()
+    options = (Action(K.HEADLINE_PLAY, {'card': 'Fidel'}),)
+    obs = dataclasses.replace(engine.observe(Side.USSR),
+                              pending_decision=Decision(1, Side.USSR, K.HEADLINE_PLAY, options))
+    bot = make_bot()
+    bot.rank_actions(obs)
+    event = bot._public_event_value(obs, 'Fidel')
+    assert bot.delta(obs, 'Cuba', own=3) == pytest.approx(event, rel=0, abs=1e-9)
+
+
+def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
+    """Variant b, pinned where Codex measured it. US +2 Iran on an empty
+    turn-1 board, access off: `delta` returned 52.9822222222 and the board
+    moved 47.6666666667, the gap `1.3 * 4 VP * (2.0222 - 1)`. Iran is not
+    in Southeast Asia, so its urgency is the Middle East's, and the board
+    now weights the Middle East's VP by it too: both read 52.98.
+
+    And the case that made the old weighting incoherent: at turn 1 Thailand's
+    urgency counts Southeast Asia Scoring and Pakistan's does not, yet
+    Asia's tiers are weighted by neither alone -- by Asia's own."""
+    engine = _empty_engine()
+    obs = engine.observe(Side.US)
+    bot = _no_access()
+    bot.prepare(obs)
+    expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
+    assert expected == pytest.approx(52.9822222222, abs=1e-9)
+    assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
+
+    t, urgency = ev.terrain(), bot._urgency
+    thailand, pakistan = urgency[t.index['Thailand']], urgency[t.index['Pakistan']]
+    assert thailand > pakistan, 'the fixture needs Southeast Asia Scoring live'
+    assert ev.region_urgency(t, Region.ASIA, urgency) == pakistan
+    for region in Region:
+        anchor = t.ids[t.region_anchor[region]]
+        assert t.region_of[t.region_anchor[region]] is region
+        assert not any(s.name == 'SOUTHEAST_ASIA' for s in bot.board.countries[anchor].subregions)

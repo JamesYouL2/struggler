@@ -165,6 +165,13 @@ def test_evaluation_rejects_empty_seed_set():
 
 
 def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
+    """Scored < live < held, for the urgency and for what taking Iran is worth.
+
+    The three deltas are each asked in their own observation's prepared
+    context. They used to be asked of an unprepared bot, where the country,
+    access and margin terms read all-ones urgency and only `delta`'s regional
+    term read the observation's -- the mixed context Codex M2 found. `delta`
+    now prices one potential in one context, so the context is prepared."""
     engine = Engine(seed=0)
     engine.turn = 2
     engine.board.influence['Iran']['USSR'] = 1
@@ -175,9 +182,10 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
     assert weights[0] < weights[1] < weights[2]  # scored < live < held
-    from struggler.bots.rules_math import sync_board
-    sync_board(bot.board, live)
-    deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
+    deltas = []
+    for o in (dead, live, held):
+        bot.prepare(o)
+        deltas.append(bot.delta(o, 'Iran', own=3))  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
     # scored one only after the reshuffle; a Mid War region from turn 4. Every

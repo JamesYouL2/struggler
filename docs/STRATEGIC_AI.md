@@ -389,6 +389,18 @@ left out (Codex M1): controlling Nigeria beside a US Cameroon booked 13.95
 where the board moved 8.44. `tests/test_board_potential.py` holds the
 contract on generated boards.
 
+The regional term is one rule, `evaluator.region_potential`, called by
+`board_value`, `delta` and the event sandbox alike: a region's VP is weighted
+by that region's own scoring urgency, `evaluator.region_urgency` -- read from
+a member outside Southeast Asia, so Asia's tiers go at Asia Scoring's and
+Final Scoring's horizon while Southeast Asia Scoring, which pays per country,
+stays in those countries' own importance. The margin unit and the Shuttle
+Diplomacy tiebreak read the same helper. Until 2026-09-13 `board_value` and
+the sandbox applied no urgency and `delta` applied the *changed country's*,
+so Thailand and Pakistan credited the same Asia tier change differently and
+an event was worth something other than the placement making the same change
+(Codex M2).
+
 **One scoring implementation.** The engine no longer has its own: region
 scoring is `Board.score_region`, with the per-scoring overrides from
 `Board.scoring_overrides`, and `Engine._score_region_net` adds only the two
