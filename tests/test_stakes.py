@@ -56,9 +56,8 @@ def test_no_other_module_defines_its_own_stake():
         for node in tree.body:                      # module level only
             targets = (node.targets if isinstance(node, ast.Assign)
                        else [node.target] if isinstance(node, ast.AnnAssign) else [])
-            for target in targets:
-                if isinstance(target, ast.Name) and target.id in DERIVED:
-                    offenders.append(f'{path.name}:{node.lineno} {target.id}')
+            offenders.extend(f'{path.name}:{node.lineno} {target.id}' for target in targets
+                             if isinstance(target, ast.Name) and target.id in DERIVED)
     assert not offenders, (
         'these redefine a stake that belongs to stakes.py, which is how four '
         f'disagreeing numbers for one fact came about: {offenders}')

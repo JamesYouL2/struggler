@@ -255,10 +255,10 @@ class MCTSPlayer:
         edges = tree[root_key]
         chosen = max((m for m in edges if edges[m].visits), key=lambda m: edges[m].mean)
         self.intent = (obs.turn, obs.action_round, chosen.target)
-        self.last_search = dict(simulations=completed, nodes=len(tree), truncated=truncated,
-                                seconds=time.monotonic()-start,
-                                moves=[dict(card=m.card, target=m.target, visits=e.visits, value=e.mean)
-                                       for m, e in edges.items()])
+        self.last_search = {'simulations': completed, 'nodes': len(tree), 'truncated': truncated,
+                            'seconds': time.monotonic()-start,
+                            'moves': [{'card': m.card, 'target': m.target, 'visits': e.visits, 'value': e.mean}
+                                      for m, e in edges.items()]}
         log.info('MCTS T%d AR%d %s chose %s: %s', obs.turn, obs.action_round, obs.side.value,
                  chosen, self.last_search)
         return next(a for a in d.options if a.payload['card'] == chosen.card)

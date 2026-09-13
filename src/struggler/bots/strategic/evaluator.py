@@ -746,7 +746,7 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
     Summed with `sum()`, not with an accumulator loop: CPython compensates
     float summation inside `sum()`, so the two disagree in the last bit."""
     sign = 1 if s == US else -1
-    ov = (lambda r: NO_OVERRIDES) if overrides is None else (
+    ov = (lambda _r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
     return (sum(country_value(t, pos, i, s, w, urgency, defcon, bans) for i in range(len(t.ids)))
             + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)

@@ -253,8 +253,7 @@ def _map_text(board: Board, side: Side) -> str:
     ]
     for region in Region:
         lines.append(f"  {region.value}:")
-        for cid in sorted(board.countries_in(region)):
-            lines.append(_country_line(board, side, cid))
+        lines.extend(_country_line(board, side, cid) for cid in sorted(board.countries_in(region)))
     return "\n".join(lines)
 
 

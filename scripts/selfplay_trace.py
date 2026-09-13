@@ -78,9 +78,9 @@ class _Catch(logging.Handler):
         # else (NUCLEAR WAR lines, the planner's budget warning) is grouped by
         # its message template, or it groups under a turn number.
         sandbox = 'failed in the sandbox' in str(record.msg)
-        entry = dict(logger=record.name, template=str(record.msg),
-                     card=str(record.args[0]) if sandbox and record.args else '',
-                     message=record.getMessage()[:300])
+        entry = {'logger': record.name, 'template': str(record.msg),
+                 'card': str(record.args[0]) if sandbox and record.args else '',
+                 'message': record.getMessage()[:300]}
         if exc[2] is not None:
             frames = [_frame(f) for f in traceback.extract_tb(exc[2])]
             # extract_tb holds only the frames from the except clause DOWN to
@@ -130,8 +130,7 @@ def run(args) -> int:
                 pool.terminate()
                 break
             games.append(game)
-            for r in records:
-                failures.append(dict(r, seed=game['seed']))
+            failures.extend(dict(r, seed=game['seed']) for r in records)
             print(f'{i + 1:4d}/{len(jobs)} seed {game["seed"]} T{game["turn"]} {game["reason"]}'
                   f'{"  (" + str(len(records)) + " warnings)" if records else ""}',
                   file=sys.stderr, flush=True)
@@ -139,14 +138,14 @@ def run(args) -> int:
     summary = benchmark.summarize(games, 0) if games else {}
     summary.update(bot=args.bot, stalled=stalled, planned=len(jobs))
     with open(args.out + '.json', 'w') as f:
-        json.dump(dict(summary=summary, games=games), f)
+        json.dump({'summary': summary, 'games': games}, f)
 
     grouped: dict[tuple, dict] = {}
     for r in failures:
         key = (r['card'] or r['template'], r.get('exc_type', ''), tuple(fr for fr, _ in r.get('cycle', [])))
-        g = grouped.setdefault(key, dict(card=r['card'], exc_type=r.get('exc_type'),
-                                         template=r['template'], count=0, seeds=[],
-                                         example=r))
+        g = grouped.setdefault(key, {'card': r['card'], 'exc_type': r.get('exc_type'),
+                                     'template': r['template'], 'count': 0, 'seeds': [],
+                                     'example': r})
         g['count'] += 1
         if r['seed'] not in g['seeds']:
             g['seeds'].append(r['seed'])

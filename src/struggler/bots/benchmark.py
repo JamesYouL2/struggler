@@ -76,8 +76,8 @@ def projection(engine, side: Side) -> dict:
     diff = region_bg_diff(engine.board, side)
     weights = scoring_weights(engine, side)
     projected = sum(diff[r] * weights[r] for r in diff)
-    return dict(bg_diff=diff, weights={r: round(w, 2) for r, w in weights.items()},
-                projected_vp=round(projected, 2))
+    return {'bg_diff': diff, 'weights': {r: round(w, 2) for r, w in weights.items()},
+            'projected_vp': round(projected, 2)}
 
 
 def _exec_file(path: str, name: str):
@@ -184,7 +184,7 @@ def load_module(path: str):
     # Top-level modules *and* packages: a snapshot that contains
     # `strategic/__init__.py` must shadow the candidate's `strategic`
     # package, not just its `.py` files.
-    snapshotted = [name[:-3] if name.endswith('.py') else name
+    snapshotted = [name.removesuffix('.py')
                    for name in sorted(os.listdir(directory))
                    if name != target and not name.startswith('_')
                    and (name.endswith('.py')
@@ -398,10 +398,10 @@ def play(job: tuple) -> dict:
 # *improvement* and strict about evidence: a change is blocked only when the
 # games say it is worse, because at these sample sizes most real changes are
 # not measurable either way and blocking them all would stop the project.
-ACCEPTANCE = dict(
-    confidence=1.645,   # one-sided 95%
-    min_games=150,      # pooled, finished
-    min_samples=2,      # at least one of them not the seeds the change was tuned on
+ACCEPTANCE = {
+    'confidence': 1.645,   # one-sided 95%
+    'min_games': 150,      # pooled, finished
+    'min_samples': 2,      # at least one of them not the seeds the change was tuned on
     # Nuclear losses are a rate, not a count, and the rate that matters is
     # not this bot's. It loses to DEFCON 1 in 3 of the 4226 recorded gate
     # games (0.071%); WBC tournament play ends in nuclear war in 5.4% of
@@ -445,8 +445,8 @@ ACCEPTANCE = dict(
     # trip this if it ever climbs past 20%. If that happens the fix is a
     # paired comparison against the baseline's rate in the same run, not a
     # higher number.
-    max_nuclear_rate=0.30,
-    min_nuclear=3,      # never fail a small gate on one or two
+    'max_nuclear_rate': 0.30,
+    'min_nuclear': 3,      # never fail a small gate on one or two
     # WARN when the rate is ELEVATED, not when it is nonzero. `warn_nuclear=1`
     # sat here and was never read: the emitting site tested `if nuclear:`, so
     # at the bot's documented ~12.6% rate a 78-seed gate expects about 19 and
@@ -470,8 +470,8 @@ ACCEPTANCE = dict(
     #
     # Below the warn line the count and seeds are still printed, as a note
     # rather than an alarm, so nothing is hidden either way.
-    warn_nuclear_rate=0.20,
-)
+    'warn_nuclear_rate': 0.20,
+}
 
 
 def complete_pairs(games) -> dict[int, list]:
@@ -803,16 +803,16 @@ def wilson(hits: int, total: int, z: float = 1.96) -> tuple[float, float]:
 
 def summarize(games: list[dict], stop_turn: int) -> dict:
     finished = [g for g in games if g['finished']]
-    summary = dict(games=len(games), stop_turn=stop_turn, finished=len(finished),
-                   nuclear_losses=sum(candidate_nuclear_loss(g) for g in games),
-                   mean_signed_vp=round(statistics.fmean(g['signed_vp'] for g in games), 2),
-                   mean_projected_vp=round(statistics.fmean(g['projected_vp'] for g in games), 2),
-                   mean_total=round(statistics.fmean(g['total'] for g in games), 2),
-                   mean_bg_diff={r: round(statistics.fmean(g['bg_diff'][r] for g in games), 2)
-                                 for r in games[0]['bg_diff']},
-                   mean_value=round(statistics.fmean(g['value'] for g in games), 2),
-                   mean_defcon=round(statistics.fmean(g['defcon'] for g in games), 2),
-                   mean_game_seconds=round(statistics.fmean(g['seconds'] for g in games), 1))
+    summary = {'games': len(games), 'stop_turn': stop_turn, 'finished': len(finished),
+               'nuclear_losses': sum(candidate_nuclear_loss(g) for g in games),
+               'mean_signed_vp': round(statistics.fmean(g['signed_vp'] for g in games), 2),
+               'mean_projected_vp': round(statistics.fmean(g['projected_vp'] for g in games), 2),
+               'mean_total': round(statistics.fmean(g['total'] for g in games), 2),
+               'mean_bg_diff': {r: round(statistics.fmean(g['bg_diff'][r] for g in games), 2)
+                                for r in games[0]['bg_diff']},
+               'mean_value': round(statistics.fmean(g['value'] for g in games), 2),
+               'mean_defcon': round(statistics.fmean(g['defcon'] for g in games), 2),
+               'mean_game_seconds': round(statistics.fmean(g['seconds'] for g in games), 1)}
     if finished:
         summary['score'] = round(statistics.fmean(g['result'] for g in finished), 3)
         # Every score this harness prints carries its interval. A bare
@@ -1132,7 +1132,7 @@ def main(argv=None):
             event_table(parse_seeds(args.seeds)[0], weights)
         if args.expert:
             expert_check(args.expert, parse_seeds(args.seeds)[0], weights)
-        return
+        return 0
     seeds = parse_seeds(args.seeds)
     held = parse_seeds(args.held_seeds) if args.held_seeds else []
     if set(seeds) & set(held):
@@ -1250,12 +1250,13 @@ def main(argv=None):
             bot=args.bot, opponent=args.opponent, bot_weights=args.bot_weights,
             openings=args.openings, vary_openings=args.vary_openings)
         with open(path, 'w') as f:
-            json.dump(dict(summary=report_summary, games=subset), f, indent=1)
+            json.dump({'summary': report_summary, 'games': subset}, f, indent=1)
     if stop_reason == 'stalled':
         # A distinct status, after the partial reports are safely written:
         # a stall is neither a verdict nor a crash, and a caller that treats
         # every nonzero as "crashed" would hide which one it was.
         return 6
+    return None
 
 
 if __name__ == '__main__':

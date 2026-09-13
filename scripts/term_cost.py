@@ -53,7 +53,7 @@ def main(argv=None) -> int:
     fields = {f.name for f in dataclasses.fields(StrategicWeights)}
     for arm in ARMS.values():
         assert set(arm) <= fields, f'not a weight: {set(arm) - fields}'
-    seconds = {name: 0.0 for name in ARMS}
+    seconds = dict.fromkeys(ARMS, 0.0)
     for p in range(args.passes):
         for i, rec in enumerate(records):
             engine = Engine.deserialize(rec['engine'])

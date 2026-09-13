@@ -79,8 +79,8 @@ def completed_gates(root: Path, held_seeds: int = 64):
 
 
 def full_verdict(base_games, held_games) -> bool:
-    ok, _ = acceptance([("base", dict(summary=summarize(base_games, 0), games=base_games)),
-                        ("held", dict(summary=summarize(held_games, 0), games=held_games))])
+    ok, _ = acceptance([("base", {"summary": summarize(base_games, 0), "games": base_games}),
+                        ("held", {"summary": summarize(held_games, 0), "games": held_games})])
     return ok
 
 
@@ -145,9 +145,9 @@ def check_gate(name, base_games, held_games, shuffles, rng):
         stops.append(stop)
         if stopped_verdict(arrival, stop, sample_of) != truth:
             disagree += 1
-    return dict(gate=name, total=total, truth=truth, margin=margin,
-                mean_stop=statistics.fmean(stops), min_stop=min(stops), max_stop=max(stops),
-                disagree=disagree, orders=len(orders))
+    return {"gate": name, "total": total, "truth": truth, "margin": margin,
+            "mean_stop": statistics.fmean(stops), "min_stop": min(stops), "max_stop": max(stops),
+            "disagree": disagree, "orders": len(orders)}
 
 
 def fixed_n(base_games, held_games, n, shuffles, rng):

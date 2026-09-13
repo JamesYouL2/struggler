@@ -43,8 +43,8 @@ def test_control_is_exactly_margin_against_stability_everywhere(engine):
     any influence. Stated because several evaluator terms re-derive it and
     would silently disagree if it ever grew a special case."""
     for cid, info in engine.board.countries.items():
-        for us in range(0, info.stability + 2):
-            for ussr in range(0, info.stability + 2):
+        for us in range(info.stability + 2):
+            for ussr in range(info.stability + 2):
                 _set(engine, cid, us, ussr)
                 margin = us - ussr
                 expected = (Side.US if margin >= info.stability else
@@ -64,7 +64,7 @@ def test_control_is_never_shared(engine):
     because the region tiers count both sides' controlled countries and
     would double-count if it ever were not."""
     for cid, info in engine.board.countries.items():
-        for us in range(0, info.stability + 2):
+        for us in range(info.stability + 2):
             _set(engine, cid, us, info.stability)
             holder = engine.board.control(cid)
             assert holder is None or isinstance(holder, Side)

@@ -514,7 +514,7 @@ class StrategicWeights:
         return cls(**weights)
 
     def save(self, path: str | Path, **metadata) -> None:
-        Path(path).write_text(json.dumps(dict(version=1, weights=asdict(self), metadata=metadata), indent=2) + '\n')
+        Path(path).write_text(json.dumps({'version': 1, 'weights': asdict(self), 'metadata': metadata}, indent=2) + '\n')
 
 
 # Weights the trainer must not perturb unless asked for by name. `mutate`
@@ -2819,6 +2819,7 @@ class StrategicPlayer:
             return CARDS[choice].ops if event == 'Aldrich_Ames_Remix' else -CARDS[choice].ops
         if choice == 'boycott':
             return (LOSS if responsible else -LOSS) if obs.defcon <= 2 else 0
+        return None  # no opinion: see the docstring
 
     # One scorer per decision kind, defined after the arms it names.
     _SCORERS = {

@@ -190,11 +190,10 @@ class DefconPlanner:
                 countries = self.engine.board.neighbors('Nicaragua')
             risk = float(self.coup_threat(actor, defcon, countries, countries is not None))
             if cid == 'Grain_Sales_to_Soviets' and self.side is Side.USSR and hand:
-                nested = []
-                for c in hand:
-                    # US can choose a neutral DEFCON setter on USSR's action.
-                    nested.append(1.0 if c == 'How_I_Learned_to_Stop_Worrying' else
-                                  self._hazard(c, defcon, tuple(x for x in hand if x != c), depth+1))
+                # US can choose a neutral DEFCON setter on USSR's action.
+                nested = [1.0 if c == 'How_I_Learned_to_Stop_Worrying' else
+                          self._hazard(c, defcon, tuple(x for x in hand if x != c), depth+1)
+                          for c in hand]
                 risk = max(risk, sum(nested)/len(nested))
             return risk
         if cid == 'Five_Year_Plan':

@@ -15,7 +15,7 @@ from struggler.bots.benchmark import _decided, acceptance, complete_pairs, seed_
 
 
 def _game(seed, side, result):
-    return dict(seed=seed, bot_side=side, finished=True, turn=10, reason='vp', result=result)
+    return {'seed': seed, 'bot_side': side, 'finished': True, 'turn': 10, 'reason': 'vp', 'result': result}
 
 
 def _audit_reproduction():
@@ -32,7 +32,7 @@ def _audit_reproduction():
 
 
 def _as_reports(games, sample_of):
-    return [(f'sample{i}', dict(summary={}, games=[g for g in games if sample_of[g['seed']] == i]))
+    return [(f'sample{i}', {'summary': {}, 'games': [g for g in games if sample_of[g['seed']] == i]})
             for i in (0, 1)]
 
 

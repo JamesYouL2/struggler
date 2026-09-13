@@ -179,10 +179,10 @@ class Tracker:
 
     def result(self) -> dict:
         stab = self.engine.board.countries
-        return dict(
-            reach=dict(self.reach), keep=dict(self.keep),
-            censored_reach=dict(collections.Counter((h, stab[c].stability) for h, _, c in self.live)),
-            censored_keep=dict(collections.Counter((h, stab[c].stability) for h, _, c in self.holding)))
+        return {
+            'reach': dict(self.reach), 'keep': dict(self.keep),
+            'censored_reach': dict(collections.Counter((h, stab[c].stability) for h, _, c in self.live)),
+            'censored_keep': dict(collections.Counter((h, stab[c].stability) for h, _, c in self.holding))}
 
 
 def play(seed: int, horizons: tuple[int, ...] = (1,)) -> dict:

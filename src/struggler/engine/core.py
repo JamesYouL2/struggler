@@ -1105,7 +1105,7 @@ class Engine:
         on; without it both headlines are no-op discards anyway."""
         if not self.events_enabled:
             return order
-        picks = {side_str: cid for side_str, cid in order}
+        picks = dict(order)
         if picks.get("US") == "Defectors":
             ussr_card = picks.get("USSR")
             if ussr_card is not None:

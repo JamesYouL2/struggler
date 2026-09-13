@@ -96,7 +96,7 @@ def test_coup_forbidden_matches_the_engine_under_every_prohibition():
     t = ev.terrain()
     pos = ev.Position(t).sync(board)
     names = ('nato', 'us_japan_pact', 'reformer', 'degaulle_france', 'willy_brandt')
-    fired = {name: 0 for name in names}
+    fired = dict.fromkeys(names, 0)
     for flags in itertools.product((False, True), repeat=len(names)):
         bans = ev.Prohibitions(*flags)
         kwargs = dict(zip(names, flags, strict=True))

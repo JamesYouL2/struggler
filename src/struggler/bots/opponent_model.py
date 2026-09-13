@@ -182,7 +182,7 @@ class OpponentModel:
         self.w = [[rng.gauss(0, 1/math.sqrt(self.width)) for _ in range(self.width)] for _ in range(hidden)]
         self.b = [0.0]*hidden
         self.out = {h: [0.0]*hidden for h in HEADS}
-        self.bias = {h: 0.0 for h in HEADS}
+        self.bias = dict.fromkeys(HEADS, 0.0)
 
     @property
     def parameter_count(self) -> int:
@@ -212,7 +212,7 @@ class OpponentModel:
             dw = [[0.0]*self.width for _ in range(self.hidden)]
             db = [0.0]*self.hidden
             do = {h: [0.0]*self.hidden for h in HEADS}
-            dbias = {h: 0.0 for h in HEADS}
+            dbias = dict.fromkeys(HEADS, 0.0)
             for index in batch:
                 x, labels = rows[index]
                 p, h = self.forward(x)
@@ -239,8 +239,8 @@ class OpponentModel:
                     self.w[j][k] -= step*dw[j][k]
 
     def save(self, path, **metadata):
-        data = dict(version=1, features=FEATURE_NAMES, heads=HEADS, hidden=self.hidden,
-                    w=self.w, b=self.b, out=self.out, bias=self.bias, metadata=metadata)
+        data = {'version': 1, 'features': FEATURE_NAMES, 'heads': HEADS, 'hidden': self.hidden,
+                'w': self.w, 'b': self.b, 'out': self.out, 'bias': self.bias, 'metadata': metadata}
         Path(path).write_text(json.dumps(data, indent=2)+'\n')
 
     @classmethod
@@ -280,10 +280,10 @@ def metrics(model: OpponentModel | None, rows) -> dict:
             y = labels[head]
             losses.append(-(y*math.log(p)+(1-y)*math.log(1-p)))
             briers.append((p-y)**2)
-        result[head] = dict(positives=positives, rate=rate,
-                            log_loss=sum(losses)/len(rows), brier=sum(briers)/len(rows),
-                            base_rate_log_loss=-(base*math.log(base)+(1-base)*math.log(1-base)),
-                            base_rate_brier=base*(1-base))
+        result[head] = {'positives': positives, 'rate': rate,
+                        'log_loss': sum(losses)/len(rows), 'brier': sum(briers)/len(rows),
+                        'base_rate_log_loss': -(base*math.log(base)+(1-base)*math.log(1-base)),
+                        'base_rate_brier': base*(1-base)}
     return result
 
 
@@ -293,7 +293,7 @@ def calibration(model: OpponentModel, rows, head: str, buckets: int = 5) -> list
     for x, labels in rows:
         p = model.predict(x)[head]
         binned[min(buckets-1, int(p*buckets))].append((p, labels[head]))
-    return [dict(bucket=i, count=len(b), predicted=sum(p for p, _ in b)/len(b), observed=sum(y for _, y in b)/len(b))
+    return [{'bucket': i, 'count': len(b), 'predicted': sum(p for p, _ in b)/len(b), 'observed': sum(y for _, y in b)/len(b)}
             for i, b in enumerate(binned) if b]
 
 
@@ -304,7 +304,7 @@ def by_defcon(model: OpponentModel, rows, head: str) -> list[dict]:
     groups: dict[int, list] = {}
     for x, labels in rows:
         groups.setdefault(round(x[index]*5), []).append((model.predict(x)[head], labels[head]))
-    return [dict(defcon=d, count=len(g), predicted=sum(p for p, _ in g)/len(g), observed=sum(y for _, y in g)/len(g))
+    return [{'defcon': d, 'count': len(g), 'predicted': sum(p for p, _ in g)/len(g), 'observed': sum(y for _, y in g)/len(g)}
             for d, g in sorted(groups.items())]
 
 
@@ -337,7 +337,7 @@ def main(argv=None):
         try:
             rows = collect_rows(log)
         except (ValueError, KeyError) as error:
-            print(json.dumps(dict(skipped=path, reason=str(error)[:120])), flush=True)
+            print(json.dumps({'skipped': path, 'reason': str(error)[:120]}), flush=True)
             continue
         if rows:
             games.append((path, rows))
@@ -356,16 +356,16 @@ def main(argv=None):
         if loss < best_loss:
             best, best_loss, best_epoch = copy.deepcopy(model), loss, epoch
         if epoch % 50 == 0:
-            print(json.dumps(dict(epoch=epoch, validation_log_loss=loss)), flush=True)
-    report = dict(seed=args.seed, games=len(games), train_games=len(train_games),
-                  validation_games=len(valid_games), test_games=len(test_games),
-                  samples=len(train), validation_samples=len(valid), test_samples=len(test),
-                  epochs=args.epochs, rate=args.rate, selected_epoch=best_epoch, parameters=best.parameter_count,
-                  validation=metrics(best, valid), test=metrics(best, test),
-                  test_calibration={h: calibration(best, test, h) for h in HEADS},
-                  test_by_defcon={h: by_defcon(best, test, h) for h in HEADS},
-                  seconds=time.monotonic()-start, logs=args.logs,
-                  target='per card pick: opponent removed a held card / lowered DEFCON before our next pick')
+            print(json.dumps({'epoch': epoch, 'validation_log_loss': loss}), flush=True)
+    report = {'seed': args.seed, 'games': len(games), 'train_games': len(train_games),
+              'validation_games': len(valid_games), 'test_games': len(test_games),
+              'samples': len(train), 'validation_samples': len(valid), 'test_samples': len(test),
+              'epochs': args.epochs, 'rate': args.rate, 'selected_epoch': best_epoch, 'parameters': best.parameter_count,
+              'validation': metrics(best, valid), 'test': metrics(best, test),
+              'test_calibration': {h: calibration(best, test, h) for h in HEADS},
+              'test_by_defcon': {h: by_defcon(best, test, h) for h in HEADS},
+              'seconds': time.monotonic()-start, 'logs': args.logs,
+              'target': 'per card pick: opponent removed a held card / lowered DEFCON before our next pick'}
     best.save(args.output, **report)
     Path(args.output+'.report.json').write_text(json.dumps(report, indent=2)+'\n')
     print(json.dumps(report, indent=2))
