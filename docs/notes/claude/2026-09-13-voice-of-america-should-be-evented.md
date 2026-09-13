@@ -4,6 +4,11 @@ The maintainer, 2026-09-13, after reading game logs: **the US should event
 The Voice of America basically always -- about 95% of the time** -- and they
 are concerned the bot does not.
 
+**Withdrawn the same day:** on rereading, the maintainer had misread the
+logs. The measurement below agrees -- the bot events it 99.9% of the time --
+so there is no defect here. The rule itself stands as the maintainer's
+reference for the card, which is why this note is kept.
+
 The card: US, 2 Ops, "Remove 4 non-US Influence from non-Europe countries
 (no more than 2 per country)". Four points of USSR influence for a 2-Op
 card, at any turn, anywhere outside Europe -- which is why spending it for
