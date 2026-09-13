@@ -85,6 +85,29 @@ def test_a_stall_after_some_games_exits_6_and_marks_every_saved_report(tmp_path,
     assert held['summary']['finished_games'] == 0 and len(held['summary']['unfinished']) == 4
 
 
+def test_a_stall_marks_only_the_sample_that_lost_games(tmp_path, monkeypatch):
+    """The run stalls, but every game of the verdict sample finished first.
+    Stamping the run's stop_reason on both reports failed a complete sample:
+    on 2026-09-13 CI's held-out reports read "stalled after 128 of 128 games;
+    unfinished []" and failed completeness, because the *other* arm hung on
+    seed 4006 (run 34753464219, bases bc5ef93 and c0ccd95)."""
+    games = [_game(s, side) for s in (4000, 4001) for side in ('US', 'USSR')]
+    status, report, held = _run(tmp_path, monkeypatch, _Results(games), '--stall-timeout', '5')
+    assert status == 6, 'the run still stalled, and says so'
+    assert report['summary']['stop_reason'] is None and report['summary']['unfinished'] == []
+    assert held['summary']['stop_reason'] == 'stalled' and len(held['summary']['unfinished']) == 4
+
+
+def test_acceptance_does_not_fail_a_stamped_report_that_lost_nothing():
+    """Reports CI already wrote carry the run-wide stamp. One whose games all
+    finished is a complete sample whatever the stamp says."""
+    wide, held = range(4000, 4048), range(5000, 5048)
+    whole = _report(held, 0.5)
+    whole['summary'].update(stop_reason='stalled', planned_games=96, finished_games=96, unfinished=[])
+    ok, lines = benchmark.acceptance([('gate', _report(wide, 0.5)), ('held-out', whole)])
+    assert ok and not any('FAIL completeness' in line for line in lines), lines
+
+
 def test_a_complete_run_says_it_was_complete(tmp_path, monkeypatch):
     games = [_game(s, side) for s in (4000, 4001, 5000, 5001) for side in ('US', 'USSR')]
     status, report, _ = _run(tmp_path, monkeypatch, _Results(games, stall=False))

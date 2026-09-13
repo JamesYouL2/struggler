@@ -755,7 +755,9 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     #    stop_reason existed carry no field and are judged as before.
     for label, report in samples:
         summary = report.get('summary', {})
-        if summary.get('stop_reason') == 'stalled':
+        # Reports written before the stamp was per sample carry the run's
+        # stall on every report; one that lost no game is complete anyway.
+        if summary.get('stop_reason') == 'stalled' and summary.get('unfinished', True):
             ok = False
             lines.append(f"  FAIL completeness: {label} stalled after {summary.get('finished_games')} "
                          f"of {summary.get('planned_games')} games; unfinished "
@@ -1237,9 +1239,14 @@ def main(argv=None):
             continue
         mine = [(seed, side) for _, _, seed, side, *_ in jobs if sample_of.get(seed) == index]
         report_summary = summarize(subset, args.stop_turn) if subset else {}
+        unfinished = [[seed, side] for seed, side in mine if (seed, side) not in done]
+        # A stall belongs to the sample that lost games, not to every report
+        # the run wrote: a verdict sample that finished before the held-out
+        # arm hung is complete. `decided` does curtail both, so it stays shared.
+        report_stop = None if stop_reason == 'stalled' and not unfinished else stop_reason
         report_summary.update(
-            stop_reason=stop_reason, planned_games=len(mine), finished_games=len(subset),
-            unfinished=[[seed, side] for seed, side in mine if (seed, side) not in done],
+            stop_reason=report_stop, planned_games=len(mine), finished_games=len(subset),
+            unfinished=unfinished,
             bot=args.bot, opponent=args.opponent, bot_weights=args.bot_weights,
             openings=args.openings, vary_openings=args.vary_openings)
         with open(path, 'w') as f:
