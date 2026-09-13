@@ -1095,7 +1095,6 @@ class StrategicPlayer:
         s = ev.SIDE_INDEX[obs.side]
         sign = 1 if s == ev.US else -1
         vector = self._urgency_vector()
-        urgency = self.scoring_weight(obs, cid)
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
         # region's starting score is fixed; anyone committing a change
@@ -1135,7 +1134,9 @@ class StrategicPlayer:
         elif CHECK_SNAPSHOT:
             assert own_before == ev.country_value(t, pos, i, s, w, vector), \
                 f'base country value for {cid} moved while cached'
-        before = own_before + w.region * urgency * region_before + margin_before
+        # The region's VP carries no scoring urgency, here or on any other
+        # path: `evaluator.region_potential` is the one rule (Codex M2).
+        before = own_before + ev.region_potential(w, (region_before,)) + margin_before
         controller = pos.control[i]
         inf_us, inf_ussr = pos.inf
         was_us, was_ussr = inf_us[i], inf_ussr[i]
@@ -1155,7 +1156,7 @@ class StrategicPlayer:
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
             change = (ev.country_value(t, pos, i, s, w, vector)
-                      + w.region * urgency * region_after + margin_after - before)
+                      + ev.region_potential(w, (region_after,)) + margin_after - before)
             if (pos.control[i] != controller or (inf_us[i] > 0) != (was_us > 0)
                     or (inf_ussr[i] > 0) != (was_ussr > 0)):
                 # What `access` reads about `cid` moved, so the neighbours'
@@ -1670,7 +1671,8 @@ class StrategicPlayer:
                          for c in engine.board.countries}
             regions = {r: self.region_score(engine.board, r, obs.side, snap) for r in Region}
             margins = {r: self.region_margin(engine.board, r, obs.side, snap) for r in Region}
-            before = sum(countries.values()) + self.weights.region * sum(regions.values()) + sum(margins.values())
+            before = (sum(countries.values()) + ev.region_potential(self.weights, regions.values())
+                      + sum(margins.values()))
             self._event_basis = (basis_key, countries, regions, margins, before)
         _, countries, regions, margins, before = self._event_basis
         engine._fire_event(obs.side, cid)
@@ -1748,9 +1750,9 @@ class StrategicPlayer:
                             != self._overrides_for(r, position, self._scoring_flags)}
         after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
                     if c in affected else v for c, v in countries.items())
-        after += w.region * sum(
+        after += ev.region_potential(w, (
             sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
-            if r in changed_regions else v for r, v in regions.items())
+            if r in changed_regions else v for r, v in regions.items()))
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before

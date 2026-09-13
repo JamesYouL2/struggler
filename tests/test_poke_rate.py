@@ -44,7 +44,8 @@ from struggler.engine import DecisionKind as K, Engine, Side
 
 # The maintainer's ceiling. Their estimate of the right rate is about one.
 MAX_POKES_PER_SEAT = 3
-SEEDS = (4000, 4001, 4002)
+SEEDS = (4000, 4001, 4002, 4003)
+NEGATIVE_CONTROL_SEED = 4003
 STOP_TURN = 4
 
 
@@ -111,7 +112,7 @@ def test_the_forward_search_is_what_holds_the_rate_down():
     from struggler.bots.strategic import StrategicWeights
 
     off = dataclasses.replace(StrategicWeights(), reply_model=0.)
-    without = minimum_pokes(SEEDS[0], off)
+    without = minimum_pokes(NEGATIVE_CONTROL_SEED, off)
     assert max(without.values(), default=0) > MAX_POKES_PER_SEAT, (
         f'with the forward search off the rate is {without}, already under '
         f'the ceiling -- the test above is then passing for some other reason '

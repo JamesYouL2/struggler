@@ -165,6 +165,13 @@ def test_evaluation_rejects_empty_seed_set():
 
 
 def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
+    """Scored < live < held, for the urgency and for what taking Iran is worth.
+
+    The three deltas are each asked in their own observation's prepared
+    context. They used to be asked of an unprepared bot, where the country,
+    access and margin terms read all-ones urgency and only `delta`'s regional
+    term read the observation's -- the mixed context Codex M2 found. `delta`
+    now prices one potential in one context, so the context is prepared."""
     engine = Engine(seed=0)
     engine.turn = 2
     engine.board.influence['Iran']['USSR'] = 1
@@ -175,9 +182,10 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
     assert weights[0] < weights[1] < weights[2]  # scored < live < held
-    from struggler.bots.rules_math import sync_board
-    sync_board(bot.board, live)
-    deltas = [bot.delta(o, 'Iran', own=3) for o in (dead, live, held)]  # +3 takes control: the region score moves
+    deltas = []
+    for o in (dead, live, held):
+        bot.prepare(o)
+        deltas.append(bot.delta(o, 'Iran', own=3))  # +3 takes control: the region score moves
     assert deltas[0] < deltas[1] < deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
     # scored one only after the reshuffle; a Mid War region from turn 4. Every
@@ -373,30 +381,6 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     assert two > one and four > two
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Broken by removing access_chain on 2026-09-12, deliberately and with the "
-    "cost known. Isolated: with access_chain at 0.4 the marginal two Ops buy "
-    "36.56 against a first two of 34.43 (convex); at 0.0 they buy 33.44 "
-    "against 34.41 (not). vp_swing makes no difference here at all -- this is "
-    "a turn-1 position, where vp_base * swing**0 is the same either way.\n\n"
-    "Kept rather than weakened, and strict so that an xpass fails. Weakening "
-    "the assertion to fit current behaviour is shape 8 -- a test that encodes "
-    "the defect as the contract, twice recurred. The property is real: the Op "
-    "that completes control should be worth more than the one before it, "
-    "because control is worth VP and a partial stake is not. It held here "
-    "only because controlling a country opened chains to battlegrounds two "
-    "hops out, which is a side effect of a guessed weight rather than a "
-    "reason.\n\n"
-    "The 128-seed ablation could not see this: 0.491 +/-0.063 over 215 games "
-    "cannot resolve a 3% shortfall on one property in one position. Both "
-    "readings are true.\n\n"
-    "Expected to xpass once the value x probability x turn_discount rebuild "
-    "lands, where access becomes VP(n) x dP(control n) x discount and "
-    "convexity at a threshold is a consequence of the model rather than of a "
-    "chain term. When it does, strict xfail turns that into a failure telling "
-    "whoever is there to remove this marker. See "
-    "docs/notes/claude/2026-09-12-value-times-probability-times-discount.md "
-    "and 2026-09-12-access-wants-a-conversion-probability.md."))
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     """The property the concavity assertion was hiding.
 

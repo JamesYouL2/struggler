@@ -46,9 +46,11 @@ GAME_SWING_VP = 2 * AUTO_VICTORY_VP
 # give no scoring value because it simply wins.
 #
 # It stood at an arbitrary 100. Note that the number is not what makes
-# Europe Control cheap today: it is multiplied by `w.region * urgency /
-# vp_value` ~ 0.027, so it reads as 0.5 VP of board value at 20 and read as
-# 2.7 at 100. A terminal outcome priced as a very large scoring is the
+# Europe Control cheap today: it is multiplied by `w.region / vp_value`
+# (`w.region * urgency / vp_value` ~ 0.027 when this was measured, an urgency
+# only the placement path applied until Codex M2 made the regional term one
+# rule), so it read as 0.5 VP of board value at 20 and 2.7 at 100. A
+# terminal outcome priced as a very large scoring is the
 # defect; the constant is only the part that can be made honest cheaply.
 #
 # THE FULL SWING, not the threshold, on the maintainer's call (2026-09-12).

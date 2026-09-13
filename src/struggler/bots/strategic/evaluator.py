@@ -761,6 +761,25 @@ def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
 NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
 
 
+def region_potential(w, nets) -> float:
+    """The regional term of the board potential: `w.region` times the sum of
+    `nets`, the signed VP each region would score now.
+
+    ONE rule, called by `board_value`, by `StrategicPlayer.delta` (with one
+    region's VP before and after a change) and by the event sandbox, because
+    three copies of it did not agree: `delta` alone multiplied the VP by the
+    changed country's scoring urgency, which for a Southeast Asian country
+    includes Southeast Asia Scoring, so Thailand and Pakistan credited the
+    same Asia tier change differently and two placement orders reaching one
+    board summed to different values (Codex M2). The regional VP carries no
+    urgency on any path; how soon a region scores is carried by country
+    importance and the margin unit.
+
+    `sum()`, as `board_value` has always summed it, so that value is
+    bit-for-bit what it was."""
+    return w.region * sum(nets)
+
+
 def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -> float:
     """Every country, every region score, every region margin, for side `s`.
 
@@ -773,5 +792,5 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     ov = (lambda _r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
     return (sum(country_value(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
-            + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)
+            + region_potential(w, (sign * region_vp(t, pos, region, *ov(region)) for region in Region))
             + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))
