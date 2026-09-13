@@ -186,3 +186,57 @@ def test_editing_an_observation_cannot_change_the_legal_moves():
             except TypeError:
                 pass
     assert engine.legal_actions() == before
+
+
+def test_the_in_place_or_operator_cannot_edit_a_legal_action():
+    """Codex audit F7: `FrozenPayload` refused `[]=` and `update`, but
+    `payload |= {...}` goes through `dict.__ior__` -- an ordinary operator,
+    not a deliberate bypass -- and changed the engine's own legal option."""
+    engine = Engine.new_game(seed=42, setup_bonus=True)
+    before = engine.legal_actions()
+    payload = next(a for a in engine.observe(engine.pending_decision.actor).pending_decision.options
+                   if "country" in a.payload).payload
+    with pytest.raises(TypeError):
+        payload |= {"country": "INVALID"}
+    assert engine.legal_actions() == before
+
+
+def test_an_observed_decision_context_cannot_move_the_engine():
+    """Codex audit F7, its reproduction: begin a 1-Op placement and assign
+    `ops_remaining = 99` through the observation. The context was a plain dict
+    shared with the engine, and the engine then offered 98 more Ops."""
+    from conftest import bare_engine
+    engine = bare_engine()
+    engine.phase = "action_rounds"
+    engine.board.influence["Italy"]["US"] = 1
+    engine._maybe_push_place_influence(Side.US, 1)
+    assert engine.pending_decision.context["ops_remaining"] == 1
+    observed = engine.observe(Side.US)
+    with pytest.raises(TypeError):
+        observed.pending_decision.context["ops_remaining"] = 99
+    assert engine.pending_decision.context["ops_remaining"] == 1
+    engine.step(engine.legal_actions()[0])
+    after = engine.pending_decision
+    assert after is None or after.kind is not K.PLACE_INFLUENCE, \
+        'one Op placed, and the engine still offers more'
+
+
+def test_a_physical_random_discard_does_not_put_the_hand_in_the_shared_history():
+    """Codex audit, 2026-09-13: `Decision.public()` exempted CHANCE, so a
+    physical-mode random discard from a known hand of Fidel/Nasser/Blockade
+    left all three in the shared history after Fidel was discarded. Only the
+    discarded card was revealed; the rest of the hand is private."""
+    from struggler.engine.replay import HistoryBuilder
+    from test_physical_mode import _bare_physical
+    engine = _bare_physical(Side.USSR, seed=3)
+    engine.hands["US"] = ["Fidel", "Nasser", "Blockade"]
+    engine.push_random_discard(Side.US, "terrorism", count=1)
+    decision = engine.pending_decision
+    assert decision.actor is Side.CHANCE and len(decision.options) == 3
+    action = next(a for a in decision.options if a.payload["card"] == "Fidel")
+    engine.step(action)
+    builder = HistoryBuilder()
+    event = builder.record(decision, action, engine)
+    named = {o.payload.get("card") for o in event.decision.options}
+    assert not named & {"Nasser", "Blockade"}, f'the shared history names undiscarded cards: {named}'
+    assert event.action.payload["card"] == "Fidel", 'the discarded card is the reveal and stays'

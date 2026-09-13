@@ -159,6 +159,9 @@ class FrozenPayload(dict):
 
     __setitem__ = __delitem__ = _immutable          # type: ignore[assignment]
     clear = pop = popitem = setdefault = update = _immutable  # type: ignore[assignment]
+    # `payload |= {...}` goes through `dict.__ior__`, not `update`, and edited
+    # the engine's own legal option in place (Codex audit F7).
+    __ior__ = _immutable  # type: ignore[assignment]
 
     def __reduce__(self):
         return (FrozenPayload, (dict(self),))
@@ -186,6 +189,21 @@ class Decision:
     options: tuple[Action, ...]
     context: Mapping[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # The context was a plain dict shared between the engine's pending
+        # decision and every Observation of it, so
+        # `obs.pending_decision.context['ops_remaining'] = 99` moved the
+        # engine's own Ops budget (Codex audit F7). Frozen here, as `Action`
+        # freezes its payload: the engine never edits a live context -- every
+        # handler copies it first (`dict(decision.context)`) and pushes a new
+        # decision -- so nothing legitimate writes through this.
+        #
+        # Top level only. Values stay lists where they are lists, because the
+        # serialized state must round-trip through JSON unchanged (see
+        # `_normalize_bonus_context`), so a Player can still append to one.
+        if not isinstance(self.context, FrozenPayload):
+            object.__setattr__(self, "context", FrozenPayload(self.context))
+
     def public(self) -> "Decision":
         """This decision as anyone other than its actor may see it.
 
@@ -210,17 +228,21 @@ class Decision:
         used throughout as "the board from this seat" whoever happens to
         be to move -- hiding those would break that for no gain.
 
-        And only a *player's* cards are private. A CHANCE decision has no
-        owner to keep a secret from: the cards in a random discard's
-        option list are a public reveal, and hiding them would make the
-        engine more secretive than the rules.
+        A CHANCE decision with ONE option is a public reveal and keeps it: a
+        random discard outside physical mode preselects its card, and that
+        card is what the table sees. With SEVERAL card options it is a hand:
+        in physical mode a random discard from the bot's hand lists every
+        card the operator could name, and after Fidel was discarded from
+        Fidel/Nasser/Blockade the shared history still listed all three (Codex
+        audit, 2026-09-13). The chosen card is recorded on the event's action,
+        so hiding the list loses nothing the table saw.
 
         Returns `self` when there is nothing to hide, so callers can apply
-        it unconditionally. Used by `observe()` for a non-acting seat and
-        by `replay.build_event` for the shared history, which closes the
-        leak wherever a Decision crosses a seat boundary.
+        it unconditionally. Used by `replay.build_event` for the shared
+        history, which closes the leak wherever a Decision crosses a seat
+        boundary.
         """
-        if self.actor not in (Side.US, Side.USSR):
+        if self.actor not in (Side.US, Side.USSR) and len(self.options) <= 1:
             return self
         if not any(_names_a_card(option.payload) for option in self.options):
             return self
