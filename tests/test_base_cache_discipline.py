@@ -98,6 +98,35 @@ def test_a_ranking_that_moves_the_board_without_invalidating_is_caught():
         f'the real code path now trips its own guard.\n{result.stdout}')
 
 
+def test_a_multi_step_ops_spend_does_not_trip_the_guard():
+    """The guard has to stay runnable on the placement path, or it guards
+    nothing there.
+
+    `_placement_ops_value` commits each greedy step to the board and then
+    prices the next. It dropped the base caches by hand -- correctly -- but
+    did not re-stamp `_base_digest`, so with STRUGGLER_CHECK_SNAPSHOT=1 the
+    guard fired on correct values, and 31 tests in test_strategic.py failed.
+    Found 2026-09-13 building the reply look-ahead layers. Nothing ran the
+    checker on this path, so the next real stale base there would have gone
+    through unchecked. These two tests reach a multi-step spend inside a
+    real ranking (card play, Ops type, coups).
+
+    Subprocess because `STRUGGLER_CHECK_SNAPSHOT` is read at import.
+    """
+    import subprocess
+    import sys
+    env = dict(os.environ, STRUGGLER_CHECK_SNAPSHOT='1')
+    root = pathlib.Path(__file__).parent.parent
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest', '-q', '-p', 'no:cacheprovider',
+         'tests/test_strategic.py::test_avoids_fatal_coups',
+         'tests/test_strategic.py::test_ops_are_priced_by_their_best_use_and_increase_with_the_budget'],
+        capture_output=True, text=True, env=env, cwd=str(root))
+    assert result.returncode == 0, (
+        'a ranking tripped the stale-base guard on the placement path:\n'
+        + result.stdout[-3000:])
+
+
 def test_the_forward_search_discounts_a_break_rather_than_rewarding_it():
     """The behavioural half, stated as a direction rather than a number.
 
