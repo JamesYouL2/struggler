@@ -1573,7 +1573,12 @@ class StrategicPlayer:
             margin = max(0, int(roll + ops - 2 * info.stability + mod))
             removed = min(enemy, margin)
             gain += self.delta(obs, cid, own=margin-removed, opp=-removed) / 6
-        gain *= self.weights.coup_discount
+        # EXPERIMENT (experiment/coup-discount-bg-only): the discount only on a
+        # Battleground coup -- the kind that degrades DEFCON. Deleting it
+        # everywhere measured 0.473 [0.442, 0.505] over 384 seeds; this asks
+        # whether what it was pricing is the DEFCON cost of a battleground coup.
+        if info.battleground:
+            gain *= self.weights.coup_discount
         if military:
             gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
         if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
@@ -1592,7 +1597,7 @@ class StrategicPlayer:
                     outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
                 # Keep the original addition order (and floating-point ties).
                 total += outcomes[margin]
-        return total * self.weights.coup_discount
+        return total  # EXPERIMENT: a realignment never degrades DEFCON, so no discount
 
     def _public_event_value(self, obs: Observation, cid: str) -> float:
         """Simulate a whitelisted event in an idle sandbox and value the change.
