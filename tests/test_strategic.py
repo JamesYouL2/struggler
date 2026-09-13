@@ -376,9 +376,9 @@ def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     value x probability x turn_discount rebuild. It came back first on
     2026-09-13 when `coup_discount` was deleted: undiscounted, a four-Op coup
     crosses the threshold two Ops cannot, and 4-2 Ops buy 41.70 against 34.41.
-    Whether coup pricing is the right carrier of this property, rather than
-    the rebuild's model of control, is the maintainer's call; the numbers above
-    are what moved.
+    The maintainer accepted that on 2026-09-13: a guessed weight whose removal
+    restores a property the model is meant to have is almost certainly a bad
+    weight, whichever mechanism carries the property back.
 
     Pinning the openings rather than using the default, so this says what
     it means and does not move when the default does.
