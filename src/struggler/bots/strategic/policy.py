@@ -142,10 +142,11 @@ def coup_bans(game_effects) -> ev.Prohibitions:
 
     Written for the `wipe` term, which priced a Coup risk on US-Controlled
     Europe the USSR is not allowed to attempt until these were read. That
-    term was deleted 2026-09-13, off and never calibrated, so no value term
-    reads the prohibitions today; they are still threaded through the
-    evaluator and the sandbox's dependency check, and a future coup-risk term
-    would need exactly this."""
+    term was deleted 2026-09-13, off and never calibrated, and the `bans`
+    argument it left on `evaluator.country_value` and `board_value` went the
+    same day: nothing in the value function reads the prohibitions today.
+    `_coup_bans` is still set from the observation and restored by `evaluate`,
+    because a future coup-risk term would need exactly this."""
     return ev.Prohibitions(*(bool(game_effects.get(name)) for name in
                              ('nato', 'us_japan_pact', 'reformer',
                               'degaulle_france', 'willy_brandt')))
@@ -951,9 +952,7 @@ class StrategicPlayer:
         """What `cid` is worth to `side` on this board."""
         t = self._terrain
         return ev.country_value(t, self._position_for(board, snapshot), t.index[cid],
-                                ev.SIDE_INDEX[side], self.weights, self._urgency_vector(),
-                                self._obs.defcon if self._obs is not None else 5,
-                                self._coup_bans)
+                                ev.SIDE_INDEX[side], self.weights, self._urgency_vector())
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
         """The reach a holding in `cid` gives `side` (see `evaluator.access`)."""
@@ -1006,10 +1005,10 @@ class StrategicPlayer:
         """`board`'s whole value to `side`.
 
         The board comes from the caller, but the *context* does not: scoring
-        urgency and DEFCON come from whatever observation this player was last
-        prepared for, and from a fresh player they are all-ones urgency at
-        DEFCON 5. So the same board scores differently on two players, by
-        design -- a battleground is worth more where more scoring is still to
+        urgency and the scoring flags come from whatever observation this
+        player was last prepared for, and from a fresh player they are
+        all-ones urgency with no flags. So the same board scores differently
+        on two players, by design -- a battleground is worth more where more scoring is still to
         come. Use `evaluate(observation)`, which prepares that context and puts
         it back, for anything that compares positions, such as a search leaf.
         Call `value` directly only for a bare, context-free reading of a
@@ -1018,8 +1017,7 @@ class StrategicPlayer:
         pos = self._position_for(board)
         return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
-                              self._obs.defcon if self._obs is not None else 5,
-                              self._overrides_map(pos), self._coup_bans)
+                              self._overrides_map(pos))
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score, discounted by
@@ -1077,7 +1075,6 @@ class StrategicPlayer:
         s = ev.SIDE_INDEX[obs.side]
         sign = 1 if s == ev.US else -1
         vector = self._urgency_vector()
-        defcon = self._obs.defcon if self._obs is not None else 5
         urgency = self.scoring_weight(obs, cid)
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
@@ -1112,12 +1109,11 @@ class StrategicPlayer:
         key = (i, s)
         own_before = None if cache is None else cache.get(key)
         if own_before is None:
-            own_before = ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
+            own_before = ev.country_value(t, pos, i, s, w, vector)
             if cache is not None:
                 cache[key] = own_before
         elif CHECK_SNAPSHOT:
-            assert own_before == ev.country_value(t, pos, i, s, w, vector, defcon,
-                                                  self._coup_bans), \
+            assert own_before == ev.country_value(t, pos, i, s, w, vector), \
                 f'base country value for {cid} moved while cached'
         before = own_before + w.region * urgency * region_before + margin_before
         controller = pos.control[i]
@@ -1136,7 +1132,7 @@ class StrategicPlayer:
                                 t, pos, region, *self._overrides_for(region, pos)))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
-            return (ev.country_value(t, pos, i, s, w, vector, defcon, self._coup_bans)
+            return (ev.country_value(t, pos, i, s, w, vector)
                     + w.region * urgency * region_after + margin_after - before)
         finally:
             self._set_influence(cid, was_us, was_ussr)
@@ -1678,7 +1674,6 @@ class StrategicPlayer:
         t, w, side = self._terrain, self.weights, ev.SIDE_INDEX[obs.side]
         sign = 1 if side == ev.US else -1
         vector = self._urgency_vector()
-        defcon = self._obs.defcon if self._obs is not None else 5
         position = ev.Position(t).sync(engine.board)
         # Read the sandbox's own effects, not the observation's: an event that
         # turns Formosan Resolution or Shuttle Diplomacy on is worth exactly
@@ -1687,12 +1682,7 @@ class StrategicPlayer:
         changed_regions |= {r for r in Region
                             if self._overrides_for(r, position, flags)
                             != self._overrides_for(r, position, self._scoring_flags)}
-        # An event that turns NATO or the pact on changes what the opponent
-        # may coup, so the after-value reads the sandbox's own prohibitions.
-        bans = coup_bans(engine.game_effects)
-        if bans != self._coup_bans:
-            affected = set(countries)
-        after = sum(ev.country_value(t, position, t.index[c], side, w, vector, defcon, bans)
+        after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
                     if c in affected else v for c, v in countries.items())
         after += w.region * sum(
             sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
