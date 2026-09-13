@@ -1,6 +1,35 @@
 # Handoff, 2026-09-13 midday — supersedes the morning handoff
 
-`main` is `e47f31f`, pushed, working tree clean. Full suite on it: **815
+## 0. Stopping point (written as the session hit its usage limit)
+
+Nothing is lost if every process below died; each piece is committed or on
+disk, and each has a resume step.
+
+- **CI:** the three reply/coup layer gates (section 1) were still
+  `in_progress`. Their collectors (`scripts/collect_ci.sh
+  reply-lookahead-layers-ab` and `reply-lookahead-layer-c`) commit a note
+  to the LOCAL main when the runs finish and **never push**. If they died,
+  re-run them with the run ids in section 1; `collect_ci.sh` downloads
+  artifacts, which CI keeps for 30 days.
+- **Codex M1** is committed: `8879a79` "delta prices the access other
+  countries lose or gain", on both `fix/board-potential-m2a` and
+  `fix/board-potential-m2b` (local branches, not pushed). Verify it before
+  trusting it: `tests/test_board_potential.py` plus test_strategic plain
+  and under `STRUGGLER_CHECK_SNAPSHOT=1`, and Codex's M1 numbers.
+- **M2a / M2b** were in progress in `wt-m2a` / `wt-m2b` (evaluator, policy,
+  stakes.py, docs, tests/test_board_potential.py, test_strategic.py). The
+  agent was told to commit whatever it had as `wip:` with what is done and
+  verified in the body. Check with `git log fix/board-potential-m2a
+  fix/board-potential-m2b` and `git -C $WT status`; if uncommitted, the
+  diff in the worktree is the work.
+- **Next session, in order:** (1) `git log main` — push any collector
+  notes; (2) read the layer notes and merge per section 4; (3) finish or
+  verify M2a/M2b, push both, gate each against `e47f31f` with
+  `gh workflow run gate.yml --ref <branch> -f bases='["e47f31f..."]' -f
+  decide=0 -f vary=0` (full SHA; retry on 5xx), collect; (4) section 5.
+
+`main` is `85be653`, pushed, working tree clean (`e47f31f` is the last
+code commit). Full suite on it: **815
 passed, 3 skipped, 2 xfailed**; ruff clean in every selected family; and
 `tests/test_strategic.py` passes with `STRUGGLER_CHECK_SNAPSHOT=1` (71
 passed), which it did not this morning.
