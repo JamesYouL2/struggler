@@ -14,6 +14,7 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Handoff, 2026-09-13 — written for Codex, for a second viewpoint](2026-09-13-handoff-for-codex.md) — 2026-09-13
+- [The Voice of America should be evented almost always](2026-09-13-voice-of-america-should-be-evented.md) — 2026-09-13
 - [GitHub Actions dispatch failed while the status page said it was fine](2026-09-13-github-dispatch-degradation.md) — 2026-09-13
 - [Overnight 2026-09-12: what came back, and what was checked before reading it](2026-09-13-overnight-readings.md) — 2026-09-13 (the reading of the six generated notes below)
   - [Self-play lengths and sandbox stacks](2026-09-12-selfplay-lengths-and-sandbox-stacks.md) (generated)
