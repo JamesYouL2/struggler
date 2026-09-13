@@ -33,11 +33,14 @@ the tests.
   (conda) and `pip install -e ".[test]"` still work but are not what this
   repo is developed against.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
-  the full suite before committing; it takes about three minutes (2:58 for
-  774 tests on an idle machine, 3:13 on a CI runner, both 2026-09-12).
-  `test_parity_corpus.py` is 1:26 of that -- half the suite -- so skipping it
-  saves ninety seconds and there is no reason to. ALWAYS RUN THE WHOLE
-  THING.
+  the full suite before committing; it takes about six minutes (6:10 for
+  777 tests on an idle machine, 2026-09-12 evening).
+  `test_parity_corpus.py` is 4:41 of that -- three quarters of the suite --
+  and it grew from 1:26 the same afternoon without anyone touching it: the
+  corpus went from 344 records to 401 because the bot started reaching turn
+  9, and turn-9 positions are the most expensive there are to rank. That
+  cost is a function of how long the bot's games last, so it will move
+  again. ALWAYS RUN THE WHOLE THING.
   This entry was wrong twice on 2026-09-12. It said three and a half minutes
   from before the tests that make up the difference existed, and was then
   "corrected" to eleven minutes from a run taken while a 128-seed gate held
