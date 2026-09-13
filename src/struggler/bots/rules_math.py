@@ -66,6 +66,21 @@ def coup_roll_modifier_estimate(observation: Observation, side: Side, info: Coun
     return mod
 
 
+def coup_outcomes(ops: int, stability: int, defender: int,
+                  modifier: float) -> tuple[tuple[int, int], ...]:
+    """The six rolls of a Coup, as (defender Influence removed, attacker
+    Influence added): the margin is roll + Ops - 2 * stability plus the
+    modifiers (6.3.2), and it removes the defender's Influence before adding
+    the attacker's. One copy, for our Coups and for the opponent's Coup
+    answering us, so the two cannot price a roll differently."""
+    out = []
+    for roll in range(1, 7):
+        margin = max(0, int(roll + ops - 2 * stability + modifier))
+        removed = min(defender, margin)
+        out.append((removed, margin - removed))
+    return tuple(out)
+
+
 def coup_risks_defcon(observation: Observation, side: Side, info: CountryInfo) -> bool:
     """Whether a Coup here could degrade DEFCON at all: only Battleground
     countries do, and even those not while Nuclear Subs exempts this side."""

@@ -74,6 +74,12 @@ def side_for_play_index(idx: int, turn: int, extras: tuple[Side, ...]) -> Side:
     return extras[idx - base]
 
 
+def defcon_allows_coup(region: Region, defcon: int) -> bool:
+    """Whether DEFCON `defcon` permits Coups and Realignments in `region`
+    (8.1.5): none in Europe below 5, Asia below 4, the Middle East below 3."""
+    return defcon >= RULES["coup_min_defcon"].get(region.name, _DEFAULT_MIN_DEFCON)
+
+
 def chernobyl_blocks(side: Side, region: Region, turn_effects) -> bool:
     """Chernobyl: the USSR may not add Influence via Operations to the
     designated region for the rest of the turn (events still may)."""
@@ -1726,10 +1732,8 @@ class Engine:
         info = self.board.countries[cid]
         if self.board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        if not ignore_defcon:
-            min_defcon = RULES["coup_min_defcon"].get(info.region.name, _DEFAULT_MIN_DEFCON)
-            if self.defcon < min_defcon:
-                return False
+        if not ignore_defcon and not defcon_allows_coup(info.region, self.defcon):
+            return False
         return not self.board.coup_prohibited(attacker, cid, for_coup=for_coup,
                                               **self.coup_flags())
 

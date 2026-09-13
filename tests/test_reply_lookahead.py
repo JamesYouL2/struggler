@@ -69,25 +69,33 @@ def _codex_board(**influence):
     return engine
 
 
-def test_q1_codex_followup_reproduction():
+def test_q1_codex_followup_reproduction(monkeypatch):
     """Codex re-reproduced Q1 with exact numbers: US Angola 1 only, US +1
     Zaire, a fixed 4-Op reply. Before the fix the adjusted value was
-    -23.843867 although the USSR has no placement access; now it is the raw
-    value untouched. At DEFCON 5 a USSR Coup *could* answer, which is the
-    next change's business -- here only the placement answer exists."""
-    raw, after = _priced(_codex_board(Angola_US=1), Side.US, 'Zaire', 1, budget=4)
+    -23.843867 although the USSR has no placement access; now no placement
+    answer is charged. This is DEFCON 5, where a USSR Coup *can* answer
+    (the Coup tests below), so the placement rule is pinned with Coup
+    answers switched off, and the Coup is checked to be what remains."""
+    raw, with_coup = _priced(_codex_board(Angola_US=1), Side.US, 'Zaire', 1, budget=4)
     assert raw == pytest.approx(21.512711, abs=1e-6)
-    assert after == raw
+    assert with_coup < raw, 'a 4-Op Coup on stability 1 answers it'
+    monkeypatch.setattr(StrategicPlayer, '_may_coup', lambda *args: False)
+    _, placement_only = _priced(_codex_board(Angola_US=1), Side.US, 'Zaire', 1, budget=4)
+    assert placement_only == raw
 
 
-def test_q2_codex_followup_reproduction():
+def test_q2_codex_followup_reproduction(monkeypatch):
     """Codex's Q2: USSR Angola 1 only, US +1 Zaire, a fixed 3-Op reply. Before
     the fix raw and adjusted were equal -- the retake was priced at 4 Ops and
     declined. It costs 3, so the reply applies at budget 3 and not at 2.
 
     Codex reported raw 26.046533 at 51e4ca4; at this branch's base (7e3d911)
     the same setup gives 23.843867, and the pre-fix defect (adjusted == raw)
-    reproduces identically, so the value is pinned as measured here."""
+    reproduces identically, so the value is pinned as measured here.
+
+    At DEFCON 5 a 2-Op Coup also answers, so the budget boundary of the
+    *retake* is pinned with Coup answers switched off."""
+    monkeypatch.setattr(StrategicPlayer, '_may_coup', lambda *args: False)
     raw, after = _priced(_codex_board(Angola_USSR=1), Side.US, 'Zaire', 1, budget=3)
     assert raw == pytest.approx(23.843867, abs=1e-6)
     assert after < raw, 'a 3-Op retake was declined as if it cost 4'
@@ -212,3 +220,97 @@ def test_next_move_follows_the_engine_turn_order_through_a_whole_turn():
                     later = engine._next_play_index_for(who)
                     want = 0 if later is not None else (1 if turn < 10 else None)
                     assert rules_math.next_move(obs, who) == want, (turn, extras, idx, who)
+
+
+# -- the opponent may answer with a Coup --------------------------------------
+#
+# Placement is not the only answer. With each budget the opponent takes
+# whichever hurts more: the retake, or a Coup on the same country. A Coup needs
+# no reach and ignores the doubling rule, so these positions are built so that
+# the retake is impossible and only the Coup can answer -- and each is paired
+# with the one rules fact that takes the Coup away.
+
+def _overprotected_lebanon(defcon):
+    """The US puts 3 into an empty Lebanon (stability 1, not a Battleground):
+    a retake is 2 + 2 + 2 + 1 = 7 Ops, past any card, but a 4-Op Coup
+    removes all three on every roll."""
+    engine = bare_engine()
+    engine.defcon = defcon
+    engine.board.influence['Israel']['US'] = 1
+    engine.board.influence['Syria']['USSR'] = 1
+    return engine
+
+
+def test_a_coup_answers_a_placement_no_retake_can():
+    assert rules_math.ops_to_control(0, 3, 1) == 7
+    raw, after = _priced(_overprotected_lebanon(5), Side.US, 'Lebanon', 3, budget=4)
+    assert after < raw, 'a 4-Op Coup wipes three points and was not charged'
+
+
+def test_no_coup_answer_where_defcon_bans_coups_in_the_region():
+    """The Middle East closes to Coups below DEFCON 3 (8.1.5)."""
+    raw, after = _priced(_overprotected_lebanon(3), Side.US, 'Lebanon', 3, budget=4)
+    assert after < raw, 'control: DEFCON 3 allows it'
+    raw, after = _priced(_overprotected_lebanon(2), Side.US, 'Lebanon', 3, budget=4)
+    assert after == raw
+    # The ban is DEFCON at *their* move: after the US's last play of turn 5
+    # the USSR next moves on turn 6, when DEFCON has recovered to 3.
+    engine = _overprotected_lebanon(2)
+    engine.turn, engine.phase, engine.action_round, engine._ars_played = 5, 'action_rounds', 7, 14
+    engine.begin_influence_operations(Side.US, 3)
+    raw, after = _priced(engine, Side.US, 'Lebanon', 3, budget=4)
+    assert after < raw
+
+
+def test_nato_leaves_us_controlled_europe_without_a_coup_answer():
+    def position(nato):
+        engine = bare_engine()
+        engine.board.influence['Italy']['US'] = 1   # reach; the USSR reaches nothing near
+        if nato:
+            engine.game_effects['nato'] = True
+        return engine
+
+    raw, after = _priced(position(nato=False), Side.US, 'Spain_Portugal', 2, budget=4)
+    assert after < raw, 'control: without NATO the USSR may Coup it'
+    raw, after = _priced(position(nato=True), Side.US, 'Spain_Portugal', 2, budget=4)
+    assert after == raw
+
+
+def test_a_battleground_coup_at_defcon_two_is_no_answer():
+    """Nuclear war for the phasing player, which a side on its own move is."""
+    def position(defcon, cid='Zaire'):
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.board.influence['Cameroon' if cid == 'Zaire' else 'Zaire']['US'] = 1
+        return engine
+
+    raw, after = _priced(position(2), Side.US, 'Zaire', 1, budget=4)
+    assert after == raw
+    raw, after = _priced(position(3), Side.US, 'Zaire', 1, budget=4)
+    assert after < raw, 'control: at DEFCON 3 the Coup is safe'
+    raw, after = _priced(position(2, cid='Cameroon'), Side.US, 'Cameroon', 1, budget=4)
+    assert after < raw, 'control: a non-Battleground Coup never touches DEFCON'
+
+
+def test_nuclear_subs_leaves_the_us_its_battleground_coup_answer():
+    def position(subs):
+        engine = bare_engine()
+        engine.defcon = 2
+        engine.board.influence['Angola']['USSR'] = 1   # the US reaches nothing near Zaire
+        if subs:
+            engine.turn_effects['nuclear_subs'] = True
+        return engine
+
+    raw, after = _priced(position(subs=False), Side.USSR, 'Zaire', 1, budget=4)
+    assert after == raw
+    raw, after = _priced(position(subs=True), Side.USSR, 'Zaire', 1, budget=4)
+    assert after < raw
+
+
+def test_the_reply_is_off_at_reply_model_zero():
+    engine = _overprotected_lebanon(5)
+    obs = engine.observe(Side.US)
+    bot = StrategicPlayer(dataclasses.replace(StrategicWeights(), reply_model=0.))
+    bot.prepare(obs)
+    raw = bot.delta(obs, 'Lebanon', own=3)
+    assert bot._after_reply(obs, 'Lebanon', 3, raw) == raw

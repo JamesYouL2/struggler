@@ -373,35 +373,24 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     assert two > one and four > two
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Broken by removing access_chain on 2026-09-12, deliberately and with the "
-    "cost known. Isolated: with access_chain at 0.4 the marginal two Ops buy "
-    "36.56 against a first two of 34.43 (convex); at 0.0 they buy 33.44 "
-    "against 34.41 (not). vp_swing makes no difference here at all -- this is "
-    "a turn-1 position, where vp_base * swing**0 is the same either way.\n\n"
-    "Kept rather than weakened, and strict so that an xpass fails. Weakening "
-    "the assertion to fit current behaviour is shape 8 -- a test that encodes "
-    "the defect as the contract, twice recurred. The property is real: the Op "
-    "that completes control should be worth more than the one before it, "
-    "because control is worth VP and a partial stake is not. It held here "
-    "only because controlling a country opened chains to battlegrounds two "
-    "hops out, which is a side effect of a guessed weight rather than a "
-    "reason.\n\n"
-    "The 128-seed ablation could not see this: 0.491 +/-0.063 over 215 games "
-    "cannot resolve a 3% shortfall on one property in one position. Both "
-    "readings are true.\n\n"
-    "Expected to xpass once the value x probability x turn_discount rebuild "
-    "lands, where access becomes VP(n) x dP(control n) x discount and "
-    "convexity at a threshold is a consequence of the model rather than of a "
-    "chain term. When it does, strict xfail turns that into a failure telling "
-    "whoever is there to remove this marker. See "
-    "docs/notes/claude/2026-09-12-value-times-probability-times-discount.md "
-    "and 2026-09-12-access-wants-a-conversion-probability.md."))
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     """The property the concavity assertion was hiding.
 
     Pinning the openings rather than using the default, so this says what
     it means and does not move when the default does.
+
+    Strict xfail from 2026-09-12 to experiment/reply-coups. Removing
+    access_chain broke it (with the chain at 0.4 the marginal two Ops bought
+    36.56 against a first two of 34.43; at 0.0, 33.44 against 34.41), and the
+    marker said to remove itself on an xpass. The xpass came from the reply
+    look-ahead learning that a Coup can answer a placement, not from the
+    value x probability rebuild it anticipated: for the `iran` book the best
+    2-Op use was a 34.41 placement the look-ahead now sees the US Coup
+    back (28.76), leaving a 29.48 Coup, while 4 Ops stay a 66.73 Coup
+    -- 37.24 marginal against 29.48. That is the property's own reason, a
+    partial stake is not worth what control is, reached by pricing whether
+    the stake survives; it is not a guessed chain weight. If a later change
+    breaks it again, the numbers above are where to start.
     """
     from struggler.engine import Side
 
@@ -1453,6 +1442,14 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
     in `docs/notes/claude/`, and this is its second recurrence. What is
     pinned now is the discrepancy itself, so that closing it is a deliberate
     act with a gate behind it rather than a silent 30x.
+
+    The bound is half an Op, not a fifth. What it guards is the charge
+    becoming an Ops-scale price (the maintainer's 5 to 8 Ops); a fifth was a
+    margin, and it was spent by the other side of the ratio when the reply
+    look-ahead learned that a Coup can answer a placement
+    (experiment/reply-coups): one Op on this opening board went from 32.7
+    raw to 24.7, putting the unchanged 5.0 at 0.20 Ops. Still a fraction of
+    an Op, still nowhere near the figure it is meant to be.
     """
     from struggler.bots.strategic.policy import CHINA_HOLD_RAW
     assert CHINA_HOLD_RAW == 5.0
@@ -1461,7 +1458,7 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
     obs = engine.observe(Side.US)
     bot.rank_actions(obs)
     one_op = bot.ops_value(obs, 1)
-    assert 0.2 * one_op > CHINA_HOLD_RAW, (
+    assert 0.5 * one_op > CHINA_HOLD_RAW, (
         'the charge has become a real price; if that is intended, it needs '
         'the maintainer\'s number for what *playing* China costs and a gate')
 
