@@ -110,12 +110,17 @@ jobs:
           # existing, so --decide alone does nothing. --stall-timeout is not the
           # same guard twice -- early stopping is only evaluated when a game
           # finishes, so it cannot rescue a hang.
+          #
+          # An arm with "decide": false plays every seed. Early stopping ends an
+          # arm as soon as the verdict is settled, which for an arm that is
+          # merely "not worse" can be ~77 of 256 seeds and an interval too wide
+          # to act on (coup_discount and first_mover, 2026-09-12).
           uv run python -m struggler.bots.benchmark \
             --bot strategic --bot-weights arm.weights.json --opponent strategic \
             --seeds '${{ matrix.arm.seeds }}' \
             --held-seeds '${{ matrix.arm.held }}' \
             --held-report '${{ matrix.arm.slug }}.held.json' \
-            --decide --stall-timeout 1200 --workers 4 \
+            ${{ matrix.arm.decide != false && '--decide' || '' }} --stall-timeout 1200 --workers 4 \
             --report '${{ matrix.arm.slug }}.json' 2>&1 | tail -40
 
       - name: summarise
