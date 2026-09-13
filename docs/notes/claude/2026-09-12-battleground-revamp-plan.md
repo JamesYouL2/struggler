@@ -142,6 +142,52 @@ half of it. Applying it to the whole term -- tried 2026-09-12 -- over-
 discounted and cost an inversion, making Israel MORE attractive rather than
 less.
 
+**Retention is a function of stability, and NOT of contest.** 96 seeds,
+3262 held-country observations, horizon "when the region next scores":
+
+| stability | uncontested | contested | pooled |
+| ---: | ---: | ---: | ---: |
+| 1 | 0.478 (n=205) | 0.624 (n=277) | 0.539 |
+| 2 | 0.850 (n=727) | 0.797 (n=646) | 0.825 |
+| 3 | 0.928 (n=512) | 0.901 (n=687) | 0.913 |
+| 4 | 1.000 (n=25) | 0.913 (n=183) | 0.923 |
+| all | 0.828 (n=1469) | 0.822 (n=1793) | **0.825** |
+
+The contest hypothesis is dead. Pooled over stability the two columns are
+0.828 and 0.822 on ~1500 observations each -- whether the opponent could
+reach the country when we took it says nothing about whether we keep it.
+It was worth asking; it is answered and does not come back.
+
+Stability does say it, monotonically and steeply: 0.48 at stability 1
+against 0.92 at stability 4.
+
+The stability-1 row INVERTS (contested keeps better, 0.624 against 0.478,
+at n=205/277) and that is probably not a discovery. An UNcontested
+stability-1 country is one nobody is fighting over, so we walk away from
+it; a contested one is in a region we are contesting, so we reinforce it.
+"Contested" there is proxying for "we care", not for "at risk" -- a
+selection effect in the measurement, not a property of the board. Do not
+build on it without separating the two.
+
+**And conversion falls with stability, which the shipped constant cannot
+express.** Same run, 3888 observations:
+
+| stability | 1 | 2 | 3 | 4 | all |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| p | 0.406 | 0.303 | 0.304 | 0.154 | 0.287 |
+
+Pooled p = 0.287 implies `access_decay = 1/(1-p) = 1.403` against the
+shipped 1.445 -- close enough that the constant is not the error. The
+error is that it IS a constant: a stability-4 battleground converts reach
+into control at 0.154, well under half the stability-1 rate of 0.406.
+
+**This is what the Israel/Iraq inversion looks like, and it is on the
+acquisition side, not the holding side.** Israel is stability 4: hard to
+convert reach into control (p = 0.154) but retained at 0.913 once held. No
+retention curve can make Israel less attractive, because retention is not
+where Israel is expensive. Any fix that discounts Israel through flip risk
+is fixing the wrong term.
+
 Still missing: retention is measured against ONE horizon, "when the region
 next scores". Holding until the end of this cycle is easier than holding
 until the second reshuffle, so the `rest_of_cycle` and `later` buckets want
