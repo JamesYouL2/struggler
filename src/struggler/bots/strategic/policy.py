@@ -24,7 +24,7 @@ from struggler.engine.core import SANDBOX_LOG
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
+from struggler.bots.strategic.public_cards import (CHINA_CARD, card_state, final_scoring_odds, scoring_cards_for,
                                          scoring_schedule)
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
@@ -149,6 +149,31 @@ def coup_bans(game_effects) -> ev.Prohibitions:
     return ev.Prohibitions(*(bool(game_effects.get(name)) for name in
                              ('nato', 'us_japan_pact', 'reformer',
                               'degaulle_france', 'willy_brandt')))
+
+
+def max_budget_weights(pool: Sequence[int], hand_size: int,
+                       known_max: int = 0) -> tuple[tuple[int, float], ...]:
+    """The distribution of the best Ops in a hand of `hand_size` cards drawn
+    without replacement from `pool`, floored at `known_max` (a card they are
+    known to hold), as (budget, weight) pairs summing to 1.
+
+    Exact, not sampled: the chance the best card is at most `v` is the chance
+    every card in the hand comes from the part of the pool at or below `v`,
+    C(at_or_below, h) / C(len(pool), h). A hand larger than the pool holds all
+    of it; an empty hand answers with the known card, or nothing."""
+    h = min(hand_size, len(pool))
+    if h <= 0:
+        return ((known_max, 1.0),)
+    total = math.comb(len(pool), h)
+    out, below = [], 0.0
+    for v in sorted({*pool, known_max}):
+        if v < known_max:
+            continue
+        at_most = math.comb(sum(1 for ops in pool if ops <= v), h) / total
+        if at_most > below:
+            out.append((v, at_most - below))
+        below = at_most
+    return tuple(out)
 
 
 def scoring_flags(game_effects) -> tuple[bool, bool]:
@@ -489,7 +514,10 @@ class StrategicWeights:
     # `reply_model` selects how the reply budget is chosen, since weights
     # must be nonnegative and a sentinel cannot be: 0 off, 1 the
     # `reply_ops` constant, 2 the median of the opponent's likely
-    # holdings, 3 a weighted average over budgets 0-4.
+    # holdings, 3 a weighted average over budgets 0-4, 4 the max of their
+    # known cards and a hand drawn from the unseen pool, 5 model 3 with their
+    # face-up China Card in the pool. 4 and 5 are candidates being measured
+    # (tests/test_reply_budgets.py), not the default.
     #
     # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
     # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
@@ -1390,11 +1418,23 @@ class StrategicPlayer:
         # `_unseen_hold_values`. It was rebuilt on every call: 3008 calls
         # walking ~110 cards accounted for all 332k `card_state` calls in a
         # profile of hazardous late hands, and 11% of the whole ranking.
-        pool = self._reply_budget_pool
-        if pool is None:
-            pool = self._reply_budget_pool = [
-                CARDS[c].ops for c in CARDS
-                if card_state(obs, c) == 'unseen' and not CARDS[c].scoring]
+        cached = self._reply_budget_pool
+        if cached is None:
+            unseen = [c for c in CARDS if card_state(obs, c) == 'unseen']
+            cached = self._reply_budget_pool = (
+                [CARDS[c].ops for c in unseen if not CARDS[c].scoring],
+                sum(1 for c in unseen if CARDS[c].scoring))
+        pool, scoring_slots = cached
+        # Their China Card, face up in front of them, is a 4-Op answer they
+        # are known to hold. Never ours: we cannot be answered with our own card.
+        theirs = obs.china_card_owner is obs.side.opponent and obs.china_card_available
+        known = CARDS[CHINA_CARD].ops if theirs else 0
+        if model == 4:
+            # A scoring card takes up a slot in their hand and answers with
+            # nothing, so it is drawn as a zero.
+            return max_budget_weights(pool + [0] * scoring_slots, obs.opponent_hand_size, known)
+        if model == 5 and known:
+            pool = [*pool, known]
         if not pool:
             return ((2, 1.0),)
         if model == 2:
