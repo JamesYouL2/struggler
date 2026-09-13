@@ -42,6 +42,15 @@ def test_ops_to_control_pays_the_doubling_rule_exactly_as_the_board_does(stabili
             assert measure.ops_to_control(mine, theirs, stability) == stepped, (mine, theirs)
 
 
+def test_the_measurement_and_the_bot_share_one_retake_cost():
+    """The bot's reply look-ahead prices a retake with the same function this
+    measurement records, so the board-stepping test above pins both. A second
+    copy in either place is how the look-ahead charged 4 Ops for a 3-Op
+    retake (audit Q2)."""
+    from struggler.bots import rules_math
+    assert _script('measure_control_odds').ops_to_control is rules_math.ops_to_control
+
+
 def test_overprotection_is_influence_beyond_the_control_margin():
     measure = _script('measure_control_odds')
     assert measure.overprotection(5, 1, 2) == 2

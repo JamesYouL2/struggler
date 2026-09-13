@@ -26,7 +26,8 @@ from __future__ import annotations
 
 from struggler.engine import Observation, Region, Side, Subregion
 from struggler.engine.board import Board, CountryInfo
-from struggler.engine.core import effective_ops
+from struggler.engine.core import (LAST_TURN, effective_ops, extra_action_round_sides,
+                                   side_for_play_index, total_action_rounds)
 from struggler.engine.rules import RULES
 
 
@@ -86,6 +87,68 @@ def realignment_bonus(board: Board, side: Side, country: str) -> float:
     if board.influence[country][side.value] > board.influence[country][side.opponent.value]:
         bonus += 1.0
     return bonus
+
+
+def ops_to_control(mine: int, theirs: int, stability: int) -> int:
+    """Ops a side with `mine` influence needs to control a country against
+    `theirs`: point by point, 2 Ops while the other side still controls it
+    (`Board.influence_cost`, the doubling rule) and 1 after. 0 if already
+    controlled. Reach is the caller's question, not priced here.
+
+    One implementation for the forward search and the control-odds
+    measurement. The search used to price a retake as `points * cost`, the
+    first point's price for every point, and so charged 4 Ops for a retake
+    the engine performs with 3 (audit Q2). `tests/test_control_odds.py` steps
+    a real board against this."""
+    ops = 0
+    while mine - theirs < stability:
+        ops += 2 if theirs - mine >= stability else 1
+        mine += 1
+    return ops
+
+
+def phasing_side(observation: Observation) -> Side:
+    """Whose Action Round this is: the player who played the card, whoever is
+    spending its Ops or placing its Influence (8.1.3's "phasing player"). The
+    engine stamps it on every decision pushed while a card play resolves; a
+    decision without the stamp belongs to the acting side's own round."""
+    decision = observation.pending_decision
+    context = decision.context if decision is not None else {}
+    return Side(context.get('phasing_player', observation.side.value))
+
+
+def next_move(observation: Observation, side: Side) -> int | None:
+    """When `side` next plays a card, from the public turn order: 0 later
+    this turn, 1 in a later turn, None never again -- its last play of turn
+    10 is behind it, so Final Scoring comes before anything it could do.
+
+    The turn order is the engine's own (`side_for_play_index`, with North Sea
+    Oil and the Space Station's extra rounds), not a second copy of it. The
+    current play is located the way `mcts.py` reconstructs its cursor: the
+    index whose Action Round number is the observation's and whose side is
+    the phasing player's. That is not always the side asking -- an opponent's
+    card can hand us its Influence placement during *their* round.
+
+    Headline, setup and a bare engine are all before this turn's first play.
+    """
+    phase = observation.phase
+    if phase == 'complete':
+        return None
+    turn = observation.turn
+    extras = extra_action_round_sides(observation.turn_effects, observation.game_effects)
+    total = total_action_rounds(turn, extras)
+    start = 0
+    if phase == 'action_rounds':
+        phasing = phasing_side(observation)
+        current = [i for i in range(total)
+                   if i // 2 + 1 == observation.action_round
+                   and side_for_play_index(i, turn, extras) is phasing]
+        # No match is a play past the turn's end (the held-card discard,
+        # after turn effects have lapsed): nothing more this turn.
+        start = current[0] + 1 if current else total
+    if any(side_for_play_index(i, turn, extras) is side for i in range(start, total)):
+        return 0
+    return 1 if turn < LAST_TURN else None
 
 
 def realignment_modifier(observation: Observation, side: Side) -> float:

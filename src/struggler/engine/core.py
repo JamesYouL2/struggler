@@ -32,6 +32,53 @@ SANDBOX_LOG.setLevel(logging.CRITICAL)
 
 _DEFAULT_MIN_DEFCON = 1
 
+# Final Scoring follows the last play of this turn (10.3).
+LAST_TURN = 10
+
+
+# -- turn order and placement bans, as pure functions of public state --------
+#
+# Module functions rather than Engine methods alone, so a bot that reads the
+# same public state from its observation asks the same code instead of
+# keeping a copy (docs/notes/claude/bug-shapes.md, shape 4). The Engine
+# methods of the same names delegate here.
+
+def extra_action_round_sides(turn_effects, game_effects) -> tuple[Side, ...]:
+    """Sides granted an extra Action Round this turn, beyond the normal
+    alternating rounds, in the order those rounds are played: North Sea
+    Oil grants the US one for this turn only; Space Race box 8 (Space
+    Station) grants its sole holder one every turn for as long as it
+    holds the ability (6.4.3-6.4.4)."""
+    extra: list[Side] = []
+    if turn_effects.get("north_sea_oil_extra"):
+        extra.append(Side.US)
+    holder = game_effects.get("space_race_extra_round_holder")
+    if holder is not None:
+        extra.append(Side(holder))
+    return tuple(extra)
+
+
+def total_action_rounds(turn: int, extras: tuple[Side, ...]) -> int:
+    """Total card plays in `turn` across both sides: normally 2*N (N per
+    side), plus one per extra-round source in `extras`."""
+    return 2 * action_rounds(turn) + len(extras)
+
+
+def side_for_play_index(idx: int, turn: int, extras: tuple[Side, ...]) -> Side:
+    """Whose play the 0-based `idx` is. The base rounds alternate USSR,
+    US, USSR, ...; any extra rounds beyond the base go to `extras`, in
+    order."""
+    base = 2 * action_rounds(turn)
+    if idx < base:
+        return Side.USSR if idx % 2 == 0 else Side.US
+    return extras[idx - base]
+
+
+def chernobyl_blocks(side: Side, region: Region, turn_effects) -> bool:
+    """Chernobyl: the USSR may not add Influence via Operations to the
+    designated region for the rest of the turn (events still may)."""
+    return side is Side.USSR and turn_effects.get("chernobyl") == region.value
+
 # Physical-mode placeholder: a hand/draw-pile slot whose real card identity is
 # not yet known to the engine (see Engine.physical_mode). No real card id in
 # data/cards.json ever looks like this, so it can never collide with one.
@@ -728,7 +775,7 @@ class Engine:
         self._advance_past_turn_boundary()
 
     def _advance_past_turn_boundary(self) -> None:
-        if self.turn >= 10:
+        if self.turn >= LAST_TURN:
             self._finish_game()
             return
         self.turn += 1
@@ -803,23 +850,13 @@ class Engine:
         self.action_round = 1
 
     def _extra_action_round_sides(self) -> tuple[Side, ...]:
-        """Sides granted an extra Action Round this turn, beyond the normal
-        alternating rounds, in the order those rounds are played: North Sea
-        Oil grants the US one for this turn only; Space Race box 8 (Space
-        Station) grants its sole holder one every turn for as long as it
-        holds the ability (6.4.3-6.4.4)."""
-        extra: list[Side] = []
-        if self.turn_effects.get("north_sea_oil_extra"):
-            extra.append(Side.US)
-        holder = self.game_effects.get("space_race_extra_round_holder")
-        if holder is not None:
-            extra.append(Side(holder))
-        return tuple(extra)
+        """`extra_action_round_sides` for this engine's effects."""
+        return extra_action_round_sides(self.turn_effects, self.game_effects)
 
     def _total_action_rounds(self) -> int:
         """Total card plays this turn across both sides: normally 2*N (N per
         side), plus one per currently-held extra-round source."""
-        return 2 * action_rounds(self.turn) + len(self._extra_action_round_sides())
+        return total_action_rounds(self.turn, self._extra_action_round_sides())
 
     def _next_play_index_for(self, side: Side) -> int | None:
         """The 0-based index of `side`'s next card play this turn, or None if
@@ -839,10 +876,7 @@ class Engine:
         """Whose play the 0-based `idx` is. The base rounds alternate USSR,
         US, USSR, ...; any extra rounds beyond the base go to
         _extra_action_round_sides(), in order."""
-        base = 2 * action_rounds(self.turn)
-        if idx < base:
-            return Side.USSR if idx % 2 == 0 else Side.US
-        return self._extra_action_round_sides()[idx - base]
+        return side_for_play_index(idx, self.turn, self._extra_action_round_sides())
 
     # -- opening setup ------------------------------------------------------
 
@@ -2478,10 +2512,7 @@ class Engine:
     def _chernobyl_blocks(self, side: Side, cid: str) -> bool:
         """Chernobyl: the USSR may not add Influence via Operations to the
         designated region for the rest of the turn (events still may)."""
-        return (
-            side is Side.USSR
-            and self.turn_effects.get("chernobyl") == self.board.countries[cid].region.value
-        )
+        return chernobyl_blocks(side, self.board.countries[cid].region, self.turn_effects)
 
     def _place_influence_options(self, side: Side, ops_remaining: int) -> tuple[Action, ...]:
         snapshot = self._ops_round_snapshot
