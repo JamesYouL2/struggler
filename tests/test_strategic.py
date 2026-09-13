@@ -727,30 +727,20 @@ def test_ops_modifiers_are_priced_from_the_hands_they_touch():
     assert bot.event_value(obs, 'Brezhnev_Doctrine') < 0  # the USSR's hand grows
 
 
-def test_first_mover_and_contested_reach():
-    """Presence in a battleground the opponent could otherwise walk into
-    earns tempo per stability; reach into a battleground the opponent can
-    already place in is worth a fraction of exclusive reach."""
+def test_contested_reach():
+    """Reach into a battleground the opponent can already place in is worth a
+    fraction of exclusive reach. (This test also pinned the `first_mover`
+    tempo term until that term was deleted on 2026-09-13.)"""
     from struggler.engine import Side
     engine = _opening_board()
     bot = StrategicPlayer()
     board = bot.board
     board.load_influence(engine.board.serialize())
-    w = bot.weights
-    # Egypt is empty; the US reaches it from Israel, the USSR does not.
-    # A US point there is tempo the USSR cannot answer: no first-mover
-    # bonus (nobody to move first against) but exclusive reach onward.
+    # Egypt is empty; the US reaches it from Israel, the USSR does not, so a
+    # US point there is exclusive reach onward.
     board.influence['Egypt']['US'] = 1
     egypt = bot.country_value(board, 'Egypt', Side.US)
     board.influence['Egypt']['US'] = 0
-    # Iraq: the USSR holds a point, the US reaches it from Iran: the USSR's
-    # point carries the first-mover bonus, per stability (Iraq is 3).
-    plain = StrategicPlayer(StrategicWeights(first_mover=0.0))
-    plain.board.load_influence(engine.board.serialize())
-    bonus = bot.country_value(board, 'Iraq', Side.USSR) - plain.country_value(plain.board, 'Iraq', Side.USSR)
-    assert abs(bonus - w.first_mover * bot.importance(board.countries['Iraq']) / 3) < 1e-6
-    # Poland: USSR-held, but the US cannot reach it, so no tempo to claim.
-    assert bot.country_value(board, 'Poland', Side.USSR) == plain.country_value(plain.board, 'Poland', Side.USSR)
     # Contested reach: USSR reach into Egypt through Israel is a race the US
     # (already next door) can win, so it is worth access_contested of the
     # exclusive value the same geometry would have with no US in Israel.
