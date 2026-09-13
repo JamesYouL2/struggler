@@ -40,11 +40,6 @@
       "determination": "bounded",
       "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
     },
-    "first_mover": {
-      "value": 0.6,
-      "source": "guess",
-      "determination": "underdetermined"
-    },
     "margin_presence": {
       "value": 1.0,
       "source": "gate",
@@ -263,13 +258,13 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 18,
+      "guess": 17,
       "gate": 5,
       "derived": 4,
       "measured": 6
     },
     "counts_by_determination": {
-      "underdetermined": 14,
+      "underdetermined": 13,
       "known-wrong": 2,
       "bounded": 8,
       "inert": 4,

@@ -127,10 +127,11 @@ action = bot.choose_action(observation, history)
   the domination-minus-presence gap in presence units. Fitted to
   `models/expert_valuations.json` (31 -> 26 misses; Iraq first for the
   USSR).
-- First mover (`first_mover`): presence in a battleground the opponent has
-  none in but could reach is tempo, whoever fills an empty country first
-  makes the other pay to contest it, worth `first_mover` x importance /
-  stability (a 4-stability contest is the least valuable Op on the board).
+- First mover (`first_mover`): **deleted 2026-09-13.** Presence in a
+  battleground the opponent has none in but could reach, priced as tempo at
+  `first_mover` x importance / stability. A guess, never calibrated; at 0
+  over 256 seeds it read 0.513 [0.475, 0.550], the highest of the ablations,
+  and the deletion was gated before merging.
 - Wipe risk (`wipe`, `wipe_backed`, `wipe_risk`, `coup_targets`): **deleted
   2026-09-13.** The chance a 3- or 4-Ops coup removes every point held, times
   a stake that depended on backing. It shipped at `wipe = 0`, "off until

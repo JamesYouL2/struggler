@@ -313,10 +313,6 @@ class StrategicWeights:
     # 2026-09-13; retention is now measured directly instead
     # (scripts/measure_access_conversion.py).
     reserve: float = 0.35
-    # First mover: presence in a battleground the opponent has none in but
-    # could reach. Whoever fills an empty country first makes the other pay
-    # to contest it; the bonus is that tempo, times importance.
-    first_mover: float = 0.6
     # Region margin: the exact region score pays nothing until a tier flips,
     # so being one battleground short of domination looks like being three
     # short, and a first controlled country in a region where we have none

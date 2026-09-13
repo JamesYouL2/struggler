@@ -545,14 +545,9 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon:
     value += w.progress * imp * fraction
     guard = w.reserve * imp
     value += guard * (min(2, max(0, margin - stability)) - min(2, max(0, -margin - stability)))
-    if t.battleground[i] and (own > 0) != (opp > 0):
-        # Tempo is worth most where control is cheap: per stability, like
-        # every other per-Op term (a 4-stability contest is the least
-        # valuable Op on the board).
-        if own > 0 and pos.reach[1 - s][i]:
-            value += w.first_mover * imp / stability
-        elif opp > 0 and pos.reach[s][i]:
-            value -= w.first_mover * imp / stability
+    # (A `first_mover` tempo term stood here until 2026-09-13: presence in a
+    # battleground the opponent has none in but could reach. Set to 0 over
+    # 256 seeds it read 0.513 [0.475, 0.550], the highest of the ablations.)
     # First footholds open nearby battlegrounds on a later action round: a
     # stake is worth the uncontrolled battlegrounds it alone lets us reach.
     # Nothing for ground we already reach (a fourth point in Eastern Europe
