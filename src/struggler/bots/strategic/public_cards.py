@@ -57,13 +57,10 @@ def card_state(obs: Observation, card: str) -> str:
         return 'hand'
     if card in obs.discard_pile:
         return 'discard'
-    if card == CHINA_CARD:
-        # Face up in front of whoever holds it: `obs.china_card_owner` is
-        # public and it counts toward nobody's hand size. Left as 'unseen' it
-        # was a permanent phantom in the unseen pool, inflating it by one for
-        # the whole game and mispricing every per-card probability drawn from
-        # it.
-        return 'china'
+    # EXPERIMENT (branch experiment/china-phantom, not for main): the China Card
+    # is put back into the unseen pool, as it was before bc5ef93, to test
+    # whether removing that phantom is what cost HEAD five points against
+    # c0ccd95 on the 2026-09-12 gate ladder.
     if obs.turn < entry_turn(CARDS[card]):
         return 'future'
     return 'unseen'
