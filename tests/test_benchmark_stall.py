@@ -20,8 +20,8 @@ from test_benchmark import _report
 
 
 def _game(seed, side, result=1.0):
-    return dict(seed=seed, bot_side=side, finished=True, turn=10, reason='vp', result=result,
-                signed_vp=5, projected_vp=0.0, defcon=4, seconds=1.0)
+    return {'seed': seed, 'bot_side': side, 'finished': True, 'turn': 10, 'reason': 'vp', 'result': result,
+            'signed_vp': 5, 'projected_vp': 0.0, 'defcon': 4, 'seconds': 1.0}
 
 
 class _Results:

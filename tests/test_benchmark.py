@@ -102,13 +102,13 @@ def test_a_baseline_without_a_sibling_evaluator_still_loads(tmp_path):
 def _report(seeds, result, *, nuclear=0, finished=True):
     """A benchmark report with both seats of every seed scoring `result`, and
     `nuclear` of those games lost to DEFCON 1."""
-    games = [dict(seed=s, bot_side=side, finished=finished, turn=10, reason='vp',
-                  result=result if finished else None)
+    games = [{'seed': s, 'bot_side': side, 'finished': finished, 'turn': 10, 'reason': 'vp',
+              'result': result if finished else None}
              for s in seeds for side in ('US', 'USSR')]
     for game in games[:nuclear]:
         game['reason'] = 'defcon_1'
-    return dict(summary=dict(games=len(games), nuclear_losses=nuclear,
-                             mean_signed_vp=0.0, score=result), games=games)
+    return {'summary': {'games': len(games), 'nuclear_losses': nuclear,
+                        'mean_signed_vp': 0.0, 'score': result}, 'games': games}
 
 
 def test_early_stopping_never_stops_before_the_evidence_floor():
@@ -120,9 +120,8 @@ def test_early_stopping_never_stops_before_the_evidence_floor():
     planned = {0: 100, 1: 100}
     games = []
     for seed in range(200):
-        for side in ('US', 'USSR'):
-            games.append(dict(seed=seed, bot_side=side, finished=True, turn=10,
-                              reason='vp', result=1.0))
+        games.extend({'seed': seed, 'bot_side': side, 'finished': True, 'turn': 10,
+                      'reason': 'vp', 'result': 1.0} for side in ('US', 'USSR'))
         if (seed + 1) * 2 < ACCEPTANCE['min_games']:
             assert not _decided(games, sample_of, planned), 'stopped below the floor'
 
@@ -337,7 +336,7 @@ def test_an_opponent_nuclear_defeat_is_not_a_candidate_nuclear_loss():
 
     # The early-stopping count agrees: two opponent defeats change nothing.
     games = report['games'] + _report(range(5000, 5048), 0.5)['games']
-    sample_of = {s: 0 for s in range(4000, 4048)} | {s: 1 for s in range(5000, 5048)}
+    sample_of = dict.fromkeys(range(4000, 4048), 0) | dict.fromkeys(range(5000, 5048), 1)
     assert _decided(games, sample_of, {0: 48, 1: 48})
 
 

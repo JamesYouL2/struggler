@@ -96,7 +96,7 @@ def test_coup_forbidden_matches_the_engine_under_every_prohibition():
     t = ev.terrain()
     pos = ev.Position(t).sync(board)
     names = ('nato', 'us_japan_pact', 'reformer', 'degaulle_france', 'willy_brandt')
-    fired = {name: 0 for name in names}
+    fired = dict.fromkeys(names, 0)
     for flags in itertools.product((False, True), repeat=len(names)):
         bans = ev.Prohibitions(*flags)
         kwargs = dict(zip(names, flags, strict=True))
@@ -196,8 +196,8 @@ def test_the_terms_price_a_bare_board_without_an_observation():
     w = StrategicWeights()
     urgency = ev.ones(t)
     plain = StrategicPlayer(w)
-    assert ev.board_value(t, pos, ev.US, w, urgency, 5) == plain.value(board, Side.US)
-    assert ev.board_value(t, pos, ev.USSR, w, urgency, 5) == -plain.value(board, Side.US)
+    assert ev.board_value(t, pos, ev.US, w, urgency) == plain.value(board, Side.US)
+    assert ev.board_value(t, pos, ev.USSR, w, urgency) == -plain.value(board, Side.US)
 
 
 def test_value_dependents_covers_every_country_a_change_can_move():
@@ -212,7 +212,7 @@ def test_value_dependents_covers_every_country_a_change_can_move():
     everywhere = range(len(t.ids))
 
     def values():
-        return [ev.country_value(t, pos, j, ev.US, w, urgency, 5) for j in everywhere]
+        return [ev.country_value(t, pos, j, ev.US, w, urgency) for j in everywhere]
 
     for cid in ('Israel', 'Iran', 'Poland', 'Zaire', 'Chile', 'Thailand'):
         i = t.index[cid]

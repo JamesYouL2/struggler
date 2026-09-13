@@ -93,7 +93,7 @@ def recurring_shapes() -> dict[int, tuple[str, int]]:
 def all_test_names() -> set[str]:
     names = set()
     for path in TESTS.glob('test_*.py'):
-        names.update(re.findall(r'^def (test_\w+)', path.read_text(), re.M))
+        names.update(re.findall(r'^def (test_\w+)', path.read_text(), re.MULTILINE))
     return names
 
 
@@ -149,7 +149,8 @@ def test_a_certain_outcome_still_orders():
     point is to refuse pricing, not to refuse comparison."""
     assert LOSS < -1000. and min(LOSS, 0.) is LOSS
     assert max(LOSS, 0.) == 0.
-    assert sorted([0., LOSS, 5.])[0] is LOSS
+    # A sort, not `min`: the safety keys sort, and `min` is the line above.
+    assert sorted([0., LOSS, 5.])[0] is LOSS  # noqa: FURB192
     assert is_certain(LOSS) and is_certain(-LOSS) and not is_certain(-5.)
     assert isinstance(-LOSS, Certain) and -LOSS > 0  # negation is the certain win
     assert isinstance(abs(LOSS), Certain)
@@ -240,7 +241,7 @@ def interleaved(arms: dict[str, Callable[[], object]], repeats: int,
     failed on this machine because a gate was running, which is the
     sentence this whole shape is about.
     """
-    totals = {name: 0. for name in arms}
+    totals = dict.fromkeys(arms, 0.0)
     for _ in range(repeats):
         for name, arm in arms.items():
             start = clock()
@@ -323,7 +324,7 @@ def test_a_sequential_comparison_is_fooled_by_the_same_drift():
 # intent, which is why this list is empty.
 CHARACTERISATION_TESTS: set[str] = set()
 
-_MARKER = re.compile(r'characteris(?:ation|e|ed)|characteriz(?:ation|e|ed)', re.I)
+_MARKER = re.compile(r'characteris(?:ation|e|ed)|characteriz(?:ation|e|ed)', re.IGNORECASE)
 
 
 def test_every_characterisation_test_says_so():
@@ -338,7 +339,7 @@ def test_every_characterisation_test_says_so():
     found = set()
     for path in TESTS.glob('test_*.py'):
         source = path.read_text()
-        for match in re.finditer(r'^def (test_\w+)\([^)]*\):\n(\s+"""(?:.|\n)*?""")?', source, re.M):
+        for match in re.finditer(r'^def (test_\w+)\([^)]*\):\n(\s+"""(?:.|\n)*?""")?', source, re.MULTILINE):
             # The scanner names the category it looks for, so it matches
             # itself; that is bookkeeping about the rule, not a test that
             # pins behaviour.

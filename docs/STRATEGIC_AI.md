@@ -141,8 +141,10 @@ action = bot.choose_action(observation, history)
   decision. `evaluator.coup_forbidden`, which kept it from pricing a Coup the
   rules forbid (NATO, the US/Japan pact, The Reformer), stays, with its test
   against `Board.coup_prohibited`; nothing in the value function reads it
-  now, and the `bans` argument still threaded through `country_value` is
-  unused until a term needs it again. `progress_curve` (pinned at 1.0, so the
+  now. The `bans` and `defcon` arguments it left on `country_value` and
+  `board_value` were removed the same day, and nothing in the value function
+  reads prohibitions or DEFCON; the policy still keeps `_coup_bans` from the
+  observation for a future coup-risk term. `progress_curve` (pinned at 1.0, so the
   progress term was already linear) and the retired `ops` weight went in the
   same change.
 - One space slot a turn (`space_card`): among the opponent's cards the

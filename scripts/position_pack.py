@@ -141,7 +141,7 @@ def calibration_questions(engine: Engine, side: Side) -> list[str]:
     imp, _ = battleground_importance(engine, side)
     rows, flat = [], []
     for region, cs in imp.items():
-        vals = sorted(set(round(v, 3) for v in cs.values()))
+        vals = sorted({round(v, 3) for v in cs.values()})
         span = (f'{vals[0]:.3f}' if len(vals) == 1
                 else f'{vals[0]:.3f} to {vals[-1]:.3f}')
         odd = [c for c, v in cs.items() if round(v, 3) != vals[0]]
@@ -336,7 +336,7 @@ def main(argv=None):
         engine = Engine.deserialize(rec['engine'])
         side = Side(rec['side'])
         bot = _bot(rec)
-        hand = [c for c in engine.hands[side.value]]
+        hand = list(engine.hands[side.value])
         doc += [f'### Decision {n} -- seed {rec["seed"]}, turn {engine.turn} '
                 f'action round {engine.action_round}, **{side.value} to move**',
                 '',

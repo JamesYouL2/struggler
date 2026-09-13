@@ -523,8 +523,7 @@ def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
     return affected
 
 
-def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon: int,
-                  bans: Prohibitions = NO_PROHIBITIONS) -> float:
+def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """What country `i` is worth to side `s` on this board."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
     own, opp = (us, ussr) if s == US else (ussr, us)
@@ -736,8 +735,7 @@ def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
 NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
 
 
-def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
-                overrides=None, bans: Prohibitions = NO_PROHIBITIONS) -> float:
+def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -> float:
     """Every country, every region score, every region margin, for side `s`.
 
     `overrides` maps a region to its `scoring_overrides` pair; regions absent
@@ -746,8 +744,8 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, defcon: int,
     Summed with `sum()`, not with an accumulator loop: CPython compensates
     float summation inside `sum()`, so the two disagree in the last bit."""
     sign = 1 if s == US else -1
-    ov = (lambda r: NO_OVERRIDES) if overrides is None else (
+    ov = (lambda _r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
-    return (sum(country_value(t, pos, i, s, w, urgency, defcon, bans) for i in range(len(t.ids)))
+    return (sum(country_value(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + w.region * sum(sign * region_vp(t, pos, region, *ov(region)) for region in Region)
             + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))

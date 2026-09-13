@@ -28,9 +28,9 @@ def _play(job: tuple) -> dict:
              RandomPlayer(seed=seed + 100000) if opponent == 'random' else GreedyPlayer())
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     winner = play_game(engine, {side: StrategicPlayer(weights), side.opponent: other})
-    return dict(seed=seed, side=side.value, winner=winner.value if winner else None,
-                score=0.5 if winner is None else float(winner is side),
-                turn=engine.turn, vp=engine.vp)
+    return {'seed': seed, 'side': side.value, 'winner': winner.value if winner else None,
+            'score': 0.5 if winner is None else float(winner is side),
+            'turn': engine.turn, 'vp': engine.vp}
 
 
 def _run(jobs: list[tuple], workers: int) -> list[dict]:
@@ -54,10 +54,10 @@ def evaluate(weights: StrategicWeights, seeds: list[int], opponent: str = 'greed
     paired = [(scores[i]+scores[i+1])/2 for i in range(0, len(scores), 2)]
     se = (math.sqrt(sum((p-mean)**2 for p in paired) / (len(paired)-1) / len(paired))
           if len(paired) > 1 else None)
-    return dict(opponent=opponent, pairs=len(seeds), games=len(records), score_rate=mean,
-                wins=sum(r['score'] == 1 for r in records), draws=sum(r['score'] == .5 for r in records),
-                by_side={side.value: sum(r['score'] for r in records if r['side'] == side.value)/len(seeds) for side in (Side.US, Side.USSR)},
-                paired_standard_error=se, records=records)
+    return {'opponent': opponent, 'pairs': len(seeds), 'games': len(records), 'score_rate': mean,
+            'wins': sum(r['score'] == 1 for r in records), 'draws': sum(r['score'] == .5 for r in records),
+            'by_side': {side.value: sum(r['score'] for r in records if r['side'] == side.value)/len(seeds) for side in (Side.US, Side.USSR)},
+            'paired_standard_error': se, 'records': records}
 
 
 def mutate(weights: StrategicWeights, rng: random.Random, fields: tuple[str, ...] | None = None,
@@ -103,8 +103,8 @@ def train(initial: StrategicWeights, *, seed: int, pairs: int, generations: int,
         scores = [sum(r['score'] for r in records[i*per:(i+1)*per])/per for i in range(population)]
         best = max(range(population), key=lambda i: scores[i])  # ties keep the incumbent
         champion = candidates[best]
-        row = dict(generation=generation, anchor=anchor, seeds=seeds, scores=scores, selected=best,
-                   fields=list(fields) if fields else 'all', weights=asdict(champion))
+        row = {'generation': generation, 'anchor': anchor, 'seeds': seeds, 'scores': scores, 'selected': best,
+               'fields': list(fields) if fields else 'all', 'weights': asdict(champion)}
         trace.append(row)
         champion.save(output, training_seed=seed, anchor=anchor, trace=trace)
         print(json.dumps(row), flush=True)

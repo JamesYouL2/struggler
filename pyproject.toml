@@ -85,8 +85,29 @@ target-version = "py312"
 # Correctness first. The style families (E501 and friends) are deliberately
 # not selected: reformatting a codebase whose comments carry the reasoning
 # would churn every line and hide the next real finding.
-select = ["F", "B", "SIM", "RUF", "PLE", "PLW"]
+select = ["F", "B", "SIM", "RUF", "PLE", "PLW",
+          # Added 2026-09-13, counted first (src+tests+scripts): C4 42, PERF 5,
+          # FURB 5, RET 3, PIE 3 -- dead comprehensions and loop costs that sit
+          # on the ranking hot path, and redundant returns and branches.
+          "C4", "PERF", "RET", "PIE", "FURB",
+          # ARG, scoped to the evaluator below. Its first real finding was
+          # `country_value`'s `defcon` and `bans`, left dead when the wipe term
+          # was deleted; everywhere else its 174 hits are arguments a protocol
+          # or a dispatch table requires (`Player.choose_action`'s `history`,
+          # the per-kind score arms), which it cannot tell from dead ones.
+          "ARG"]
+# Deliberately NOT selected, measured 2026-09-13 rather than assumed:
+#   UP  (pyupgrade)    189 in src -- syntax modernisation, no defect to find
+#   TRY (tryceratops)   68 in src -- exception-style preferences
+# Both would churn lines whose comments carry the reasoning, for nothing a
+# review would call a bug.
 ignore = [
     "SIM105",  # `contextlib.suppress` is slower and this is a hot path
     "RUF012",  # ClassVar annotations on mutable defaults: noise here
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# ARG everywhere except the evaluator, whose pure functions are the snapshot
+# contract a native port receives (docs/STRATEGIC_AI.md): an argument there
+# is either read or dead, and a dead one is a contract nobody honours.
+"!src/struggler/bots/strategic/evaluator.py" = ["ARG"]
