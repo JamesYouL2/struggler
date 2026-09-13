@@ -148,8 +148,9 @@ turn-discounted term at once.
   so 2% schema failure costs ~11 points of score. The maintainer's summary
   is that this is a Stockfish-shaped problem and no LLM beats Stockfish.
   Dropped. `scripts/harvest_card_valuations.py` — one offline call per
-  card, validated against 19 held-out known valuations first — is written,
-  unrun, and deprioritised in favour of a `twilightstrategy.com`
+  card, validated against 19 held-out known valuations first (USABLE only
+  if all 19 come back as finite numbers and none is outside
+  `tolerance_ops`; audit F8) — is written, unrun, and deprioritised in favour of a `twilightstrategy.com`
   comparison.
 - **`scoring_discount` 0.93 and 0.55.** Both measured worse than the
   shipped 0.8; see the two notes named for them.
