@@ -22,6 +22,22 @@ disk, and each has a resume step.
   verified in the body. Check with `git log fix/board-potential-m2a
   fix/board-potential-m2b` and `git -C $WT status`; if uncommitted, the
   diff in the worktree is the work.
+- **Reply layers A and B came back** (`2026-09-13-reply-lookahead-layers-ab.md`,
+  every game played):
+  **A vs main's bot `7e3d911`: 0.416 ±0.029, upper bound 0.463, REJECTED.**
+  **B vs A: 0.537 ±0.027, ACCEPTED.** C (vs B) was still running.
+  Do **not** merge the reply layers: B recovers about half of A's loss and
+  is most likely still below main. This is the phantom's pattern from the
+  other side -- every change that discounted placements MORE helped (the
+  phantom's bigger budgets +5.5, B's coup replies +3.7) and the fixes that
+  discount LESS hurt (A: Q1 drops replies into unreachable countries, F5
+  drops replies after the opponent's last move). Working hypothesis, not a
+  finding: the bot under-discounts its placements and the old reply errors
+  were partly compensating, as Codex warned weights can. Decisive next
+  runs: split A into Q1, Q2 and F5 alone, each gated against main; and B's
+  coup replies applied directly to main without A. Codex ranks Q1/F5 as
+  correctness fixes, so if one costs points that is the maintainer's
+  decision (retune the discount, or accept the loss), not a silent revert.
 - **M2 final state (agent's report after wrapping up):** both committed
   `wip:`, not pushed, worktrees clean. `fix/board-potential-m2a` =
   `8879a79` + `8bd2d6c`; `fix/board-potential-m2b` = `8879a79` + `e8bbca5`.
