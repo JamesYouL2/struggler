@@ -20,8 +20,21 @@ queue that runs its games on CI.
 - A background loop retried both dispatches every two minutes. At 09:08 none
   had gone through.
 
-So the failure was narrow -- the dispatch endpoint -- and invisible to the
-status page. Anything that reads "is GitHub up" from the status page, or
+- **Later, a second symptom.** Dispatch came back (the gate ladder went
+  through on the retry loop's sixth try, 09:09; the drift matrix on its
+  tenth, 09:17). But the gate run `34749029077` never started: for over an
+  hour `gh run list` showed it `queued`, while runs dispatched after it --
+  including a gate on another branch -- were assigned runners and finished,
+  and nothing else in the repo was in progress. Asked to cancel it, the API
+  answered "Cannot cancel a workflow run that is completed"; `gh run view`
+  then showed it with no conclusion, no jobs, and an `updatedAt` equal to its
+  `createdAt`. A ghost: accepted, listed, never run, and reported in two
+  contradictory states. It was re-dispatched as `34753464219`, whose four
+  jobs started normally. A run that is accepted is not a run that will
+  start, and a run's reported status is not proof it exists.
+
+So the failure was narrow -- the dispatch endpoint, then the queue -- and
+invisible to the status page. Anything that reads "is GitHub up" from the status page, or
 from the fact that `gh run list` works, would have concluded nothing was
 wrong.
 
