@@ -188,6 +188,23 @@ retention curve can make Israel less attractive, because retention is not
 where Israel is expensive. Any fix that discounts Israel through flip risk
 is fixing the wrong term.
 
+**Conversion is what the TURN DECAY wants, and it is the same measurement.**
+`p` is defined per horizon -- "by the time the region next scores" -- which
+is exactly the question the turn discount asks, one scoring further out. The
+value function currently answers it with its own separately-fitted weights,
+so the same quantity is fitted twice from different data and can disagree
+with itself. It should come from `conversion_p` instead: one rule, one
+place, one measurement. Not wired yet, deliberately -- joining them moves
+every turn-discounted term at once and has to be gated on its own.
+
+The horizon parameter is what makes this work. `p` at one scoring out is
+measured; `p` at two is the same script with the resolution horizon moved,
+and the ratio between them IS the per-scoring decay, rather than a constant
+chosen to make early turns feel right.
+
+Shipped 2026-09-12 as `evaluator.conversion_p` / `evaluator.route_decay`, so
+the turn-decay work has something to call rather than something to re-fit.
+
 Still missing: retention is measured against ONE horizon, "when the region
 next scores". Holding until the end of this cycle is easier than holding
 until the second reshuffle, so the `rest_of_cycle` and `later` buckets want

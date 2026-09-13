@@ -1,288 +1,305 @@
 {
- "version": 1,
- "_what": "Every tunable constant in the strategic bot, classified by where its value came from and how much that value is pinned down. Written because the code documents each number's *reasoning* well and its *standing* nowhere, so a reader cannot tell a figure measured over 973 samples from one that has never been questioned. `tests/test_provenance.py` fails if a constant is added without an entry.",
- "_source": {
-  "measured": "counted or fitted from data in this repository",
-  "gate": "validated by a paired-seat gate run, or bounded by one that failed",
-  "expert": "the maintainer's figure",
-  "derived": "arithmetic from the rules, with nothing to estimate",
-  "guess": "no recorded basis; a plausible number nobody has tested"
- },
- "_determination": {
-  "overdetermined": "several independent lines agree on it",
-  "determined": "one solid line supports it",
-  "bounded": "not pinned, but a gate or fixture rules out nearby values",
-  "underdetermined": "plausible and unconstrained; could be wrong by a lot without anyone noticing",
-  "known-wrong": "measured to disagree with the reference, and not yet fixed",
-  "inert": "does not affect behaviour"
- },
- "StrategicWeights": {
-  "control": {
-   "value": 1.5,
-   "source": "expert",
-   "determination": "underdetermined",
-   "note": "Expert reasoning recorded: a 1-stability non-battleground sits between a battleground's 1.25-1.67 per Op. But the region model it belongs to is measured wrong overall, so this inherits that doubt."
+  "version": 1,
+  "_what": "Every tunable constant in the strategic bot, classified by where its value came from and how much that value is pinned down. Written because the code documents each number's *reasoning* well and its *standing* nowhere, so a reader cannot tell a figure measured over 973 samples from one that has never been questioned. `tests/test_provenance.py` fails if a constant is added without an entry.",
+  "_source": {
+    "measured": "counted or fitted from data in this repository",
+    "gate": "validated by a paired-seat gate run, or bounded by one that failed",
+    "expert": "the maintainer's figure",
+    "derived": "arithmetic from the rules, with nothing to estimate",
+    "guess": "no recorded basis; a plausible number nobody has tested"
   },
-  "battleground": {
-   "value": 5.0,
-   "source": "guess",
-   "determination": "known-wrong",
-   "note": "A flat tier value for every battleground, and that flatness is the defect rather than the number. Re-measured 2026-09-12 at the shipped weights, two of the three recorded symptoms are GONE, both closed by the flat VP curve (52bb329) rather than by anything aimed at them: a best battleground now prices at 4.53 VP against the maintainer's floor of 4 (was ~1), and the map spans 2.88 VP max-region-to-min-region against a stated 2-3 (was 0.49). WHAT REMAINS: Europe ranks 3rd of 6 and the maintainer says it should be 1st. The mechanism is in the rules table, not the weight -- Europe and Asia share presence and domination (3/7), and Asia's control tier pays 9 and is reachable where Europe's is an auto-win standing in as EUROPE_CONTROL_VP=20 that almost never fires. So tier VP alone cannot make Europe first; what does in real play (contested every game, early cards, losing it loses the game) is not a tier value. AND the flatness, which is the live defect: importance() returns the same 9.31 for Iraq, South Korea, Saudi Arabia and Israel alike, so the term cannot tell a good battleground from a bad one and every distinction falls to access, progress and wipe. NOT the battleground-to-control ratio: 5.0 against 1.5 is deliberate (maintainer, 2026-09-12) and both countries in the worst inversion are battlegrounds, so the ratio cannot explain it. Against the maintainer's placement_rank the bot scores 5 inversions (US) and 7 of 10 possible pairs (USSR), ranking Israel first where the expert ranks it last. That inversion count is the number a fix must move."
+  "_determination": {
+    "overdetermined": "several independent lines agree on it",
+    "determined": "one solid line supports it",
+    "bounded": "not pinned, but a gate or fixture rules out nearby values",
+    "underdetermined": "plausible and unconstrained; could be wrong by a lot without anyone noticing",
+    "known-wrong": "measured to disagree with the reference, and not yet fixed",
+    "inert": "does not affect behaviour"
   },
-  "progress": {
-   "value": 2.8,
-   "source": "guess",
-   "determination": "underdetermined"
+  "StrategicWeights": {
+    "control": {
+      "value": 1.5,
+      "source": "expert",
+      "determination": "underdetermined",
+      "note": "Expert reasoning recorded: a 1-stability non-battleground sits between a battleground's 1.25-1.67 per Op. But the region model it belongs to is measured wrong overall, so this inherits that doubt."
+    },
+    "battleground": {
+      "value": 5.0,
+      "source": "guess",
+      "determination": "known-wrong",
+      "note": "A flat tier value for every battleground, and that flatness is the defect rather than the number. Re-measured 2026-09-12 at the shipped weights, two of the three recorded symptoms are GONE, both closed by the flat VP curve (52bb329) rather than by anything aimed at them: a best battleground now prices at 4.53 VP against the maintainer's floor of 4 (was ~1), and the map spans 2.88 VP max-region-to-min-region against a stated 2-3 (was 0.49). WHAT REMAINS: Europe ranks 3rd of 6 and the maintainer says it should be 1st. The mechanism is in the rules table, not the weight -- Europe and Asia share presence and domination (3/7), and Asia's control tier pays 9 and is reachable where Europe's is an auto-win standing in as EUROPE_CONTROL_VP=20 that almost never fires. So tier VP alone cannot make Europe first; what does in real play (contested every game, early cards, losing it loses the game) is not a tier value. AND the flatness, which is the live defect: importance() returns the same 9.31 for Iraq, South Korea, Saudi Arabia and Israel alike, so the term cannot tell a good battleground from a bad one and every distinction falls to access, progress and wipe. NOT the battleground-to-control ratio: 5.0 against 1.5 is deliberate (maintainer, 2026-09-12) and both countries in the worst inversion are battlegrounds, so the ratio cannot explain it. Against the maintainer's placement_rank the bot scores 5 inversions (US) and 7 of 10 possible pairs (USSR), ranking Israel first where the expert ranks it last. That inversion count is the number a fix must move."
+    },
+    "progress": {
+      "value": 2.8,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "reserve": {
+      "value": 0.35,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
+    },
+    "wipe": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Off until calibrated."
+    },
+    "wipe_backed": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Off until calibrated."
+    },
+    "first_mover": {
+      "value": 0.6,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_presence": {
+      "value": 1.0,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "3.0 everywhere lost 0.375 against its base, so the ceiling is real."
+    },
+    "margin_battleground": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_country": {
+      "value": 0.05,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "margin_live": {
+      "value": 1.0,
+      "source": "gate",
+      "determination": "bounded"
+    },
+    "access": {
+      "value": 1.5,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "access_contested": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "region": {
+      "value": 1.3,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Multiplies region_vp into the board value, and is one of the three terms that together let a full Africa swing read as 9.1 VP where the rules pay 22."
+    },
+    "military": {
+      "value": 1.0,
+      "source": "derived",
+      "determination": "overdetermined",
+      "note": "Rule 6.3.5 is exact: one Op of deficit closed is one VP, nothing to estimate. And the change that fixed its scale is the only gate in this project's history whose lower bound cleared 0.500."
+    },
+    "ops": {
+      "value": 2.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Retired; kept so saved weights still load."
+    },
+    "scoring_hand": {
+      "value": 1.2,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "scoring_discount": {
+      "value": 0.8,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "scoring_final": {
+      "value": 1.0,
+      "source": "measured",
+      "determination": "determined",
+      "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
+    },
+    "progress_curve": {
+      "value": 1.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Listed in UNTUNED_WEIGHTS."
+    },
+    "coup_discount": {
+      "value": 0.9,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "reply_ops": {
+      "value": 2.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "The constant Operations budget the forward search assumes the opponent answers with, used only when `reply_model` is 1. Inert at the shipped setting of 3, which averages over budgets 0-4 and never reads this."
+    },
+    "reply_model": {
+      "value": 3.0,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
+    },
+    "vp_base": {
+      "value": 0.5,
+      "source": "expert",
+      "determination": "bounded",
+      "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit is `battleground`, already recorded here as known-wrong."
+    },
+    "space_ability_2": {
+      "value": 1.0,
+      "source": "expert",
+      "determination": "bounded",
+      "note": "The Space Race ability boxes award 0 VP in the rules, so `_space_race_expected_vp` returned exactly 0.0 for boxes 2, 4 and 6 and `space_value` read the attempt as a pure cost -- a zero-VP wall in front of box 3 (2 VP), 5 (3) and 7 (4), none of which is reachable without crossing one. `tests/test_value_signs.py` did not catch it because it only ever probes an empty track (box 0 -> 1, where vp_first is 2). Two Space Race attempts per turn. The maintainer's price, in VP at par."
+    },
+    "space_ability_4": {
+      "value": 1.0,
+      "source": "expert",
+      "determination": "bounded",
+      "note": "The opponent's headline is revealed first. The maintainer's price, in VP at par."
+    },
+    "space_ability_6": {
+      "value": 1.5,
+      "source": "expert",
+      "determination": "bounded",
+      "note": "Discard a held card at the end of each turn -- the maintainer prices this highest of the four, consistent with their account of Ask Not-style discards ('replacing a negative card with a random card in the average deck is good generally')."
+    },
+    "space_ability_8": {
+      "value": 1.0,
+      "source": "expert",
+      "determination": "inert",
+      "note": "An extra action round. The maintainer rates it *below* box 6 despite sounding bigger: the extra round forces out the card you would otherwise have held, and the held card is your worst -- 'negative more than half the time'. Box 6 is its near-mirror, removing that card, so 6 dominates 8. Marked inert on their own estimate of the rate: 'should happen once in a hundred games or something'. A constant reached in ~1% of games cannot be moved by a 192-game gate, so no benchmark will distinguish 0.5 from 2.0. Priced for correctness, not strength."
+    },
+    "access_decay": {
+      "value": 1.445,
+      "source": "measured",
+      "determination": "determined",
+      "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
+    }
   },
-  "reserve": {
-   "value": 0.35,
-   "source": "gate",
-   "determination": "bounded",
-   "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
+  "SurvivalPrior": {
+    "opponent_lowers_defcon": {
+      "value": 0.15,
+      "source": "measured",
+      "determination": "determined",
+      "note": "Base rate measured at 0.098 on 973 test samples and 0.108 on 697 validation samples. Set deliberately above it, because those are games against this bot. Was 0.75, seven times the rate."
+    },
+    "opponent_hand_attack": {
+      "value": 0.1,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Deliberately left alone when its neighbour was measured. Measurable by the same method and not yet measured."
+    },
+    "unknown_chain_loss": {
+      "value": 0.25,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "replacement_hazard": {
+      "value": 0.15,
+      "source": "guess",
+      "determination": "underdetermined"
+    },
+    "max_states": {
+      "value": 20000,
+      "source": "guess",
+      "determination": "inert",
+      "note": "A search budget, not a valuation."
+    }
   },
-  "wipe": {
-   "value": 0.0,
-   "source": "guess",
-   "determination": "inert",
-   "note": "Off until calibrated."
+  "constants": {
+    "AUTO_VICTORY_VP": {
+      "value": 20.0,
+      "source": "measured",
+      "determination": "overdetermined",
+      "note": "Three lines agree: half the VP track by the rules; the maintainer's stated 20-to-40 range; and measured at mean 20.0, median 20 over all 1094 corpus position-seats, in every slice including where Europe Control is in reach. The single parameter the other stakes derive from."
+    },
+    "GAME_SWING_VP": {
+      "value": 40.0,
+      "source": "derived",
+      "determination": "determined",
+      "note": "2 x AUTO_VICTORY_VP. Known to be an overstatement away from par: the reachable swing is 20-vp up and 20+vp down."
+    },
+    "EUROPE_CONTROL_VP": {
+      "value": 40.0,
+      "source": "derived",
+      "determination": "determined",
+      "note": "= GAME_SWING_VP, the maintainer's call 2026-09-12. Was AUTO_VICTORY_VP (20), and an arbitrary 100 before that. Controlling Europe does not move the track to +20 from par, it ENDS THE GAME, which from the losing side is the full -20..+20 swing -- exactly what GAME_SWING_VP already names. The threshold is what you must reach; the swing is what reaching it gains. Inherits GAME_SWING_VP's recorded overstatement, symmetric where the reachable swing is not. MEASURED INERT on both available metrics: the expert placement inversions are identical before and after (5 US, 7 USSR), and region order is unchanged with Europe 3rd. That is consistent with stakes.py's own note -- the constant is multiplied by w.region * urgency / vp_value ~ 0.027, so it reads as 1.1 VP of board value at 40 against 0.5 at 20 -- and with the opening board never approaching Europe control. Correct, not a fix for Europe's ranking."
+    },
+    "WIN_PROBABILITY_CEILING": {
+      "value": 0.9,
+      "source": "expert",
+      "determination": "determined",
+      "note": "'You cannot force a win': 0.75 to 0.90 even from a dominant board. A constraint on an estimator's output, not something the data teaches. The stated USSR asymmetry is NOT yet measured."
+    },
+    "CHINA_HOLD_RAW": {
+      "value": 5.0,
+      "source": "guess",
+      "determination": "known-wrong",
+      "note": "Subtracted from a board-unit value where one Op is 84 raw, so it charges 0.06 Ops. The maintainer's figure for playing China is 8 Ops, flat until turn 10, then a comparison against the worst card in hand. Left as measured rather than multiplied by thirty, because the correction is a decaying term and not a rescale."
+    },
+    "CARD_DENIAL_OPS": {
+      "value": 1.5,
+      "source": "expert",
+      "determination": "determined"
+    },
+    "HAND_ATTACK_REALISED": {
+      "value": 0.5,
+      "source": "gate",
+      "determination": "determined",
+      "note": "Face value priced Grain Sales at 8.2 and Missile Envy at 6.0 against the expert's 4 and 3, and the gate rejected it at 0.428; at half they price 4.1 and 3.0 and scored 0.539. Both an expert fixture and a gate agree."
+    },
+    "VALUE_RADIUS": {
+      "value": 2,
+      "source": "derived",
+      "determination": "overdetermined",
+      "note": "A property of what `access` walks, not a choice, and a test enforces that it matches. Was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's neighbours and then asked whether THOSE were reachable, one hop further again. That loop went with `access_chain` (d941a5b) and the radius followed it down. At 2 the reads are: a neighbour `n`, then whether any neighbour of `n` holds influence, and `reach[n]`, which is itself a function of influence one step from `n` -- the same two hops. Verified exhaustively rather than by the sampled test: 420 placements over all 84 countries, zero countries moved outside the claimed set. Worth 37% fewer country_value calls per trial placement (mean 7.4 countries re-valued against 11.8), which lands on the event sandbox's hot path. Narrowing this is the dangerous direction -- too small serves stale values silently, too large is merely slow -- which is why it was checked over every country and not the six the test samples."
+    },
+    "RISK_WARNING": {
+      "value": 0.5,
+      "source": "guess",
+      "determination": "inert",
+      "note": "A logging threshold."
+    },
+    "CONVERSION_P": {
+      "value": [
+        0.406,
+        0.303,
+        0.304,
+        0.154
+      ],
+      "source": "measured",
+      "determination": "determined",
+      "note": "P(a side reaching a country controls it by the time its region next scores), by stability 1-4. 96 seeds, 3888 resolved opportunities, scripts/measure_access_conversion.py, 2026-09-12. Binomial standard errors 0.024/0.013/0.012/0.014, so stability 2 and 3 are one number and stability 4 is a cliff rather than noise. No smooth one-parameter form fits it (linear chi2/dof 13.2, exponential 16.7, hyperbolic 25.6), so the measurement is used directly. The stability-4 cell is West Germany, Israel and Japan -- the only stability-4 battlegrounds."
+    },
+    "CONVERSION_P_POOLED": {
+      "value": 0.287,
+      "source": "measured",
+      "determination": "determined",
+      "note": "The same 3888 observations pooled. Used only to hold the LEVEL of `route_decay` fixed while its SHAPE varies with stability, so `access_decay` stays the single lever an A/B can pull. Implies a pooled decay of 1.403 against the shipped access_decay of 1.445 -- close enough that the constant's value was never the error; its being constant was."
+    }
   },
-  "wipe_backed": {
-   "value": 0.0,
-   "source": "guess",
-   "determination": "inert",
-   "note": "Off until calibrated."
-  },
-  "first_mover": {
-   "value": 0.6,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "margin_presence": {
-   "value": 1.0,
-   "source": "gate",
-   "determination": "bounded",
-   "note": "3.0 everywhere lost 0.375 against its base, so the ceiling is real."
-  },
-  "margin_battleground": {
-   "value": 0.25,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "margin_country": {
-   "value": 0.05,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "margin_live": {
-   "value": 1.0,
-   "source": "gate",
-   "determination": "bounded"
-  },
-  "access": {
-   "value": 1.5,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "access_contested": {
-   "value": 0.25,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "region": {
-   "value": 1.3,
-   "source": "guess",
-   "determination": "underdetermined",
-   "note": "Multiplies region_vp into the board value, and is one of the three terms that together let a full Africa swing read as 9.1 VP where the rules pay 22."
-  },
-  "military": {
-   "value": 1.0,
-   "source": "derived",
-   "determination": "overdetermined",
-   "note": "Rule 6.3.5 is exact: one Op of deficit closed is one VP, nothing to estimate. And the change that fixed its scale is the only gate in this project's history whose lower bound cleared 0.500."
-  },
-  "ops": {
-   "value": 2.0,
-   "source": "guess",
-   "determination": "inert",
-   "note": "Retired; kept so saved weights still load."
-  },
-  "scoring_hand": {
-   "value": 1.2,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "scoring_discount": {
-   "value": 0.8,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "scoring_final": {
-   "value": 1.0,
-   "source": "measured",
-   "determination": "determined",
-   "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
-  },
-  "progress_curve": {
-   "value": 1.0,
-   "source": "guess",
-   "determination": "inert",
-   "note": "Listed in UNTUNED_WEIGHTS."
-  },
-  "coup_discount": {
-   "value": 0.9,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "reply_ops": {
-   "value": 2.0,
-   "source": "guess",
-   "determination": "inert",
-   "note": "The constant Operations budget the forward search assumes the opponent answers with, used only when `reply_model` is 1. Inert at the shipped setting of 3, which averages over budgets 0-4 and never reads this."
-  },
-  "reply_model": {
-   "value": 3.0,
-   "source": "gate",
-   "determination": "bounded",
-   "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
-  },
-  "vp_base": {
-   "value": 0.5,
-   "source": "expert",
-   "determination": "bounded",
-   "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit is `battleground`, already recorded here as known-wrong."
-  },
-  "space_ability_2": {
-   "value": 1.0,
-   "source": "expert",
-   "determination": "bounded",
-   "note": "The Space Race ability boxes award 0 VP in the rules, so `_space_race_expected_vp` returned exactly 0.0 for boxes 2, 4 and 6 and `space_value` read the attempt as a pure cost -- a zero-VP wall in front of box 3 (2 VP), 5 (3) and 7 (4), none of which is reachable without crossing one. `tests/test_value_signs.py` did not catch it because it only ever probes an empty track (box 0 -> 1, where vp_first is 2). Two Space Race attempts per turn. The maintainer's price, in VP at par."
-  },
-  "space_ability_4": {
-   "value": 1.0,
-   "source": "expert",
-   "determination": "bounded",
-   "note": "The opponent's headline is revealed first. The maintainer's price, in VP at par."
-  },
-  "space_ability_6": {
-   "value": 1.5,
-   "source": "expert",
-   "determination": "bounded",
-   "note": "Discard a held card at the end of each turn -- the maintainer prices this highest of the four, consistent with their account of Ask Not-style discards ('replacing a negative card with a random card in the average deck is good generally')."
-  },
-  "space_ability_8": {
-   "value": 1.0,
-   "source": "expert",
-   "determination": "inert",
-   "note": "An extra action round. The maintainer rates it *below* box 6 despite sounding bigger: the extra round forces out the card you would otherwise have held, and the held card is your worst -- 'negative more than half the time'. Box 6 is its near-mirror, removing that card, so 6 dominates 8. Marked inert on their own estimate of the rate: 'should happen once in a hundred games or something'. A constant reached in ~1% of games cannot be moved by a 192-game gate, so no benchmark will distinguish 0.5 from 2.0. Priced for correctness, not strength."
-  },
-  "access_decay": {
-   "value": 1.445,
-   "source": "measured",
-   "determination": "determined",
-   "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
+  "_summary": {
+    "counts_by_source": {
+      "expert": 8,
+      "guess": 22,
+      "gate": 5,
+      "derived": 4,
+      "measured": 6
+    },
+    "counts_by_determination": {
+      "underdetermined": 14,
+      "known-wrong": 2,
+      "bounded": 8,
+      "inert": 8,
+      "overdetermined": 3,
+      "determined": 10
+    },
+    "_reading": "24 of 44 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to."
   }
- },
- "SurvivalPrior": {
-  "opponent_lowers_defcon": {
-   "value": 0.15,
-   "source": "measured",
-   "determination": "determined",
-   "note": "Base rate measured at 0.098 on 973 test samples and 0.108 on 697 validation samples. Set deliberately above it, because those are games against this bot. Was 0.75, seven times the rate."
-  },
-  "opponent_hand_attack": {
-   "value": 0.1,
-   "source": "guess",
-   "determination": "underdetermined",
-   "note": "Deliberately left alone when its neighbour was measured. Measurable by the same method and not yet measured."
-  },
-  "unknown_chain_loss": {
-   "value": 0.25,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "replacement_hazard": {
-   "value": 0.15,
-   "source": "guess",
-   "determination": "underdetermined"
-  },
-  "max_states": {
-   "value": 20000,
-   "source": "guess",
-   "determination": "inert",
-   "note": "A search budget, not a valuation."
-  }
- },
- "constants": {
-  "AUTO_VICTORY_VP": {
-   "value": 20.0,
-   "source": "measured",
-   "determination": "overdetermined",
-   "note": "Three lines agree: half the VP track by the rules; the maintainer's stated 20-to-40 range; and measured at mean 20.0, median 20 over all 1094 corpus position-seats, in every slice including where Europe Control is in reach. The single parameter the other stakes derive from."
-  },
-  "GAME_SWING_VP": {
-   "value": 40.0,
-   "source": "derived",
-   "determination": "determined",
-   "note": "2 x AUTO_VICTORY_VP. Known to be an overstatement away from par: the reachable swing is 20-vp up and 20+vp down."
-  },
-  "EUROPE_CONTROL_VP": {
-   "value": 40.0,
-   "source": "derived",
-   "determination": "determined",
-   "note": "= GAME_SWING_VP, the maintainer's call 2026-09-12. Was AUTO_VICTORY_VP (20), and an arbitrary 100 before that. Controlling Europe does not move the track to +20 from par, it ENDS THE GAME, which from the losing side is the full -20..+20 swing -- exactly what GAME_SWING_VP already names. The threshold is what you must reach; the swing is what reaching it gains. Inherits GAME_SWING_VP's recorded overstatement, symmetric where the reachable swing is not. MEASURED INERT on both available metrics: the expert placement inversions are identical before and after (5 US, 7 USSR), and region order is unchanged with Europe 3rd. That is consistent with stakes.py's own note -- the constant is multiplied by w.region * urgency / vp_value ~ 0.027, so it reads as 1.1 VP of board value at 40 against 0.5 at 20 -- and with the opening board never approaching Europe control. Correct, not a fix for Europe's ranking."
-  },
-  "WIN_PROBABILITY_CEILING": {
-   "value": 0.9,
-   "source": "expert",
-   "determination": "determined",
-   "note": "'You cannot force a win': 0.75 to 0.90 even from a dominant board. A constraint on an estimator's output, not something the data teaches. The stated USSR asymmetry is NOT yet measured."
-  },
-  "CHINA_HOLD_RAW": {
-   "value": 5.0,
-   "source": "guess",
-   "determination": "known-wrong",
-   "note": "Subtracted from a board-unit value where one Op is 84 raw, so it charges 0.06 Ops. The maintainer's figure for playing China is 8 Ops, flat until turn 10, then a comparison against the worst card in hand. Left as measured rather than multiplied by thirty, because the correction is a decaying term and not a rescale."
-  },
-  "CARD_DENIAL_OPS": {
-   "value": 1.5,
-   "source": "expert",
-   "determination": "determined"
-  },
-  "HAND_ATTACK_REALISED": {
-   "value": 0.5,
-   "source": "gate",
-   "determination": "determined",
-   "note": "Face value priced Grain Sales at 8.2 and Missile Envy at 6.0 against the expert's 4 and 3, and the gate rejected it at 0.428; at half they price 4.1 and 3.0 and scored 0.539. Both an expert fixture and a gate agree."
-  },
-  "VALUE_RADIUS": {
-   "value": 2,
-   "source": "derived",
-   "determination": "overdetermined",
-   "note": "A property of what `access` walks, not a choice, and a test enforces that it matches. Was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's neighbours and then asked whether THOSE were reachable, one hop further again. That loop went with `access_chain` (d941a5b) and the radius followed it down. At 2 the reads are: a neighbour `n`, then whether any neighbour of `n` holds influence, and `reach[n]`, which is itself a function of influence one step from `n` -- the same two hops. Verified exhaustively rather than by the sampled test: 420 placements over all 84 countries, zero countries moved outside the claimed set. Worth 37% fewer country_value calls per trial placement (mean 7.4 countries re-valued against 11.8), which lands on the event sandbox's hot path. Narrowing this is the dangerous direction -- too small serves stale values silently, too large is merely slow -- which is why it was checked over every country and not the six the test samples."
-  },
-  "RISK_WARNING": {
-   "value": 0.5,
-   "source": "guess",
-   "determination": "inert",
-   "note": "A logging threshold."
-  }
- },
- "_summary": {
-  "counts_by_source": {
-   "expert": 8,
-   "guess": 22,
-   "gate": 5,
-   "derived": 4,
-   "measured": 4
-  },
-  "counts_by_determination": {
-   "underdetermined": 14,
-   "known-wrong": 2,
-   "bounded": 8,
-   "inert": 8,
-   "overdetermined": 3,
-   "determined": 8
-  },
-  "_reading": "24 of 42 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression."
- }
 }

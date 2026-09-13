@@ -59,17 +59,34 @@ def test_every_module_constant_has_an_entry(ledger):
     hid a 30x units error behind a confident name."""
     declared = set(ledger['constants'])
     found = set()
+    def numeric(node):
+        """A valuation, whether it is one number or a curve of them.
+
+        This used to see only `NAME = 3.0`. `CONVERSION_P: tuple[...] = (...)`
+        is BOTH of the things it could not see -- an annotated assignment, and
+        a sequence rather than a scalar -- so a whole measured curve, which is
+        exactly what this file exists to hold to account, went in without a
+        provenance entry and the test passed. Found 2026-09-12 by writing one.
+        """
+        if isinstance(node, ast.Constant):
+            return isinstance(node.value, (int, float)) and not isinstance(node.value, bool)
+        if isinstance(node, (ast.Tuple, ast.List)):
+            return bool(node.elts) and all(numeric(e) for e in node.elts)
+        return False
+
     for path in sorted(STRATEGIC.glob('*.py')):
         for node in ast.parse(path.read_text()).body:
-            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                target = node.target
+            else:
                 continue
-            target = node.targets[0]
             if not (isinstance(target, ast.Name) and target.id.isupper()):
                 continue
             if target.id in NOT_A_VALUATION:
                 continue
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, (int, float)) \
-                    and not isinstance(node.value.value, bool):
+            if numeric(node.value):
                 found.add(target.id)
     assert found - declared == set(), (
         f'numeric constants with no provenance entry: {sorted(found - declared)}. '
@@ -92,7 +109,9 @@ def test_declared_values_match_the_code(ledger):
         found = next((getattr(m, name) for m in (stakes, policy, ev)
                       if hasattr(m, name)), None)
         assert found is not None, f'{name} is in the ledger but not in the code'
-        assert found == entry['value'], f'{name} is {found}, ledger says {entry["value"]}'
+        # JSON has no tuple, so a curve round-trips as a list.
+        actual = list(found) if isinstance(found, tuple) else found
+        assert actual == entry['value'], f'{name} is {found}, ledger says {entry["value"]}'
 
 
 def test_the_vocabulary_is_closed(ledger):

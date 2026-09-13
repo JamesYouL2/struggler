@@ -424,6 +424,67 @@ def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: 
     return p * stake / max(1, coup_targets(t, pos, holder, defcon, bans))
 
 
+# ---------------------------------------------------------------------------
+# Conversion: how often reach becomes control.
+# ---------------------------------------------------------------------------
+#
+# `p(stability)` is the probability that a side which REACHES a country --
+# holds influence in a neighbour of it -- CONTROLS it by the time its region
+# next scores. Measured 2026-09-12 by scripts/measure_access_conversion.py
+# over 96 seeds and 3888 resolved opportunities:
+#
+#     stability   1      2      3      4      pooled
+#     p           0.406  0.303  0.304  0.154  0.287
+#     n           409    1199   1586   694    3888
+#
+# Binomial standard errors are 0.024, 0.013, 0.012, 0.014, so stability 2 and
+# 3 are one number and stability 4 is a genuine cliff, not noise. Every smooth
+# one-parameter form fits badly (linear chi2/dof = 13.2, exponential 16.7,
+# hyperbolic 25.6, all against the binomial errors), because the shape is flat
+# and then falls off rather than decaying. So the measurement IS the function:
+# fitting a curve through it would add error, not remove any.
+#
+# The stability-4 cell is exactly three countries -- West Germany, Israel and
+# Japan are the only stability-4 battlegrounds -- which is what makes the
+# number pointed rather than aggregate.
+#
+# THIS IS ALSO THE TURN DECAY. A per-scoring conversion rate is a per-horizon
+# quantity: `p` answers "by the time the region next scores", and the value
+# function's turn discount asks the same question one scoring further out.
+# Whatever prices "will we still have converted this by turn T" should come
+# from here rather than from a second constant fitted separately -- one rule,
+# one place. Not yet wired: the turn discount still uses its own weights, and
+# joining them is a change to measure on its own.
+CONVERSION_P: tuple[float, ...] = (0.406, 0.303, 0.304, 0.154)
+CONVERSION_P_POOLED = 0.287
+
+
+def conversion_p(stability: int) -> float:
+    """P(reach becomes control by the next scoring) for a country of
+    `stability`. Clamped outside the measured 1..4 -- the only stability-5
+    country is the UK, which is not a battleground, so `access` never asks."""
+    return CONVERSION_P[min(max(stability, 1), len(CONVERSION_P)) - 1]
+
+
+def route_decay(stability: int, base: float) -> float:
+    """What each redundant route into a country of `stability` is worth,
+    relative to the one before it.
+
+    `base` is the pooled decay -- `w.access_decay`, which stays the single
+    lever an A/B can pull -- and this rescales it to the stability the
+    measurement actually found, holding the pooled level fixed. At the
+    default it reproduces the measured 1/(1-p) per stability exactly:
+    1.73 at stability 1 against 1.22 at stability 4.
+
+    A redundant route is worth `1 - p` of the one before it, so a country
+    that converts rarely gains LESS from a second route, not more: the
+    second route into Israel is nearly as good as the first because neither
+    is likely to land, while the second route into a stability-1 country is
+    mostly wasted on a conversion the first already made.
+    """
+    return base * (1. - CONVERSION_P_POOLED) / (1. - conversion_p(stability))
+
+
 def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """Reach a holding in country `i` gives side `s`.
 
@@ -432,10 +493,11 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     1/stability, discounted by how many routes already reach it. Getting to
     battlegrounds first is most of what a non-battleground is for.
 
-    The discount is `access_decay ** (1 - k)` for k routes, and all k carry
-    the SAME weight: which route you call "first" is arbitrary, so the term is
-    symmetric in them. See the loop for why the exponent is geometric and
-    where its value was measured.
+    The discount is `route_decay(stability) ** (1 - k)` for k routes, and all
+    k carry the SAME weight: which route you call "first" is arbitrary, so the
+    term is symmetric in them. See the loop for why the exponent is geometric,
+    and `conversion_p` above for why the base is a function of stability and
+    not one constant.
 
     Chains -- a battleground two steps away through a country not yet held
     (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- used to count
@@ -481,7 +543,7 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 routes += 1      # the superpower reaches it without a holding
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
-            weight = w.access_decay ** (1 - routes)
+            weight = route_decay(stability[n], w.access_decay) ** (1 - routes)
             if reach_them[n]:
                 weight *= w.access_contested
             total += weight * importance(t, w, urgency, n) / stability[n]
