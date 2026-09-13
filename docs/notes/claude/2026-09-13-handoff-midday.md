@@ -22,6 +22,25 @@ disk, and each has a resume step.
   verified in the body. Check with `git log fix/board-potential-m2a
   fix/board-potential-m2b` and `git -C $WT status`; if uncommitted, the
   diff in the worktree is the work.
+- **M2 final state (agent's report after wrapping up):** both committed
+  `wip:`, not pushed, worktrees clean. `fix/board-potential-m2a` =
+  `8879a79` + `8bd2d6c`; `fix/board-potential-m2b` = `8879a79` + `e8bbca5`.
+  M1's dependency claim held against `access` (another country reads the
+  changed one only through control and each side's presence); Codex's M1
+  case now gives 8.4435555556 both ways, and the new exactness/order tests
+  fail on `e47f31f`. `tests/test_board_potential.py`: 20 passed, plain and
+  under the snapshot checker, both branches. Parity: all 473 records
+  change on both; top actions change in 24 (m2a) and 20 (m2b).
+  **m2b** targeted suites green (92 passed, 1 xfailed; snapshot 71 passed).
+  **m2a** has two failures left for the maintainer, not weakened:
+  `test_the_ops_curve_is_convex_where_a_threshold_is_crossed` now PASSES
+  (Ops 3-4 worth 34.30 vs 29.80 for 1-2), tripping its strict xfail; and
+  `test_the_forward_search_is_what_holds_the_rate_down` no longer separates
+  (with the search off, no seat exceeds 3 pokes). Not yet run on either:
+  full suite, alternated timing (`scratchpad/timing_rank.py`; an early
+  read was ~1.3-1.5x), final commit messages. Probe scripts are in the
+  scratchpad (`parity_dump2.py`, `codex_repro.py`, `convex_probe.py`,
+  `poke_probe.py`).
 - **Next session, in order:** (1) `git log main` — push any collector
   notes; (2) read the layer notes and merge per section 4; (3) finish or
   verify M2a/M2b, push both, gate each against `e47f31f` with
