@@ -1053,8 +1053,27 @@ class StrategicPlayer:
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
-        worth: the country, its region's score and its region's margin, after
-        minus before."""
+        worth: the country, its region's score and its region's margin, and
+        the access every *other* country loses or gains by it, after minus
+        before.
+
+        The contract is exactness: with the context fixed, this is
+        `value(after) - value(before)` for the one-country change, so that a
+        sequence of placements sums to the difference of its end points
+        whatever order it is taken in, and an event that makes the same
+        change (priced by `_resolve_sandbox`) is worth the same.
+
+        Another country's `country_value` reads `cid` only through
+        `evaluator.access`, and `access` reads three things about it: who
+        controls it, and whether each side holds any influence there (routes,
+        standing in it, and the opponent's reach, which is presence one hop
+        out). So a change that moves none of those -- overprotection, a
+        point short of control in a country both sides already stand in --
+        moves only `cid`'s own terms; any other change also moves up to
+        `evaluator.VALUE_RADIUS` hops of neighbours. Until 2026-09-13 those
+        were left out, and controlling Nigeria next to a US Cameroon booked
+        13.95 where the board moved 8.44: Cameroon's access to an
+        uncontrolled Nigeria was consumed and nobody was charged for it."""
         if own == 0 and opp == 0:
             return 0.
         if self._base_regions is None:
@@ -1118,11 +1137,13 @@ class StrategicPlayer:
                 f'base country value for {cid} moved while cached'
         before = own_before + w.region * urgency * region_before + margin_before
         controller = pos.control[i]
-        was_us, was_ussr = pos.inf[ev.US][i], pos.inf[ev.USSR][i]
+        inf_us, inf_ussr = pos.inf
+        was_us, was_ussr = inf_us[i], inf_ussr[i]
         if s == ev.US:
             self._set_influence(cid, max(0, was_us + own), max(0, was_ussr + opp))
         else:
             self._set_influence(cid, max(0, was_us + opp), max(0, was_ussr + own))
+        neighbours_after = ()
         try:
             # Partial influence and overprotection cannot change regional VP;
             # the margin term (progress toward presence) can move on either.
@@ -1133,10 +1154,34 @@ class StrategicPlayer:
                                 t, pos, region, *self._overrides_for(region, pos)))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
-            return (ev.country_value(t, pos, i, s, w, vector)
-                    + w.region * urgency * region_after + margin_after - before)
+            change = (ev.country_value(t, pos, i, s, w, vector)
+                      + w.region * urgency * region_after + margin_after - before)
+            if (pos.control[i] != controller or (inf_us[i] > 0) != (was_us > 0)
+                    or (inf_ussr[i] > 0) != (was_ussr > 0)):
+                # What `access` reads about `cid` moved, so the neighbours'
+                # values can have. A neighbour holding no influence of either
+                # side is skipped exactly, not approximately: both its access
+                # terms are multiplied by `False`, so its value is the same
+                # float on every board.
+                neighbours_after = [
+                    (j, ev.country_value(t, pos, j, s, w, vector))
+                    for j in ev.others_moved_by(t, i) if inf_us[j] or inf_ussr[j]]
         finally:
             self._set_influence(cid, was_us, was_ussr)
+        # The neighbours' before-values are read with the board put back,
+        # because that is the board `_base_country` describes.
+        for j, after in neighbours_after:
+            key = (j, s)
+            then = None if cache is None else cache.get(key)
+            if then is None:
+                then = ev.country_value(t, pos, j, s, w, vector)
+                if cache is not None:
+                    cache[key] = then
+            elif CHECK_SNAPSHOT:
+                assert then == ev.country_value(t, pos, j, s, w, vector), \
+                    f'base country value for {t.ids[j]} moved while cached'
+            change += after - then
+        return change
 
     @staticmethod
     def _is_phasing(obs: Observation) -> bool:

@@ -373,6 +373,22 @@ reachable. The radius lives beside the terms that set it, and
 `test_value_dependents_covers_every_country_a_change_can_move` moves one
 country and checks that nothing outside the claimed set moved with it.
 
+**Pricing one change.** `delta` is the incremental form of the same potential,
+and its contract is exactness: with the context fixed and the reply model off,
+`delta(obs, cid, own, opp)` is `value(after) - value(before)` for that one
+country's change, so that placements sum to the difference of their end
+points in any order and an event making the same change prices the same.
+Another country's `country_value` reads `cid` only through `access`, which
+asks who controls it and whether each side holds influence there. A change
+that moves none of those prices `cid`'s own terms and its region; any other
+change also re-values `evaluator.others_moved_by(cid)` -- the radius-two
+dependents, skipping those with no influence of either side, whose access is
+multiplied by zero -- with their before-values from `_base_country` under the
+same per-decision contract as the rest. Until 2026-09-13 the neighbours were
+left out (Codex M1): controlling Nigeria beside a US Cameroon booked 13.95
+where the board moved 8.44. `tests/test_board_potential.py` holds the
+contract on generated boards.
+
 **One scoring implementation.** The engine no longer has its own: region
 scoring is `Board.score_region`, with the per-scoring overrides from
 `Board.scoring_overrides`, and `Engine._score_region_net` adds only the two
