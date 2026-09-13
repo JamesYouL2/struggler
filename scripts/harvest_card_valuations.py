@@ -11,8 +11,16 @@ what it is worth. It needs ONE call per card, not 270 per game.
 VALIDATION COMES FIRST AND IS THE POINT. A number for an unpriced card is
 worth nothing unless the model can reproduce the priced ones, so the 27
 known cards are split: a few are shown as worked examples, the REST are
-held out and scored. The file's own `tolerance_ops` is the bar the bot is
-held to, so it is the bar the model is held to.
+held out and scored. The verdict is USABLE only when BOTH hold:
+
+- coverage: every held-out card came back with a finite number
+  (`MIN_COVERAGE`). A failed call, a NaN, an infinity or a non-number is a
+  failure and counts against coverage -- it is never dropped from the score;
+- tolerance: no held-out row is further than the file's `tolerance_ops`
+  from the reference (`MAX_MISSES`). That is the per-row test
+  `benchmark.expert_check` applies to the bot. The mean error is reported
+  but decides nothing: an average lets one badly wrong card hide among
+  exact ones.
 
 This never writes `expert_valuations.json`. The maintainer's valuations are
 the reference standard for this project; proposals land in a separate file
@@ -25,9 +33,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
 import random
 import statistics
 import sys
+from pathlib import Path
 
 from struggler.engine import Side
 from struggler.bots.benchmark import opening_board, to_ops
@@ -36,7 +47,19 @@ from struggler.bots.strategic.public_cards import CARDS
 from struggler.bots.llm.board_report import build_board_report
 from struggler.bots.llm.client import LLMMessage, LLMRequest, StructuredOutputSpec
 
-VALUATIONS = 'models/expert_valuations.json'
+ROOT = Path(__file__).resolve().parents[1]
+VALUATIONS = ROOT / 'models' / 'expert_valuations.json'
+
+# Every held-out card must be answered with a finite number. There are 19,
+# so a single missing one is 5% of the evidence, and the misses are not a
+# random sample: a refusal, a schema failure or a timeout is likelier on the
+# awkward cards, which are the ones the check exists to test. The remedy for
+# a flaky call is to retry the run, not to certify on what came back.
+MIN_COVERAGE = 1.0
+# Held-out rows allowed outside `tolerance_ops`. Zero: the reference is 19
+# rows, and a model allowed to be wrong on some of them gives no way to tell
+# which of its 83 proposals are the wrong ones.
+MAX_MISSES = 0
 
 SCHEMA = {
     'type': 'object',
@@ -76,8 +99,69 @@ def build_request(system: str, cid: str) -> LLMRequest:
                       output=OUTPUT, max_tokens=1000)
 
 
-def main(argv=None) -> int:
+def parse_ops(structured) -> float:
+    """The `ops` a response carries, or ValueError. Only a finite JSON number
+    counts: a bool, a string (even a numeric one), NaN or an infinity is a
+    failed answer, never an error of undefined size."""
+    ops = structured['ops']
+    if isinstance(ops, bool) or not isinstance(ops, (int, float)):
+        raise ValueError(f'ops is not a number: {ops!r}')
+    if not math.isfinite(ops):
+        raise ValueError(f'ops is not finite: {ops!r}')
+    return float(ops)
+
+
+def score_held_out(held, priced, tol, ask, out=sys.stdout) -> dict:
+    """Ask for every held-out card and judge the answers against the reference.
+
+    `ask(cid)` returns `(ops, note, error)` with `ops` None on failure. The
+    verdict is USABLE only if coverage reaches `MIN_COVERAGE` and at most
+    `MAX_MISSES` answered rows are outside `tol`; see the module docstring.
+    """
+    rows, failures = [], []
+    for cid in held:
+        got, note, err = ask(cid)
+        if got is None:
+            failures.append({'card': cid, 'error': err})
+            print(f'  {cid:<40} FAILED  {err}', file=out)
+            continue
+        want = priced[cid]
+        miss = abs(got - want) > tol
+        rows.append({'card': cid, 'expert': want, 'model': got, 'note': note,
+                     'within_tolerance': not miss})
+        flag = ' <--' if miss else '    '
+        print(f'  {cid:<40}{want:>+8.2f}{got:>+8.2f}{got - want:>+8.2f}{flag}', file=out)
+
+    n = len(held)
+    errs = [abs(r['model'] - r['expert']) for r in rows]
+    misses = sum(not r['within_tolerance'] for r in rows)
+    coverage = len(rows) / n if n else 0.0
+    usable = n > 0 and coverage >= MIN_COVERAGE and misses <= MAX_MISSES
+    return {
+        'verdict': 'USABLE' if usable else 'NOT USABLE',
+        'criterion': (f'coverage >= {MIN_COVERAGE:.0%} of held-out cards answered with a '
+                      f'finite number, and at most {MAX_MISSES} answered rows outside '
+                      f'{tol} Ops (per row, as benchmark.expert_check counts misses)'),
+        'n': n,
+        'answered': len(rows),
+        'failed': len(failures),
+        'coverage': round(coverage, 3),
+        'min_coverage': MIN_COVERAGE,
+        'within_tolerance': len(rows) - misses,
+        'misses': misses,
+        'max_misses': MAX_MISSES,
+        'mae': round(statistics.fmean(errs), 3) if errs else None,
+        'max_error': round(max(errs), 3) if errs else None,
+        'rows': rows,
+        'failures': failures,
+    }
+
+
+def main(argv=None, client=None) -> int:
+    """`client` is injectable for tests; by default the environment's LLM client."""
     ap = argparse.ArgumentParser()
+    ap.add_argument('--valuations', default=str(VALUATIONS),
+                    help='the reference valuations; read only, never written')
     ap.add_argument('--seed', type=int, default=4000, help='must match the file\'s board')
     ap.add_argument('--examples', type=int, default=8, help='worked examples shown to the model')
     ap.add_argument('--split-seed', type=int, default=1, help='which priced cards become examples')
@@ -87,7 +171,11 @@ def main(argv=None) -> int:
     ap.add_argument('--limit', type=int, default=0, help='only price this many unpriced cards')
     args = ap.parse_args(argv)
 
-    with open(VALUATIONS) as f:
+    if os.path.realpath(args.out) == os.path.realpath(args.valuations):
+        print(f'REFUSING: --out {args.out} is the reference valuations file. Proposals '
+              'never overwrite or merge into the maintainer\'s values.', file=sys.stderr)
+        return 2
+    with open(args.valuations) as f:
         expert = json.load(f)
     if str(args.seed) not in expert['board']:
         print(f"REFUSING: --seed {args.seed} is not the board the file was priced on "
@@ -148,43 +236,31 @@ def main(argv=None) -> int:
 
     # Imported late: it pulls in a vendor SDK that the test extra does not
     # install, and --dry-run must work without one.
-    from main import build_llm_client
-    client = build_llm_client()
+    if client is None:
+        from main import build_llm_client
+        client = build_llm_client()
 
     def ask(cid):
         try:
             resp = client.complete(build_request(system, cid))
-            return float(resp.structured['ops']), str(resp.structured.get('note', '')), None
+            return parse_ops(resp.structured), str(resp.structured.get('note', '')), None
         except Exception as exc:
             return None, '', f'{type(exc).__name__}: {exc}'
 
     print(f'scoring {len(held)} held-out cards against the reference...')
-    errs, failures = [], 0
-    rows = []
-    for cid in held:
-        got, note, err = ask(cid)
-        if got is None:
-            failures += 1
-            print(f'  {cid:<40} FAILED  {err}')
-            continue
-        want = priced[cid]
-        errs.append(abs(got - want))
-        flag = ' <--' if abs(got - want) > tol else '    '
-        rows.append((cid, want, got, note))
-        print(f'  {cid:<40}{want:>+8.2f}{got:>+8.2f}{got - want:>+8.2f}{flag}')
+    score = score_held_out(held, priced, tol, ask)
 
-    if not errs:
+    if not score['answered']:
         print('\nNo held-out card was priced. Nothing can be said about the rest.')
         return 1
-    mae = statistics.fmean(errs)
-    within = sum(e <= tol for e in errs)
-    print(f'\nHELD-OUT SCORE: MAE {mae:.2f} Ops, {within}/{len(errs)} inside the '
-          f'{tol} tolerance, {failures} failed to answer')
-    verdict = 'USABLE' if mae <= tol else 'NOT USABLE'
-    print(f'  {verdict}: the bot is held to {tol} Ops on these same rows.')
-    if mae > tol:
+    verdict = score['verdict']
+    print(f"\nHELD-OUT SCORE: {score['answered']}/{score['n']} answered "
+          f"({score['failed']} failed), {score['misses']} of them outside the {tol} "
+          f"tolerance; MAE {score['mae']:.2f} Ops (reported, not the verdict)")
+    print(f"  {verdict}: requires {score['criterion']}.")
+    if verdict != 'USABLE':
         print('  The proposals below are recorded but should not be accepted: a model '
-              'that cannot reproduce the known valuations has not earned the unknown ones.')
+              'that has not reproduced every known valuation has not earned the unknown ones.')
 
     proposals = {}
     for i, cid in enumerate(unpriced, 1):
@@ -194,16 +270,15 @@ def main(argv=None) -> int:
         print(f'  [{i}/{len(unpriced)}] {cid:<40}'
               + (f'{got:>+8.2f}  (bot {botv:+.2f})' if got is not None else f'  FAILED {err}'))
 
-    import os
     os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
+    held_out = {k: v for k, v in score.items() if k not in ('rows', 'failures')}
     with open(args.out, 'w') as f:
         json.dump({'board': expert['board'], 'unit': expert['unit'], 'tolerance_ops': tol,
                    'model': getattr(client, 'model_name', 'unknown'),
-                   'held_out': {'mae': round(mae, 3), 'within_tolerance': within,
-                                'n': len(errs), 'failed': failures, 'verdict': verdict},
+                   'held_out': held_out,
                    'examples_shown': shown,
-                   'held_out_rows': [{'card': c, 'expert': w, 'model': g, 'note': n}
-                                     for c, w, g, n in rows],
+                   'held_out_rows': score['rows'],
+                   'held_out_failures': score['failures'],
                    'proposals': proposals}, f, indent=2)
     print(f'\n-> {args.out}')
     print('NOT written into models/expert_valuations.json. The maintainer\'s '

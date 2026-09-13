@@ -9,6 +9,7 @@ test_engine_m2.py, fixed by consolidating here).
 
 from __future__ import annotations
 
+import importlib.util
 from collections import Counter
 from pathlib import Path
 
@@ -18,6 +19,14 @@ from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.rules import RULES
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_script(name: str):
+    """Import `scripts/<name>.py` as a module, so a test drives the real script."""
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def bare_engine(seed: int = 0) -> Engine:

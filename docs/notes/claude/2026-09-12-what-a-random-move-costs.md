@@ -45,7 +45,9 @@ Combined with 269 calls per game and ~29k input tokens each
 the play-a-game line was dropped and the offline card-valuation harvest
 (`scripts/harvest_card_valuations.py`) kept. The harvest asks one call per
 card, scores the model against 19 held-out known valuations first, and
-cannot damage a game because there is no game.
+cannot damage a game because there is no game. (Since audit F8 its verdict
+is USABLE only if every held-out card is answered with a finite number and
+no row is outside `tolerance_ops`; the mean error is reported, not judged.)
 
 ## What it does NOT say
 
