@@ -75,6 +75,7 @@ def play(seed: int, stats, opened, keep) -> None:
     # (side, country) -> turn it was opened; resolved at the next scoring.
     live: dict[tuple[Side, str], int] = {}
     holding: dict[tuple[Side, str], int] = {}
+    contested: dict[tuple[Side, str], bool] = {}
     seen_turn = -1
     steps = 0
     while not engine.is_terminal and steps < 20000:
@@ -85,7 +86,10 @@ def play(seed: int, stats, opened, keep) -> None:
                 for cid in opportunities(engine, s):
                     live.setdefault((s, cid), engine.turn)
                 for cid in held(engine, s):
-                    holding.setdefault((s, cid), engine.turn)
+                    if (s, cid) not in holding:
+                        holding[(s, cid)] = engine.turn
+                        foe = Side.US if s is Side.USSR else Side.USSR
+                        contested[(s, cid)] = engine.board.is_reachable(foe, cid)
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             action = d.options[0]
@@ -107,9 +111,15 @@ def play(seed: int, stats, opened, keep) -> None:
         for (s, cid), turn in list(holding.items()):
             if engine.board.countries[cid].region is not region:
                 continue
-            keep[engine.board.countries[cid].stability].append(
+            info = engine.board.countries[cid]
+            # Split by whether the OPPONENT could reach it when we took it.
+            # Stability alone cannot say why a stability-4 battleground is a
+            # bad hold: the maintainer's reason for Israel is "the US takes
+            # Egypt first", which is contest, not cost.
+            keep[(info.stability, contested.get((s, cid), False))].append(
                 engine.board.control(cid) is s)
             del holding[(s, cid)]
+            contested.pop((s, cid), None)
 
 
 def main(argv=None) -> int:
@@ -140,13 +150,14 @@ def main(argv=None) -> int:
         print('  access_decay ** (1 - k), all k routes carrying the same weight.')
         print('  That is the geometric form of P(control) = 1 - (1-p)^k.')
     print(f'\nretention -> still controlled when the region next scores')
-    print(f'{"stability":>10} {"n":>6} {"keep":>8}')
+    print(f'{"stability":>10} {"contested":>11} {"n":>6} {"keep":>8}')
     allk = []
-    for stab in sorted(keep):
-        v = keep[stab]; allk += v
-        print(f'{stab:>10} {len(v):>6} {statistics.fmean(v):>8.3f}')
+    for key in sorted(keep):
+        v = keep[key]; allk += v
+        stab, con = key
+        print(f'{stab:>10} {con!s:>11} {len(v):>6} {statistics.fmean(v):>8.3f}')
     if allk:
-        print(f'{"all":>10} {len(allk):>6} {statistics.fmean(allk):>8.3f}')
+        print(f'{"all":>10} {"":>11} {len(allk):>6} {statistics.fmean(allk):>8.3f}')
         print('  This is the flip discount: the share of a battleground\'s value that')
         print('  survives to be scored. wipe_risk models one component of it.')
     print('\n  Not a strength measurement. It says how often reach becomes control,')

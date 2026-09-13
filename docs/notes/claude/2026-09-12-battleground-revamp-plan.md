@@ -94,8 +94,46 @@ put it at 54% by taking `scoring_schedule`'s `turns == 0` as immediate --
 that is THIS CYCLE, and it fuses buckets 1 and 2 exactly as
 `2026-09-12-value-times-probability-times-discount.md` warned. The two are
 separable because SCORING CARDS CANNOT BE HELD past end of turn, so a card
-in either hand fires now: `p_this_turn` is 1 if we hold it and
-`p_opponent_holds` if we do not.
+in either hand fires now: `p_this_turn` is `p_opponent_holds` if they might
+hold it, and **close to 1, not 1**, if we do.
+
+Not 1, because four cards take a scoring card out of a hand without it
+scoring for its holder:
+
+| card | who picks | how |
+| --- | --- | --- |
+| Five Year Plan | chance | USSR randomly discards; a scoring card so discarded does not fire |
+| Terrorism | chance | opponent randomly discards, twice after Iranian Hostage Crisis |
+| Ask Not | the holder | the US may VOLUNTARILY discard one, per FAQ 5.0 |
+| Aldrich Ames Remix | the OPPONENT | USSR sees the US hand and names the card the US must discard |
+
+Aldrich Ames is the maintainer's second point and the sharpest of the four,
+because it is the only one where *the side that loses by the card scoring*
+chooses what goes. The other three are chance or self-inflicted; this one is
+aimed. `events.py` offers `tuple(us_hand)` unfiltered and the handler files
+the pick with `fired=False`, so a scoring card in the US hand is a legal and
+usually correct target. It is also one-sided and late: USSR, 3 Ops, Late War,
+so only a US-held scoring card is exposed to it, and only after the Late War
+deck is in.
+
+Ask Not is the maintainer's point and is a deliberate play rather than an
+accident. `events.py` includes scoring cards in its choices on purpose,
+quoting FAQ 5.0 -- *"The illegal act would be holding the scoring card. If a
+player can find a way to force himself to discard a scoring card, he is free
+to do so"* -- and records that dumping one which would score for the opponent
+is among the strongest things the card does.
+
+`cards.json` said the opposite ("non-scoring hand cards") and that summary is
+fed to the LLM bot's prompt, so the bot was being told it could not make the
+card's best play. Corrected.
+
+Grain Sales is the near miss and belongs in a different term: the card still
+scores, but the OPPONENT plays it.
+
+So `p_this_turn` for a card we hold is one minus the chance one of those
+four fires on it this turn. Small, and worth carrying rather than rounding
+away, because the cards that break it are exactly the ones a strong player
+aims at a scoring card on purpose.
 
 **This is where retention belongs, and only here.** If the region scores this
 turn you hold it now and no flip risk applies; everything else must survive
