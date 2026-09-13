@@ -714,6 +714,19 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     core = verdict([seed_scores(report.get('games', [])) for _, report in samples],
                    nuclear, total)
     assert core == ok, ('acceptance and verdict disagree: %s vs %s' % (ok, core), lines)
+    # 4. **A stalled sample is not a sample.** A game that hangs is not a
+    #    neutral result: how long a game runs depends on the candidate and the
+    #    position, so dropping it censors exactly the games most likely to
+    #    differ. Curtailment by --decide is different -- the rest provably
+    #    cannot change the verdict -- and is not vetoed. Reports written before
+    #    stop_reason existed carry no field and are judged as before.
+    for label, report in samples:
+        summary = report.get('summary', {})
+        if summary.get('stop_reason') == 'stalled':
+            ok = False
+            lines.append(f"  FAIL completeness: {label} stalled after {summary.get('finished_games')} "
+                         f"of {summary.get('planned_games')} games; unfinished "
+                         f"{summary.get('unfinished')}. Replay those games before trusting a verdict.")
     lines.append('ACCEPTED' if ok else 'REJECTED')
     return ok, lines
 
@@ -1040,8 +1053,8 @@ def main(argv=None):
     parser.add_argument('--simulations', type=int, default=24)
     parser.add_argument('--stop-turn', type=int, default=0, help='0 plays the whole game')
     parser.add_argument('--stall-timeout', type=int, default=1200,
-                        help='seconds with no game finishing before abandoning the rest '
-                             'and reporting what completed (0 waits for ever)')
+                        help='seconds with no game finishing before abandoning the rest, '
+                             'reporting what completed and exiting 6 (0 waits for ever)')
     parser.add_argument('--report', help='write per-game records and the summary here')
     parser.add_argument('--log-dir', help='write each game\'s INFO log here as <seed>-<side>.info.log')
     parser.add_argument('--bot-weights', help='strategic weights JSON for --bot only (the opponent keeps defaults)')
@@ -1105,6 +1118,11 @@ def main(argv=None):
                  for index, seed in enumerate(row) if seed is not None]
     if args.openings and args.vary_openings:
         parser.error('--openings pins the books and --vary-openings moves them; pick one')
+    if args.stall_timeout < 0:
+        parser.error('--stall-timeout is seconds, and 0 means wait for ever')
+    # `results.next(timeout=0)` polls and returns at once, so the documented
+    # "0 waits for ever" used to report a stall on the first poll (audit F4).
+    stall_timeout = args.stall_timeout or None
     books = parse_openings(args.openings) if args.openings else None
     jobs = [(args.bot, args.opponent, seed, side, args.simulations, args.stop_turn,
              args.log_dir, args.bot_weights, books or args.vary_openings)
@@ -1114,6 +1132,7 @@ def main(argv=None):
     start = time.time()
     games = []
     stopped = None
+    stop_reason = None   # None: every game played; 'decided': --decide; 'stalled'
     with Pool(args.workers) as pool:
         results = pool.imap_unordered(play, jobs, chunksize=1)
         while True:
@@ -1136,12 +1155,13 @@ def main(argv=None):
             # something is completing. On a timeout, take what we have: 511
             # games is a result, and an unbounded wait is not.
             try:
-                game = results.next(timeout=args.stall_timeout)
+                game = results.next(timeout=stall_timeout)
             except multiprocessing.TimeoutError:
                 print(f'STALLED: no game finished in {args.stall_timeout}s. '
                       f'Abandoning the remaining {len(jobs) - len(games)} and '
                       f'reporting the {len(games)} that did.', file=sys.stderr, flush=True)
                 stopped = len(games)
+                stop_reason = 'stalled'
                 pool.terminate()
                 break
             except StopIteration:
@@ -1152,6 +1172,7 @@ def main(argv=None):
                   f"{game['reason'] or '...'} {game['seconds']}s", file=sys.stderr, flush=True)
             if args.decide and held and _decided(games, sample_of, planned):
                 stopped = len(games)
+                stop_reason = 'decided'
                 print(f'decided after {stopped} of {len(jobs)} games; '
                       f'the rest cannot change the verdict', file=sys.stderr, flush=True)
                 pool.terminate()
@@ -1173,11 +1194,31 @@ def main(argv=None):
     if stopped is not None:
         summary['stopped_after'] = stopped
         summary['planned_games'] = len(jobs)
+    summary['stop_reason'] = stop_reason
     print(json.dumps(summary))
-    for path, subset in reports:
-        if path:
-            with open(path, 'w') as f:
-                json.dump(dict(summary=summarize(subset, args.stop_turn), games=subset), f, indent=1)
+    # What each saved report is a sample OF. These used to live only in the
+    # stdout summary: the saved reports were rebuilt from their games alone, so
+    # a run that stalled wrote a report indistinguishable from a complete one,
+    # and acceptance judged it as if it were (audit F4 -- it happened on two
+    # gate-ladder rungs on 2026-09-12, 255 of 256 games, silently).
+    done = {(g['seed'], g['bot_side']) for g in games}
+    for index, (path, subset) in enumerate(reports):
+        if not path:
+            continue
+        mine = [(seed, side) for _, _, seed, side, *_ in jobs if sample_of.get(seed) == index]
+        report_summary = summarize(subset, args.stop_turn) if subset else {}
+        report_summary.update(
+            stop_reason=stop_reason, planned_games=len(mine), finished_games=len(subset),
+            unfinished=[[seed, side] for seed, side in mine if (seed, side) not in done],
+            bot=args.bot, opponent=args.opponent, bot_weights=args.bot_weights,
+            openings=args.openings, vary_openings=args.vary_openings)
+        with open(path, 'w') as f:
+            json.dump(dict(summary=report_summary, games=subset), f, indent=1)
+    if stop_reason == 'stalled':
+        # A distinct status, after the partial reports are safely written:
+        # a stall is neither a verdict nor a crash, and a caller that treats
+        # every nonzero as "crashed" would hide which one it was.
+        return 6
 
 
 if __name__ == '__main__':

@@ -278,31 +278,66 @@ else
   "$ROOT/.venv/bin/ruff" check --statistics src tests scripts 2>&1 | tail -1 | sed 's/^/  ruff: /' || true
 fi
 sample_machine
-echo "== 2. turn-3 checkpoint vs $BASE"
-$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3
+# Both arms on the same books, iran/austria unless GATE_OPENINGS says
+# otherwise (empty: each revision's own default). A base from before the
+# opening books cannot be given one; it plays its default, and the gate says
+# so rather than refusing. See the OPENINGS comment at step 3.
+OPENINGS_ARG=()
+GATE_BOOKS=${GATE_OPENINGS-US=iran,USSR=austria}
+if [ -n "$GATE_BOOKS" ]; then
+  if grep -q "^DEFAULT_OPENINGS" "$OUT/base/strategic/policy.py" 2>/dev/null; then
+    OPENINGS_ARG=(--openings "$GATE_BOOKS")
+  else
+    echo "note: base $BASE predates the opening books; each side plays its own default"
+  fi
+fi
+echo "== 2. turn-3 checkpoint vs $BASE (openings: ${OPENINGS_ARG[1]:-each revision default})"
+T3_EXIT=0
+$PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" --seeds "$SEEDS" --workers "$WORKERS" --stop-turn 3 "${OPENINGS_ARG[@]}" --report "$OUT/t3-vs-base.json" 2>"$OUT/t3.err" | summ t3 \
+  || T3_EXIT=$?
+# A diagnostic: a stall here is reported and the gate goes on; anything else ends it.
+if [ "$T3_EXIT" = "6" ]; then
+  echo "  STALLED in the turn-3 checkpoint (a diagnostic; the verdict is step 3's)"
+elif [ "$T3_EXIT" != "0" ]; then
+  exit "$T3_EXIT"
+fi
 sample_machine
 echo "== 3. full games vs $BASE, tuning seeds $SEEDS and held-out $HELD"
 # One pool over both samples, not two runs. Two pools drained in sequence pay
 # the slowest game's tail twice, and --decide can only stop a run that has
 # played some of each sample. GATE_DECIDE=0 plays every game regardless.
 DECIDE=$([ "${GATE_DECIDE:-1}" = "1" ] && echo --decide || echo)
-# --vary-openings: each seed gets one of the nine opening-book pairs, the
-# same pair for both arms, so it cancels from the difference exactly as the
-# deal does. Measured at 32 seeds to cost no precision (se 0.0524 varied
-# against 0.0591 fixed). Scores from before this landed are not directly
-# comparable with scores after, though the verdict logic is unchanged.
+# OPENINGS: iran/austria for both arms, by default, since 2026-09-13.
 #
-# GATE_VARY=0 turns it off, and there are two reasons to:
-#   1. A baseline older than the opening books cannot be given one, and
-#      `build` refuses rather than silently starting the arms from
-#      different boards. Baselines before v0.2.0 need GATE_VARY=0.
-#   2. **A change to the *default* opening is invisible with this on**,
-#      because varying overrides both arms' defaults. Measuring one means
-#      turning this off, so that each side plays the book it ships with.
-VARY=$([ "${GATE_VARY:-1}" = "1" ] && echo --vary-openings || echo)
+# The gate used to rotate the nine opening-book pairs by seed (--vary-openings)
+# while the drift canary played each bot's own default book. The two protocols
+# then disagreed about the same commit by fifteen points: the 2026-09-12 drift
+# bisect found 9b90ef0 eight points WEAKER than 05b6690, the gate ladder on the
+# rotation found it seven points STRONGER
+# (docs/notes/claude/2026-09-13-overnight-readings.md). The maintainer's call
+# was to measure on the default books, iran (US) and austria (USSR), and make
+# that the default everywhere. OPENINGS_ARG is set above step 2.
+#
+# GATE_VARY=1 restores the rotation (--vary-openings), which a change to the
+# book set itself still wants. It was measured at 32 seeds to cost no
+# precision (se 0.0524 varied against 0.0591 fixed); it is not the default
+# because it answers a different question from the one the drift canary asks.
+VARY=$([ "${GATE_VARY:-0}" = "1" ] && echo --vary-openings || echo)
+[ -n "$VARY" ] && OPENINGS_ARG=()
+# A stall exits 6 after writing its partial reports. Let acceptance see them
+# -- it rejects a stalled sample -- instead of letting `set -e` end the gate
+# here with a status that reads like any other failure (audit F4).
+FULL_EXIT=0
 $PY -m struggler.bots.benchmark --bot strategic --opponent "strategic@$OUT/base/strategic/policy.py" \
-   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE $VARY \
-   --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full
+   --seeds "$SEEDS" --held-seeds "$HELD" --workers "$WORKERS" $DECIDE $VARY "${OPENINGS_ARG[@]}" \
+   --report "$OUT/full-vs-base.json" --held-report "$OUT/full-vs-held.json" 2>"$OUT/full.err" | summ full \
+   || FULL_EXIT=$?
+if [ "$FULL_EXIT" = "6" ]; then
+  echo "  STALLED: a game never finished; the partial reports go to acceptance, which rejects them."
+  grep -m1 STALLED "$OUT/full.err" | sed 's/^/  /' || true
+elif [ "$FULL_EXIT" != "0" ]; then
+  exit "$FULL_EXIT"
+fi
 sample_machine
 echo "== 3b. cards, by what the bot chose to do with them (advisory)"
 # Revealed preference: which cards each side pays to *event* rather than

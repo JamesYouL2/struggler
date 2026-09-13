@@ -55,17 +55,39 @@ trap 'git worktree remove --force "$SNAP"' EXIT
 cd "$SNAP"
 export PYTHONPATH=src
 
-# No --vary-openings: an anchor from before the opening books cannot be given
-# one, and falling back would start the two arms from *different* boards.
+# OPENINGS: iran/austria for both arms, passed explicitly (DRIFT_OPENINGS
+# overrides; empty means each side plays its own revision's default). Every
+# anchor since 3955b3e defaults to exactly these, so this changes nothing for
+# them -- but it stops a future default change from silently starting the two
+# arms from different boards. An anchor from before the opening books cannot
+# be given one; it plays its own default, and says so. No --vary-openings:
+# the rotation is the gate's GATE_VARY=1, not the canary's question.
+opening_args() {  # opening_args <snapshot-dir>: prints the flag, or nothing
+  local books=${DRIFT_OPENINGS-US=iran,USSR=austria}
+  [ -n "$books" ] || return 0
+  if grep -q "^DEFAULT_OPENINGS" "$1/strategic/policy.py" 2>/dev/null; then
+    printf -- '--openings %s' "$books"
+  else
+    echo "note: anchor predates the opening books; each side plays its own default" >&2
+  fi
+}
+OPENINGS_FLAG=$(opening_args "$OUT/old")
+echo "  openings: ${OPENINGS_FLAG:-each revision plays its own default}"
 sample_machine
+BENCH=0
+# shellcheck disable=SC2086  # OPENINGS_FLAG is two words or none, by design
 $PY -m struggler.bots.benchmark --bot strategic \
     --opponent "strategic@$OUT/old/strategic/policy.py" \
-    --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/report.json" \
-    2>"$OUT/drift.err" >/dev/null || {
-      echo "DRIFT CHECK FAILED: the benchmark crashed. stderr:" >&2
-      tail -n 20 "$OUT/drift.err" >&2
-      exit 3
-    }
+    --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/report.json" $OPENINGS_FLAG \
+    2>"$OUT/drift.err" >/dev/null || BENCH=$?
+# 6 is a stall: the partial report is written and the reading below still
+# prints, but the exit status says the sample is incomplete (audit F4). Any
+# other nonzero is a crash.
+if [ "$BENCH" != "0" ] && [ "$BENCH" != "6" ]; then
+  echo "DRIFT CHECK FAILED: the benchmark crashed. stderr:" >&2
+  tail -n 20 "$OUT/drift.err" >&2
+  exit 3
+fi
 sample_machine
 
 STATUS=0
@@ -92,6 +114,11 @@ if upper < 0.500:
 print(f"  ok: upper bound {upper:.3f} reaches 0.500 -- no measurable drift.")
 PYEND
 
+if [ "$BENCH" = "6" ]; then
+  echo "  STALLED: a game never finished; this reading is over an incomplete sample." >&2
+  grep -m1 STALLED "$OUT/drift.err" >&2 || true
+  STATUS=6
+fi
 TOOK=$(( $(date +%s) - STARTED ))
 echo "  took $(( TOOK / 60 ))m$(( TOOK % 60 ))s"
 echo "  contention: $(contention_verdict "$WORKERS")"

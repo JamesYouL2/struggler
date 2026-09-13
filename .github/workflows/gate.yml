@@ -41,6 +41,11 @@ on:
       decide:
         description: "Early stopping: '1' curtails once decided, '0' plays every game"
         default: '1'
+      # Books: '0' (default) plays iran/austria for both arms; '1' rotates the
+      # nine book pairs by seed. See the OPENINGS comment in scripts/gate.sh.
+      vary:
+        description: "Opening books: '0' iran/austria for both arms, '1' rotate the nine pairs by seed"
+        default: '0'
   pull_request:
     # Only when the bot actually changed. `gate.sh` says it itself: if
     # BASE..HEAD touches no file under src/struggler/bots, both sides play
@@ -107,6 +112,7 @@ jobs:
       - name: gate against ${{ steps.base.outputs.ref }}
         env:
           GATE_DECIDE: ${{ github.event.inputs.decide || '1' }}
+          GATE_VARY: ${{ github.event.inputs.vary || '0' }}
         run: |
           set -o pipefail
           scripts/gate.sh "${{ steps.base.outputs.ref }}" \
