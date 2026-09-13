@@ -1592,7 +1592,10 @@ class StrategicPlayer:
                     outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
                 # Keep the original addition order (and floating-point ties).
                 total += outcomes[margin]
-        return total * self.weights.coup_discount
+        # EXPERIMENT (experiment/coup-discount-coups-only): every coup keeps the
+        # discount and realignments lose it, isolating the realignment half of
+        # the 0.473 the full deletion measured.
+        return total
 
     def _public_event_value(self, obs: Observation, cid: str) -> float:
         """Simulate a whitelisted event in an idle sandbox and value the change.
