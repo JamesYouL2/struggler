@@ -22,7 +22,6 @@ import argparse
 import dataclasses
 import gzip
 import json
-import statistics
 import time
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
