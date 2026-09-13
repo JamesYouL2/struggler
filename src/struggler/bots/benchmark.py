@@ -474,16 +474,39 @@ ACCEPTANCE = dict(
 )
 
 
-def seed_scores(games) -> dict[int, float]:
-    """Each seed's mean result. Both seats of one seed play the same deal from
-    the same shuffle, so they are one observation and not two; counting them
-    separately understates the spread and makes every result look
-    significant."""
-    by_seed: dict[int, list] = {}
+def complete_pairs(games) -> dict[int, list]:
+    """The seeds that are one observation: exactly one finished US game and
+    one finished USSR game, keyed by seed.
+
+    The ONE definition of a complete pair, for stopping, statistics, evidence
+    counts and acceptance alike (Codex audit F3). They used to differ: early
+    stopping counted a seed once both of its rows were in -- any two rows, so
+    two US games qualified -- while `seed_scores` and `acceptance` averaged
+    whatever finished, singletons included. So a run could stop on a
+    prediction about one statistic and then be judged on another: 75 tied
+    pairs plus 10 one-seat losses predicted ACCEPT and were rejected. Games
+    outside a complete pair are excluded everywhere, and `acceptance` says so.
+    """
+    by_seed: dict[int, dict[str, dict]] = {}
+    duplicated: set[int] = set()
     for game in games:
-        if game.get('finished') and game.get('result') is not None:
-            by_seed.setdefault(game['seed'], []).append(game['result'])
-    return {seed: statistics.fmean(results) for seed, results in by_seed.items()}
+        if not game.get('finished') or game.get('result') is None:
+            continue
+        seats = by_seed.setdefault(game['seed'], {})
+        if game['bot_side'] in seats:
+            duplicated.add(game['seed'])
+        seats[game['bot_side']] = game
+    return {seed: [seats['US'], seats['USSR']] for seed, seats in by_seed.items()
+            if seed not in duplicated and set(seats) == {'US', 'USSR'}}
+
+
+def seed_scores(games) -> dict[int, float]:
+    """Each complete seed's mean result. Both seats of one seed play the same
+    deal from the same shuffle, so they are one observation and not two;
+    counting them separately understates the spread and makes every result
+    look significant. Only complete pairs count (`complete_pairs`)."""
+    return {seed: statistics.fmean(g['result'] for g in rows)
+            for seed, rows in complete_pairs(games).items()}
 
 
 def nuclear_cap(total_games: int) -> int:
@@ -644,10 +667,17 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     total = nuclear = 0
     nuclear_seeds: list[tuple] = []
     for label, report in samples:
-        games = report.get('games', [])
+        every = report.get('games', [])
         summary = report.get('summary', {})
+        pairs = complete_pairs(every)
+        games = [g for rows in pairs.values() for g in rows]
         scores = seed_scores(games)
-        total += sum(1 for g in games if g.get('finished'))
+        excluded = [g for g in every if g.get('finished') and g['seed'] not in pairs]
+        if excluded:
+            lines.append(f"  note {label}: {len(excluded)} finished game"
+                         f"{'s' if len(excluded) > 1 else ''} outside a complete US+USSR pair "
+                         f"excluded (seeds {sorted({g['seed'] for g in excluded})[:8]})")
+        total += len(games)
         losses = [g for g in games if candidate_nuclear_loss(g)]
         nuclear += len(losses)
         nuclear_seeds += [(g['seed'], g['bot_side'], g['turn']) for g in losses]
@@ -656,8 +686,11 @@ def acceptance(samples) -> tuple[bool, list[str]]:
             where = ', '.join(f"seed {g['seed']} {g['bot_side']} T{g['turn']}" for g in forced)
             lines.append(f"  note {label}: opponent lost to DEFCON 1 in {len(forced)} "
                          f"game{'s' if len(forced) > 1 else ''} ({where}); not counted")
+        # A sample with no complete pair has no score to print -- that is an
+        # evidence failure reported below, not a StatisticsError here.
+        mean_text = f'{statistics.fmean(scores.values()):.3f}' if scores else 'none (no complete pair)'
         lines.append(f"  {label}: {len(scores)} seeds, "
-                     f"score {statistics.fmean(scores.values()):.3f}, "
+                     f"score {mean_text}, "
                      f"signed VP {summary.get('mean_signed_vp')}, "
                      f"nuclear losses {summary.get('nuclear_losses', len(losses))}")
         for seed in scores:
@@ -712,7 +745,7 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     # are computed from the same numbers, so a disagreement is a bug in one
     # of them and the gate should not quietly pick a side.
     core = verdict([seed_scores(report.get('games', [])) for _, report in samples],
-                   nuclear, total)
+                   nuclear, total)  # seed_scores keeps complete pairs only, as `total` does
     assert core == ok, ('acceptance and verdict disagree: %s vs %s' % (ok, core), lines)
     # 4. **A stalled sample is not a sample.** A game that hangs is not a
     #    neutral result: how long a game runs depends on the candidate and the
@@ -1025,14 +1058,11 @@ def expert_check(path: str, seed: int, weights=None, out=sys.stdout) -> int:
 def _decided(games, sample_of, planned: dict[int, int]) -> bool:
     """Whether the seeds still to play can change the acceptance verdict.
 
-    A seed counts only once both its seats are in: they share one deal and
-    `seed_scores` averages them, so half a seed is not an observation.
+    A seed counts only once both its seats are in -- one US and one USSR game,
+    the same `complete_pairs` acceptance is judged on, so the stop predicts
+    the statistic that will actually be reported.
     """
-    finished: dict[int, list] = {}
-    for game in games:
-        if game.get('finished') and game.get('result') is not None:
-            finished.setdefault(game['seed'], []).append(game)
-    complete = {seed: rows for seed, rows in finished.items() if len(rows) == 2}
+    complete = complete_pairs(games)
     observed = [(sample_of.get(seed, 0),
                  statistics.fmean(r['result'] for r in rows),
                  sum(1 for r in rows if candidate_nuclear_loss(r)))
