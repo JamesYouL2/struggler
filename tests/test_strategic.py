@@ -1528,3 +1528,44 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
     assert CHINA_HOLD_RAW < 0.2 * one_op, (
         'the charge has become a real price; if that is intended, it needs '
         'the maintainer\'s number for what *playing* China costs and a gate')
+
+
+def test_redundant_routes_are_discounted_by_the_target_s_stability():
+    """The route decay is a function of stability, not one constant.
+
+    `conversion_p` is the measured chance that reaching a country converts
+    into controlling it before its region next scores: 0.406 at stability 1
+    against 0.154 at stability 4 (96 seeds, 3888 opportunities). A redundant
+    route is worth `1 - p` of the one before it, so a battleground that
+    rarely converts loses LESS to redundancy -- the second route into Israel
+    is nearly as good as the first, because neither is likely to land.
+
+    Pinned because the direction is the part that can silently invert, and
+    an inverted sign here reads as a plausible number: `access_decay` was a
+    single constant for its whole life and nothing would have noticed the
+    curve running the wrong way.
+    """
+    from struggler.bots.strategic.evaluator import conversion_p, route_decay
+
+    base = StrategicWeights().access_decay
+    decays = [route_decay(s, base) for s in (1, 2, 3, 4)]
+    assert decays[0] > decays[3], 'redundancy must cost more where reach converts more'
+    assert decays[0] > decays[1] and decays[1] > decays[3]
+    # Stability 2 and 3 were measured as one number (0.303 vs 0.304, standard
+    # errors 0.013 and 0.012), so they must not be forced apart.
+    assert abs(decays[1] - decays[2]) < 0.01
+    # Every decay is still a discount: more routes may never be worth less
+    # than fewer, which is what a base below 1 would do.
+    assert all(d > 1. for d in decays)
+    for routes in (1, 2, 3):
+        weights = [d ** (1 - routes) for d in decays]
+        assert all(0 < w <= 1 for w in weights)
+
+    # And the second route into a stability-4 battleground keeps more of its
+    # value than the second route into a stability-1 one.
+    second = [d ** -1 for d in decays]
+    assert second[3] > second[0]
+
+    # p itself is clamped outside the measured range rather than extrapolated.
+    assert conversion_p(0) == conversion_p(1)
+    assert conversion_p(9) == conversion_p(4)
