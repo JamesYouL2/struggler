@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 """How often does reach become control?
 
-KNOWN DEFECT, F1 in docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md:
-an opportunity resolves when a scoring card is CHOSEN (the action names it),
-not when its region actually scores. A headline Defectors cancels, a card
-discarded, or a higher-Ops headline that moves control first all resolve
-samples at the wrong moment or from a scoring that never happened, and
-Final Scoring resolves nothing. Every figure this prints -- including the
-ones behind CONVERSION_P and the route decay -- is biased by an amount
-nobody has measured. Fix before quoting.
+FIXED 2026-09-12, audit F1 (docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md):
+until then an opportunity resolved when a scoring card was CHOSEN, not when
+its region scored, so a cancelled headline or a discarded card resolved
+samples from a scoring that never happened and Final Scoring resolved
+nothing. It now resolves inside the engine's own scoring (see `Tracker`),
+gated by tests/test_access_conversion.py. Every figure printed BEFORE the
+fix -- including the ones behind CONVERSION_P and the route decay -- came
+from the biased collector.
 
 `access` prices a holding by the uncontrolled battlegrounds it lets a side
 reach, weighted by three guessed constants (`access`, `access_redundant`,
@@ -63,8 +63,8 @@ import multiprocessing
 import statistics
 import sys
 
-from struggler.engine import Engine, Region, Side
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine import Engine, Side
+from struggler.engine.core import Subregion
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.benchmark import parse_seeds
 
@@ -92,75 +92,118 @@ def opportunities(engine, side: Side) -> set[str]:
     return out
 
 
+class Tracker:
+    """Opportunities and holdings on one engine, resolved when a region
+    ACTUALLY scores.
+
+    Resolution hooks the engine's own scoring -- `_score_region_net`, which
+    every scoring card except Southeast Asia and all of Final Scoring go
+    through, and `_score_southeast_asia` -- on this one instance. That is the
+    fix for audit F1: the old collector resolved when an action NAMED a
+    scoring card, so a headline Defectors cancelled resolved samples from a
+    scoring that never happened, a higher-Ops headline that moved control
+    first was not seen, and Final Scoring resolved nothing. The bots' sandbox
+    engines are separate instances and are not hooked.
+
+    Samples are taken at the instant of scoring, before the scorer runs;
+    scoring moves VP, never influence, so control is what gets scored.
+    Southeast Asia scoring resolves Southeast Asia's countries only, because
+    that is all it scores.
+    """
+
+    def __init__(self, engine, horizons: tuple[int, ...] = (1,)):
+        self.engine, self.horizons = engine, horizons
+        # (horizon, side, country) -> scorings of its region still to wait for.
+        self.live: dict[tuple[int, Side, str], int] = {}
+        self.holding: dict[tuple[int, Side, str], int] = {}
+        self.contested: dict[tuple[int, Side, str], bool] = {}
+        self.reach: dict[tuple[int, int], list[bool]] = collections.defaultdict(list)
+        self.keep: dict[tuple[int, int, bool], list[bool]] = collections.defaultdict(list)
+        score_region, score_sea = engine._score_region_net, engine._score_southeast_asia
+        countries = engine.board.countries
+
+        def region_net(region):
+            self._resolve(lambda cid: countries[cid].region is region)
+            return score_region(region)
+
+        def southeast_asia():
+            self._resolve(lambda cid: Subregion.SOUTHEAST_ASIA in countries[cid].subregions)
+            return score_sea()
+
+        engine._score_region_net = region_net
+        engine._score_southeast_asia = southeast_asia
+
+    def open(self) -> None:
+        """Open this turn's opportunities and holdings."""
+        engine = self.engine
+        for s in SIDES:
+            opps, holds = opportunities(engine, s), held(engine, s)
+            foe = Side.US if s is Side.USSR else Side.USSR
+            for h in self.horizons:
+                for cid in opps:
+                    self.live.setdefault((h, s, cid), h)
+                for cid in holds:
+                    if (h, s, cid) not in self.holding:
+                        self.holding[(h, s, cid)] = h
+                        self.contested[(h, s, cid)] = engine.board.is_reachable(foe, cid)
+
+    def _resolve(self, in_scope) -> None:
+        # A scoring is happening now: everything in it moves one scoring
+        # closer, and whatever has none left is decided.
+        board = self.engine.board
+        for key, left in list(self.live.items()):
+            h, s, cid = key
+            if not in_scope(cid):
+                continue
+            if left > 1:
+                self.live[key] = left - 1
+                continue
+            self.reach[(h, board.countries[cid].stability)].append(board.control(cid) is s)
+            del self.live[key]
+        for key, left in list(self.holding.items()):
+            h, s, cid = key
+            if not in_scope(cid):
+                continue
+            if left > 1:
+                self.holding[key] = left - 1
+                continue
+            # Split by whether the OPPONENT could reach it when we took it.
+            # Stability alone cannot say why a stability-4 battleground is a
+            # bad hold: the maintainer's reason for Israel is "the US takes
+            # Egypt first", which is contest, not cost.
+            self.keep[(h, board.countries[cid].stability, self.contested.get(key, False))].append(
+                board.control(cid) is s)
+            del self.holding[key]
+            self.contested.pop(key, None)
+
+    def result(self) -> dict:
+        stab = self.engine.board.countries
+        return dict(
+            reach=dict(self.reach), keep=dict(self.keep),
+            censored_reach=dict(collections.Counter((h, stab[c].stability) for h, _, c in self.live)),
+            censored_keep=dict(collections.Counter((h, stab[c].stability) for h, _, c in self.holding)))
+
+
 def play(seed: int, horizons: tuple[int, ...] = (1,)) -> dict:
     """One self-play game. Returns plain counts keyed by horizon, so games
     can run in separate processes and merge."""
     engine = Engine.new_game(seed=seed, setup_bonus=True)
+    tracker = Tracker(engine, horizons)
     bots = {s: StrategicPlayer() for s in SIDES}
-    # (horizon, side, country) -> scorings of its region still to wait for.
-    live: dict[tuple[int, Side, str], int] = {}
-    holding: dict[tuple[int, Side, str], int] = {}
-    contested: dict[tuple[int, Side, str], bool] = {}
-    reach: dict[tuple[int, int], list[bool]] = collections.defaultdict(list)
-    keep: dict[tuple[int, int, bool], list[bool]] = collections.defaultdict(list)
     seen_turn = -1
     steps = 0
     while not engine.is_terminal and steps < 20000:
         steps += 1
         if engine.turn != seen_turn:
             seen_turn = engine.turn
-            for s in SIDES:
-                opps, holds = opportunities(engine, s), held(engine, s)
-                foe = Side.US if s is Side.USSR else Side.USSR
-                for h in horizons:
-                    for cid in opps:
-                        live.setdefault((h, s, cid), h)
-                    for cid in holds:
-                        if (h, s, cid) not in holding:
-                            holding[(h, s, cid)] = h
-                            contested[(h, s, cid)] = engine.board.is_reachable(foe, cid)
+            tracker.open()
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             action = d.options[0]
         else:
             action = bots[d.actor].choose_action(engine.observe(d.actor), [])
-        region = SCORING_CARD_REGION.get((action.payload or {}).get('card') or '')
         engine.step(action)
-        if region is None:
-            continue
-        # The region just scored: every live opportunity in it moves one
-        # scoring closer, and those with none left are decided.
-        for key, left in list(live.items()):
-            h, s, cid = key
-            if engine.board.countries[cid].region is not region:
-                continue
-            if left > 1:
-                live[key] = left - 1
-                continue
-            reach[(h, engine.board.countries[cid].stability)].append(
-                engine.board.control(cid) is s)
-            del live[key]
-        for key, left in list(holding.items()):
-            h, s, cid = key
-            if engine.board.countries[cid].region is not region:
-                continue
-            if left > 1:
-                holding[key] = left - 1
-                continue
-            info = engine.board.countries[cid]
-            # Split by whether the OPPONENT could reach it when we took it.
-            # Stability alone cannot say why a stability-4 battleground is a
-            # bad hold: the maintainer's reason for Israel is "the US takes
-            # Egypt first", which is contest, not cost.
-            keep[(h, info.stability, contested.get(key, False))].append(
-                engine.board.control(cid) is s)
-            del holding[key]
-            contested.pop(key, None)
-    stab = engine.board.countries
-    censored_reach = collections.Counter((h, stab[cid].stability) for h, _, cid in live)
-    censored_keep = collections.Counter((h, stab[cid].stability) for h, _, cid in holding)
-    return dict(reach=dict(reach), keep=dict(keep),
-                censored_reach=dict(censored_reach), censored_keep=dict(censored_keep))
+    return tracker.result()
 
 
 def main(argv=None) -> int:
@@ -180,7 +223,7 @@ def main(argv=None) -> int:
     seeds = parse_seeds(args.seeds)
     job = functools.partial(play, horizons=horizons)
     with multiprocessing.Pool(args.workers) as pool:
-        for i, (seed, out) in enumerate(zip(seeds, pool.imap(job, seeds)), 1):
+        for i, (seed, out) in enumerate(zip(seeds, pool.imap(job, seeds), strict=True), 1):
             for k, v in out['reach'].items():
                 reach[k] += v
             for k, v in out['keep'].items():
@@ -218,7 +261,7 @@ def main(argv=None) -> int:
                 print('  That is the geometric form of P(control) = 1 - (1-p)^k.')
         cens = {s: n for (hh, s), n in sorted(censored_reach.items()) if hh == h}
         print(f'  censored (still waiting at game end), by stability: {cens}')
-        print(f'\nretention -> still controlled when the region next scores')
+        print('\nretention -> still controlled when the region next scores')
         print(f'{"stability":>10} {"contested":>11} {"n":>6} {"keep":>8}')
         allk = []
         for key in sorted(k for k in keep if k[0] == h):

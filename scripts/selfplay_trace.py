@@ -164,7 +164,10 @@ def run(args) -> int:
 
 
 def compare(a_path: str, b_path: str) -> int:
-    a, b = (json.load(open(p)) for p in (a_path, b_path))
+    def load(path):
+        with open(path) as f:
+            return json.load(f)
+    a, b = load(a_path), load(b_path)
     ga = {g['seed']: g for g in a['games'] if g.get('finished')}
     gb = {g['seed']: g for g in b['games'] if g.get('finished')}
     both = sorted(ga.keys() & gb.keys())
