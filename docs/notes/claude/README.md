@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Handoff, 2026-09-13 morning — where everything is, and how to finish it](2026-09-13-handoff-morning.md) — 2026-09-13
 - [The China phantom's five points live in the reply budget](2026-09-13-the-china-phantom-lives-in-the-reply-budget.md) — 2026-09-13 (sets up the reply-model 4 and 5 gates)
 - [Handoff, 2026-09-13 — written for Codex, for a second viewpoint](2026-09-13-handoff-for-codex.md) — 2026-09-13
 - [The Voice of America should be evented almost always](2026-09-13-voice-of-america-should-be-evented.md) — 2026-09-13
