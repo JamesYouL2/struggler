@@ -69,8 +69,8 @@ def cards_in_play(engine: Engine) -> Counter:
     for _side, cid in engine._headline_pending:
         c.update([cid])
     # Our Man in Tehran's peeked-but-undecided cards live here mid-resolution;
-    # they are deliberately excluded from observe() (mandate #4) but must
-    # still be accounted for exactly once.
+    # only observe(US) shows them (mandate #4), and they must still be
+    # accounted for exactly once.
     c.update(engine._our_man_queue)
     c.update(engine._our_man_kept)
     c.update(engine.hidden_pool)

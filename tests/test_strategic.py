@@ -1297,6 +1297,30 @@ def test_hand_events_that_cannot_occur_are_worth_nothing():
         assert _value_from(engine, Side.US, cid) == 0.0, cid
 
 
+@pytest.mark.parametrize('shown,expected', [('Fidel', 'remove'), ('Marshall_Plan', 'keep')])
+def test_our_man_in_tehran_discards_what_helps_the_ussr_and_keeps_what_helps_the_us(shown, expected):
+    """Codex audit F6: the engine did not show the US the examined card, so
+    keep and remove both scored 0 and every card was kept by option order.
+    Now the choice reads the card, through `tehran_discard_gain` -- the rule
+    the event's own price averages: a Soviet event is worth discarding, a US
+    one is left for someone to draw."""
+    engine = _star_wars_engine(us_ahead=False)
+    engine._decision_stack.clear()
+    engine.board.influence['Israel'] = {'US': 4, 'USSR': 0}
+    engine.draw_pile = [shown]
+    engine._fire_event(Side.US, 'Our_Man_In_Tehran')
+    obs = engine.observe(Side.US)
+    assert obs.examined_cards == (shown,)
+
+    bot = StrategicPlayer()
+    scores = {a.payload['choice']: k[-1] for k, a in bot.rank_actions(obs)}
+    if expected == 'remove':
+        assert scores['remove'] > scores['keep'], scores
+    else:
+        assert scores['remove'] <= scores['keep'], scores
+    assert bot.choose_action(obs, []).payload['choice'] == expected
+
+
 @pytest.mark.parametrize('event,ops,countries,allow_realign', [
     ('Tear_Down_This_Wall', 3, ['Angola', 'South_Africa', 'Zaire'], True),
     ('Junta', 2, ['Cuba', 'Nicaragua', 'Panama'], True),

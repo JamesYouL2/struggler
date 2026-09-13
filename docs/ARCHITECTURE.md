@@ -77,6 +77,13 @@ must never leak:
 `observe(Side.USSR)` are different objects, not the same object with a
 "redact" flag.
 
+Hiding is not the only way to get this wrong: a card an event shows one
+seat must reach that seat. Our Man in Tehran shows the US the top of the
+draw pile, which `observe(Side.US)` carries as
+`Observation.examined_cards` and `observe(Side.USSR)` does not. It is not
+put on the pending `Decision`, because both seats are handed the same one
+and the shared history is built from it.
+
 The headline phase is the worked example. Each side's secret pick
 (`Engine._headline`) is never exposed while the other side is still
 choosing. Once both are chosen the cards are revealed simultaneously and

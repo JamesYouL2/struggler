@@ -50,7 +50,7 @@ def information_key(obs):
             tuple(obs.discard_pile), tuple(obs.removed_cards), obs.china_card_owner,
             obs.china_card_available, _freeze(obs.space_race), _freeze(obs.space_race_attempts),
             _freeze(obs.military_ops), _freeze(obs.turn_effects), _freeze(obs.game_effects),
-            tuple(obs.headline_pending))
+            tuple(obs.headline_pending), tuple(obs.examined_cards))
 
 
 class ImmediatePlanner(DefconPlanner):

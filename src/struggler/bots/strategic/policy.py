@@ -1954,6 +1954,27 @@ class StrategicPlayer:
         ranked = sorted(values, reverse=True)
         return ranked[min(len(ranked) - 1, len(ranked) // (max(1, n) + 1))]
 
+    def tehran_discard_gain(self, obs: Observation, cid: str) -> float:
+        """What the US gains by discarding `cid` off the top of the draw pile
+        under Our Man in Tehran, never below zero: a card nobody draws.
+
+        One rule for both places that ask it -- the event's price averages it
+        over the unseen cards, and the keep/remove choice reads it for the
+        card the US was shown -- so the choice does what the price assumed.
+        A scoring card is exact: it scores the same region whoever draws it.
+        A Soviet event is the generic estimate of its harm, halved for the
+        seat that would have drawn it. Anything else the US is happy to leave.
+        """
+        card = CARDS[cid]
+        if card.scoring:
+            value = self.hold_value(obs, cid)
+            harm = -(value if obs.side is Side.US else -value)
+        elif card.side.value == 'USSR':
+            harm = 0.5 * 0.8 * self.ops_value(obs, card.ops)
+        else:
+            harm = 0.
+        return max(0., harm)
+
     def _hand_attack_value(self, obs: Observation, cid: str) -> float | None:
         """The hidden-information cards that take, discard or reveal cards,
         priced by what the cards involved are worth to whoever holds them.
@@ -1972,7 +1993,6 @@ class StrategicPlayer:
         Missile Envy against a hand of 4s is short by a factor of five.
         """
         me = obs.side
-        card = CARDS[cid]
         player = me  # event_value is asked for a card we hold, so we would be playing it
         own_hand = [c for c in obs.hand if c != cid]
 
@@ -2095,18 +2115,8 @@ class StrategicPlayer:
             # halved for the seat that would have drawn it. Every other card
             # is a card the US is happy to leave. Rarely large, as the expert
             # says, unless the pile is holding a Lone Gunman or a bad scoring.
-            harms = []
-            for card in CARDS.values():
-                if card_state(obs, card.id) != 'unseen':
-                    continue
-                if card.scoring:
-                    value = self.hold_value(obs, card.id)
-                    harm = -(value if me is Side.US else -value)
-                elif card.side.value == 'USSR':
-                    harm = 0.5 * 0.8 * self.ops_value(obs, card.ops)
-                else:
-                    harm = 0.
-                harms.append(max(0., harm))
+            harms = [self.tehran_discard_gain(obs, card.id) for card in CARDS.values()
+                     if card_state(obs, card.id) == 'unseen']
             gain = 5 * sum(harms) / len(harms) if harms else 0.
             return seat(gain, Side.US)
 
@@ -2711,6 +2721,16 @@ class StrategicPlayer:
             if choice == 'none':
                 return 0.
             return self.event_value(obs, choice)
+        if event == 'Our_Man_In_Tehran' and obs.examined_cards:
+            # Keep or discard the card the US was shown (the first examined
+            # card is the one this choice is about). Both options used to
+            # score 0 and "keep" won by option order, because the card was
+            # hidden from the US too (Codex audit F6). Keep is the baseline:
+            # a discard is taken only when it gains the US something, which
+            # is the same rule the event's own price counts on.
+            if choice == 'keep':
+                return 0.
+            return self.tehran_discard_gain(obs, obs.examined_cards[0])
         if event == 'Missile_Envy_pick':
             # Tied on Ops by construction; give up the one worth least to us.
             return -self.hold_value(obs, choice)
