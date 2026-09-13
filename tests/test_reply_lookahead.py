@@ -314,3 +314,52 @@ def test_the_reply_is_off_at_reply_model_zero():
     bot.prepare(obs)
     raw = bot.delta(obs, 'Lebanon', own=3)
     assert bot._after_reply(obs, 'Lebanon', 3, raw) == raw
+
+
+# -- our Coups and Realignments get the same look-ahead -----------------------
+
+def _zaire_attack(access):
+    """The US attacks a USSR-held Zaire at DEFCON 2 under Nuclear Subs: safe
+    for the US, while a USSR Coup back would be nuclear war for the USSR. So
+    a retake by placement is the only answer, and `access` -- USSR Influence
+    in Angola -- decides whether there is one."""
+    engine = bare_engine()
+    engine.defcon = 2
+    engine.turn_effects['nuclear_subs'] = True
+    engine.board.influence['Zaire']['USSR'] = 1
+    if access:
+        engine.board.influence['Angola']['USSR'] = 1
+    obs = engine.observe(Side.US)
+    on = StrategicPlayer(StrategicWeights())
+    off = StrategicPlayer(dataclasses.replace(StrategicWeights(), reply_model=0.))
+    for bot in (on, off):
+        bot.prepare(obs)
+    return obs, on, off
+
+
+def test_a_coup_the_opponent_can_retake_is_worth_less_than_one_it_cannot():
+    obs, on, off = _zaire_attack(access=False)
+    assert on.coup(obs, 'Zaire', 1, military=False) == off.coup(obs, 'Zaire', 1, military=False), \
+        'no answer exists, so the look-ahead must leave the coup exactly as priced'
+    obs, on, off = _zaire_attack(access=True)
+    assert on.coup(obs, 'Zaire', 1, military=False) < off.coup(obs, 'Zaire', 1, military=False), \
+        'a coup the USSR retakes for one Op was priced as if it stood'
+
+
+def test_a_realignment_the_opponent_can_retake_is_worth_less_than_one_it_cannot():
+    obs, on, off = _zaire_attack(access=False)
+    assert on.realign(obs, 'Zaire') == off.realign(obs, 'Zaire')
+    obs, on, off = _zaire_attack(access=True)
+    assert on.realign(obs, 'Zaire') < off.realign(obs, 'Zaire')
+
+
+def test_reply_model_zero_prices_coups_and_realignments_by_the_dice_alone():
+    obs, _, off = _zaire_attack(access=True)
+    rolls = rules_math.coup_outcomes(1, 1, 1, 0.)
+    coup = sum(off.delta(obs, 'Zaire', own=gained, opp=-removed) for removed, gained in rolls) / 6
+    assert off.coup(obs, 'Zaire', 1, military=False) == pytest.approx(coup * off.weights.coup_discount)
+    bonus = (rules_math.realignment_bonus(off.board, Side.US, 'Zaire')
+             - rules_math.realignment_bonus(off.board, Side.USSR, 'Zaire'))
+    margins = [int(a - b + bonus) for a in range(1, 7) for b in range(1, 7)]
+    realign = sum(off.delta(obs, 'Zaire', own=min(0, m), opp=-max(0, m)) for m in margins) / 36
+    assert off.realign(obs, 'Zaire') == pytest.approx(realign * off.weights.coup_discount)

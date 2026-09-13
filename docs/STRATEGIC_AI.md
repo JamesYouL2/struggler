@@ -157,11 +157,13 @@ action = bot.choose_action(observation, history)
   tier and the realignment-leverage term were removed in Sept 2026: the
   scoring weights and access express both.
 - Coups and realignments are priced on the same board change as placing
-  influence (`delta`), then multiplied by `coup_discount` (0.9): they are
-  the less Ops-efficient route to the same result (a coup on a
-  2-stability country gives up a point of margin to the roll) and random
-  where placement is certain, so placement is generally preferred.
-  Military Ops are still credited to a coup.
+  influence (`delta`), each roll's or margin's outcome after the
+  opponent's answer to it -- the same one-ply reply look-ahead placements
+  get (`_after_change`): a retake by placement where they reach and can
+  afford it, or a coup back where the rules allow one, and only if they
+  move again before Final Scoring. `coup_discount` multiplies the result;
+  it was 0.9, standing in for that answer, and is 1.0 since the look-ahead
+  prices it, pending the gate. Military Ops are still credited to a coup.
 - VP per Op is the quantity the influence search maximises (`influence`
   returns gain per Op spent, including the doubled cost under enemy
   control), so 1- and 2-stability countries, which reach control for the

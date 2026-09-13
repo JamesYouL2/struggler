@@ -100,9 +100,10 @@
       "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
     },
     "coup_discount": {
-      "value": 0.9,
+      "value": 1.0,
       "source": "guess",
-      "determination": "underdetermined"
+      "determination": "underdetermined",
+      "note": "0.9 until experiment/coup-lookahead, on the maintainer's reading that it stood in for the opponent's answer to a coup. Coups and realignments now get the reply look-ahead per outcome, so the discount is 1.0 pending the gate. Deleting it everywhere without the look-ahead pooled 0.473 [0.442, 0.505]."
     },
     "reply_ops": {
       "value": 2.0,

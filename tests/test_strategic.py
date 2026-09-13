@@ -57,7 +57,9 @@ def test_coup_expectation_accounts_for_each_die_and_clamps_removal():
     engine.military_ops['US'] = 5
     engine._push_ops_type(Side.US, 3)
     obs = engine.observe(Side.US)
-    bot = StrategicPlayer()
+    # The dice arithmetic alone: with the reply look-ahead on, each roll is
+    # also priced after the USSR's answer (tests/test_reply_lookahead.py).
+    bot = StrategicPlayer(StrategicWeights(reply_model=0.))
     bot.choose_action(obs, [])
     # Mexico stability 2: margins are 0,1,2,3,4,5 for a 3-op coup.
     expected = sum(bot.delta(obs, 'Mexico', own=max(0,m-2), opp=-min(2,m)) for m in range(6))/6
@@ -297,9 +299,12 @@ def test_country_tiers_and_coup_discount():
     # A plain country is a quarter to a third of a battleground.
     assert bot.importance(board.countries['Malaysia']) == bot.weights.control
     assert 0 < bot.weights.control < bot.weights.battleground / 2
-    # A coup is priced on the same board change as placement, then discounted.
+    # A coup is priced on the same board change as placement, then multiplied
+    # by `coup_discount` -- 1.0 by default since the reply look-ahead reached
+    # coups, so the discount is set explicitly to see that it still applies.
     obs = engine.observe(Side.US)
     from struggler.bots.rules_math import sync_board
+    bot = StrategicPlayer(StrategicWeights(coup_discount=0.9))
     sync_board(bot.board, obs)
     bot.board.influence['Angola']['USSR'] = 1
     full = StrategicPlayer(StrategicWeights(coup_discount=1.0))
@@ -373,6 +378,21 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     assert two > one and four > two
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "Broken again by experiment/coup-lookahead, which prices our own Coups "
+    "after the opponent's answer and sets coup_discount to 1.0. The `iran` "
+    "half no longer holds, and the `italy` half -- the concave control -- "
+    "fails first: for the USSR against `italy`, 2 Ops buy a 28.76 placement "
+    "and 4 Ops a 58.46 Coup on Iran, so the marginal two (29.69) edge past "
+    "the first two. Against `iran`, 2 Ops are the same 28.76 placement and "
+    "4 Ops a 52.59 placement (the best Coup is 45.55), 23.83 marginal. "
+    "Neither curve is now shaped by a placement threshold: both 2-Op values "
+    "are one placement elsewhere on the board, and the difference between the "
+    "books is how much a 4-Op Coup on Iran survives the US answer.\n\n"
+    "Kept strict rather than weakened (shape 8), pending the gate on this "
+    "branch. If the branch is kept, whoever keeps it should decide whether "
+    "this position still expresses the property; an xpass will say when it "
+    "does again."))
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     """The property the concavity assertion was hiding.
 

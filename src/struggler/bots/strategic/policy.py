@@ -475,10 +475,14 @@ class StrategicWeights:
     # strength, and should not be tuned against results.
     space_ability_8: float = 1.0
     # A coup or realignment is priced on the same board change as placing
-    # influence, then discounted: it is the less Ops-efficient route to the
-    # same result (a coup on a 2-stability country loses a point of margin
-    # to the roll), and it is random where placement is certain.
-    coup_discount: float = 0.9
+    # influence, then multiplied by this. It was 0.9, "the less Ops-efficient
+    # route to the same result, and random where placement is certain" -- but
+    # the rolls already price the randomness, and what a discount on every
+    # coup stood in for was the opponent's answer to it, which placements saw
+    # (`_after_change`) and coups did not. Coups and realignments now get the
+    # same look-ahead per outcome, so this is 1.0 and kept as a field only
+    # until the gate says whether anything is left for it to price.
+    coup_discount: float = 1.0
     # Half-action-round forward search: the Ops the opponent is assumed to
     # answer a placement plan with, or 0 to price the plan as if they never
     # moved. See `_survives_reply` -- a break that does not take control
@@ -1277,7 +1281,16 @@ class StrategicPlayer:
     def _after_reply(self, obs: Observation, cid: str, points: int,
                      raw: float) -> float:
         """`raw` -- what placing `points` in `cid` gains -- after the
-        opponent's cheapest answer to it.
+        opponent's cheapest answer to it: `_after_change` for a placement."""
+        return self._after_change(obs, cid, points, 0, raw)
+
+    def _after_change(self, obs: Observation, cid: str, own: int, opp: int,
+                      raw: float) -> float:
+        """`raw` -- what adding `own` of our Influence and `opp` of theirs to
+        `cid` gains, either possibly negative -- after the opponent's cheapest
+        answer to it. The one implementation of the reply rule: placements
+        (`_after_reply`), and each outcome of our Coups (`coup`, per roll)
+        and Realignments (`realign`, per margin).
 
         The smallest possible forward search: one ply, one reply, and only
         where there is a reply worth making. A placement that changes
@@ -1314,13 +1327,19 @@ class StrategicPlayer:
         doubling rule, so it answers exactly the overprotected or unreachable
         placements the retake cannot -- the cheap low-stability country a
         placement "takes" and a 3-Op card simply wipes.
+
+        An answer exists only to a change that moved control our way -- we
+        took it, or broke theirs. A placement always does, when it moves
+        control at all; a failed Realignment that costs us the country does
+        not, and is left at its price rather than charged a second loss.
         """
-        if not self.weights.reply_model:
+        if not self.weights.reply_model or (own == 0 and opp == 0):
             return raw
-        board, them = self.board, obs.side.opponent
+        board, side, them = self.board, obs.side, obs.side.opponent
         was = dict(board.influence[cid])
         before = board.control(cid)
-        self._add_influence(cid, obs.side, points)
+        ours, theirs = max(0, was[side.value] + own), max(0, was[them.value] + opp)
+        self._set_influence(cid, *((ours, theirs) if side is Side.US else (theirs, ours)))
         # `delta` reads per-decision caches keyed on "the board as synced",
         # and its own comment says anyone committing a change mid-ranking
         # must clear them. Mutating here and not clearing made the reply
@@ -1332,8 +1351,8 @@ class StrategicPlayer:
         self._invalidate_base()
         try:
             after = board.control(cid)
-            if after is before:
-                return raw          # nothing changed hands; no forced answer
+            if after is before or not (after is side or before is them):
+                return raw          # nothing moved our way; no forced answer
             # Checked only once control has moved: most calls stop above,
             # and this is the only part that reads the turn order.
             when = next_move(obs, them)
@@ -1381,8 +1400,8 @@ class StrategicPlayer:
                 # having at all because when this term's sign inverted
                 # there was nothing to look at -- the poke rate stayed at
                 # 13 a game and only a separate script showed why.
-                log.debug('reply %s: %+d pts costs %s Ops to undo, answered %.2f, '
-                          'coup %.1f, raw %.1f -> %.1f', cid, points, undo, answered,
+                log.debug('reply %s: %+d/%+d pts costs %s Ops to undo, answered %.2f, '
+                          'coup %.1f, raw %.1f -> %.1f', cid, own, opp, undo, answered,
                           struck, raw, raw + discount)
             return raw + discount
         finally:
@@ -1671,7 +1690,11 @@ class StrategicPlayer:
         Elected in Nicaragua, Tear Down This Wall): it does not advance the
         Military Operations track, so it earns no credit against the
         requirement, while still degrading DEFCON on a Battleground like any
-        other Coup. See `Engine.resolve_free_op_choice`."""
+        other Coup. See `Engine.resolve_free_op_choice`.
+
+        Each roll's outcome is priced after the opponent's answer to it
+        (`_after_change`), exactly as a placement is: a Coup that takes a
+        country they take straight back is worth what survives the answer."""
         info = self.board.countries[cid]
         if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
             return LOSS
@@ -1681,7 +1704,8 @@ class StrategicPlayer:
         mod = coup_roll_modifier_estimate(obs, obs.side, info)
         gain = 0.0
         for removed, gained in coup_outcomes(ops, info.stability, enemy, mod):
-            gain += self.delta(obs, cid, own=gained, opp=-removed) / 6
+            raw = self.delta(obs, cid, own=gained, opp=-removed)
+            gain += self._after_change(obs, cid, gained, -removed, raw) / 6
         gain *= self.weights.coup_discount
         if military:
             gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
@@ -1698,7 +1722,10 @@ class StrategicPlayer:
             for b in range(1, 7):
                 margin = int(a-b+bonus)
                 if margin not in outcomes:
-                    outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
+                    own, opp = min(0, margin), -max(0, margin)
+                    raw = self.delta(obs, cid, own=own, opp=opp)
+                    # After the opponent's answer, like a Coup's roll.
+                    outcomes[margin] = self._after_change(obs, cid, own, opp, raw) / 36
                 # Keep the original addition order (and floating-point ties).
                 total += outcomes[margin]
         return total * self.weights.coup_discount
