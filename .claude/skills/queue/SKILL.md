@@ -9,11 +9,71 @@ A queue is not a to-do list. It is a program that runs for hours with
 nobody watching, on a machine that may not survive, and every property
 below exists because the obvious version fails silently.
 
-**One script, serial, committing as it goes.** Not a plan to execute
-step by step -- the session cannot orchestrate between steps unattended,
-so anything not written into the script will not happen.
+**Split it first: CI for games that have a workflow, one local script for
+the rest.** The local half is serial and commits as it goes. It is not a
+plan to execute step by step: the session cannot orchestrate between
+steps unattended, so anything not written into the script will not
+happen.
 
-## The rules
+## First: which items go to CI
+
+The repo dispatches three game workflows. Each is a matrix with one
+isolated runner per entry (4 workers, 300-minute timeout, artifacts kept
+30 days):
+
+| Workflow | What it runs | Dispatch |
+| --- | --- | --- |
+| `gate` | `scripts/gate.sh` against each base | `gh workflow run gate -f bases='["<sha>","<sha>"]'` (optional `-f seeds=`, `-f held=`) |
+| `experiments` | weight A/Bs, one arm per job, `--decide` on | arms in `.github/experiments.json`, or one `-f inline='{"slug":..,"weights":..,"seeds":..,"held":..}'`; `held` is required |
+| `drift` | `scripts/drift_check.sh` per anchor | `gh workflow run drift -f anchors='["v0.1.0"]' -f seeds=6000-6127`; also a weekly cron |
+
+**Send an item to CI** if it is a gate, a weight A/B or a drift run. The
+arms run at the same time and never compete with each other or with this
+machine. So three of the local rules below stop applying to them:
+- Order by value: every arm starts at once.
+- The machine may die: a runner dying loses one arm, not the night.
+- Run one item at a time: runners do not share cores.
+
+**Keep an item local** in any of these cases:
+- There is no workflow for it: diagnostic scripts, self-play tracers,
+  corpus captures.
+- It measures *this machine*: timings, or replicating a CI result here.
+- It needs code that is not on `origin`.
+
+**Rules that only exist because of CI:**
+
+- **CI runs what is on `origin`, not what is on disk.** A dispatch checks
+  out the pushed branch tip. Local commits ahead of `origin` do not exist
+  there, and a gate dispatched without them measures the previous code.
+  Check `git status -sb` for `ahead N` before dispatching. If the code under
+  test is not pushed, ask: pushing is outward-facing and the maintainer's
+  call. Dispatching a workflow on this repo is not.
+- **Pass SHAs in `bases`, never the default `HEAD~1`.** On a runner it is
+  the parent of whatever tip was dispatched, which is a docs commit as
+  often as not. That is shape 3 again.
+- **A dispatch can fail in seconds.** Gate run 34730247700 died in 17s.
+  Check `gh run list --workflow <name> --limit 3` a minute after
+  dispatching, not in the morning.
+- **Quote a runner's verdict, never its wall-clock.** The hardware is
+  shared and its load is unknown.
+- **Nothing lands in git by itself.** The workflows have `contents: read`
+  and cannot commit, and artifacts expire after 30 days. Collect every run:
+  `gh run download <id> -R JamesYouL2/struggler` into gitignored `logs/`,
+  then commit a generated note of the numbers, the same as a local item. A
+  result that lives only in an artifact is a result that disappears. An
+  unattended CI batch therefore still needs a local last step. Either
+  leave collection for the morning and say so in the report, or put a
+  waiter at the end of the local script (`gh run watch <id>`, then
+  download, note, commit), under every local rule.
+- **Size against the runner, not this machine.** A runner has 4 workers,
+  not 8. Take the arm's time from a finished CI run of the same shape, and
+  check it fits inside 300 minutes with room to spare. The upload steps
+  run `if: always()`, so a timed-out job still uploads something. What it
+  uploads is partial, and nothing in the report says so (audit F4,
+  `docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md`). Count the
+  games against the plan before quoting any score.
+
+## The rules (local script)
 
 **Commit after every item.** A machine that dies at 3am must leave every
 finished result in git. Check what is gitignored first: if reports land
@@ -115,11 +175,18 @@ corrupts the timings that are part of its result.
 - **Anything irreversible.** A queue cannot notice it was wrong.
 - **Anything that can conflict** -- a rebase, a merge, a force-push.
 - **Anything outward-facing.** Publishing, pushing, sending. Unattended
-  is exactly when nobody can catch it.
+  is exactly when nobody can catch it. That includes the push a CI
+  dispatch would need: if the code is not on `origin`, the item waits
+  for the maintainer or runs locally.
 
 ## Reporting it back
 
-End with the queue as a table: item, state, and ETA per item, plus how
-the queue is verified alive. Then use the `status` skill's shape -- the
+End with the queue as a table giving, per item:
+- where it runs: local, or the CI run id
+- its state and ETA
+- who collects it, if it runs on CI
+
+Then say how the local half is verified alive (the STATUS file,
+`scripts/gate_running.py`) and how the CI half is (`gh run list`). Then use the `status` skill's shape -- the
 ranked top three first. A finished queue item belongs in the prose once;
 it does not stay on the list.
