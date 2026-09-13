@@ -40,18 +40,6 @@
       "determination": "bounded",
       "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
     },
-    "wipe": {
-      "value": 0.0,
-      "source": "guess",
-      "determination": "inert",
-      "note": "Off until calibrated."
-    },
-    "wipe_backed": {
-      "value": 0.0,
-      "source": "guess",
-      "determination": "inert",
-      "note": "Off until calibrated."
-    },
     "first_mover": {
       "value": 0.6,
       "source": "guess",
@@ -100,12 +88,6 @@
       "determination": "overdetermined",
       "note": "Rule 6.3.5 is exact: one Op of deficit closed is one VP, nothing to estimate. And the change that fixed its scale is the only gate in this project's history whose lower bound cleared 0.500."
     },
-    "ops": {
-      "value": 2.0,
-      "source": "guess",
-      "determination": "inert",
-      "note": "Retired; kept so saved weights still load."
-    },
     "scoring_hand": {
       "value": 1.2,
       "source": "guess",
@@ -121,12 +103,6 @@
       "source": "measured",
       "determination": "determined",
       "note": "A multiplier on FINAL_SCORING_ODDS, which is measured per turn (6/27 at turn 1 to 6/6 at turn 10). The odds are measured; the multiplier on them is not."
-    },
-    "progress_curve": {
-      "value": 1.0,
-      "source": "guess",
-      "determination": "inert",
-      "note": "Listed in UNTUNED_WEIGHTS."
     },
     "coup_discount": {
       "value": 0.9,
@@ -287,7 +263,7 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 22,
+      "guess": 18,
       "gate": 5,
       "derived": 4,
       "measured": 6
@@ -296,7 +272,7 @@
       "underdetermined": 14,
       "known-wrong": 2,
       "bounded": 8,
-      "inert": 8,
+      "inert": 4,
       "overdetermined": 3,
       "determined": 10
     },

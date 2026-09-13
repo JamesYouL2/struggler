@@ -31,7 +31,7 @@ BOARD = {'value', 'score', 'v', 'total', 'loss', 'gain', 'worth', 'best', 'harm'
 SCALED_CALLS = {
     'ops_value', 'vp_value', 'game_value', 'event_value', 'card_play_value',
     'hold_value', 'country_value', 'region_score', 'region_margin', 'evaluate',
-    'coup', 'realign', 'wipe_risk', 'space_value', 'scoring_card_value',
+    'coup', 'realign', 'space_value', 'scoring_card_value',
     'importance', 'seat', 'priced', '_investment', 'access', 'delta',
     '_shallow_event_value', 'military_credit', 'per_card', '_resolve_sandbox',
     'final_scoring_odds',

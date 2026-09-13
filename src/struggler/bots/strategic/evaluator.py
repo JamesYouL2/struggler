@@ -35,7 +35,6 @@ observation is available and every country counts for its printed value.
 from __future__ import annotations
 
 import functools
-import math
 import os
 import random
 from dataclasses import dataclass
@@ -67,8 +66,8 @@ class Terrain:
     stability: tuple[int, ...]
     battleground: tuple[bool, ...]
     region_of: tuple[Region, ...]
-    # Countries adjacent to each superpower: reachability's first clause, the
-    # wipe term's backing check, and region scoring's adjacency bonus.
+    # Countries adjacent to each superpower: reachability's first clause and
+    # region scoring's adjacency bonus.
     home: tuple[frozenset[int], frozenset[int]]
     members: dict[Region, tuple[int, ...]]
     # Where a country sits in its own region's member tuple, which is the key
@@ -361,69 +360,6 @@ def coup_forbidden(t: Terrain, pos: Position, i: int, attacker: int,
     return True
 
 
-def coup_targets(t: Terrain, pos: Position, holder: int, defcon: int,
-                 bans: Prohibitions = NO_PROHIBITIONS) -> int:
-    """How many battlegrounds `holder` has influence in that the opponent
-    could coup at this DEFCON and could wipe with a 4-Ops coup on some roll.
-
-    A battleground the opponent is forbidden to coup is not one of them: it
-    is not a target, and counting it would also thin the risk spread over the
-    targets that are real."""
-    inf_h = pos.inf[holder]
-    battleground, stability, minimum = t.battleground, t.stability, t.coup_min_defcon
-    banned = any(bans)
-    found = 0
-    for i in range(len(inf_h)):
-        held = inf_h[i]
-        if held <= 0 or not battleground[i]:
-            continue
-        if defcon < minimum[i]:
-            continue
-        if 6 + 4 - 2 * stability[i] < held:
-            continue
-        if banned and coup_forbidden(t, pos, i, 1 - holder, bans):
-            continue
-        found += 1
-    return found
-
-
-def wipe_risk(t: Terrain, pos: Position, i: int, holder: int, held: int, other: int,
-              stake_unit: float, w, defcon: int,
-              bans: Prohibitions = NO_PROHIBITIONS) -> float:
-    """Expected loss to `holder` from the opponent's coup wiping this country.
-
-    The chance a 3- or 4-Ops coup removes every point (roll + Ops - 2 x
-    stability >= held), where DEFCON allows a coup here, shared over the
-    opponent's coupable targets, times the stake. Unbacked and the couper
-    gets there first (adjacent already, or the coup's excess leaves them
-    influence): the battleground flips, so the stake is holder's position
-    plus the country's control value. Backed: the stake is holder's
-    position, times `wipe_backed`.
-    """
-    if held <= 0:
-        return 0.
-    if defcon < t.coup_min_defcon[i]:
-        return 0.
-    if any(bans) and coup_forbidden(t, pos, i, 1 - holder, bans):
-        return 0.  # the coup this risk is the risk of is not a legal move
-    stability = t.stability[i]
-    wipes = sum(1 for ops in (3, 4) for roll in range(1, 7) if roll + ops - 2 * stability >= held)
-    p = wipes / 12
-    if p == 0:
-        return 0.
-    margin = held - other
-    position = stake_unit * (1 if margin >= stability else 0) \
-        + w.progress * stake_unit * max(0., min(1., margin / stability))
-    inf_h = pos.inf[holder]
-    backed = i in t.home[holder] or any(inf_h[n] > 0 for n in t.neighbors[i])
-    if backed:
-        stake = w.wipe_backed * position
-    else:
-        first = pos.reach[1 - holder][i] or 6 + 4 - 2 * stability > held
-        stake = w.wipe * (position + (stake_unit * (1 + w.progress) if first else 0.))
-    return p * stake / max(1, coup_targets(t, pos, holder, defcon, bans))
-
-
 # ---------------------------------------------------------------------------
 # Conversion: how often reach becomes control.
 # ---------------------------------------------------------------------------
@@ -574,9 +510,9 @@ VALUE_RADIUS = 2
 def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
     """The countries whose `country_value` can move when `changed` moves.
 
-    Purely geometric, and true only while `wipe` is off: with it on,
-    `wipe_risk` divides by `coup_targets`, which counts the whole board, and
-    no country keeps its value. Callers handle that case."""
+    Purely geometric. (It used to hold only while the `wipe` term was off --
+    that term divided by a count over the whole board -- and the term was
+    deleted, off and never calibrated, on 2026-09-13.)"""
     affected = set(changed)
     frontier = set(changed)
     for _ in range(radius):
@@ -603,12 +539,10 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, defcon:
     # not (it can only lead there), so a half-built country is worth well
     # under half of a controlled one.
     fraction = max(-1.0, min(1.0, margin / stability))
-    value += w.progress * imp * math.copysign(abs(fraction) ** w.progress_curve, fraction)
-    # Wipe risk (see StrategicWeights.wipe): the couper's expected take.
-    if own > 0 and w.wipe > 0:
-        value -= wipe_risk(t, pos, i, s, own, opp, imp, w, defcon, bans)
-    if opp > 0 and w.wipe > 0:
-        value += wipe_risk(t, pos, i, 1 - s, opp, own, imp, w, defcon, bans)
+    # Linear. This was `copysign(abs(fraction) ** progress_curve, fraction)`
+    # with the exponent pinned at 1.0, which is `fraction` exactly; convex
+    # (2.0) lost the gate at 0.33, and the knob was deleted 2026-09-13.
+    value += w.progress * imp * fraction
     guard = w.reserve * imp
     value += guard * (min(2, max(0, margin - stability)) - min(2, max(0, -margin - stability)))
     if t.battleground[i] and (own > 0) != (opp > 0):

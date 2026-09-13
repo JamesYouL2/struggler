@@ -34,7 +34,7 @@ def test_reused_evaluation_caches_match_fresh_policy_after_board_and_weight_chan
     bot.rank_actions(engine.observe(Side.US))
     engine.board.influence['Iran']['US'] = 4
     engine.board.influence['Pakistan']['USSR'] = 2
-    bot.weights = StrategicWeights(progress_curve=2, battleground=7)
+    bot.weights = StrategicWeights(progress=3.5, battleground=7)
     obs = engine.observe(Side.US)
     assert bot.rank_actions(obs) == StrategicPlayer(bot.weights).rank_actions(obs)
 
@@ -276,15 +276,8 @@ def test_influence_value_is_linear_and_spare_points_are_not_a_flat_reserve():
     # control's own term -- the option-value stand-in.
     empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
     assert one - empty > bot.weights.battleground
-    # A flat reserve per spare point, until the wipe term replaces it.
+    # A flat reserve per spare point.
     assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2) > 0
-    # Convex shape is still available as a knob: well under half of control
-    # for a lone point.
-    bot = StrategicPlayer(StrategicWeights(progress_curve=2.0))
-    board = bot.board
-    board.load_influence(engine.board.serialize())
-    empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
-    assert one - empty < 0.5 * (control - empty)
 
 def test_country_tiers_and_coup_discount():
     engine = Engine(seed=0)
@@ -376,7 +369,7 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     bot = StrategicPlayer()
     bot.rank_actions(obs)
     one, two, four = (bot.ops_value(obs, n) for n in (1, 2, 4))
-    assert one > bot.weights.ops  # a real turn-1 play is worth more than the flat rate
+    assert one > 2.0  # a real turn-1 play is worth more than the old flat rate (the retired `ops` weight)
     assert two > one and four > two
 
 
@@ -442,7 +435,7 @@ def test_de_stalinization_is_simulated_and_beats_its_ops():
     event = bot.event_value(obs, 'De_Stalinization')
     assert event > bot.ops_value(obs, 3)
     # The value is board movement: points leave overprotected Europe for reach.
-    assert event > 3 * bot.weights.ops * 0.8  # not the estimate
+    assert event > 3 * 2.0 * 0.8  # not the old flat estimate (the retired `ops` weight was 2.0)
 
 
 def test_space_slot_goes_to_the_worst_opponent_card():
@@ -672,7 +665,7 @@ def test_the_sandbox_drives_every_event_it_claims_to():
     # And the two that used to fail are now worth something other than the
     # estimate they fell back to.
     for cid in ('Olympic_Games', 'Summit'):
-        estimate = CARDS[cid].ops * bot.weights.ops * 0.8
+        estimate = bot.ops_value(obs, CARDS[cid].ops) * 0.8  # the fallback's own formula
         assert bot._public_event_value(obs, cid) != pytest.approx(estimate)
 
 
@@ -827,53 +820,6 @@ def test_shuttle_diplomacy_is_credited_to_one_region_not_both():
     pos = bot._position
     assert any(bot._overrides_for(spent, pos))
     assert bot._overrides_for(other, pos) == ev.NO_OVERRIDES
-
-
-def test_nato_removes_a_wipe_risk_the_bot_priced_on_a_coup_the_rules_forbid():
-    """`wipe_risk` gated on DEFCON alone, so it feared a USSR coup on
-    US-Controlled Europe -- a move the engine rejects.
-
-    The term ships at `wipe = 0` ("off until calibrated"), so this is not a
-    live defect: it is the defect the calibration would have inherited.
-    Calibrating a term that is systematically wrong across Europe would have
-    fitted a weight to the wrong quantity, so the weights here are the ones
-    that turn it on."""
-    from struggler.engine import Region
-
-    engine = Engine.new_game(seed=4000, setup_bonus=True)
-    while engine.phase != 'headline' and not engine.is_terminal:
-        engine.step(engine.pending_decision.options[0])
-    board = engine.board
-    for cid in board.countries_in(Region.EUROPE):
-        board.influence[cid]['USSR'] = 0
-        board.influence[cid]['US'] = board.countries[cid].stability
-    engine.defcon = 5  # Europe is coupable at DEFCON 5 and nowhere below it
-
-    assert StrategicWeights().wipe == 0, 'the term is live now; drop this scaffolding'
-    bot = StrategicPlayer(StrategicWeights(wipe=1.0, wipe_backed=0.5))
-    # France at 3 influence, stability 3: a 4-Ops coup wipes it on 3 rolls of
-    # 12. West Germany cannot be wiped at all (stability 4 needs a 12), which
-    # is why the term is silent there and this test is not about it.
-    target = 'France'
-
-    bot.prepare(engine.observe(Side.US))
-    exposed = bot.country_value(bot.board, target, Side.US)
-    assert engine._usable_coup_realign_target(Side.USSR, target)
-
-    engine.game_effects['nato'] = True
-    bot.prepare(engine.observe(Side.US))
-    shielded = bot.country_value(bot.board, target, Side.US)
-    assert not engine._usable_coup_realign_target(Side.USSR, target)
-    assert shielded > exposed, (exposed, shielded)
-
-    # De Gaulle lifts the shield on France alone, and the bot sees the risk
-    # come back with it. Not back to `exposed`: NATO still shields the rest
-    # of Europe, so what the USSR can still aim is spread over fewer targets.
-    engine.game_effects['degaulle_france'] = True
-    bot.prepare(engine.observe(Side.US))
-    assert bot.country_value(bot.board, target, Side.US) < shielded
-    assert engine._usable_coup_realign_target(Side.USSR, target)
-    assert not engine._usable_coup_realign_target(Side.USSR, 'Italy')
 
 
 def test_region_margin_incremental_matches_full_recompute():
@@ -1472,8 +1418,8 @@ def test_training_does_not_switch_on_a_deliberately_disabled_weight():
         got = mutate(base, random.Random(seed))
         for name in UNTUNED_WEIGHTS:
             assert getattr(got, name) == getattr(base, name), name
-    # Naming one explicitly is how a deliberate ablation turns it on.
-    assert mutate(base, random.Random(1), ('wipe',)).wipe > 0
+    # Naming one explicitly is how a deliberate ablation moves it.
+    assert mutate(base, random.Random(1), ('reply_ops',)).reply_ops != base.reply_ops
     assert set(TUNABLE_WEIGHTS).isdisjoint(UNTUNED_WEIGHTS)
     assert set(TUNABLE_WEIGHTS) | set(UNTUNED_WEIGHTS) == {
         f.name for f in dataclasses.fields(StrategicWeights)}

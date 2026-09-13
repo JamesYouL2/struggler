@@ -260,7 +260,7 @@ because it turned out to be the fix for a correctness defect rather than
 only a porting convenience: two memos in `StrategicPlayer` were keyed on
 less state than the terms read, and the same position scored differently
 depending on what had been evaluated first. `bots/strategic/evaluator.py` now holds
-the country, access, wipe, region and margin terms as functions of
+the country, access, region and margin terms as functions of
 `(Terrain, Position, weights, urgency, defcon)` -- no reads of `self._obs`,
 `board`, `RULES` or any memo. That module is the data layout below, in
 Python: `Terrain` is the static tables a kernel would receive once,

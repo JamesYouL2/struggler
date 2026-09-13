@@ -131,32 +131,19 @@ action = bot.choose_action(observation, history)
   none in but could reach is tempo, whoever fills an empty country first
   makes the other pay to contest it, worth `first_mover` x importance /
   stability (a 4-stability contest is the least valuable Op on the board).
-- Wipe risk (`wipe`, `wipe_backed`, `_wipe_risk`): the chance a 3- or
-  4-Ops coup removes every point we hold, where DEFCON allows and shared
-  over the opponent's coupable targets, times the stake. Unbacked (no
-  neighbour holds our influence) and the couper gets there first, the
-  battleground flips: the stake is our position plus the country's control
-  value. Backed, they still have to flip it to control on their side: the
-  stake is our position times `wipe_backed`. Coded, off by default until
-  calibrated: see docs/notes/claude/ plan step 2. The flat `reserve` per spare
-  point it replaces was removed in Sept 2026.
-
-  It counts only Coups the opponent is actually allowed to attempt. DEFCON
-  was the only bar it knew, so it priced a USSR Coup on US-Controlled Europe
-  under NATO, on Japan under the US/Japan pact, and anywhere in Europe under
-  The Reformer -- none of which the engine will permit.
-  `evaluator.coup_forbidden` mirrors `Board.coup_prohibited` over the
-  snapshot, `strategic.coup_bans` reads which events are in force from the
-  observation, and `coup_targets` drops the barred countries so the risk is
-  not spread over targets that are not targets. Derived per call, not frozen
-  at `prepare`, because NATO's shield follows US *Control* and a trial
-  placement moves control -- the same reason as the scoring overrides.
-
-  Since `wipe` is 0 this changes no game today. It is a prerequisite for
-  turning the term on rather than an improvement to current play: calibrating
-  a term that is systematically wrong across Europe fits a weight to the
-  wrong quantity. It is also what would give NATO and the pact a value, since
-  what they are worth is the risk they remove.
+- Wipe risk (`wipe`, `wipe_backed`, `wipe_risk`, `coup_targets`): **deleted
+  2026-09-13.** The chance a 3- or 4-Ops coup removes every point held, times
+  a stake that depended on backing. It shipped at `wipe = 0`, "off until
+  calibrated", and was never calibrated; the retention it approximated is now
+  measured directly (`scripts/measure_access_conversion.py`). The parity
+  corpus reproduced unchanged without it, which is the proof it moved no
+  decision. `evaluator.coup_forbidden`, which kept it from pricing a Coup the
+  rules forbid (NATO, the US/Japan pact, The Reformer), stays, with its test
+  against `Board.coup_prohibited`; nothing in the value function reads it
+  now, and the `bans` argument still threaded through `country_value` is
+  unused until a term needs it again. `progress_curve` (pinned at 1.0, so the
+  progress term was already linear) and the retired `ops` weight went in the
+  same change.
 - One space slot a turn (`space_card`): among the opponent's cards the
   Space Race accepts, the one whose Ops-plus-event is worst is the space
   candidate, and only it is valued as a space play when choosing a card.
@@ -368,8 +355,7 @@ changed: `country_value` reads out to `evaluator.VALUE_RADIUS` hops, because
 `access` walks a neighbour's neighbours and then asks whether *those* are
 reachable. The radius lives beside the terms that set it, and
 `test_value_dependents_covers_every_country_a_change_can_move` moves one
-country and checks that nothing outside the claimed set moved with it. With
-`wipe` on the radius is the whole board, since `coup_targets` counts it.
+country and checks that nothing outside the claimed set moved with it.
 
 **One scoring implementation.** The engine no longer has its own: region
 scoring is `Board.score_region`, with the per-scoring overrides from

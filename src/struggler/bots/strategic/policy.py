@@ -140,12 +140,12 @@ def coup_bans(game_effects) -> ev.Prohibitions:
     state -- NATO, the US/Japan pact and The Reformer, with De Gaulle and
     Willy Brandt lifting NATO's shield on their own country.
 
-    Without these the value function priced a wipe risk on US-Controlled
-    Europe that the USSR is not allowed to attempt, so the bot defended
-    against a move the rules forbid, and thinned the risk it spread over its
-    real targets by counting unreal ones. It is also what gives NATO and the
-    pact a value: what they are worth is the risk they remove, which is a
-    number the bot already computes."""
+    Written for the `wipe` term, which priced a Coup risk on US-Controlled
+    Europe the USSR is not allowed to attempt until these were read. That
+    term was deleted 2026-09-13, off and never calibrated, so no value term
+    reads the prohibitions today; they are still threaded through the
+    evaluator and the sandbox's dependency check, and a future coup-risk term
+    would need exactly this."""
     return ev.Prohibitions(*(bool(game_effects.get(name)) for name in
                              ('nato', 'us_japan_pact', 'reformer',
                               'degaulle_france', 'willy_brandt')))
@@ -306,21 +306,13 @@ class StrategicWeights:
     control: float = 1.5
     battleground: float = 5.0
     progress: float = 2.8
-    # A flat reserve per spare point past control, up to two. Slated for
-    # removal once the wipe term below is on: removing it with wipe at 0 lost the gate outright (0.328 against
-    # the previous commit, one nuclear loss), so spare points matter.
+    # A flat reserve per spare point past control, up to two. Removing it lost
+    # the gate outright (0.328 against the previous commit, one nuclear loss),
+    # so spare points matter. It was slated to be replaced by a `wipe` risk
+    # term, which shipped off, was never calibrated, and was deleted
+    # 2026-09-13; retention is now measured directly instead
+    # (scripts/measure_access_conversion.py).
     reserve: float = 0.35
-    # Wipe risk: the chance the opponent's coup (3 or 4 Ops, where DEFCON
-    # allows a coup in that region, one coup a turn shared over their
-    # targets) removes every point we hold. What that costs depends on
-    # backing. Unbacked (no neighbour holds our influence, no superpower
-    # adjacency) and the couper can get there first, a wipe flips the
-    # battleground: we lose our position and they take the country, so the
-    # stake is both. Backed, they still have to flip it to control on their
-    # side: the stake is our position, `wipe_backed` of it. `wipe` scales
-    # the flip. Off until calibrated (docs/notes/claude/ plan step 2).
-    wipe: float = 0.0
-    wipe_backed: float = 0.0
     # First mover: presence in a battleground the opponent has none in but
     # could reach. Whoever fills an empty country first makes the other pay
     # to contest it; the bonus is that tempo, times importance.
@@ -444,11 +436,6 @@ class StrategicWeights:
     # found flat against the Ops scale, after `vp` and `ops`; see the
     # comment on vp_base.
     military: float = 1.0
-    # Retired: the estimate fallback it scaled now prices through
-    # `ops_value`, like every other Ops term. Kept so saved weights and the
-    # parity corpus's recorded weights still load; `mutate` will perturb it
-    # to no effect.
-    ops: float = 2.0
     # A country is worth what its region will still score: the sum over its
     # scoring cards' expected future plays of scoring_discount ** (turns
     # away), from the static period schedule and where each card is now
@@ -490,10 +477,6 @@ class StrategicWeights:
     # distinguish 0.5 from 2.0. It is priced for correctness, not for
     # strength, and should not be tuned against results.
     space_ability_8: float = 1.0
-    # progress_curve is the exponent on (margin/stability). It stays linear:
-    # progress_curve=2 scored 0.33 +/- 0.09 against this shape (see
-    # docs/STRATEGIC_AI.md); option value needs lookahead, not a curve.
-    progress_curve: float = 1.0
     # A coup or realignment is priced on the same board change as placing
     # influence, then discounted: it is the less Ops-efficient route to the
     # same result (a coup on a 2-stability country loses a point of margin
@@ -542,19 +525,15 @@ class StrategicWeights:
 # steps a *zero* weight with `abs(gauss(0, scale))` rather than
 # multiplicatively -- otherwise zero would be an absorbing state -- so
 # leaving a deliberately-disabled term in the default set switches it on:
-# a default run turned `wipe` from 0.0 to 0.27. Every `train` run to date
-# therefore searched a space that enables an uncalibrated term, and with
-# `wipe` non-zero `_value_dependents` widens to the whole board, so those
-# runs were also much slower than they looked.
+# a default run turned `wipe` from 0.0 to 0.27, enabling an uncalibrated term.
+# (`wipe`, `wipe_backed`, `progress_curve` and `ops` were deleted outright on
+# 2026-09-13 -- off, pinned or retired -- so they no longer need guarding.)
 #
-#   wipe, wipe_backed  off until calibrated (CLAUDE_NOTES plan step 2)
-#   progress_curve     pinned at its neutral 1.0; convex lost 0.33
-#   ops                retired, read nowhere in executable code
+#   reply_ops, reply_model  the forward search's configuration, not a price
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('wipe', 'wipe_backed', 'progress_curve', 'ops',
-                   'reply_ops', 'reply_model')
+UNTUNED_WEIGHTS = ('reply_ops', 'reply_model')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -1744,13 +1723,10 @@ class StrategicPlayer:
 
         Not just `changed` itself: `country_value` reads out to
         `evaluator.VALUE_RADIUS` hops, so a country keeps its basis value only
-        when nothing that close to it moved. With `wipe` on, `_coup_targets`
-        counts the whole board and nothing keeps its value. Reusing the basis
-        for `changed` alone priced Nasser at -67.83 where a full recomputation
-        gives -65.89, the whole 1.94 being Israel, whose own influence the
-        event never touched."""
-        if self.weights.wipe > 0:
-            return set(self.board.countries)
+        when nothing that close to it moved. Reusing the basis for `changed`
+        alone priced Nasser at -67.83 where a full recomputation gives
+        -65.89, the whole 1.94 being Israel, whose own influence the event
+        never touched."""
         t = self._terrain
         return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed})}
 

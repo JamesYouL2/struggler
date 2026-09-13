@@ -328,7 +328,8 @@ Coup or Realignment, and `Board.nato_protects` the NATO part alone (Brush
 War asks that one too). `Engine._usable_coup_realign_target` keeps only what
 is the engine's: the defender holding Influence, DEFCON, and reading which
 events are in force out of `game_effects` (`Engine.coup_flags`). The
-strategic bot's wipe term mirrors the same query over its own snapshot.
+strategic bot's evaluator mirrors the same query over its own snapshot
+(`evaluator.coup_forbidden`, tested against `Board.coup_prohibited`).
 
 **A reactive hook consulted from board mechanics.** NORAD
 (`game_effects["norad"]`). An Action Round in which DEFCON *moves* to level

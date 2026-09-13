@@ -32,9 +32,10 @@ prices against, since a battleground pays at scoring and not before.
 
 Also measures RETENTION, the same walk with the condition flipped:
 P(still control at the next scoring | control now). That is the flip
-discount -- how much of a battleground's value survives to be scored -- and
-`wipe_risk` is one component of it (a 3-4 Ops coup removing every point).
-Measuring the whole thing directly is what lets the component go.
+discount -- how much of a battleground's value survives to be scored. The
+evaluator's `wipe_risk` modelled one component of it (a 3-4 Ops coup removing
+every point); measuring the whole thing directly is what let that component
+go, and it was deleted 2026-09-13.
 
 HORIZONS. `--horizons 1,2` resolves the same opportunities at the region's
 next scoring AND at the one after, in one pass over the same games. Horizon 1
@@ -271,7 +272,7 @@ def main(argv=None) -> int:
         if allk:
             print(f'{"all":>10} {"":>11} {len(allk):>6} {statistics.fmean(allk):>8.3f}')
             print('  This is the flip discount: the share of a battleground\'s value that')
-            print('  survives to be scored. wipe_risk models one component of it.')
+            print('  survives to be scored, measured whole rather than modelled in parts.')
         cens = {s: n for (hh, s), n in sorted(censored_keep.items()) if hh == h}
         print(f'  censored (still waiting at game end), by stability: {cens}')
     print('\n  Not a strength measurement. It says how often reach becomes control,')
