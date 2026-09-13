@@ -238,6 +238,41 @@ they differ, ask.
   is unclear how much it changes, and it cannot change anything until
   flag-only events are priced at all.
 
+## The maintainer's read on `twilightstrategy.com`, and how to correct for it
+
+Stated 2026-09-12, and it is a directional correction rather than a
+dismissal: **it is the most comprehensive Twilight Strategy resource there
+is**, with a page on every card, which is exactly why it is worth reading
+and exactly why its biases matter. It is also dated.
+
+Three biases, all the same bias:
+
+- **It undervalues the Space Race.** A space attempt is a die roll, and a
+  source that discounts gambles discounts it. This repo has already found
+  the bot making the same error from the other direction --
+  `docs/notes/claude/2026-09-11-the-space-race-had-a-zero-vp-wall.md` --
+  so do not reach for `twilightstrategy.com` to justify a low space
+  valuation. It is the one place it can be expected to be wrong.
+- **It undervalues VP.** Board position is a means; VP on the track is the
+  thing that ends the game at 20 and the thing that is counted at the end.
+  See `docs/notes/claude/2026-09-11-win-probability-is-the-objective-vp-is-the-currency.md`.
+- **It overvalues removal.** Removing a card from the game is insurance --
+  it buys certainty, and certainty is what a risk-averse player overpays
+  for. Expect its "remove this" advice to be priced above what the swing
+  justifies.
+
+**The common cause is risk aversion**, which is why the three move
+together and why a fourth bias, if one turns up, is likely to be the same
+shape. When a `twilightstrategy.com` claim involves a die roll, a banked
+VP, or a card leaving the game, adjust before using it -- and when the
+maintainer disagrees with it, the maintainer wins (see the hierarchy at
+the top of this file).
+
+None of this makes it less useful as COVERAGE. It is the only source that
+says something about every card, so it is the right place to start a
+card-by-card comparison against the bot -- with the correction above
+applied, and with the maintainer adjudicating anything it flags.
+
 ## How to use this file
 
 1. Do not fit a weight to a number here without checking it against the
