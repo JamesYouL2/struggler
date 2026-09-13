@@ -584,6 +584,12 @@ class StrategicPlayer:
         # and why. Read it before trusting an event value.
         self.sandbox_failures: dict[str, str] = {}
         self._events: dict[str, float] = {}
+        # Every card being simulated by the players ABOVE this one in an
+        # event-helper chain. Set by the parent in `_event_helper` and, unlike
+        # `_events_in_progress`, never reset per decision: a helper ranks its
+        # own decisions, and that reset is exactly what made each level of the
+        # chain start with an empty guard (see `event_value`).
+        self._outer_events: frozenset[str] = frozenset()
         self.survival_prior = survival_prior or SurvivalPrior()
         # Optional bots.opponent_model.OpponentModel: learned hand-attack and
         # DEFCON-drop probabilities replace the flat survival_prior values.
@@ -1510,6 +1516,13 @@ class StrategicPlayer:
         helper = self.__dict__.get('_event_policy')
         if helper is None or helper.weights is not self.weights:
             helper = self._event_policy = StrategicPlayer(self.weights)
+        # Hand the guard down, every time: the cards this player and every
+        # player above it are simulating right now. Without it each helper was
+        # a fresh player with an empty guard, so Blockade's discard pricing
+        # (hold_value -> un_card -> event_value) re-simulated Blockade on the
+        # next helper down until RecursionError -- 24 of 192 self-play games --
+        # or, with more branching, ran for minutes and hung a gate game.
+        helper._outer_events = self._outer_events | frozenset(self.__dict__.get('_events_in_progress', ()))
         return helper
 
     def influence(self, obs: Observation, cid: str, ops: int) -> float:
@@ -1746,11 +1759,13 @@ class StrategicPlayer:
             return self._events[cid]
         card = CARDS[cid]
         sign = -1 if card.side.value == obs.side.opponent.value else 1
-        if cid in self._events_in_progress:
+        if cid in self._events_in_progress or cid in self._outer_events:
             # A hand term is valuing this card through a hand that holds it:
             # Ask Not prices the hand, which holds Five Year Plan, which
             # prices the hand, which holds Ask Not. The inner reference gets
             # the shallow Ops estimate; the outer call is the one that counts.
+            # `_outer_events` extends the same rule down the event-helper
+            # chain, where the re-entry happens on a different player.
             return sign * self.ops_value(obs, card.ops) * 0.8
         self._events_in_progress.add(cid)
         try:
