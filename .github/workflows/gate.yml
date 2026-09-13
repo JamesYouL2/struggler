@@ -33,6 +33,14 @@ on:
       held:
         description: 'Held-out sample, never the seeds a change was tuned on'
         default: '5000-5063'
+      # Early stopping (`--decide`) curtails once the unplayed seeds cannot
+      # change the verdict. '0' plays every game: the check that a curtailed
+      # verdict survives the full sample, which audit F3 says is not
+      # guaranteed (docs/notes/codex/2026-09-13-full-audit-since-v0-1-0.md).
+      # A full 128+128-seed run is ~256 games on 4 vCPU; it fits the timeout.
+      decide:
+        description: "Early stopping: '1' curtails once decided, '0' plays every game"
+        default: '1'
   pull_request:
     # Only when the bot actually changed. `gate.sh` says it itself: if
     # BASE..HEAD touches no file under src/struggler/bots, both sides play
@@ -97,6 +105,8 @@ jobs:
           fi
 
       - name: gate against ${{ steps.base.outputs.ref }}
+        env:
+          GATE_DECIDE: ${{ github.event.inputs.decide || '1' }}
         run: |
           set -o pipefail
           scripts/gate.sh "${{ steps.base.outputs.ref }}" \
