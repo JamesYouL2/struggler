@@ -527,7 +527,7 @@ class StrategicWeights:
     # seat a game to 0.08, and no seat in 48 does it more than once.
     # Gated by `tests/test_poke_rate.py`.
     reply_ops: float = 2.0
-    reply_model: float = 3.0
+    reply_model: float = 4.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
