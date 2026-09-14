@@ -338,8 +338,8 @@ class StrategicWeights:
     margin_country: float = 0.05
     margin_live: float = 1.0
     access: float = 1.5
-    # x in `x ** (1 - k)`, the geometric discount on the k-th route into a
-    # battleground. Replaces `access_redundant`, a flat 0.35 applied to any
+    # The per-route share of the capped geometric aggregate for k routes into
+    # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
     # redundant route however many there were.
     #
     # 1.445 is MEASURED, not guessed: 1/(1-p) with p = 0.308, the rate at

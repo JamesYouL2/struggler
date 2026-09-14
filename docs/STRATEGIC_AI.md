@@ -106,9 +106,10 @@ action = bot.choose_action(observation, history)
   regions, so a whole-board value spends it once, on the region whose
   scoring is nearer (`_shuttle_region`); see docs/LIMITATIONS.md.
 - Access is the battlegrounds a stake lets its side reach (`_access`),
-  each worth its control value over its stability: full weight when this
-  holding alone reaches one, `access_redundant` when another holding
-  already does (insurance, one more direction to contest from). Chains --
+  each worth its control value over its stability. If k routes reach a
+  battleground, their aggregate value is the capped geometric sum implied by
+  the measured conversion probability, and the value is shared equally among
+  the routes because none is privileged. Chains --
   a battleground two steps away through a country not yet held -- counted
   too until 2026-09-12, weighted `access_chain`; ablated alone over 128
   seeds it was not measurably worse (0.491 +/-0.063), while being 92% of

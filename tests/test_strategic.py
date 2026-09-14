@@ -1505,7 +1505,7 @@ def test_redundant_routes_are_discounted_by_the_target_s_stability():
     single constant for its whole life and nothing would have noticed the
     curve running the wrong way.
     """
-    from struggler.bots.strategic.evaluator import conversion_p, route_decay
+    from struggler.bots.strategic.evaluator import conversion_p, route_decay, route_weight
 
     base = StrategicWeights().access_decay
     decays = [route_decay(s, base) for s in (1, 2, 3, 4)]
@@ -1514,18 +1514,41 @@ def test_redundant_routes_are_discounted_by_the_target_s_stability():
     # Stability 2 and 3 were measured as one number (0.303 vs 0.304, standard
     # errors 0.013 and 0.012), so they must not be forced apart.
     assert abs(decays[1] - decays[2]) < 0.01
-    # Every decay is still a discount: more routes may never be worth less
-    # than fewer, which is what a base below 1 would do.
+    # Every decay is still a discount: each route's share is positive and no
+    # larger than the first route's share.
     assert all(d > 1. for d in decays)
     for routes in (1, 2, 3):
-        weights = [d ** (1 - routes) for d in decays]
+        weights = [route_weight(s, base, routes) for s in (1, 2, 3, 4)]
         assert all(0 < w <= 1 for w in weights)
 
     # And the second route into a stability-4 battleground keeps more of its
     # value than the second route into a stability-1 one.
-    second = [d ** -1 for d in decays]
+    second = [route_weight(s, base, 2) for s in (1, 2, 3, 4)]
     assert second[3] > second[0]
 
     # p itself is clamped outside the measured range rather than extrapolated.
     assert conversion_p(0) == conversion_p(1)
     assert conversion_p(9) == conversion_p(4)
+
+
+def test_redundant_route_value_is_monotonic_and_saturates():
+    """Redundant access cannot become less valuable when another route opens.
+
+    The old symmetric ``k * decay ** (1-k)`` formula eventually declined as
+    routes accumulated. The independent-conversion model is the capped
+    geometric sum, shared equally among the routes.
+    """
+    from itertools import pairwise
+
+    from pytest import approx
+    from struggler.bots.strategic.evaluator import route_decay, route_weight
+
+    base = StrategicWeights().access_decay
+    for stability in (1, 2, 3, 4):
+        decay = route_decay(stability, base)
+        totals = [routes * route_weight(stability, base, routes)
+                  for routes in range(1, 12)]
+        assert totals[0] == approx(1.0)
+        assert all(left < right for left, right in pairwise(totals))
+        assert totals[-1] < decay / (decay - 1)
+        assert totals[-1] > totals[-2]

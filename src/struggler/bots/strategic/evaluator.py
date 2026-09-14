@@ -421,6 +421,23 @@ def route_decay(stability: int, base: float) -> float:
     return base * (1. - CONVERSION_P_POOLED) / (1. - conversion_p(stability))
 
 
+def route_weight(stability: int, base: float, routes: int) -> float:
+    """The symmetric share of the aggregate value of ``routes`` routes.
+
+    With a per-route conversion probability ``p``, the aggregate probability
+    model is the geometric sum ``[1 - (1 - p)**k] / p`` for ``k`` routes. The
+    evaluator gives each route an equal share because no route is privileged;
+    this is that sum divided by ``k``. ``route_decay`` is ``1 / (1 - p)``
+    after the stability rescaling, so expressing the sum as powers avoids a
+    second conversion between the two parameterizations.
+    """
+    if routes < 1:
+        raise ValueError('route count must be positive')
+    decay = route_decay(stability, base)
+    aggregate = sum(decay ** -step for step in range(routes))
+    return aggregate / routes
+
+
 def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """Reach a holding in country `i` gives side `s`.
 
@@ -429,11 +446,11 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     1/stability, discounted by how many routes already reach it. Getting to
     battlegrounds first is most of what a non-battleground is for.
 
-    The discount is `route_decay(stability) ** (1 - k)` for k routes, and all
-    k carry the SAME weight: which route you call "first" is arbitrary, so the
-    term is symmetric in them. See the loop for why the exponent is geometric,
-    and `conversion_p` above for why the base is a function of stability and
-    not one constant.
+    The aggregate route value is the geometric sum of the first k route
+    contributions, and all k carry an equal share: which route you call
+    "first" is arbitrary, so the term is symmetric in them. See
+    `route_weight` for the conversion model and `conversion_p` above for why
+    the decay is a function of stability rather than one constant.
 
     Chains -- a battleground two steps away through a country not yet held
     (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- used to count
@@ -452,20 +469,18 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     total = 0.
     for n in first:
         if battleground[n] and control[n] != s:
-            # COUNT THE ROUTES, then discount geometrically. With `p` the
-            # chance one route converts reach into control before `n` scores,
-            # k routes give P(control) = 1 - (1-p)^k, so each additional route
-            # is worth (1-p) of the one before. Symmetric by construction: all
-            # k routes carry the SAME weight, because which one you call
-            # "first" is arbitrary -- the maintainer's point, and the reason
-            # this is `x ** (1 - k)` rather than a per-route ordering.
+            # COUNT THE ROUTES, then share the aggregate geometric value
+            # symmetrically. With `p` the chance one route converts reach into
+            # control before `n` scores, k routes have aggregate value
+            # [1 - (1-p)^k] / p. Every route carries the same share because
+            # which one you call "first" is arbitrary.
             #
             # `access_decay` is x. At the measured p = 0.308 (688 resolved
-            # opportunities, scripts/measure_access_conversion.py) the matching
-            # value is 1/(1-p) = 1.445, which is the shipped default. It
-            # replaces `access_redundant`, a flat 0.35 applied to any redundant
-            # route however many there were -- so three routes paid
-            # 1 + 0.35 + 0.35 while this pays 3 * x**-2.
+            # opportunities, scripts/measure_access_conversion.py), the
+            # matching value is 1/(1-p) = 1.445, which is the shipped default.
+            # It replaces `access_redundant`, a flat 0.35 applied to any
+            # redundant route however many there were. The geometric sum is
+            # capped as routes accumulate; it does not eventually decline.
             # `i` counts as one route BY CONSTRUCTION -- this function prices
             # what holding `i` would give, so it is a route whether or not the
             # board already shows influence there. Counting only occupied
@@ -479,7 +494,7 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 routes += 1      # the superpower reaches it without a holding
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
-            weight = route_decay(stability[n], w.access_decay) ** (1 - routes)
+            weight = route_weight(stability[n], w.access_decay, routes)
             if reach_them[n]:
                 weight *= w.access_contested
             total += weight * importance(t, w, urgency, n) / stability[n]
