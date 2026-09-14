@@ -44,6 +44,21 @@ Give the expected wall-clock so the maintainer knows whether to wait.
 
 For anything *queued*, one line each, in the order I will do them.
 
+### Other agents' work
+
+Another agent may have work in flight on this machine, in a worktree,
+or on CI. Report it under this section with a fixed prefix plus source
+-- `[mine]` for my own rows, `[sibling: <branch|worktree|run-id>]` for
+the other's -- never merged into my rows. For each sibling item say
+what it is, where it runs, how you verified it is alive (`git worktree
+list`, `git log <branch> --oneline -3`, `gh run list --limit 5`,
+`scripts/gate_running.py`), and its ETA if known. Sibling work
+constrains mine: do not run games or tests locally alongside their
+local run (contention corrupts timings), do not `git add -A` over
+their worktree output, do not push, rebase, or collect their branches.
+If no sibling work is found, say which checks came back empty, to the
+same standard as my own rows.
+
 ## 3. Things you're waiting on me to run
 
 Ready work I cannot execute in this environment. Distinct from section 1:
@@ -86,6 +101,10 @@ has been wrong at least once here:
 - **A gate that "passed" may have crashed.** `summ` reports a step that
   produced no result as a failure with exit 3, but only if the log is
   actually read to the end.
+- **A sibling agent's gate correctly shows as running.**
+  `scripts/gate_running.py` excludes only your own ancestor chain, so a
+  positive may be theirs. Attribute it `[sibling: ...]`; do not kill it
+  and do not start a contending local run beside it.
 
 So: before writing section 2, check each running item and say what the
 check returned. Before writing section 3, check whether the blocker is
