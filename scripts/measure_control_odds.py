@@ -52,22 +52,11 @@ from pathlib import Path
 
 from struggler.engine import Engine, Side
 from struggler.engine.core import Subregion
+from struggler.bots.rules_math import ops_to_control
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.benchmark import parse_seeds
 
 SIDES = (Side.US, Side.USSR)
-
-
-def ops_to_control(mine: int, theirs: int, stability: int) -> int:
-    """Ops a side with `mine` influence needs to control a country against
-    `theirs`: point by point, 2 Ops while the other side still controls it
-    (`Board.influence_cost`, the doubling rule) and 1 after. 0 if already
-    controlled. Reach is recorded separately and not priced here."""
-    ops = 0
-    while mine - theirs < stability:
-        ops += 2 if theirs - mine >= stability else 1
-        mine += 1
-    return ops
 
 
 def overprotection(mine: int, theirs: int, stability: int) -> int:

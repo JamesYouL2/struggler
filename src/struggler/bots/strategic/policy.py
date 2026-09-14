@@ -20,7 +20,7 @@ from struggler.engine import Action, DecisionKind as K, Engine, Observation, Reg
 from struggler.engine.board import Board
 from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SANDBOX_LOG
+from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
@@ -40,8 +40,9 @@ RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARN
 CHECK_SNAPSHOT = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
 from struggler.bots.rules_math import (
     bonus_ops, coup_risks_defcon, coup_roll_modifier_estimate,
-    effective_ops_estimate, in_bonus_region, realignment_bonus,
-    realignment_modifier, space_race_expected_vp, sync_board,
+    effective_ops_estimate, in_bonus_region, next_move, ops_to_control,
+    phasing_side, realignment_bonus, realignment_modifier,
+    space_race_expected_vp, sync_board,
 )
 
 CARDS = load_cards()
@@ -1141,8 +1142,7 @@ class StrategicPlayer:
     def _is_phasing(obs: Observation) -> bool:
         """Whether we are the player whose Action Round this is -- the one
         who loses if DEFCON reaches 1 (8.1.3), whoever spends the Ops."""
-        ctx = obs.pending_decision.context if obs.pending_decision else {}
-        return ctx.get('phasing_player', obs.side.value) == obs.side.value
+        return phasing_side(obs) is obs.side
 
     def coup_survival_risk(self, obs: Observation, country: str) -> float:
         """Turn-loss risk of the hand after couping `country` now.
@@ -1293,6 +1293,11 @@ class StrategicPlayer:
         take control loses the exchange two to one.** The defender wins
         break wars, and forty points pile into stability-2 countries
         because both sides keep making the same losing trade.
+
+        The answer must also be legal: the opponent needs a later Action
+        Round before the relevant payout, reach to this country, and no
+        Chernobyl ban. Retakes use the doubling rule point by point rather
+        than charging the first point's cost for every point.
         """
         if not self.weights.reply_model:
             return raw
@@ -1313,12 +1318,16 @@ class StrategicPlayer:
             after = board.control(cid)
             if after is before:
                 return raw          # nothing changed hands; no forced answer
+            when = next_move(obs, them)
+            if when is None:
+                return raw          # Final Scoring comes before their next card
             # What it costs them to undo it, and how often they can.
-            cost = board.influence_cost(them, cid)
             need = self._points_to_control(cid, them)
-            if need <= 0:
+            if need <= 0 or not self._may_place(obs, them, cid, when):
                 return raw
-            undo = need * cost
+            inf = board.influence[cid]
+            undo = ops_to_control(inf[them.value], inf[obs.side.value],
+                                  board.countries[cid].stability)
             answered = sum(w for budget, w in self._reply_budgets(obs) if undo <= budget)
             if answered <= 0:
                 return raw          # the change stands for at least a round
@@ -1339,6 +1348,14 @@ class StrategicPlayer:
         finally:
             self._set_influence(cid, was['US'], was['USSR'])
             self._invalidate_base()
+
+    def _may_place(self, obs: Observation, side: Side, cid: str, when: int) -> bool:
+        """Whether `side` can place in `cid` on its next Action Round."""
+        board = self.board
+        if not board.is_reachable(side, cid):
+            return False
+        return not (when == 0 and chernobyl_blocks(
+            side, board.countries[cid].region, obs.turn_effects))
 
     def _invalidate_base(self) -> None:
         """Drop the per-decision base caches and re-stamp the board they
@@ -1422,7 +1439,7 @@ class StrategicPlayer:
             return cache[ops]
         side, board = obs.side, self.board
         reachable = [c for c in board.countries if board.is_reachable(side, c)
-                     and not (side is Side.USSR and obs.turn_effects.get('chernobyl') == board.countries[c].region.value)]
+                     and not chernobyl_blocks(side, board.countries[c].region, obs.turn_effects)]
         original = {c: dict(board.influence[c]) for c in reachable}
         total, remaining = 0., ops
         try:

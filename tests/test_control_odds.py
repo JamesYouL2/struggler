@@ -42,6 +42,12 @@ def test_ops_to_control_pays_the_doubling_rule_exactly_as_the_board_does(stabili
             assert measure.ops_to_control(mine, theirs, stability) == stepped, (mine, theirs)
 
 
+def test_measurement_and_bot_share_one_retake_cost():
+    """The measurement and reply look-ahead cannot drift apart."""
+    from struggler.bots import rules_math
+    assert _script('measure_control_odds').ops_to_control is rules_math.ops_to_control
+
+
 def test_overprotection_is_influence_beyond_the_control_margin():
     measure = _script('measure_control_odds')
     assert measure.overprotection(5, 1, 2) == 2

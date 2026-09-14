@@ -2,13 +2,10 @@
 from struggler.engine import Observation, Subregion
 from struggler.engine.cards import (ENTRY_TURN, cards_entering, entry_turn,
                                     hand_limit, load_cards)
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.core import LAST_TURN, SCORING_CARD_REGION
 
 CARDS = load_cards()
 STATES = ('hand', 'unseen', 'discard', 'removed', 'future')
-LAST_TURN = 10  # Engine._advance_past_turn_boundary finishes the game after it
-
-
 # P(final scoring | reaching the start of turn t), a provisional human prior.
 # Source: https://twstourney.wordpress.com/2026-round-4/ (checked 2026-09-09).
 # Six of 27 listed games ended at FS (games 2, 3, 8, 10, 15, 19). Ending-turn

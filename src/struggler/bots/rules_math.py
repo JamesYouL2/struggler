@@ -1,6 +1,6 @@
 """Rules arithmetic over public observation state, shared by every bot.
 
-These nine functions lived in `greedy.py` and were imported from there by
+The original rule helpers lived in `greedy.py` and were imported from there by
 `strategic/policy.py`, `rollout.py`, `llm/board_report.py` and three test
 modules. That made one baseline bot's file the home of code four other
 things depend on, with a live hazard: `benchmark.py` runs `GreedyPlayer`
@@ -26,7 +26,13 @@ from __future__ import annotations
 
 from struggler.engine import Observation, Region, Side, Subregion
 from struggler.engine.board import Board, CountryInfo
-from struggler.engine.core import effective_ops
+from struggler.engine.core import (
+    LAST_TURN,
+    effective_ops,
+    extra_action_round_sides,
+    side_for_play_index,
+    total_action_rounds,
+)
 from struggler.engine.rules import RULES
 
 
@@ -86,6 +92,43 @@ def realignment_bonus(board: Board, side: Side, country: str) -> float:
     if board.influence[country][side.value] > board.influence[country][side.opponent.value]:
         bonus += 1.0
     return bonus
+
+
+def ops_to_control(mine: int, theirs: int, stability: int) -> int:
+    """Ops needed to take control, charging the doubling rule point by point."""
+    ops = 0
+    while mine - theirs < stability:
+        ops += 2 if theirs - mine >= stability else 1
+        mine += 1
+    return ops
+
+
+def phasing_side(observation: Observation) -> Side:
+    """Return the side whose card play owns the current decision."""
+    decision = observation.pending_decision
+    context = decision.context if decision is not None else {}
+    return Side(context.get("phasing_player", observation.side.value))
+
+
+def next_move(observation: Observation, side: Side) -> int | None:
+    """Return 0 for a later play this turn, 1 for a later turn, or None."""
+    if observation.phase == "complete":
+        return None
+    turn = observation.turn
+    extras = extra_action_round_sides(observation.turn_effects, observation.game_effects)
+    total = total_action_rounds(turn, extras)
+    start = 0
+    if observation.phase == "action_rounds":
+        phasing = phasing_side(observation)
+        current = [
+            i for i in range(total)
+            if i // 2 + 1 == observation.action_round
+            and side_for_play_index(i, turn, extras) is phasing
+        ]
+        start = current[0] + 1 if current else total
+    if any(side_for_play_index(i, turn, extras) is side for i in range(start, total)):
+        return 0
+    return 1 if turn < LAST_TURN else None
 
 
 def realignment_modifier(observation: Observation, side: Side) -> float:

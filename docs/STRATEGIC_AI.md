@@ -172,6 +172,14 @@ action = bot.choose_action(observation, history)
   is live; nothing extra encodes that.
 - Searches affordable multi-point investments into each candidate country,
   accounting for the end of doubled placement costs when enemy control breaks.
+- The one-ply reply look-ahead only discounts a placement when the opponent
+  can legally answer it: the opponent must have a later Action Round before
+  the relevant payout, reach the country from the unchanged board, and not be
+  blocked by Chernobyl. Its retake budget applies the doubling rule point by
+  point, so a country can cost 2 Ops to break and 1 more to control. The
+  engine's turn-order helpers are shared with this policy rather than copied
+  into a second calendar; after the last play of turn 10, Final Scoring is the
+  next payout and no reply is charged.
 - Enumerates all six coup rolls and all 36 realignment roll pairs. These are
   exact expectations of its local board evaluator, not a simulation at an
   average roll. Prices military-operations deficits and avoids directly fatal
