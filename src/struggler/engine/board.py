@@ -271,9 +271,7 @@ class Board:
             return False
         if cid == "France" and degaulle_france:
             return False
-        if cid == "West_Germany" and willy_brandt:
-            return False
-        return True
+        return not (cid == "West_Germany" and willy_brandt)
 
     def coup_prohibited(
         self,
