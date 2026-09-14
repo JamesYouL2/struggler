@@ -1188,6 +1188,10 @@ class Engine:
     def _five_year_plan_scoring_escape(self, side: Side) -> bool:
         hand = self.hands[side.value]
         return (self.events_enabled and side is Side.USSR and "Five_Year_Plan" in hand
+                # A physical hand contains HIDDEN_CARD entries for cards the
+                # engine has not learned yet.  An unknown card may be
+                # non-scoring, so it cannot prove the all-scoring condition.
+                and HIDDEN_CARD not in hand
                 and len(hand) > 1 and all(c == "Five_Year_Plan" or self.cards[c].scoring for c in hand))
 
     def _push_action_round_play(self, side: Side) -> None:

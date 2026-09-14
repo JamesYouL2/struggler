@@ -442,6 +442,16 @@ def test_physical_mode_serialize_deserialize_round_trips():
     assert restored.hidden_pool == engine.hidden_pool
 
 
+def test_five_year_plan_scoring_escape_ignores_unknown_physical_cards():
+    """An unknown physical-hand card cannot prove the scoring escape."""
+    engine = _bare_physical(Side.USSR)
+    engine.hands["USSR"] = ["Five_Year_Plan", HIDDEN_CARD]
+
+    assert not engine._five_year_plan_scoring_escape(Side.USSR)
+    modes = engine._play_modes(Side.USSR, "Five_Year_Plan")
+    assert {"ops", "event"} <= set(modes)
+
+
 # -- full-game property test ------------------------------------------------
 
 
