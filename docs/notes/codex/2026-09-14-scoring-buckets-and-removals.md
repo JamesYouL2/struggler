@@ -90,3 +90,9 @@ evidence; a joint REJECT isolates to the revert.
 
 Recapture + full suite + one joint gate vs origin/main on the stacked
 state. Verdict to be appended. On ACCEPT: merge `--no-ff`.
+
+Dispatched as run 34987717417 (base pinned to origin/main 35182ef,
+`decide=0 vary=0`, default seeds). Pre-merge suite on the joint state:
+857 passed + 1 ty diagnostic (`answered * retake` where `ty` cannot see
+answered-implies-priced -- stated as an assert in `4b4297c`), corpus
+recaptured at `e06ce3a` (449 records, was 499).
