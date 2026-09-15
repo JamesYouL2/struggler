@@ -1441,6 +1441,10 @@ class StrategicPlayer:
                     answered += w
             if answered <= 0:
                 return raw          # the change stands for at least a round
+            # Answered weight exists only where a budget afforded the
+            # retake, and the first such budget prices it: `ty` cannot see
+            # that, so the invariant is stated, not inferred.
+            assert retake is not None
             discount = answered * retake
             if log.isEnabledFor(logging.DEBUG):
                 # Guarded: this runs a few thousand times per ranking, and
