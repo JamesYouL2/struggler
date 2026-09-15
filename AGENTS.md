@@ -151,3 +151,32 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
 - Suite ~4-6 min, `test_parity_corpus.py` is the pole. Recapture ~5-6 min for
   seeds 4000-4003. Ruff: compare against HEAD via `git stash`; only
   pre-existing (RUF005, B905, RUF059, PLW1510) should remain.
+
+## Session environment, continued (opening swap, 2026-09-15)
+
+- `yield_time_ms` takes an integer or nothing: `120000.0` fails arg parsing.
+  When in doubt omit it; long commands background after ~10s with a session
+  ID and `sleep 9` + `tail` polls them.
+- Behaviour-change checklist for a default-opening swap: `DEFAULT_OPENINGS`
+  in `policy.py`, the default test in `tests/test_openings.py`, the
+  setup-and-handicap test in `tests/test_strategic.py` (it pins the exact
+  placement order and board — grep for the new book name misses it; the
+  suite is the backstop), and the opening bullet in `docs/STRATEGIC_AI.md`.
+  First full run found the `test_strategic.py` pin; `-x` for fast discovery,
+  then a full re-run.
+- Recapture after any default change: the corpus follows the opening
+  (431 records on iran, 474 on italy — longer games). Suite time follows
+  the corpus: ~9:34 at 474 records, parity test the pole. A pass-count
+  delta vs another branch is expected when the bases differ (861 here vs
+  862 with the deck-tracking test).
+- New experiments branch off `origin/main`, never pile onto a branch with
+  a running gate — a moved HEAD confounds the verdict in flight.
+- The remote gate cannot measure an opening-default change: `gate.yml` has
+  no openings input and `scripts/gate.sh` defaults both arms to
+  `iran/austria` (`GATE_BOOKS`). Same for drift (`DRIFT_OPENINGS` in
+  `scripts/drift_check.sh`). A remote gate on such a branch is safety-only;
+  measuring the swap wants a local `GATE_OPENINGS=` empty run (each
+  revision its own default) or `scripts/opening_tournament.py`.
+- Never merge before the gate ACCEPTs, one verdict per branch, no bundling.
+  Poll with `gh run view <id> --json status,conclusion`; workflow `success`
+  is the ACCEPT, but confirm the ACCEPTED line in the log before merging.
