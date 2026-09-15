@@ -51,3 +51,42 @@ the runner checks out only the branch ref, so the base must be a SHA, not
 Verdict to be appended. On ACCEPT: full local suite, merge, then update
 provenance source/determination + counts for the two weights. On REJECT:
 split the bundle and re-gate each half.
+
+## Stacked 2026-09-15: reply-coup revert (Path B)
+
+Instead of merging the ACCEPTED bundle, the reply-coup revert stacks on
+this branch and the joint state gates once. Bundle-only ACCEPT stays as
+evidence; a joint REJECT isolates to the revert.
+
+- The opponent's answer is the retake only, at the constant max Ops any
+  card can carry (`reply_ops` 2.0 -> 4.0, `reply_model` 3 -> 1). Deleted:
+  `_may_coup`, `_coup_reply`, the unseen-pool budget distribution
+  (`_reply_budgets` collapses to the constant; the pool walk was 11% of a
+  ranking). Rationale: per-placement coup pricing roughly doubled ranking
+  cost; 30 minutes a suite is not worth it.
+- Considered and rejected: max over the opponent's possible hand instead
+  of the constant 4. Thirteen 4-Op cards means the pool max is 4 in
+  virtually every position, and a single-budget reply at 4 vs 3 differs
+  only for exactly-4-Op retakes -- while the test helper's budget knob
+  (`budget=5` for the doubling-rule leg) stops working.
+- Behavioural costs, both attributed by A/B probe, not guessed:
+  (a) the ops-curve convexity at the iran probe flips to concave -- the
+  old convexity was a ~4.1 flat Coup discount flattering the difference
+  past the subtrahend by 0.03; `test_the_ops_curve_is_convex...` now pins
+  on==off bit-identity (no phantom reply discounts) instead;
+  (b) the poke off-arm falls to mean 4.5 (was 6.27) -- contested-zero
+  took the cheap pokes out of the base values, so the negative control
+  now loops all seeds (4001/4002 carry it).
+- Test fallout fixed in the same commit: live==held pinned
+  (`test_live_scoring_card...`), access trial geometry moved to
+  uncontested Venezuela/Brazil, the five Coup-answer lookahead tests
+  replaced by `test_no_answer_where_no_retake_can_reach`, ledger
+  `reply_ops`/`reply_model` values + notes + summary counts.
+- Provenance: `reply_ops` guess/inert -> guess/underdetermined (now read),
+  `reply_model` gate/bounded -> guess/bounded (value 1 never gated; the
+  old model-3 verdict does not cover it). Pending the joint gate below.
+
+## Joint gate (pending at time of writing)
+
+Recapture + full suite + one joint gate vs origin/main on the stacked
+state. Verdict to be appended. On ACCEPT: merge `--no-ff`.

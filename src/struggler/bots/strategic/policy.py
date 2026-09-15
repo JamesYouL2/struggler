@@ -20,7 +20,7 @@ from struggler.engine import Action, DecisionKind as K, Engine, Observation, Reg
 from struggler.engine.board import Board
 from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks, defcon_allows_coup
+from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
@@ -503,18 +503,19 @@ class StrategicWeights:
     # loses the exchange 2:1, and that is invisible until one ply later.
     # `reply_model` selects how the reply budget is chosen, since weights
     # must be nonnegative and a sentinel cannot be: 0 off, 1 the
-    # `reply_ops` constant, 2 the median of the opponent's likely
-    # holdings, 3 a weighted average over budgets 0-4.
+    # `reply_ops` constant.
     #
-    # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
-    # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
-    # only says "not a measurable regression"), and what earns it is the
-    # behaviour. The maintainer's instrument -- breaking an opponent's
-    # Battleground with the single cheapest point -- falls from 6.27 a
-    # seat a game to 0.08, and no seat in 48 does it more than once.
-    # Gated by `tests/test_poke_rate.py`.
-    reply_ops: float = 2.0
-    reply_model: float = 3.0
+    # On, at 1 for the max budget, since 2026-09-15: was model 3 (weighted
+    # average over budgets 0-4) with a per-placement coup answer, reverted
+    # for simplicity/speed -- the coup pricing roughly doubled ranking
+    # cost, and 30 minutes a suite is not worth it. The answer is the
+    # retake, and the budget is the max Ops any card can carry, so
+    # wherever a retake is affordable at all it is answered. The
+    # maintainer's instrument -- breaking an opponent's Battleground with
+    # the single cheapest point -- is re-measured by
+    # `tests/test_poke_rate.py` under this model; the joint gate decides.
+    reply_ops: float = 4.0
+    reply_model: float = 1.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -594,7 +595,6 @@ class StrategicPlayer:
         # Set here as well as at both per-decision reset points: `influence`
         # and `delta` are reachable without a `rank_actions` first, and a
         # cache that only exists after one turns that into an AttributeError.
-        self._reply_budget_pool = None
         self._base_regions = None
         self._base_margins = None
         self._base_country = None
@@ -644,7 +644,6 @@ class StrategicPlayer:
         # a property of the position rather than of the traversal.
         self._vp_price = None
         self._unseen_hold_values = {}
-        self._reply_budget_pool = None
         self._events_in_progress = set()
         # Set by `_resolve_sandbox` when it prices a probabilistic ending, and
         # read by `_event_value_uncached` right after the call that set it.
@@ -1006,7 +1005,6 @@ class StrategicPlayer:
         self._vp_price = None
         self._placement_values = {}
         self._unseen_hold_values = {}  # per position too: it reads card states and scoring
-        self._reply_budget_pool = None
         try:
             return self.value(self.board, observation.side)
         finally:
@@ -1397,13 +1395,6 @@ class StrategicPlayer:
         Chernobyl ban. Retakes use the doubling rule point by point rather
         than charging the first point's cost for every point.
 
-        Placement is not their only answer. With each budget they take
-        whichever hurts us more in expectation: the retake, or a Coup on the
-        same country with the same Ops (`_coup_reply`), where the rules let
-        them make one (`_may_coup`). A Coup needs no reach and ignores the
-        doubling rule, so it answers exactly the overprotected or unreachable
-        placements the retake cannot -- the cheap low-stability country a
-        placement "takes" and a 3-Op card simply wipes.
         """
         if not self.weights.reply_model:
             return raw
@@ -1436,33 +1427,21 @@ class StrategicPlayer:
                 inf = board.influence[cid]
                 undo = ops_to_control(inf[them.value], inf[obs.side.value],
                                       board.countries[cid].stability)
-            coup_ok = self._may_coup(obs, them, cid, when)
-            if undo is None and not coup_ok:
+            if undo is None:
                 return raw
-            # Per budget, the answer that hurts us more. The retake's value
-            # does not depend on the budget, so it is priced once and
-            # charged at the total weight of the budgets that choose it --
-            # which, where no Coup is possible, is exactly the old
-            # `answered * delta`: the odds they can afford the answer, all-
-            # or-nothing for a constant budget and the share of their likely
-            # cards big enough to pay for the averaged model.
-            answered, struck, retake, rolls = 0., 0., None, {}
+            # The retake's value does not depend on the budget, so it is
+            # priced once and charged at the total weight of the budgets
+            # that can afford it: the odds they hold an answer,
+            # all-or-nothing for a constant budget.
+            answered, retake = 0., None
             for budget, w in self._reply_budgets(obs):
-                best = None
-                if undo is not None and undo <= budget:
+                if undo <= budget:
                     if retake is None:
                         retake = self.delta(obs, cid, opp=need)
-                    best = retake
-                if coup_ok and budget > 0:
-                    coup = self._coup_reply(obs, cid, them, budget, rolls)
-                    if best is None or coup < best:
-                        struck += w * coup
-                        continue
-                if best is not None:
                     answered += w
-            if answered <= 0 and not struck:
+            if answered <= 0:
                 return raw          # the change stands for at least a round
-            discount = (answered * retake if retake is not None else 0.) + struck
+            discount = answered * retake
             if log.isEnabledFor(logging.DEBUG):
                 # Guarded: this runs a few thousand times per ranking, and
                 # an unguarded call would cost about 0.2% of a game. Worth
@@ -1470,8 +1449,8 @@ class StrategicPlayer:
                 # there was nothing to look at -- the poke rate stayed at
                 # 13 a game and only a separate script showed why.
                 log.debug('reply %s: %+d pts costs %s Ops to undo, answered %.2f, '
-                          'coup %.1f, raw %.1f -> %.1f', cid, points, undo, answered,
-                          struck, raw, raw + discount)
+                          'raw %.1f -> %.1f', cid, points, undo, answered,
+                          raw, raw + discount)
             return raw + discount
         finally:
             self._set_influence(cid, was['US'], was['USSR'])
@@ -1484,61 +1463,6 @@ class StrategicPlayer:
             return False
         return not (when == 0 and chernobyl_blocks(
             side, board.countries[cid].region, obs.turn_effects))
-
-    def _may_coup(self, obs: Observation, attacker: Side, cid: str, when: int) -> bool:
-        """Whether `attacker` could Coup `cid` on its next move, `when`
-        being `next_move`'s answer, without losing the game by it.
-
-        The engine's own tests, from the board as it stands after our trial
-        change: the defender must hold Influence there (6.2.1); DEFCON must
-        allow Coups in the region (8.1.5, `defcon_allows_coup`); no
-        persistent event may forbid it (`evaluator.coup_forbidden`, pinned
-        to `Board.coup_prohibited`). The rest is what makes the Coup
-        suicide rather than illegal, so no one would answer with it: the
-        attacker's own Cuban Missile Crisis, and a Battleground Coup at
-        DEFCON 2, which is nuclear war for the phasing player -- and on
-        its own move the attacker is phasing. Nuclear Subs exempts the US.
-
-        A move next turn sees DEFCON one better (`Engine._end_of_turn`), and
-        by then the turn's effects -- the Crisis, Nuclear Subs -- have lapsed."""
-        board = self.board
-        info = board.countries[cid]
-        if board.influence[cid][attacker.opponent.value] <= 0:
-            return False
-        defcon = obs.defcon if when == 0 else min(5, obs.defcon + 1)
-        if not defcon_allows_coup(info.region, defcon):
-            return False
-        if when == 0 and obs.turn_effects.get('cuban_missile_crisis') == attacker.value:
-            return False
-        risks = coup_risks_defcon(obs, attacker, info) if when == 0 else info.battleground
-        if risks and defcon <= 2:
-            return False
-        t = self._terrain
-        return not ev.coup_forbidden(t, self._position, t.index[cid], ev.SIDE_INDEX[attacker],
-                                     coup_bans(obs.game_effects))
-
-    def _coup_reply(self, obs: Observation, cid: str, attacker: Side, ops: int,
-                    memo: dict) -> float:
-        """What `attacker` couping `cid` with `ops` does to us, averaged over
-        the six rolls exactly as `coup` averages ours -- the same margins,
-        from `coup_outcomes`, with the attacker's own roll modifiers -- and
-        priced from our side, so it is negative. Our Influence goes first,
-        then theirs is added.
-
-        `memo` belongs to one `_after_reply` call, while the board holds one
-        position: two budgets often share an outcome, and pricing it twice
-        would only repeat the same `delta`."""
-        board = self.board
-        info = board.countries[cid]
-        defender = board.influence[cid][attacker.opponent.value]
-        mod = coup_roll_modifier_estimate(obs, attacker, info)
-        total = 0.
-        for removed, gained in coup_outcomes(ops, info.stability, defender, mod):
-            value = memo.get((removed, gained))
-            if value is None:
-                value = memo[(removed, gained)] = self.delta(obs, cid, own=-removed, opp=gained)
-            total += value / 6
-        return total
 
     def _invalidate_base(self) -> None:
         """Drop the per-decision base caches and re-stamp the board they
@@ -1553,55 +1477,16 @@ class StrategicPlayer:
         self._base_digest = self._position.digest
 
     def _reply_budgets(self, obs: Observation) -> tuple[tuple[int, float], ...]:
-        """The Operations the opponent might answer with, as
-        (budget, weight) pairs summing to 1.
+        """The Operations the opponent answers with: the `reply_ops`
+        constant, weight 1. At the shipped 4 -- the max Ops any card can
+        carry -- wherever a retake is affordable at all, it is answered.
 
-        Three models, selected by `weights.reply_model`:
-
-        - **1** -- the `reply_ops` constant, weight 1. Simplest, and the
-          thing to beat.
-        - **2, the median of their likely holdings.** Their hand is
-          hidden (mandate #4), but the *distribution* is not: every card
-          not in our hand, the discard or the removed pile could be in
-          theirs, and its printed Ops are public. The median of that is a
-          better single number than a guess and costs one sort.
-        - **3, a weighted average over every budget 0-4**, weighted by
-          how often the opponent holds a card of each size. Strictly more
-          information than the median for four more evaluations, and only
-          on the placements where a reply exists to make.
-
-        Eventless throughout: this prices the Ops of the answer, not its
-        event. Pricing hidden events would be guessing at the hand, which
-        is exactly what mandate #4 forbids and what the median avoids.
+        Was three models over the unseen pool (constant, median, weighted
+        average); the pool distribution bought nothing the constant max
+        does not, at 11% of a ranking in card_state walks. Collapsed with
+        the coup-answer revert, 2026-09-15.
         """
-        model = int(self.weights.reply_model)
-        if model == 1:
-            return ((int(self.weights.reply_ops), 1.0),)
-        # The unseen pool is a property of the position, not of the country
-        # being priced, so it is built once per decision like
-        # `_unseen_hold_values`. It was rebuilt on every call: 3008 calls
-        # walking ~110 cards accounted for all 332k `card_state` calls in a
-        # profile of hazardous late hands, and 11% of the whole ranking.
-        pool = self._reply_budget_pool
-        if pool is None:
-            pool = self._reply_budget_pool = [
-                CARDS[c].ops for c in CARDS
-                if card_state(obs, c) == 'unseen' and not CARDS[c].scoring]
-        if not pool:
-            return ((2, 1.0),)
-        if model == 2:
-            # `sorted`, not `pool.sort()`: the pool is cached now, and
-            # sorting it in place would hand the next caller a different
-            # list than it built. Harmless today -- model 3 counts and does
-            # not care about order -- which is exactly how that kind of
-            # aliasing survives until it is not harmless.
-            ranked = sorted(pool)
-            return ((ranked[len(ranked) // 2], 1.0),)
-        counts: dict[int, int] = {}
-        for ops in pool:
-            counts[ops] = counts.get(ops, 0) + 1
-        total = len(pool)
-        return tuple((ops, n / total) for ops, n in sorted(counts.items()))
+        return ((int(self.weights.reply_ops), 1.0),)
 
     def _points_to_control(self, cid: str, side: Side) -> int:
         """Influence points `side` needs here to control it, from the board

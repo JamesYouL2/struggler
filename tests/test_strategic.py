@@ -149,7 +149,7 @@ def test_the_forward_search_discounts_the_same_break():
     inverted it priced higher, and every value test of it still passed.
     """
     plain, obs = _pakistan_break(0.)
-    searched, _ = _pakistan_break(3.)
+    searched, _ = _pakistan_break(1.)
     before = searched.board.serialize()
     undiscounted = plain.influence(obs, 'Pakistan', 3)
     discounted = searched.influence(obs, 'Pakistan', 3)
@@ -165,7 +165,9 @@ def test_evaluation_rejects_empty_seed_set():
 
 
 def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
-    """Scored < live < held, for the urgency and for what taking Iran is worth.
+    """Scored < live == held, for the urgency and for what taking Iran is worth.
+    The holding bonus is flat at 1.0 since the removals bundle: holding the card
+    scores it no sooner than a live deck scores it, so live and held price the same.
 
     The three deltas are each asked in their own observation's prepared
     context. They used to be asked of an unprepared bot, where the country,
@@ -181,12 +183,12 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
-    assert weights[0] < weights[1] < weights[2]  # scored < live < held
+    assert weights[0] < weights[1] == weights[2]  # scored < live == held: the holding bonus is flat
     deltas = []
     for o in (dead, live, held):
         bot.prepare(o)
         deltas.append(bot.delta(o, 'Iran', own=3))  # +3 takes control: the region score moves
-    assert deltas[0] < deltas[1] < deltas[2]
+    assert deltas[0] < deltas[1] == deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
     # scored one only after the reshuffle; a Mid War region from turn 4. Every
     # region also has the end of the game to play for, at its measured odds,
@@ -431,21 +433,25 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
 # once the rebuild landed. The retention-discount branch is that landing,
 # so the test below stands as a normal one.
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
-    """The property the concavity assertion was hiding.
+    """The threshold still denies the cheap first play -- but the curve no
+    longer shows it as convex, and that is the Coup answer leaving, not the
+    threshold value.
 
     Pinning the openings rather than using the default, so this says what
     it means and does not move when the default does.
     """
+    import dataclasses
+
     from struggler.engine import Side
 
-    def ops(book):
+    def ops(book, weights=None):
         engine = Engine.new_game(seed=4004, setup_bonus=True)
         setup = StrategicPlayer(openings={'US': book, 'USSR': 'austria'})
         while engine.pending_decision.context.get('setup'):
             d = engine.pending_decision
             engine.step(setup.choose_action(engine.observe(d.actor), []))
         obs = engine.observe(Side.USSR)
-        bot = StrategicPlayer()
+        bot = StrategicPlayer(weights)
         bot.rank_actions(obs)
         return [bot.ops_value(obs, n) for n in (1, 2, 4)]
 
@@ -456,9 +462,17 @@ def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     one_r, two_r, four_r = ops('iran')
     assert one_r < one_i, 'Iran to 3 should cost the USSR its cheap first Op'
     assert four_i - two_i <= two_i, 'italy: no threshold crossed, concave'
-    assert four_r - two_r > two_r, 'iran: four Ops cross what two cannot, convex'
-
-
+    # The old third leg -- four_r - two_r > two_r -- was the Coup discount
+    # falling about equally on the 2-Op and 4-Op spends (both rose ~4.1 when
+    # the answer was reverted away), which flattered the difference past the
+    # subtrahend by 0.03. Without it the curve is concave here, honestly:
+    # no retake answers these placements at any budget, so there is no
+    # reply discount left to restore the convexity. What the reply must not
+    # do is invent one: with the search on or off the numbers are bit-identical.
+    assert four_r - two_r <= two_r
+    off = dataclasses.replace(StrategicWeights(), reply_model=0.)
+    assert ops('iran', off) == [one_r, two_r, four_r]
+    assert ops('italy', off) == [one_i, two_i, four_i]
 def test_de_stalinization_is_simulated_and_beats_its_ops():
     from struggler.engine import Side
     engine = _opening_board()
@@ -517,23 +531,30 @@ def test_access_does_not_depend_on_an_earlier_trial_placement():
     """`_access` reads influence up to two hops out, so the `(board, cid, side)`
     memo it used to carry went stale as soon as a trial placement moved a
     neighbour: the same position then scored differently depending on what had
-    been evaluated before it, which reordered 39 of the 598 corpus rankings."""
+    been evaluated before it, which reordered 39 of the 598 corpus rankings.
+
+    The geometry is uncontested on purpose: with the contested-reach discount
+    at zero, a trial next to a country America reaches prices zero on both
+    sides of the move, and the first assertion below goes 0.0 != 0.0. Brazil
+    is reach America does not have, so taking it still moves the price."""
     from struggler.engine import Side
     engine = _opening_board()
     obs = engine.observe(Side.USSR)
     plain = StrategicPlayer()
     plain.rank_actions(obs)
-    expected = plain._access(plain.board, 'Israel', Side.USSR)
+    expected = plain._access(plain.board, 'Venezuela', Side.USSR)
+    assert expected > 0  # the trial below has something to move
     bot = StrategicPlayer()
     bot.rank_actions(obs)
     board = bot.board
-    # Make and unmake a neighbouring placement, exactly as `_investment` does.
-    original = dict(board.influence['Egypt'])
-    board.influence['Egypt']['USSR'] += 2
-    on_trial = bot._access(board, 'Israel', Side.USSR)
-    board.influence['Egypt'].update(original)
-    assert on_trial != expected  # the trial board really does price Israel differently
-    assert bot._access(board, 'Israel', Side.USSR) == expected
+    # Make and unmake a neighbouring placement, exactly as `_investment` does:
+    # two more points take Brazil, and Venezuela's reach into it is gone.
+    original = dict(board.influence['Brazil'])
+    board.influence['Brazil']['USSR'] += 2
+    on_trial = bot._access(board, 'Venezuela', Side.USSR)
+    board.influence['Brazil'].update(original)
+    assert on_trial != expected  # the trial board really does price Venezuela differently
+    assert bot._access(board, 'Venezuela', Side.USSR) == expected
 
 
 def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
