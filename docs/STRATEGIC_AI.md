@@ -69,8 +69,8 @@ action = bot.choose_action(observation, history)
 - The opening setup is a book, not a search (`OPENING_BOOK`): USSR
   East Germany +1, Poland +4, Austria +1 (4/4 keeps control through East
   European Unrest; Austria reaches Italy and West Germany); US West
-  Germany 4, Italy 3, then the +2 handicap to Iran and West Germany
-  (5 holds against Socialist Governments). The influence search decides
+  Germany 4, Italy 4, Iran to 2 (Sankt's 4/4/2, the default; `france`
+  and `iran` stay available as books). The influence search decides
   only if the book's country is somehow unavailable. Before the book the
   value function put 3 in Czechoslovakia, a non-battleground.
 - Ops are priced by their best use on this board (`ops_value`): a greedy

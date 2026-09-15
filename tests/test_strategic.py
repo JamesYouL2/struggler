@@ -375,15 +375,14 @@ def test_opening_book_plays_the_standard_setup_and_the_handicap():
     us = [c for s, c in placed if s == 'US']
     assert sorted(ussr) == sorted(['East_Germany'] + ['Poland'] * 4 + ['Austria'])
     assert us[:7].count('West_Germany') == 4 and us[:7].count('Italy') == 3
-    # Both handicap points to Iran: 4 West Germany / 3 Italy / Iran to 3,
-    # the maintainer's default. The book this replaced sent the second point
-    # to West Germany, taking it to 5 -- overprotection on the most
-    # expensive country in Europe.
-    assert us[7:] == ['Iran', 'Iran']
+    # Handicap split Iran/Italy: 4 West Germany / 4 Italy / Iran to 2
+    # (Sankt's 4/4/2), the maintainer's default since the swap from `iran`.
+    assert us[7:] == ['Iran', 'Italy']
     assert engine.board.influence['Poland']['USSR'] == 4
     assert engine.board.influence['East_Germany']['USSR'] == 4
     assert engine.board.influence['West_Germany']['US'] == 4
-    assert engine.board.influence['Iran']['US'] == 3
+    assert engine.board.influence['Italy']['US'] == 4
+    assert engine.board.influence['Iran']['US'] == 2
 
 
 def _opening_board():

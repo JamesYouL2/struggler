@@ -235,14 +235,15 @@ OPENINGS = {'US': ('france', 'italy', 'iran'),
             'USSR': ('austria', 'poland', 'yugoslavia')}
 # What `StrategicPlayer()` plays when nobody says otherwise.
 #
-# `iran` (4 West Germany / 3 Italy / Iran to 3), the maintainer's choice.
-# Not the `france` line they ruled on in docs/EXPERT_STRATEGY.md a day
-# after the old book was written -- that one is available as a book, but
+# `italy` (4 West Germany / 4 Italy / Iran to 2), Sankt's 4/4/2, per the
+# maintainer's call to swap the default from `iran`. The `france` line
+# they ruled on in docs/EXPERT_STRATEGY.md stays available as a book, but
 # the default is theirs to set and they set it here.
 #
-# Ungated: the book this replaced took West Germany to 5, so this is a
-# behaviour change and wants its own gate.
-DEFAULT_OPENINGS = {'US': 'iran', 'USSR': 'austria'}
+# Behaviour change from the `iran` default it replaced, so it wants its
+# own gate (each revision its own default: GATE_OPENINGS empty locally --
+# the remote gate pins iran/austria for both arms and cannot measure it).
+DEFAULT_OPENINGS = {'US': 'italy', 'USSR': 'austria'}
 
 
 def _copy_state(value):
