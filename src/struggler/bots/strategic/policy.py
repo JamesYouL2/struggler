@@ -24,8 +24,8 @@ from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks, defcon_allows_c
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, scoring_cards_for,
-                                         scoring_schedule)
+from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, p_opponent_holds,
+                                         scoring_cards_for, scoring_schedule)
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
@@ -444,6 +444,16 @@ class StrategicWeights:
     # the moment.
     scoring_hand: float = 1.2
     scoring_discount: float = 0.8
+    # Experiment experiment/deck-tracking: how much more this cycle's term
+    # is worth when the opponent likely holds the scoring card
+    # (`public_cards.p_opponent_holds`, from public counts alone). They
+    # score at their best moment, so control banked before they do is worth
+    # more: the this-cycle term is multiplied by (1 + scoring_rival * p).
+    # This deliberately breaks the side-agnostic urgency the schedule
+    # comment below defends -- holder identity predicts TIMING, not just
+    # retention. 0 is off (the pre-arm behaviour); the arm ships at 1.
+    # The gate decides.
+    scoring_rival: float = 1.0
     # What the end-of-game scoring of every region is worth, times its
     # measured odds of happening (public_cards.FINAL_SCORING_ODDS). 0 restores
     # the old behaviour, which priced the last turns as if the game ran for
@@ -1053,10 +1063,16 @@ class StrategicPlayer:
         total, scorings = 0., 0
         for card in scoring_cards_for(self.board.countries[cid]):
             held = card in obs.hand
+            rival = p_opponent_holds(obs, card) if w.scoring_rival else 0.
             for turns in scoring_schedule(obs, card):
                 j = 1 if turns == 0 else 2
                 scorings = max(scorings, j)
-                total += r ** j * (w.scoring_hand if held and turns == 0 else 1.)
+                # Both factors name their weight in the expression: the
+                # scale-discipline scanner (`tests/test_scale_discipline.py`)
+                # reads names, and a `factor` local would hide what scales
+                # this board-scale total.
+                total += (r ** j * (w.scoring_hand if held and turns == 0 else 1.)
+                          * (1. + w.scoring_rival * rival if turns == 0 else 1.))
         # Every region is scored once more at the end of the last turn, if the
         # game gets there. Most do not: two thirds end early on the 20 VP
         # auto-victory. So this is priced at its measured odds

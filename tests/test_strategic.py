@@ -221,6 +221,33 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     assert bot.delta(dead, 'Iran', own=3) < live_value
 
 
+def test_rival_tracking_raises_urgency_only_where_they_may_hold_the_scoring():
+    """Experiment experiment/deck-tracking: this cycle's urgency rises with
+    P(the opponent holds the scoring card), from public counts alone.
+
+    The drained pile is the instrument: one card left to draw and eight in
+    their hand means every unseen card is likely theirs, while a discarded
+    scoring stays at zero however drained the pile is. With the arm off the
+    drain moves nothing -- off means off, bit for bit."""
+    engine = Engine(seed=0)
+    engine.turn = 2
+    engine.board.influence['Iran']['USSR'] = 1
+    engine.hands['US'] = ['Nasser']
+    live = engine.observe(Side.US)
+    drained = dataclasses.replace(live, draw_pile_size=1, opponent_hand_size=8)
+    from struggler.bots.strategic.public_cards import p_opponent_holds
+    assert p_opponent_holds(drained, 'Middle_East_Scoring') > 0.8
+    assert p_opponent_holds(live, 'Middle_East_Scoring') < 0.2  # control: full pile
+    on = StrategicPlayer()
+    assert on.weights.scoring_rival == 1.0  # the arm ships on
+    assert on.scoring_weight(drained, 'Iran') > on.scoring_weight(live, 'Iran')
+    dead = dataclasses.replace(drained, discard_pile=('Middle_East_Scoring',))
+    assert on.scoring_weight(dead, 'Iran') == on.scoring_weight(
+        dataclasses.replace(live, discard_pile=('Middle_East_Scoring',)), 'Iran')
+    off = StrategicPlayer(dataclasses.replace(StrategicWeights(), scoring_rival=0.))
+    assert off.scoring_weight(drained, 'Iran') == off.scoring_weight(live, 'Iran')
+
+
 def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring():
     """The schedule used to promise scorings that never happen and to ignore
     the one that sometimes does. A reshuffle two turns away on turn 9 predicted
