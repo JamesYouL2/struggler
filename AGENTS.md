@@ -171,6 +171,7 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
   862 with the deck-tracking test).
 - New experiments branch off `origin/main`, never pile onto a branch with
   a running gate — a moved HEAD confounds the verdict in flight.
+- CI is free for verification, use it: `tests.yml` runs the full suite automatically on every push to `main`, and a full `decide=0` gate dispatches to isolated runners (`gh workflow run gate.yml --ref main -f bases='["<SHA>"]' -f decide=0 -f vary=0`). Prefer both over local runs and keep the local box free — local suite/gate contention is what corrupted the timing notes twice.
 - The remote gate cannot measure an opening-default change: `gate.yml` has
   no openings input and `scripts/gate.sh` defaults both arms to
   `iran/austria` (`GATE_BOOKS`). Same for drift (`DRIFT_OPENINGS` in
