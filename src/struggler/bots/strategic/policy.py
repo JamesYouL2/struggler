@@ -25,7 +25,7 @@ from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, p_opponent_holds,
-                                         scoring_cards_for, scoring_schedule)
+                                         scoring_buckets, scoring_cards_for)
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
@@ -1065,15 +1065,22 @@ class StrategicPlayer:
         for card in scoring_cards_for(self.board.countries[cid]):
             held = card in obs.hand
             rival = p_opponent_holds(obs, card) if w.scoring_rival else 0.
-            for turns in scoring_schedule(obs, card):
-                j = 1 if turns == 0 else 2
-                scorings = max(scorings, j)
-                # Both factors name their weight in the expression: the
-                # scale-discipline scanner (`tests/test_scale_discipline.py`)
-                # reads names, and a `factor` local would hide what scales
-                # this board-scale total.
-                total += (r ** j * (w.scoring_hand if held and turns == 0 else 1.)
-                          * (1. + w.scoring_rival * rival if turns == 0 else 1.))
+            for bucket in scoring_buckets(obs, card):
+                if bucket in (1, 2):
+                    # Buckets 1+2 split this cycle equally: each carries half
+                    # of what the old turns==0 term priced, so the two sum to
+                    # it exactly (halving and doubling are exact, and the
+                    # halves are added back before anything else joins the
+                    # total). The holding bonus applies to both halves: we
+                    # pick the moment whenever this cycle scores.
+                    scorings = max(scorings, 1)
+                    total += (0.5 * r * (w.scoring_hand if held else 1.)
+                              * (1. + w.scoring_rival * rival))
+                elif bucket == 3:
+                    scorings = max(scorings, 2)
+                    total += r ** 2
+                else:  # bucket 4: named, zero mass until factor 2 prices it
+                    scorings = max(scorings, 3)
         # Every region is scored once more at the end of the last turn, if the
         # game gets there. Most do not: two thirds end early on the 20 VP
         # auto-victory. So this is priced at its measured odds
