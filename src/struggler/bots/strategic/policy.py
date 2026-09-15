@@ -717,7 +717,7 @@ class StrategicPlayer:
         share of the tier."""
         urgency, t = self._urgency_vector(), self._terrain
         return max((Region.MIDDLE_EAST, Region.ASIA),
-                   key=lambda r: urgency[t.members[r][0]])
+                   key=lambda r: ev.region_urgency(t, r, urgency))
 
     def _overrides_for(self, region: Region, pos: ev.Position, flags=None):
         """The scoring adjustments `region` scores under, as the index sets
@@ -1053,8 +1053,27 @@ class StrategicPlayer:
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
-        worth: the country, its region's score and its region's margin, after
-        minus before."""
+        worth: the country, its region's score and its region's margin, and
+        the access every *other* country loses or gains by it, after minus
+        before.
+
+        The contract is exactness: with the context fixed, this is
+        `value(after) - value(before)` for the one-country change, so that a
+        sequence of placements sums to the difference of its end points
+        whatever order it is taken in, and an event that makes the same
+        change (priced by `_resolve_sandbox`) is worth the same.
+
+        Another country's `country_value` reads `cid` only through
+        `evaluator.access`, and `access` reads three things about it: who
+        controls it, and whether each side holds any influence there (routes,
+        standing in it, and the opponent's reach, which is presence one hop
+        out). So a change that moves none of those -- overprotection, a
+        point short of control in a country both sides already stand in --
+        moves only `cid`'s own terms; any other change also moves up to
+        `evaluator.VALUE_RADIUS` hops of neighbours. Until 2026-09-13 those
+        were left out, and controlling Nigeria next to a US Cameroon booked
+        13.95 where the board moved 8.44: Cameroon's access to an
+        uncontrolled Nigeria was consumed and nobody was charged for it."""
         if own == 0 and opp == 0:
             return 0.
         if self._base_regions is None:
@@ -1076,7 +1095,6 @@ class StrategicPlayer:
         s = ev.SIDE_INDEX[obs.side]
         sign = 1 if s == ev.US else -1
         vector = self._urgency_vector()
-        urgency = self.scoring_weight(obs, cid)
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
         # region's starting score is fixed; anyone committing a change
@@ -1116,13 +1134,20 @@ class StrategicPlayer:
         elif CHECK_SNAPSHOT:
             assert own_before == ev.country_value(t, pos, i, s, w, vector), \
                 f'base country value for {cid} moved while cached'
-        before = own_before + w.region * urgency * region_before + margin_before
+        # The region's VP is weighted by the region's own scoring urgency,
+        # never by `cid`'s -- a Southeast Asian country's includes Southeast
+        # Asia Scoring, which does not score Asia's tiers. One rule on every
+        # path: `evaluator.region_potential` (Codex M2).
+        before = (own_before + ev.region_potential(t, w, vector, ((region, region_before),))
+                  + margin_before)
         controller = pos.control[i]
-        was_us, was_ussr = pos.inf[ev.US][i], pos.inf[ev.USSR][i]
+        inf_us, inf_ussr = pos.inf
+        was_us, was_ussr = inf_us[i], inf_ussr[i]
         if s == ev.US:
             self._set_influence(cid, max(0, was_us + own), max(0, was_ussr + opp))
         else:
             self._set_influence(cid, max(0, was_us + opp), max(0, was_ussr + own))
+        neighbours_after = ()
         try:
             # Partial influence and overprotection cannot change regional VP;
             # the margin term (progress toward presence) can move on either.
@@ -1133,10 +1158,35 @@ class StrategicPlayer:
                                 t, pos, region, *self._overrides_for(region, pos)))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
-            return (ev.country_value(t, pos, i, s, w, vector)
-                    + w.region * urgency * region_after + margin_after - before)
+            change = (ev.country_value(t, pos, i, s, w, vector)
+                      + ev.region_potential(t, w, vector, ((region, region_after),))
+                      + margin_after - before)
+            if (pos.control[i] != controller or (inf_us[i] > 0) != (was_us > 0)
+                    or (inf_ussr[i] > 0) != (was_ussr > 0)):
+                # What `access` reads about `cid` moved, so the neighbours'
+                # values can have. A neighbour holding no influence of either
+                # side is skipped exactly, not approximately: both its access
+                # terms are multiplied by `False`, so its value is the same
+                # float on every board.
+                neighbours_after = [
+                    (j, ev.country_value(t, pos, j, s, w, vector))
+                    for j in ev.others_moved_by(t, i) if inf_us[j] or inf_ussr[j]]
         finally:
             self._set_influence(cid, was_us, was_ussr)
+        # The neighbours' before-values are read with the board put back,
+        # because that is the board `_base_country` describes.
+        for j, after in neighbours_after:
+            key = (j, s)
+            then = None if cache is None else cache.get(key)
+            if then is None:
+                then = ev.country_value(t, pos, j, s, w, vector)
+                if cache is not None:
+                    cache[key] = then
+            elif CHECK_SNAPSHOT:
+                assert then == ev.country_value(t, pos, j, s, w, vector), \
+                    f'base country value for {t.ids[j]} moved while cached'
+            change += after - then
+        return change
 
     @staticmethod
     def _is_phasing(obs: Observation) -> bool:
@@ -1625,7 +1675,10 @@ class StrategicPlayer:
                          for c in engine.board.countries}
             regions = {r: self.region_score(engine.board, r, obs.side, snap) for r in Region}
             margins = {r: self.region_margin(engine.board, r, obs.side, snap) for r in Region}
-            before = sum(countries.values()) + self.weights.region * sum(regions.values()) + sum(margins.values())
+            before = (sum(countries.values())
+                      + ev.region_potential(self._terrain, self.weights, self._urgency_vector(),
+                                            regions.items())
+                      + sum(margins.values()))
             self._event_basis = (basis_key, countries, regions, margins, before)
         _, countries, regions, margins, before = self._event_basis
         engine._fire_event(obs.side, cid)
@@ -1703,9 +1756,9 @@ class StrategicPlayer:
                             != self._overrides_for(r, position, self._scoring_flags)}
         after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
                     if c in affected else v for c, v in countries.items())
-        after += w.region * sum(
-            sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
-            if r in changed_regions else v for r, v in regions.items())
+        after += ev.region_potential(t, w, vector, (
+            (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
+             if r in changed_regions else v) for r, v in regions.items()))
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
         result = after - before
