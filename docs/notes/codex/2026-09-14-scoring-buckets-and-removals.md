@@ -43,7 +43,11 @@ deletion, say so and the gate re-runs against that.
 
 ## Gate (pending at time of writing)
 
-`gh workflow run gate --ref experiment/scoring-five-bucket -f bases='["main"]' -f decide=0 -f vary=0`
-Verdict + run id to be appended. On ACCEPT: merge, then update provenance
-source/determination + counts for the two weights. On REJECT: split the
-bundle and re-gate each half.
+Dispatched as run 34926032664 (base pinned to origin/main
+35182ef, `decide=0 vary=0`, default 128+128 seeds). A first dispatch
+(34925988205) failed in 15s on `fatal: not a valid object name: main` --
+the runner checks out only the branch ref, so the base must be a SHA, not
+`main`. Infra failure, not a verdict.
+Verdict to be appended. On ACCEPT: full local suite, merge, then update
+provenance source/determination + counts for the two weights. On REJECT:
+split the bundle and re-gate each half.
