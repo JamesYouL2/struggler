@@ -122,3 +122,32 @@ by remembering harder.
   differently depending on what came first: 39 of 598 corpus rankings changed
   when the memo was bypassed. The terms now live in `bots/strategic/evaluator.py` and
   own no state; see the snapshot contract in `docs/STRATEGIC_AI.md`.
+
+## Session environment (Codex CLI, 2026-09-15)
+
+Learnings from running gates, suites, and recaptures in this container.
+Standing prefs: docs always commit+push unasked; run logs under `logs/`
+(gitignored); gates need explicit approval before dispatch.
+
+- `exec_command`: `yield_time_ms` must be an integer, floats fail arg parse.
+  Omit it for long runs, they background after ~10s wall with a session ID.
+- Long commands: run as `cmd > logs/<topic>.log 2>&1; echo "exit=$?" >> log`,
+  then poll with `sleep` + `tail`. Never `&`-background, it dies with the turn.
+- No `apply_patch` tool in this harness. Edit via `python` + quoted heredocs,
+  prefer line-number-targeted edits, verify with `grep` / `sed -n`. Watch
+  heredoc backslash-escapes, a stray backtick escape has shipped a bug before.
+- Kill duplicate runners (`ps aux | grep`) before timing anything. Suite and
+  gate contend for all cores; the timing note in Conventions above was wrong
+  twice from contended runs. Run gates alone locally, or prefer remote
+  `gate.yml` dispatch, which is isolated so several can run at once.
+- Fast A/B attribution: `git stash` + re-run the single failing test to decide
+  "bundle or revert" before splitting branches.
+- `gh` is authed (JamesYouL2). Gate dispatch:
+  `gh workflow run gate.yml --ref <branch> -f bases='["<SHA>"]' -f decide=0 -f vary=0`;
+  poll with `gh run view <id> --json status,conclusion`.
+- Ledger `models/provenance.json`: 2-space indent, never plain `json.dumps`
+  (a test parses the format). Recompute `_summary` counts, verify with
+  `tests/test_provenance.py`. New weights need entries or the suite fails.
+- Suite ~4-6 min, `test_parity_corpus.py` is the pole. Recapture ~5-6 min for
+  seeds 4000-4003. Ruff: compare against HEAD via `git stash`; only
+  pre-existing (RUF005, B905, RUF059, PLW1510) should remain.
