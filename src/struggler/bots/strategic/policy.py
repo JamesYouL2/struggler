@@ -1072,21 +1072,19 @@ class StrategicPlayer:
             held = card in obs.hand
             rival = p_opponent_holds(obs, card) if w.scoring_rival else 0.
             for bucket in scoring_buckets(obs, card):
-                if bucket in (1, 2):
-                    # Buckets 1+2 split this cycle equally: each carries half
-                    # of what the old turns==0 term priced, so the two sum to
-                    # it exactly (halving and doubling are exact, and the
-                    # halves are added back before anything else joins the
-                    # total). The holding bonus applies to both halves: we
-                    # pick the moment whenever this cycle scores.
-                    scorings = max(scorings, 1)
-                    total += (0.5 * r * (w.scoring_hand if held else 1.)
-                              * (1. + w.scoring_rival * rival))
-                elif bucket == 3:
-                    scorings = max(scorings, 2)
-                    total += r ** 2
-                else:  # bucket 4: named, zero mass until factor 2 prices it
-                    scorings = max(scorings, 3)
+                # Cycle index and this-cycle share: buckets 1+2 split the
+                # current cycle equally -- each carries half of what the old
+                # turns==0 term priced, so the two sum to it exactly
+                # (halving is exact) -- and bucket 3 is the post-reshuffle
+                # cycle. Bucket 4 is never emitted yet: zero mass until
+                # factor 2 prices it. The holding bonus applies wherever
+                # this cycle scores: we pick the moment. The rival factor
+                # rides this cycle's term only.
+                j = 1 if bucket in (1, 2) else 2
+                mass = 0.5 if bucket in (1, 2) else 1.0
+                scorings = max(scorings, j)
+                total += (mass * r ** j * (w.scoring_hand if held and j == 1 else 1.)
+                          * (1. + w.scoring_rival * rival if j == 1 else 1.))
         # Every region is scored once more at the end of the last turn, if the
         # game gets there. Most do not: two thirds end early on the 20 VP
         # auto-victory. So this is priced at its measured odds
