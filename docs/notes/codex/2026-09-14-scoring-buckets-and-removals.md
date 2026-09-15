@@ -138,3 +138,14 @@ Dispatched as run 35017324662 (base pinned to origin/main 339d5ac,
 `decide=0 vary=0`, default seeds). Verdict to be appended. On ACCEPT:
 the revert is the loser -- drop it from the five-bucket branch and
 re-gate. On REJECT: the stack itself misses on the stronger base.
+
+Verdict: ACCEPTED -- pooled 0.506 +/-0.027 over 128 seeds, one-sided 95%
+upper 0.550, needs 0.500 (run 35017324662, 59m56s, within budget).
+Checkpoints clean (turn-3: 0.556 over 3 seeds). Full games split 0.539
+vs-base (signed VP +0.37, 17 nuclear) / 0.473 vs-held-out (+0.06, 19
+nuclear); pooled signed VP +0.21. Against the with-revert re-gate
+(REJECT 0.449, upper 0.494, halves 0.469/0.430, VP -2.23), dropping the
+revert is worth +0.057 pooled and +2.4 VP: the revert is the loser, as
+predicted. Per the plan: drop the reply-revert from the five-bucket
+branch (restore coup answers), recapture, full suite, re-gate. ACCEPTED
+means not measurably worse, never better -- the ship call stays open.
