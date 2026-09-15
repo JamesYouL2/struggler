@@ -113,16 +113,16 @@
       "determination": "underdetermined"
     },
     "reply_ops": {
-      "value": 4.0,
+      "value": 2.0,
       "source": "guess",
-      "determination": "underdetermined",
-      "note": "The constant Operations budget the forward search assumes the opponent answers with. Read at the shipped setting of 1 (retake-only at the max, since the 2026-09-15 revert removed the Coup answer for simplicity/speed); was inert under model 3, which averaged over budgets 0-4 and never read this. The 4 is the deck print max, not a tuned value -- pending the joint gate on experiment/scoring-five-bucket."
+      "determination": "inert",
+      "note": "The constant Operations budget the forward search assumes the opponent answers with, used only when `reply_model` is 1. Inert at the shipped setting of 3, which averages over budgets 0-4 and never reads this."
     },
     "reply_model": {
-      "value": 1.0,
-      "source": "guess",
+      "value": 3.0,
+      "source": "gate",
       "determination": "bounded",
-      "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant (retake-only since the 2026-09-15 revert removed the Coup answer). Was 3, a weighted average over budgets 0-4 with a per-placement Coup answer; the gate at `01de83f` that shipped it is a dead heat on strength and does not cover the value 1. On-vs-off behaviour is still pinned by the poke fixtures (on arm 0 everywhere, off breaks the ceiling on seeds 4001/4002) -- pending the joint gate on experiment/scoring-five-bucket."
+      "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
     },
     "vp_base": {
       "value": 0.5,
@@ -272,16 +272,16 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 17,
-      "gate": 6,
+      "guess": 16,
+      "gate": 7,
       "derived": 4,
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 12,
       "known-wrong": 2,
       "bounded": 10,
-      "inert": 3,
+      "inert": 4,
       "overdetermined": 3,
       "determined": 11
     },

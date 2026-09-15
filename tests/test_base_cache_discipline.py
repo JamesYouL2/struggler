@@ -40,7 +40,7 @@ assert ev.DIGEST and pol.CHECK_SNAPSHOT, 'the checker must be on'
 original = pol.StrategicPlayer._invalidate_base
 pol.StrategicPlayer._invalidate_base = lambda self: None
 
-w = dataclasses.replace(StrategicWeights(), reply_model=1.0)
+w = dataclasses.replace(StrategicWeights(), reply_model=3.0)
 e = bare_engine()
 e.board.influence['Italy']['US'] = 2
 e.board.influence['Greece']['USSR'] = 1
@@ -142,7 +142,7 @@ def test_the_forward_search_discounts_a_break_rather_than_rewarding_it():
     from struggler.bots.strategic import StrategicPlayer, StrategicWeights
     from struggler.engine import Side
 
-    weights = dataclasses.replace(StrategicWeights(), reply_model=1.0)
+    weights = dataclasses.replace(StrategicWeights(), reply_model=3.0)
     engine = bare_engine()
     engine.board.influence['Italy']['US'] = 2      # US controls, bare
     engine.board.influence['Greece']['USSR'] = 1   # so the USSR can reach it
