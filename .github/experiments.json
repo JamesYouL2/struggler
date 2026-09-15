@@ -40,6 +40,66 @@
       "held": "10212-10275",
       "title": "no coup discount (1.0 vs 0.9), isolated ablation at full size",
       "context": "The 2026-09-09 audit proposed testing coup_discount=1 as an isolated ablation; the 2026-09-12 arms came back not-measurably-worse at +/-0.06 to +/-0.075, too wide to act on. Full 128+64 re-run on current main. A pass means the discount is free, not that it is useless; a fail prices the discount. Cannot distinguish a useless discount from coups mispriced elsewhere."
+    },
+    {
+      "slug": "access-half",
+      "weights": {
+        "access": 0.75
+      },
+      "seeds": "10276-10403",
+      "held": "10404-10467",
+      "title": "reach value halved (0.75 vs 1.5), first reading",
+      "context": "access scales all reach-into-battlegrounds value and ships at an uncalibrated 1.5 (provenance: underdetermined, no note). First reading at half: a pass means the reach term can shrink and the next bisect quarters it; a fail means 1.5 is load-bearing. Cannot say where in (0.75, 1.5] the edge is, only which side of 0.75 it is on."
+    },
+    {
+      "slug": "control-half",
+      "weights": {
+        "control": 0.75
+      },
+      "seeds": "10468-10595",
+      "held": "10596-10659",
+      "title": "control value halved (0.75 vs 1.5), first reading",
+      "context": "control values a battleground's control for the access term; expert reasoning puts a 1-stability non-battleground at 1.25-1.67 per Op, but the region model it belongs to is measured wrong overall so it inherits that doubt. First reading at half on current main. A pass shrinks it toward the rebuild's factor-1 replacement; a fail keeps 1.5 until the rebuild. Cannot validate the expert reasoning itself, only the scale."
+    },
+    {
+      "slug": "margin-bg-half",
+      "weights": {
+        "margin_battleground": 0.125
+      },
+      "seeds": "10660-10787",
+      "held": "10788-10851",
+      "title": "battleground margin credit halved (0.125 vs 0.25), first reading",
+      "context": "margin_battleground gives partial tier-flip credit per battleground of margin, fitted to expert valuations (31 -> 26 misses). First reading at half: tests whether the fitted credit survives contact with self-play strength. A pass reopens the fit; a fail keeps it. Cannot distinguish a wrong scale from a wrong shape (the rebuild computes this per future scoring turn)."
+    },
+    {
+      "slug": "margin-country-half",
+      "weights": {
+        "margin_country": 0.025
+      },
+      "seeds": "10852-10979",
+      "held": "10980-11043",
+      "title": "country margin credit halved (0.025 vs 0.05), first reading",
+      "context": "margin_country is the per-country counterpart of margin_bg, same expert fit. Same read as its sibling arm: a pass reopens the fit, a fail keeps 0.05. Run as a separate arm rather than bundled so a rejection attributes to one credit, not the pair."
+    },
+    {
+      "slug": "progress-half",
+      "weights": {
+        "progress": 1.4
+      },
+      "seeds": "11044-11171",
+      "held": "11172-11235",
+      "title": "presence-progress weight halved (1.4 vs 2.8), first reading",
+      "context": "progress scales credit toward a first controlled country where a side has none (e.g. USSR Iraq); ships at an uncalibrated 2.8. First reading at half on current main. A pass means presence races are over-weighted and quarters come next; a fail means the urgency is real. Cannot see the positions the credit is for (early presence fights are rare in the sample), same caveat as no-f5."
+    },
+    {
+      "slug": "scoring-rival-half",
+      "weights": {
+        "scoring_rival": 0.5
+      },
+      "seeds": "11236-11363",
+      "held": "11364-11427",
+      "title": "rival-held urgency halved (0.5 vs 1.0), first reading",
+      "context": "scoring_rival just shipped with deck-tracking (ACCEPTED 0.520) at 1.0 on no basis beyond symmetry with the holding bonus; 0.0 is off. This arm bisects [0, 1]: a pass says urgency can shrink and 0.25 comes next; a fail says the symmetry guess holds. Cannot price the deck model's p_opponent_holds itself, only this weight on it."
     }
   ]
 }
