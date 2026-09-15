@@ -114,3 +114,48 @@ def test_the_discount_is_pinned_to_the_horizon_it_was_fitted_against():
         f'two-cycle scoring urgency is {urgency:.3f} at retention {r}. See '
         f'docs/notes/claude/2026-09-12-the-reshuffle-fix-cost-eight-points.md '
         f'before changing either the table or the compounding.')
+
+
+def test_scoring_buckets_name_five_terms_and_reproduce_the_schedule():
+    """Step 1 of the value rebuild: the sum can name its terms.
+
+    `scoring_buckets` derives from `scoring_schedule`, so the horizon cap
+    and the Southeast-Asia-once rule apply unchanged: turns==0 becomes
+    buckets (1, 2), any later scheduled scoring becomes bucket 3, no
+    schedule means no buckets. Bucket 4 (post-reshuffle-2) is never emitted
+    yet -- no second-reshuffle timing exists -- and bucket 5 (final scoring)
+    is priced separately from `final_scoring_odds`, as before.
+
+    Behaviour-preserving by construction: buckets 1+2 at half weight sum to
+    exactly what the old turns==0 term priced, bucket 3 is the old
+    post-reshuffle term unchanged. If this fails, the widening moved what a
+    scoring card is worth and the parity corpus -- not this test -- is what
+    needs re-capture review.
+    """
+    import dataclasses
+
+    from struggler.bots.strategic import evaluator as ev
+    from struggler.bots.strategic.public_cards import scoring_buckets, scoring_schedule
+
+    engine = Engine(seed=0)
+    obs = engine.observe(Side.US)
+    cards = ('Middle_East_Scoring', 'Asia_Scoring', 'Africa_Scoring',
+             'Europe_Scoring', 'South_America_Scoring', 'Southeast_Asia_Scoring')
+    r, hand_mult = ev.retention_p(2), 1.2
+    for turn in range(1, 11):
+        now = dataclasses.replace(obs, turn=turn)
+        for card in cards:
+            buckets = scoring_buckets(now, card)
+            assert set(buckets) <= {1, 2, 3}, (turn, card, buckets)
+            schedule = scoring_schedule(now, card)
+            if not schedule:
+                assert buckets == (), (turn, card)
+                continue
+            expected = [b for t in schedule for b in ((1, 2) if t == 0 else (3,))]
+            assert tuple(expected) == buckets, (turn, card, schedule, buckets)
+            for held in (False, True):
+                old = sum(r ** (1 if t == 0 else 2) * (hand_mult if held and t == 0 else 1.)
+                          for t in schedule)
+                new = sum((0.5 * r * (hand_mult if held else 1.) if b in (1, 2)
+                           else r ** 2) for b in buckets)
+                assert old == new, (turn, card, held, old, new)
