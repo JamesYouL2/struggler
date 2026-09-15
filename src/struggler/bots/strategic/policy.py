@@ -674,7 +674,10 @@ class StrategicPlayer:
         countries, seen, out = self.board.countries, {}, []
         for cid in self._terrain.ids:
             info = countries[cid]
-            key = (info.region, Subregion.SOUTHEAST_ASIA in info.subregions)
+            # Stability joins the key: retention compounds per country on
+            # this branch, so same-region countries no longer share one sum.
+            key = (info.region, Subregion.SOUTHEAST_ASIA in info.subregions,
+                   info.stability)
             weight = seen.get(key)
             if weight is None:
                 weight = seen[key] = self._scoring_weight_uncached(obs, cid)
@@ -1021,8 +1024,9 @@ class StrategicPlayer:
                               self._overrides_map(pos))
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
-        """How much the area around `cid` will still score, discounted by
-        how far off each scoring is (see StrategicWeights.scoring_discount).
+        """How much the area around `cid` will still score: each future
+        scoring compounded by measured retention (see `_scoring_weight_uncached`;
+        `StrategicWeights.scoring_discount` is superseded on this branch).
 
         Answered from the prepared vector when `obs` is the observation this
         player was prepared for, which is every call on the hot path."""
@@ -1031,12 +1035,28 @@ class StrategicPlayer:
         return self._scoring_weight_uncached(obs, cid)
 
     def _scoring_weight_uncached(self, obs: Observation, cid: str) -> float:
+        # Experiment experiment/turn-discount-two-state: the turn discount is
+        # the measured retention `r` compounded per scoring, not the scalar
+        # `scoring_discount ** turns`. A scoring one cycle out banks only if
+        # the holder still holds then: r ** j, the audit's two-state model
+        # with P(own now) = 1. Acquisition (P(own now) = 0) is already priced
+        # in the access term via conversion_p; this prices what control
+        # banks. `j` indexes the cycle -- this one or post-reshuffle -- not
+        # the position in the schedule list, so discarding a card never
+        # renumbers the scorings that remain or inflates the Final Scoring
+        # term. The Final Scoring term compounds one step past the last
+        # scheduled cycle. Urgency stays side-agnostic -- retention of
+        # whoever holds -- so the zero-sum accounting is untouched; the gate
+        # decides.
         w = self.weights
-        total = 0.
+        r = ev.retention_p(self.board.countries[cid].stability)
+        total, scorings = 0., 0
         for card in scoring_cards_for(self.board.countries[cid]):
             held = card in obs.hand
             for turns in scoring_schedule(obs, card):
-                total += w.scoring_discount ** turns * (w.scoring_hand if held and turns == 0 else 1.)
+                j = 1 if turns == 0 else 2
+                scorings = max(scorings, j)
+                total += r ** j * (w.scoring_hand if held and turns == 0 else 1.)
         # Every region is scored once more at the end of the last turn, if the
         # game gets there. Most do not: two thirds end early on the 20 VP
         # auto-victory. So this is priced at its measured odds
@@ -1044,7 +1064,7 @@ class StrategicPlayer:
         # scheduled card scoring, which would put it at more than double.
         # Without the term at all, the Late War priced a region whose card had
         # just been played as dead ground, in the era that decides the game.
-        total += w.scoring_final * final_scoring_odds(obs)
+        total += w.scoring_final * final_scoring_odds(obs) * r ** (scorings + 1)
         return total
 
     def importance(self, info) -> float:

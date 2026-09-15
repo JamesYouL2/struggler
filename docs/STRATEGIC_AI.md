@@ -29,17 +29,19 @@ action = bot.choose_action(observation, history)
 ## How it plays
 
 - A country is worth what its region will still score. Its importance is
-  multiplied by the sum, over the scoring cards that count it, of
-  `scoring_discount` (0.8) to the power of the turns until each expected
-  scoring, from the static period schedule and where each card is now
-  (`bots/public_cards.scoring_schedule`): a live card scores this cycle
-  and again after the reshuffle (about 1.6), a discarded one only after
-  the reshuffle (0.6), a Mid War card from turn 4 (0.5 on turn 1);
-  Southeast Asia Scoring once. Holding the card multiplies this cycle's
-  term by `scoring_hand` (1.2): we pick the moment. So a battleground in
-  an unscored Early War region is worth about 2.5x one in a region just
-  scored, and Mid War battlegrounds grow in value as turn 4 approaches.
-  The same schedule drives the checkpoint benchmark's projection.
+  multiplied by the sum, over the scoring cards that count it, of the
+  measured retention (`evaluator.retention_p` for its stability) compounded
+  once per expected scoring, from the static period schedule and where each
+  card is now (`bots/public_cards.scoring_schedule`): a live card banks
+  this cycle and again after the reshuffle, a discarded one only after the
+  reshuffle, a Mid War card from turn 4; Southeast Asia Scoring once.
+  Holding the card multiplies this cycle's term by `scoring_hand` (1.2):
+  we pick the moment. The scalar `scoring_discount` (0.8) no longer prices
+  the horizon on this branch: a scoring two cycles out is worth retention
+  squared, however many turns away it is, because the tables already
+  marginalize over turns-away. Experiment `experiment/turn-discount-two-state`;
+  the gate decides. The same schedule drives the checkpoint benchmark's
+  projection.
 - The schedule stops at the end of the game, and every region is scored once
   more there, at its measured odds of the game getting that far
   (`public_cards.FINAL_SCORING_ODDS`, times `scoring_final`). Neither used to

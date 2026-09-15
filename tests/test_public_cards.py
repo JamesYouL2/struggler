@@ -97,26 +97,20 @@ def test_the_discount_is_pinned_to_the_horizon_it_was_fitted_against():
     "what does `scoring_discount` have to become to keep the product where
     the strength measurements put it".
     """
-    from struggler.bots.strategic import StrategicWeights
+    # Branch experiment/turn-discount-two-state: the scalar this guarded is
+    # superseded -- `_scoring_weight_uncached` no longer reads
+    # `scoring_discount`, so the old product would pass while guarding
+    # nothing. The tripwire moves to the new product for the same abstract
+    # fixture: a live card (this cycle plus one post-reshuffle cycle) on a
+    # stability-2 battleground banks r + r squared. Same function as before:
+    # a change that silently moves what a scoring card is worth must fail
+    # here, not in a gate post-mortem. If the gate rejects the branch, this
+    # rewrite goes away with it.
+    from struggler.bots.strategic.evaluator import retention_p
 
-    horizon = 5.10          # mean over the corpus's 104 turn-3 positions
-    discount = StrategicWeights().scoring_discount
-    urgency = 1.0 + discount ** horizon
-
-    # The band is wide on purpose: this is a tripwire for a silent refit, not
-    # a calibration. 1.708 is where the stronger pre-9b90ef0 revision sat and
-    # 1.320 is where the regression left it, so anything in between is the
-    # live question and anything outside it is a change nobody measured.
-    #
-    # WHICH MEANS IT WOULD NOT HAVE CAUGHT 9b90ef0. The band spans both sides
-    # of that regression, because the low end IS the currently shipped state
-    # and a test that fails on main is no use. It catches gross moves -- the
-    # 0.55 arm lands at 1.047 and fails -- not an 8-point one. Once
-    # scoring_discount 0.93 ships (measured at 256 seeds, seeds 8800-9055),
-    # raise the floor above 1.320 and this becomes a real guard rather than a
-    # coarse one. That is the follow-up this test is asking for.
-    assert 1.25 <= urgency <= 1.80, (
-        f'turn-3 scoring urgency is {urgency:.3f} at discount {discount} over a '
-        f'{horizon}-turn horizon. The discount and the horizon are one estimate: '
-        f'see docs/notes/claude/2026-09-12-the-reshuffle-fix-cost-eight-points.md '
-        f'before changing either.')
+    r = retention_p(2)
+    urgency = r + r ** 2
+    assert 1.35 <= urgency <= 1.55, (
+        f'two-cycle scoring urgency is {urgency:.3f} at retention {r}. See '
+        f'docs/notes/claude/2026-09-12-the-reshuffle-fix-cost-eight-points.md '
+        f'before changing either the table or the compounding.')

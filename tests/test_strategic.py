@@ -192,12 +192,24 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     # region also has the end of the game to play for, at its measured odds,
     # so a scored region is not worth nothing.
     from struggler.bots.strategic.public_cards import final_scoring_odds
-    d = bot.weights.scoring_discount
     live_iran, dead_iran = (bot.scoring_weight(o, 'Iran') for o in (live, dead))
-    assert live_iran - dead_iran == pytest.approx(1.)  # the gap is exactly this cycle
+    # Branch experiment/turn-discount-two-state: the gap is exactly this
+    # cycle's bankable value -- one-cycle retention, not 1.0. The cycle index
+    # is absolute (this cycle vs post-reshuffle), so the discarded card's
+    # remaining scoring keeps its later-cycle weight and the gap isolates the
+    # extra this-cycle scoring. Iran is stability 2; the gate decides whether
+    # the measured table earns its place.
+    from struggler.bots.strategic.evaluator import retention_p
+    assert live_iran - dead_iran == pytest.approx(retention_p(2))
     assert dead_iran > final_scoring_odds(dead)
     turn1 = dataclasses.replace(live, turn=1)
-    assert bot.scoring_weight(turn1, 'Brazil') == pytest.approx(d ** 3 + final_scoring_odds(turn1))
+    # Branch experiment/turn-discount-two-state: South America Scoring is
+    # discarded in this fixture (schedule (3,)), so its one remaining scoring
+    # is a post-reshuffle cycle banking r squared, and Final Scoring one step
+    # past that. Brazil is stability 2, like Iran above.
+    r = retention_p(2)
+    final = bot.weights.scoring_final * final_scoring_odds(turn1)
+    assert bot.scoring_weight(turn1, 'Brazil') == pytest.approx(r ** 2 + final * r ** 3)
     assert bot.scoring_weight(dataclasses.replace(live, turn=5), 'Brazil') > 1
     # Southeast Asia Scoring reaches Thailand but not Japan, even with Asia Scoring dead.
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
@@ -248,7 +260,12 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
     dead = dataclasses.replace(obs, turn=9, discard_pile=('Middle_East_Scoring',),
                                draw_pile_size=40)
     assert scoring_schedule(dead, 'Middle_East_Scoring') == ()  # no reshuffle in time
-    assert bot.scoring_weight(dead, 'Iran') == pytest.approx(final_scoring_odds(dead))
+    # Branch experiment/turn-discount-two-state: with no scheduled scorings
+    # the Final Scoring term compounds a single retention step -- the holder
+    # must still hold then to bank it.
+    from struggler.bots.strategic.evaluator import retention_p
+    assert bot.scoring_weight(dead, 'Iran') == pytest.approx(
+        final_scoring_odds(dead) * retention_p(2))
     # Zeroing the weight restores the old shape, minus the phantom scorings.
     off = StrategicPlayer(StrategicWeights(scoring_final=0.0))
     assert off.scoring_weight(dead, 'Iran') == 0.0
@@ -381,6 +398,12 @@ def test_ops_are_priced_by_their_best_use_and_increase_with_the_budget():
     assert two > one and four > two
 
 
+# A strict-xfail marker stood here, removed per its own instruction (it
+# named the value x probability x turn_discount rebuild as its trigger).
+# The original marker text lives in git history; the gist: convexity at a
+# threshold broke with access_chain's removal, and was expected to xpass
+# once the rebuild landed. The retention-discount branch is that landing,
+# so the test below stands as a normal one.
 def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     """The property the concavity assertion was hiding.
 
@@ -1544,3 +1567,29 @@ def test_redundant_route_value_is_monotonic_and_saturates():
         assert all(left < right for left, right in pairwise(totals))
         assert totals[-1] < decay / (decay - 1)
         assert totals[-1] > totals[-2]
+
+
+def test_retention_is_measured_keep_rates_by_stability():
+    """The turn discount's other half: P(still control at the next scoring |
+    control now), by stability.
+
+    Branch experiment/turn-discount-two-state. Measured 2026-09-12 by
+    scripts/measure_access_conversion.py alongside CONVERSION_P (same games,
+    condition flipped; pooled horizon-1 keep rates, n = 1103/3573/2952/540,
+    censored 404/1305/1011/198). Pinned because the direction is the part
+    that can silently invert: stable ground retains better, so urgency must
+    rise with stability for identical schedules -- and an inverted table
+    would still read as plausible numbers.
+
+    This is the flip half of the audit's two-state model; acquisition is
+    conversion_p, already priced in the access term.
+    """
+    from struggler.bots.strategic.evaluator import RETENTION_P, retention_p
+
+    assert tuple(RETENTION_P) == (0.565, 0.805, 0.894, 0.907)
+    keeps = [retention_p(s) for s in (1, 2, 3, 4)]
+    assert keeps == sorted(keeps), 'retention must rise with stability'
+    assert all(0 < k < 1 for k in keeps)
+    # Same clamping as conversion_p, same reason.
+    assert retention_p(0) == retention_p(1)
+    assert retention_p(9) == retention_p(4)
