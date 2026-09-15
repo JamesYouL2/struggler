@@ -88,6 +88,12 @@
       "source": "guess",
       "determination": "underdetermined"
     },
+    "scoring_rival": {
+      "value": 1.0,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Experiment experiment/deck-tracking: this-cycle urgency weight for a scoring card the opponent likely holds (`p_opponent_holds` from public counts). Ships at 1.0 on the branch, 0.0 is off. No recorded basis for 1 beyond symmetry with the holding bonus; pending a gate against origin/main."
+    },
     "scoring_discount": {
       "value": 0.8,
       "source": "guess",
@@ -264,13 +270,13 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 17,
+      "guess": 18,
       "gate": 5,
       "derived": 4,
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 14,
       "known-wrong": 2,
       "bounded": 8,
       "inert": 4,

@@ -36,7 +36,12 @@ action = bot.choose_action(observation, history)
   this cycle and again after the reshuffle, a discarded one only after the
   reshuffle, a Mid War card from turn 4; Southeast Asia Scoring once.
   Holding the card multiplies this cycle's term by `scoring_hand` (1.2):
-  we pick the moment. The scalar `scoring_discount` (0.8) no longer prices
+  we pick the moment. Experiment `experiment/deck-tracking` adds the rival
+  side: P(the opponent holds the scoring), from public counts alone
+  (`public_cards.p_opponent_holds`), multiplies this cycle's term by
+  (1 + `scoring_rival` * p), because they score at their best moment and
+  control banked before they do is worth more. This is deliberately not
+  side-agnostic; the gate decides. The scalar `scoring_discount` (0.8) no longer prices
   the horizon on this branch: a scoring two cycles out is worth retention
   squared, however many turns away it is, because the tables already
   marginalize over turns-away. Experiment `experiment/turn-discount-two-state`;
