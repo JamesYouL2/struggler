@@ -96,3 +96,21 @@ Dispatched as run 34987717417 (base pinned to origin/main 35182ef,
 857 passed + 1 ty diagnostic (`answered * retake` where `ty` cannot see
 answered-implies-priced -- stated as an assert in `4b4297c`), corpus
 recaptured at `e06ce3a` (449 records, was 499).
+
+## Re-gate on the combined base (rebased 2026-09-15)
+
+The joint gate above ran against a stale base (35182ef, pre-italy). The
+branch has since been rebased onto origin/main 339d5ac (italy default +
+rival urgency) and re-verified from scratch:
+
+- Fresh recapture on the combined base: 513 records (was 449), seeds
+  4000-4003.
+- Full suite green locally: 859 passed, 3 skipped, 1 xfailed in 9:06.
+  The corpus oracle alone is ~8 min now -- late-turn positions keep
+  getting more expensive as games run longer, not a product signal.
+- Poke ceilings confirmed on the combined base: on-arm 0 on all six
+  seats; off-arm median 3.5, max 9 (4001 US), every seed carries the
+  separation (4000 {2,7}, 4001 {9,1}, 4002 {2,5}).
+- Re-dispatched as run 35008792222 (base pinned to origin/main 339d5ac,
+  `decide=0 vary=0`, default seeds). Verdict to be appended. On ACCEPT:
+  merge `--no-ff`.
