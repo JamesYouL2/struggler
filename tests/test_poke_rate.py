@@ -32,6 +32,13 @@ the suite. The cut is where the measurement says it can be: 130 of the
 turn four every seed used here already has a seat over the ceiling (4-7),
 while the on arm is at 0-1 everywhere. Shortening the games costs the
 separation nothing.
+
+Re-baselined 2026-09-15 on the combined five-bucket + italy + rival-urgency
+base: the on arm is at 0 everywhere -- all six seats -- and the off arm at
+a mean of 4.3 a seat, median 3.5, max 9 (seed 4001 US), 3 of 6 seats above
+the ceiling (4000 {US: 2, USSR: 7}, 4001 {US: 9, USSR: 1}, 4002 {US: 2,
+USSR: 5}). The italy default put the separation back on every seed. The
+ceiling of three still holds the on arm with headroom.
 """
 from __future__ import annotations
 
@@ -85,11 +92,11 @@ def minimum_pokes(seed: int, weights=None) -> dict[str, int]:
 def test_a_seat_does_not_poke_battlegrounds_repeatedly(seed):
     """Three a seat a game is the maintainer's ceiling, not a fitted bound.
 
-    Without the forward search this sits at a median of 2 and a maximum
-    of 7 on these seeds (re-baselined 2026-09-15 on experiment/deck-tracking;
-    six and thirteen at the commit that turned the search on), so a
-    regression that switches it off, inverts its sign, or leaves it pricing
-    against a stale base fails here.
+    Without the forward search this sits at a median of 3.5 and a maximum
+    of 9 on these seeds (confirmed 2026-09-15 on the combined five-bucket +
+    italy + rival-urgency base; six and thirteen at the commit that turned
+    the search on), so a regression that switches it off, inverts its sign,
+    or leaves it pricing against a stale base fails here.
     """
     pokes = minimum_pokes(seed)
     assert pokes, 'no seats were measured'
@@ -113,10 +120,9 @@ def test_the_forward_search_is_what_holds_the_rate_down():
     from struggler.bots.strategic import StrategicWeights
 
     off = dataclasses.replace(StrategicWeights(), reply_model=0.)
-    # Every seed, not just the first: the off arm no longer breaks the
-    # ceiling everywhere (seed 4000 sits at {US: 2, USSR: 2} even on main),
-    # and a control pinned to one seed rots the next time the base values
-    # move. Seeds 4001 and 4002 carry it here.
+    # Every seed, not just the first: a control pinned to one seed rots
+    # the next time the base values move. Confirmed 2026-09-15 on the
+    # combined base -- every seed carries it (worst seats 7, 9, 5).
     worst = {}
     for seed in SEEDS:
         without = minimum_pokes(seed, off)
