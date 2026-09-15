@@ -120,3 +120,21 @@ rival urgency) and re-verified from scratch:
   stronger base (italy default + rival urgency), not the stack itself --
   but the verdict is the verdict: NOT merged. Next step per 2026-09-15
   discussion: bisect, prime suspect the reply-coup revert.
+
+## Bisect: five-bucket + removals without the reply-revert
+
+Branch `experiment/scoring-five-no-reply`: the combined-base stack with
+the reply-coup revert (and its ty invariant) reverted away, isolating
+the revert as the REJECT suspect. Revert fallout, both diagnosed as
+removals pins riding in the wrong commit, re-applied and verified with
+coup answers back: scored < live == held (deltas 34.46 < 68.03 == 68.03)
+and the Venezuela/Brazil access geometry (trial moves 1.91). Poke arms
+re-measured identical to the with-revert numbers (on 0 everywhere, off
+median 3.5 max 9), so the poke prose stands. Corpus recaptured (420
+records); suite 861 passed + 2 revert-fallout failures fixed, then green
+on the rerun files.
+
+Dispatched as run 35017324662 (base pinned to origin/main 339d5ac,
+`decide=0 vary=0`, default seeds). Verdict to be appended. On ACCEPT:
+the revert is the loser -- drop it from the five-bucket branch and
+re-gate. On REJECT: the stack itself misses on the stronger base.
