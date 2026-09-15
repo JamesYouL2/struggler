@@ -165,7 +165,9 @@ def test_evaluation_rejects_empty_seed_set():
 
 
 def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
-    """Scored < live < held, for the urgency and for what taking Iran is worth.
+    """Scored < live == held, for the urgency and for what taking Iran is worth.
+    The holding bonus is flat at 1.0 since the removals bundle: holding the card
+    scores it no sooner than a live deck scores it, so live and held price the same.
 
     The three deltas are each asked in their own observation's prepared
     context. They used to be asked of an unprepared bot, where the country,
@@ -181,12 +183,12 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
-    assert weights[0] < weights[1] < weights[2]  # scored < live < held
+    assert weights[0] < weights[1] == weights[2]  # scored < live == held: the holding bonus is flat
     deltas = []
     for o in (dead, live, held):
         bot.prepare(o)
         deltas.append(bot.delta(o, 'Iran', own=3))  # +3 takes control: the region score moves
-    assert deltas[0] < deltas[1] < deltas[2]
+    assert deltas[0] < deltas[1] == deltas[2]
     # A live Early War region scores this cycle and after the reshuffle; a
     # scored one only after the reshuffle; a Mid War region from turn 4. Every
     # region also has the end of the game to play for, at its measured odds,
@@ -517,23 +519,30 @@ def test_access_does_not_depend_on_an_earlier_trial_placement():
     """`_access` reads influence up to two hops out, so the `(board, cid, side)`
     memo it used to carry went stale as soon as a trial placement moved a
     neighbour: the same position then scored differently depending on what had
-    been evaluated before it, which reordered 39 of the 598 corpus rankings."""
+    been evaluated before it, which reordered 39 of the 598 corpus rankings.
+
+    The geometry is uncontested on purpose: with the contested-reach discount
+    at zero, a trial next to a country America reaches prices zero on both
+    sides of the move, and the first assertion below goes 0.0 != 0.0. Brazil
+    is reach America does not have, so taking it still moves the price."""
     from struggler.engine import Side
     engine = _opening_board()
     obs = engine.observe(Side.USSR)
     plain = StrategicPlayer()
     plain.rank_actions(obs)
-    expected = plain._access(plain.board, 'Israel', Side.USSR)
+    expected = plain._access(plain.board, 'Venezuela', Side.USSR)
+    assert expected > 0  # the trial below has something to move
     bot = StrategicPlayer()
     bot.rank_actions(obs)
     board = bot.board
-    # Make and unmake a neighbouring placement, exactly as `_investment` does.
-    original = dict(board.influence['Egypt'])
-    board.influence['Egypt']['USSR'] += 2
-    on_trial = bot._access(board, 'Israel', Side.USSR)
-    board.influence['Egypt'].update(original)
-    assert on_trial != expected  # the trial board really does price Israel differently
-    assert bot._access(board, 'Israel', Side.USSR) == expected
+    # Make and unmake a neighbouring placement, exactly as `_investment` does:
+    # two more points take Brazil, and Venezuela's reach into it is gone.
+    original = dict(board.influence['Brazil'])
+    board.influence['Brazil']['USSR'] += 2
+    on_trial = bot._access(board, 'Venezuela', Side.USSR)
+    board.influence['Brazil'].update(original)
+    assert on_trial != expected  # the trial board really does price Venezuela differently
+    assert bot._access(board, 'Venezuela', Side.USSR) == expected
 
 
 def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
