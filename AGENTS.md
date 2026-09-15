@@ -139,7 +139,7 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
 - Kill duplicate runners (`ps aux | grep`) before timing anything. Suite and
   gate contend for all cores; the timing note in Conventions above was wrong
   twice from contended runs. Run gates alone locally, or prefer remote
-  `gate.yml` dispatch, which is isolated so several can run at once.
+  `gate.yml` dispatch, which is isolated so up to 10 can run at once -- gates and `experiments.yml` arms alike, one runner per job/arm.
 - Fast A/B attribution: `git stash` + re-run the single failing test to decide
   "bundle or revert" before splitting branches.
 - `gh` is authed (JamesYouL2). Gate dispatch:
