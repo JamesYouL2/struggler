@@ -1414,7 +1414,7 @@ class StrategicPlayer:
                     answered += w
             if answered <= 0 and not struck:
                 return raw          # the change stands for at least a round
-            discount = (answered * retake if answered > 0 else 0.) + struck
+            discount = (answered * retake if retake is not None else 0.) + struck
             if log.isEnabledFor(logging.DEBUG):
                 # Guarded: this runs a few thousand times per ranking, and
                 # an unguarded call would cost about 0.2% of a game. Worth

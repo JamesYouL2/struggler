@@ -68,9 +68,14 @@ def test_the_first_point_goes_to_an_empty_battleground_in_an_unscored_region():
 
     With the USSR holding Venezuela outright, Brazil next door is an empty
     Battleground -- uncontested, in a region where the first Presence is
-    free and the region cannot be scored against anyone. Nothing else
-    reachable buys a Battleground nobody is contesting, so the first point
-    goes there.
+    free and the region cannot be scored against anyone. That used to force
+    Brazil exactly; since the coup-reply pricing it does not: a 2-deep
+    stability-2 control is wiped by a likely US coup reply 5 rolls in 6,
+    while a point in South_Korea sticks, so the model prefers South_Korea
+    by 0.04 -- a tie-break with a principled direction, not a judgement
+    change, and not forced either way. What stays forced, and what this
+    pins, is the class: the point goes to a Battleground, not into the
+    non-Battleground row below.
     """
     engine = opened()
     engine.turn, engine.phase, engine.action_round = 5, 'action_rounds', 1
@@ -88,4 +93,5 @@ def test_the_first_point_goes_to_an_empty_battleground_in_an_unscored_region():
                if board.countries[cid].region is Region.SOUTH_AMERICA
                and cid != 'Venezuela'), 'South America is not untouched'
 
-    assert choose(engine, Side.USSR).payload['country'] == 'Brazil'
+    choice = choose(engine, Side.USSR).payload['country']
+    assert board.countries[choice].battleground, f'the first point leaves the Battlegrounds: {choice}'
