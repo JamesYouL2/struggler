@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-15 — Nine weight arms: re-runs plus six halvings](2026-09-15-nine-weight-arms.md) — 2026-09-15
 - [Value-function rebuild — development plan](value-function-rebuild/README.md) — 2026-09-15; next priority: expected VP, scoring horizons, control forecasts, and regional accounting
 - [2026-09-15 — Repeat repository audit](2026-09-15-repeat-repository-audit.md) — historical findings and validation; development priority is the rebuild plan above
 - [2026-09-15 — Italy default opening (swap from iran), plus handoff](2026-09-15-italy-default-opening-and-handoff.md) — 2026-09-15
