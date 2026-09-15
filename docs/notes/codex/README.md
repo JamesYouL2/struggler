@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-14 — Reply-layer ablation gates and corpus recapture](2026-09-14-reply-ablations-and-corpus-recapture.md) — 2026-09-14
 - [2026-09-13 — Strategic math and repeat audit](2026-09-13-strategic-math-followup.md) — 2026-09-13
 - [2026-09-13 — Full repository audit since v0.1.0](2026-09-13-full-audit-since-v0-1-0.md) — 2026-09-13
 - [2026-09-09 — Revised nuclear-loss policy and early stopping](2026-09-09-revised-nuclear-loss-policy-and-early-stopping.md) — 2026-09-09
