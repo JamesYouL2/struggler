@@ -426,6 +426,35 @@ def conversion_p(stability: int) -> float:
     return CONVERSION_P[min(max(stability, 1), len(CONVERSION_P)) - 1]
 
 
+# P(still control at the region's next scoring | control now), pooled over
+# contested and uncontested holdings. Measured 2026-09-12 by
+# scripts/measure_access_conversion.py alongside CONVERSION_P (same games,
+# condition flipped), horizons 1 and 2; the horizon-1 pooled keep rates:
+#
+#     stability   1      2      3      4
+#     keep        0.565  0.805  0.894  0.907
+#     n           1103   3573   2952   540
+#
+# Censored (still waiting at game end, counted never dropped):
+# {1: 404, 2: 1305, 3: 1011, 4: 198}. Contested holdings retain less at
+# every stability (stability 2: 0.773 contested against 0.840 uncontested),
+# so pooling is a choice: one table, no position read. Splitting on
+# contested reach is the refinement path, not this branch.
+#
+# This is the flip half of the audit's two-state model (2026-09-13
+# strategic-math follow-up): P(own next) = retention * P(own now) +
+# acquisition * (1 - P(own now)). Acquisition is conversion_p, already
+# priced in the access term; this prices what current control banks.
+# Experiment branch experiment/turn-discount-two-state; the gate decides.
+RETENTION_P: tuple[float, ...] = (0.565, 0.805, 0.894, 0.907)
+
+
+def retention_p(stability: int) -> float:
+    """P(control now is still control at the next scoring) for a country
+    of `stability`. Same clamping as `conversion_p`, same reason."""
+    return RETENTION_P[min(max(stability, 1), len(RETENTION_P)) - 1]
+
+
 def route_decay(stability: int, base: float) -> float:
     """What each redundant route into a country of `stability` is worth,
     relative to the one before it.
