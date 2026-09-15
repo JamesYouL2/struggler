@@ -114,15 +114,16 @@ def test_an_unknown_opening_is_refused():
 
 
 def test_the_default_is_the_one_the_maintainer_set():
-    """4 West Germany / 3 Italy / Iran to 3. Not the `france` line of
-    docs/EXPERT_STRATEGY.md -- that is available as a book, but the default
-    is the maintainer's call and this is it. A behaviour change from the
-    West-Germany-to-5 book it replaced, and not yet gated."""
-    assert DEFAULT_OPENINGS == {'US': 'iran', 'USSR': 'austria'}
+    """4 West Germany / 4 Italy / Iran to 2 (Sankt's 4/4/2). Not the
+    `france` line of docs/EXPERT_STRATEGY.md -- that is available as a
+    book, but the default is the maintainer's call and this is it.
+    A behaviour change from the `iran` default it replaced; gate it with
+    each revision on its own default (GATE_OPENINGS empty)."""
+    assert DEFAULT_OPENINGS == {'US': 'italy', 'USSR': 'austria'}
     engine = play_setup(DEFAULT_OPENINGS)
     assert engine.board.influence['West_Germany']['US'] == 4
-    assert engine.board.influence['Italy']['US'] == 3
-    assert engine.board.influence['Iran']['US'] == 3
+    assert engine.board.influence['Italy']['US'] == 4
+    assert engine.board.influence['Iran']['US'] == 2
     assert engine.board.influence['France']['US'] == 0
     assert engine.board.influence['East_Germany']['USSR'] == 4
     assert engine.board.influence['Poland']['USSR'] == 4
