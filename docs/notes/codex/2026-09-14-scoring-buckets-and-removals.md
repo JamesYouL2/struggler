@@ -112,5 +112,11 @@ rival urgency) and re-verified from scratch:
   seats; off-arm median 3.5, max 9 (4001 US), every seed carries the
   separation (4000 {2,7}, 4001 {9,1}, 4002 {2,5}).
 - Re-dispatched as run 35008792222 (base pinned to origin/main 339d5ac,
-  `decide=0 vary=0`, default seeds). Verdict to be appended. On ACCEPT:
-  merge `--no-ff`.
+  `decide=0 vary=0`, default seeds). Verdict: REJECTED -- pooled 0.449
+  +/-0.028 over 128 seeds, one-sided 95% upper 0.494, needs 0.500.
+  Checkpoints clean (turn-3: 0.533 over 2 seeds); full games split
+  0.469 vs-base / 0.430 vs-held-out, mean signed VP -2.23. The same
+  stack ACCEPTED at 0.459 on the pre-italy base, so the delta is the
+  stronger base (italy default + rival urgency), not the stack itself --
+  but the verdict is the verdict: NOT merged. Next step per 2026-09-15
+  discussion: bisect, prime suspect the reply-coup revert.
