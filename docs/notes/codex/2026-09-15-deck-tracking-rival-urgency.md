@@ -34,6 +34,10 @@ card per decision, skipped entirely with the arm off.
 - Ledger `scoring_rival`: guess/underdetermined, pending a gate vs
   `origin/main`.
 
-## Gate (pending at time of writing)
+## Gate
 
-Verdict to be appended.
+ACCEPTED: run `34990361093` vs `35182ef`, `decide=0 vary=0` — pooled
+score 0.520 +/-0.025 over 128 seeds, one-sided 95% upper bound 0.561.
+Took 99m20s (over the 60m budget; full 256-game sample, no early
+stopping, plus T8–T10 endings now routine — see the 2026-09-15 italy
+handoff for the slowdown analysis). Merged to `main` as `6570337`.
