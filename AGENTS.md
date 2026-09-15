@@ -72,6 +72,10 @@ the tests.
     `rules.json`).
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
+- **Logs**: run outputs go under `logs/` (gitignored) -- that is what it is
+  there for -- not `/tmp`. Name them so the next session finds them:
+  `logs/<topic>/...`, following the existing `ci-<runid>` entries. `/tmp`
+  does not survive a reboot and hides work from whoever resumes.
 
 ## The rule
 
