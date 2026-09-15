@@ -352,8 +352,11 @@ class StrategicWeights:
     access_decay: float = 1.445
     # Reach into a battleground the opponent can already place in is a race
     # they may win first (Israel -> Egypt for the USSR, with the US already
-    # next door): worth this fraction of exclusive reach.
-    access_contested: float = 0.25
+    # next door). Was 0.25 of exclusive reach, a guess; the off arm (0.0)
+    # read a dead heat with a slight upward lean (0.512 +/-0.043 over 192
+    # seeds, old model), so contested reach prices at zero pending the gate
+    # on this branch. The rebuild's access accounting decides the final form.
+    access_contested: float = 0.0
     region: float = 1.3
     # A VP in Ops, by era: Ops are worth most while the board is empty and
     # VP most when few turns are left to convert Ops into anything, so the
@@ -441,9 +444,12 @@ class StrategicWeights:
     # (bots/public_cards.scoring_schedule). Control in a region that scores
     # this cycle and again after the reshuffle is worth about 1.6; in one
     # just scored, 0.6; in a Mid War region on turn 1, 0.5. Holding the
-    # card ourselves multiplies this cycle's term by scoring_hand: we pick
-    # the moment.
-    scoring_hand: float = 1.2
+    # card ourselves multiplies this cycle's buckets 1+2 by scoring_hand: we
+    # pick the moment. Was 1.2, a guess; the flat arm (1.0) read a dead heat
+    # (0.503 +/-0.038 over 192 seeds, old model), so the bonus prices at
+    # zero pending the gate on this branch. Factor 2 re-derives what holding
+    # is worth anyway.
+    scoring_hand: float = 1.0
     scoring_discount: float = 0.8
     # Experiment experiment/deck-tracking: how much more this cycle's term
     # is worth when the opponent likely holds the scoring card
