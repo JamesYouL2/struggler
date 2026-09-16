@@ -185,6 +185,35 @@ def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:
     return tuple(turns for turns in schedule if turns <= horizon)
 
 
+def scoring_buckets(obs: Observation, card: str) -> tuple[int, ...]:
+    """Which of the five future-scoring buckets `card` can still pay in.
+
+    The buckets (docs/notes/claude/2026-09-12-value-times-probability-times-discount.md):
+    1 scores this turn, 2 before the reshuffle but not this turn, 3 after
+    reshuffle 1, 4 after reshuffle 2, 5 the end-of-game final scoring.
+
+    Derived from `scoring_schedule`, so the horizon cap and the
+    Southeast-Asia-once rule apply unchanged: a live card (in a hand or the
+    draw pile) names buckets 1+2 this cycle and bucket 3 post-reshuffle; a
+    discarded or not-yet-entered one names bucket 3; a gone one names none.
+    Bucket 4 is never emitted yet -- no second-reshuffle timing exists, so
+    it carries zero mass -- and bucket 5 is priced separately from
+    `final_scoring_odds`, as before. Naming the terms is the plumbing; the
+    probabilities each bucket pays with are factor 2 of the rebuild.
+
+    Behaviour-preserving by construction: buckets 1+2 split this cycle
+    equally (the consumer weights each at half), so 1+2 sum to exactly what
+    the old turns==0 term priced, and bucket 3 is the old post-reshuffle
+    term unchanged. The parity corpus holds the line."""
+    buckets: list[int] = []
+    for turns in scoring_schedule(obs, card):
+        if turns == 0:
+            buckets.extend((1, 2))
+        else:
+            buckets.append(3)
+    return tuple(buckets)
+
+
 def scoring_cards_for(info) -> list[str]:
     """The scoring cards that count `info`'s country."""
     cards = [c for c, r in SCORING_CARD_REGION.items() if r is info.region]

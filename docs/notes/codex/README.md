@@ -12,6 +12,7 @@ path because `tests/test_recurring_defects.py` parses it.
 - [2026-09-15 — Repeat repository audit](2026-09-15-repeat-repository-audit.md) — historical findings and validation; development priority is the rebuild plan above
 - [2026-09-15 — Italy default opening (swap from iran), plus handoff](2026-09-15-italy-default-opening-and-handoff.md) — 2026-09-15
 - [2026-09-15 — Deck tracking I: rival urgency](2026-09-15-deck-tracking-rival-urgency.md) — 2026-09-15
+- [2026-09-14 — Five-bucket schedule widening + contested-zero/scoring-flat bundle](2026-09-14-scoring-buckets-and-removals.md) — 2026-09-14
 - [2026-09-14 — Weight arms: first readings](2026-09-14-weight-arms-first-readings.md) — 2026-09-14
 - [2026-09-14 — Value-function rebuild plan](2026-09-14-value-rebuild-plan.md) — 2026-09-14
 - [2026-09-14 — Reply-gate verdicts: B ships, the fixes stay](2026-09-14-reply-gate-verdicts.md) — 2026-09-14

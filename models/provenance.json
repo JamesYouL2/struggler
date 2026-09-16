@@ -67,9 +67,10 @@
       "determination": "underdetermined"
     },
     "access_contested": {
-      "value": 0.25,
-      "source": "guess",
-      "determination": "underdetermined"
+      "value": 0.0,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Was 0.25, a guess. The off arm (0.0) read 0.512 +/-0.043 over 192 seeds (old model, dead heat leaning up); bundle gated ACCEPTED at 0.473 +/-0.027 over 128 seeds, upper bound 0.518 (run 34926032664)."
     },
     "region": {
       "value": 1.3,
@@ -84,9 +85,10 @@
       "note": "Rule 6.3.5 is exact: one Op of deficit closed is one VP, nothing to estimate. And the change that fixed its scale is the only gate in this project's history whose lower bound cleared 0.500."
     },
     "scoring_hand": {
-      "value": 1.2,
-      "source": "guess",
-      "determination": "underdetermined"
+      "value": 1.0,
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Was 1.2, a guess. The flat arm (1.0) read 0.503 +/-0.038 over 192 seeds (old model, dead heat); bundle gated ACCEPTED at 0.473 +/-0.027 over 128 seeds, upper bound 0.518 (run 34926032664). Factor 2 re-derives what holding is worth."
     },
     "scoring_rival": {
       "value": 1.0,
@@ -270,15 +272,15 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 18,
-      "gate": 5,
+      "guess": 16,
+      "gate": 7,
       "derived": 4,
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 14,
+      "underdetermined": 12,
       "known-wrong": 2,
-      "bounded": 8,
+      "bounded": 10,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11
