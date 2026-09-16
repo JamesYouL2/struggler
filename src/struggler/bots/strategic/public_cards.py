@@ -153,10 +153,63 @@ def turns_to_reshuffle(obs: Observation) -> int:
     for ahead in range(1, LAST_TURN - obs.turn + 1):
         turn = obs.turn + ahead
         pile += ENTERING.get(turn, 0)
-        pile -= max(1, 2 * hand_limit(turn) - 2)  # both deals, less the held cards
+        pile -= deal_size(turn)
         if pile < 0:
             return ahead
     return LAST_TURN - obs.turn + 1  # never, within this game
+
+
+def deal_size(turn: int) -> int:
+    """Cards dealt at the start of `turn`: both hands up to `hand_limit`,
+    less the one card each side may hold over.
+
+    One rule, one place: `turns_to_reshuffle` and `cycle_deal_masses` share
+    it, so the reshuffle walk and the deal-probability walk cannot drift.
+    A native port takes this as the deal arithmetic wholesale."""
+    return max(1, 2 * hand_limit(turn) - 2)
+
+
+def cycle_deal_masses(obs: Observation) -> tuple[float, ...]:
+    """Per-deal conditional masses for the remaining full deals this cycle.
+
+    Each entry is P(this deal delivers a given pile card | it survived to
+    the deal), as `deal / pile_before`: `deal_size(turn)` cards drawn
+    uniformly from the pile awaiting that deal (today's remainder plus what
+    `ENTERING` adds that turn). Uniform order is the same prior
+    `p_opponent_holds` uses -- the right prior, and the pile order never
+    leaks -- so this is deck calculation, not a fitted half.
+
+    The walk shares `deal_size` and `ENTERING` with `turns_to_reshuffle`,
+    and stops the same way: the deal that exhausts the pile belongs to the
+    next cycle (it draws partly from the recycled discards), so it is
+    excluded here and counted there. No full deals left means `()`: the
+    horizon is past (turn 10), the pile is empty, or the reshuffle is this
+    coming deal.
+
+    Mid-turn draws are unmodeled and documented as ~0: Our Man examines and
+    returns (`events.py`), net zero after the reshuffle; Ask Not discards
+    then redraws at most a hand-size handful against 14-16-card deals, rare
+    and small. A scoring drawn mid-turn still fires this cycle, so these
+    masses are a lower bound by that handful.
+
+    Callers combine with the pile share: for an unseen card,
+    P(dealt this cycle | pile now) = 1 - prod(1 - m), and bucket 2's mass
+    is P(pile now) times that. Conservation the tests pin:
+    sum(unconditional) + prod(1 - m) == 1, where unconditional_k
+    = m_k * prod_{j<k}(1 - m_j)."""
+    pile = obs.draw_pile_size
+    masses: list[float] = []
+    for ahead in range(1, LAST_TURN - obs.turn + 1):
+        turn = obs.turn + ahead
+        pile += ENTERING.get(turn, 0)
+        deal = deal_size(turn)
+        if pile - deal < 0:
+            break  # exhausting deal: next cycle's, not this one's
+        if pile <= 0:
+            break
+        masses.append(deal / pile)
+        pile -= deal
+    return tuple(masses)
 
 
 def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:

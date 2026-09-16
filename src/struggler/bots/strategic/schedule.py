@@ -7,21 +7,25 @@ explicit occurrence mass. A scoring opportunity is (region payout, bucket) or
 the Southeast Asia card; the payout half (`forecast`) prices the board if it
 pays, this module says when it can pay and how likely that is.
 
-Occurrence mass, first version -- every number below is documented where it
-is assumed, because the September proposal's failure mode was silent means
+Occurrence mass, deck-math version -- every number below is documented where
+it is assumed, because the September proposal's failure mode was silent means
 standing in for dated masses:
 
 - Bucket 1 (this turn): 1.0 when WE hold the card. Scoring cards may not be
   held past the end of the turn (the engine forces their play:
   `Engine.must_play_scoring`), so a scoring in our hand is played this turn
   -- barring the game ending first, which nothing here models yet (see the
-  gap note below). 0.5 for a live card whose holder is unknown.
-- Bucket 2 (this cycle): 0.5 for a live card of unknown holder, 0.0 when we
-  hold it (it fires this turn, not later). The halves preserve exactly what
-  the current urgency consumer prices for this cycle; they are holder
+  gap note below). For a live card of unknown holder, `p_opponent_holds`:
+  whoever holds a scoring must play it this turn, so P(it fires this turn)
+  is P(the opponent holds it now), from public counts alone.
+- Bucket 2 (this cycle): for a live card of unknown holder, P(it sits in the
+  pile now) times P(a remaining full deal this cycle delivers it), from
+  `cycle_deal_masses` -- the uniform-pile deck walk sharing `deal_size` with
+  `turns_to_reshuffle`. Absent when we hold it (it fires this turn, not
+  later), and absent when no full deal remains this cycle (the exhausting
+  deal belongs to the next cycle). Buckets 1+2 split this cycle by holder
   uncertainty, not timing -- an unseen card may be played this very turn by
-  its holder, so bucket 2's range overlaps bucket 1 at turn 0. Shaping the
-  halves by who likely holds it (`p_opponent_holds`) is factor-2 work.
+  its holder, so bucket 2's range overlaps bucket 1 at turn 0.
 - Bucket 3 (next cycle): 1.0 whenever the card returns post-reshuffle
   (live or discarded) or enters a future period -- same documented gap about
   the game getting there.
@@ -100,11 +104,26 @@ def opportunities(obs: Observation, card: str) -> tuple[Opportunity, ...]:
     if state in ('hand', 'unseen'):
         # This cycle. Held: we play it this turn (the engine forbids holding
         # it past end of turn), so the whole mass sits in bucket 1. Unknown
-        # holder: the documented halves.
-        out.append(Opportunity(card, 1, 0, 0, 1.0 if held else 0.5))
-        if not held:
-            # Capped at the horizon: plays dated past game end contribute zero.
-            out.append(Opportunity(card, 2, 0, min(reshuffle, horizon), 0.5))
+        # holder: bucket 1 is P(the opponent holds it now) -- the holder must
+        # play it this turn -- and bucket 2 is P(pile now) times P(a remaining
+        # full deal delivers it), from `cycle_deal_masses`. No full deals left
+        # means no bucket 2 (the exhausting deal is next cycle's).
+        if held:
+            out.append(Opportunity(card, 1, 0, 0, 1.0))
+        else:
+            p_opp = pc.p_opponent_holds(obs, card)
+            out.append(Opportunity(card, 1, 0, 0, p_opp))
+            theirs, pile = pc.unseen_split(obs)
+            pool = theirs + pile
+            p_pile = (pile / pool) if pool > 0 else 0.0
+            masses = pc.cycle_deal_masses(obs)
+            survival = 1.0
+            for mass in masses:
+                survival *= 1.0 - mass
+            deal_prob = 1.0 - survival
+            if deal_prob > 0.0 and p_pile > 0.0:
+                # Capped at the horizon: plays dated past game end contribute zero.
+                out.append(Opportunity(card, 2, 0, min(reshuffle, horizon), p_pile * deal_prob))
     if state in ('hand', 'unseen', 'discard'):
         # Next cycle, if the reshuffle (and hence the game) gets there.
         if reshuffle <= horizon:

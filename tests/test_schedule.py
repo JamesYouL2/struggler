@@ -5,7 +5,7 @@ opportunities -- (card, bucket, timing range, occurrence) -- one per scoring
 per category. These tests pin the rules-grounded parts (held cards fire this
 turn, spent one-shots and removed cards contribute zero, final scoring covers
 the six regions and never Southeast Asia) and the documented assumptions
-(unknown-holder halves, the unmodeled early-ending gap).
+(deck-math holder masses, the unmodeled early-ending gap).
 """
 from dataclasses import replace
 
@@ -42,20 +42,46 @@ def test_full_schedule_names_every_card_in_order_no_bucket_four():
             assert 0 <= opp.turns_lo <= opp.turns_hi
 
 
-def test_live_unknown_holder_splits_this_cycle_and_returns_next():
+def test_live_unknown_holder_uses_deck_math_this_cycle_and_returns_next():
     obs = _obs(discard_pile=(), removed_cards=())
     for card in SCORING_CARD_REGION:
         if pc.card_state(obs, card) != 'unseen':
             continue  # dealt into a hand; the held test below owns that case
         opps = _by_card(sch.opportunities(obs, card))[card]
         by_bucket = {o.bucket: o for o in opps}
-        assert by_bucket[1].occurrence == 0.5
-        assert by_bucket[2].occurrence == 0.5
+        # Bucket 1 is P(the opponent holds it now): the holder must play a
+        # scoring this turn, so this is deck calculation, not a half.
+        assert by_bucket[1].occurrence == pc.p_opponent_holds(obs, card)
+        # Bucket 2 is P(pile now) times P(a remaining full deal delivers it).
+        theirs, pile = pc.unseen_split(obs)
+        pool = theirs + pile
+        masses = pc.cycle_deal_masses(obs)
+        survival = 1.0
+        for mass in masses:
+            survival *= 1.0 - mass
+        expected_b2 = (pile / pool) * (1.0 - survival)
+        assert by_bucket[2].occurrence == expected_b2
+        assert by_bucket[1].occurrence + by_bucket[2].occurrence <= 1.0 + 1e-12
         assert by_bucket[1].turns_lo == by_bucket[1].turns_hi == 0
         assert by_bucket[3].occurrence == 1.0
         break
     else:
         raise AssertionError('expected at least one unseen scoring in a fresh deal')
+
+
+def test_no_full_deals_left_omits_bucket_two():
+    """Turn 10 has no future deal this cycle: bucket 1 stays, bucket 2 goes."""
+    obs = _obs(turn=10)
+    assert pc.cycle_deal_masses(obs) == ()
+    for card in SCORING_CARD_REGION:
+        if pc.card_state(obs, card) != 'unseen':
+            continue
+        buckets = {o.bucket for o in sch.opportunities(obs, card)}
+        assert 2 not in buckets
+        assert 1 in buckets
+        break
+    else:
+        raise AssertionError('expected at least one unseen scoring at turn 10')
 
 
 def test_held_card_fires_this_turn_only():
