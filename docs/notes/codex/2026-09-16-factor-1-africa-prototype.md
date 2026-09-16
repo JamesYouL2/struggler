@@ -47,6 +47,24 @@ fixed at 3, marginal 3.0). Stepwise marginals telescope in either order.
 Stochastic forecast: bonus still linear-exact, tier raises. Ruff clean (45
 pre-existing hits on HEAD untouched); full suite green (see commit).
 
+## Baseline (pre-integration, 2026-09-16)
+
+`benchmark --expert models/expert_valuations.json --seeds 4000` on the
+unwired tree (identical bot to `origin/main`, so this is the main baseline
+the end-gate compares against):
+
+- PLACEMENT US: **11 inversions in 11 ranked**; bot order Pakistan > Egypt >
+  Iraq > France > South_Korea > Japan > Israel > Mexico > South_Africa >
+  Cuba > Panama. Israel-first is still the worst single inversion
+  (Israel 7th where the expert ranks it first).
+- PLACEMENT USSR: **6 inversions in 5 ranked**; bot order South_Korea >
+  Israel > Iraq > Saudi_Arabia > Lebanon.
+- ORDER BROKEN x2 (Suez/Arab-Israeli, Marshall/US-Japan), 29 misses
+  (tolerance + unpriced cards/footholds).
+
+Safety gate on the unwired branch (expect ~0.5, no behavior change):
+run `35108484196`, `decide=1 vary=0` vs `origin/main` `18abdba`.
+
 ## Deferred, explicitly
 
 Joint control distribution (the stochastic tier model), schedule/occurrence
