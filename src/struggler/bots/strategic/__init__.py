@@ -1,6 +1,6 @@
 """The strategic bot: the policy, its value function, and its planner.
 
-Five modules, each a job the others do not do:
+Six modules, each a job the others do not do:
 
 - `evaluator`  pure board terms over an indexed snapshot, no state of their
                own. The part a native kernel would receive as-is.
@@ -11,6 +11,9 @@ Five modules, each a job the others do not do:
 - `forecast`   the rebuild prototype: one region's expected scoring payout
                as bonuses plus a once-per-region tier term. Not wired into any
                ranking yet; see its docstring and `tests/test_forecast.py`.
+- `schedule`   the rebuild's other half: every future scoring opportunity
+               as card, bucket, timing range and occurrence mass. Unwired;
+               see its docstring and `tests/test_schedule.py`.
 - `policy`     everything stateful: the valuation context, Ops/VP pricing,
                the event sandbox, card valuation, risk integration, and the
                decision dispatch.

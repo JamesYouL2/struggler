@@ -77,6 +77,10 @@ class Terrain:
     # count -- the first outside Southeast Asia -- whose urgency is
     # therefore the region's. See `region_urgency`.
     region_anchor: dict[Region, int]
+    # Southeast Asia's members, in `Terrain` order: the one-shot scoring card
+    # pays per controlled country here (+2 for Thailand) and never touches
+    # Asia's tiers, so the rebuild's payout half needs them as indices.
+    southeast_asia: tuple[int, ...]
     scoring_vp: dict[Region, tuple[int, int, int | None]]
     coup_min_defcon: tuple[int, ...]
     # The three countries the Coup prohibitions name, as indices, so the
@@ -116,6 +120,8 @@ def terrain() -> Terrain:
         members=members,
         member_pos=tuple(member_pos),
         region_anchor=region_anchor,
+        southeast_asia=tuple(i for i, cid in enumerate(ids)
+                             if Subregion.SOUTHEAST_ASIA in board.countries[cid].subregions),
         scoring_vp={r: tuple(RULES['scoring'][r.name]) for r in Region},
         japan=index['Japan'],
         france=index['France'],

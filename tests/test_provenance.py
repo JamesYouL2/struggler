@@ -33,7 +33,11 @@ DETERMINATIONS = {'overdetermined', 'determined', 'bounded', 'underdetermined',
 # sizes. They shape behaviour but there is no "where did this number come
 # from" to answer about NOBODY = -1.
 NOT_A_VALUATION = {'LAST_TURN', 'NOBODY', 'US', 'USSR', '_ZOBRIST_MAX',
-                   'WIN_PROBABILITY_FLOOR', 'GAME_SWING_VP_LEGACY'}
+                   'WIN_PROBABILITY_FLOOR', 'GAME_SWING_VP_LEGACY',
+                   # A bucket label in the five-bucket vocabulary, not a
+                   # valuation: it names the category, the mass lives in the
+                   # schedule's occurrences.
+                   'BUCKET_SECOND_RESHUFFLE'}
 
 
 @pytest.fixture(scope='module')

@@ -442,6 +442,14 @@ docstring answers the rebuild README's five questions; `tests/test_forecast.py`
 holds immediate scoring to the engine and the stochastic tier model to a
 `NotImplementedError` until the joint distribution lands.
 
+**Schedule.** `bots/strategic/schedule.py` is the rebuild's other half and is
+likewise unwired: every future scoring opportunity as card, bucket, timing
+range and occurrence mass, from the public deck state. Held cards fire this
+turn (the engine forbids holding them), spent one-shots and removed cards
+contribute zero, final scoring covers the six regions and never Southeast
+Asia; the unknown-holder halves and the unmodeled early endings are stated in
+its docstring, and `tests/test_schedule.py` holds the rules-grounded parts.
+
 ## Evaluate and train
 
 Evaluation plays both seats on every seed, with events enabled. Identical seeds

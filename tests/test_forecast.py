@@ -173,3 +173,60 @@ def test_stochastic_tier_expectation_raises_instead_of_guessing():
         fcst.expected_tier_payout(t, mixed)
     with pytest.raises(NotImplementedError):
         fcst.expected_payout(t, mixed)
+
+
+def test_southeast_asia_payout_matches_the_engine():
+    """The one-shot card pays per controlled SEA country (+2 Thailand), US-signed."""
+    from conftest import bare_engine
+
+    engine = bare_engine()
+    board = engine.board
+    board.influence["Thailand"]["US"] = 2
+    board.influence["Vietnam"]["USSR"] = 1
+    board.influence["Malaysia"]["US"] = 2  # stab 2, so 1 point would not control it
+    assert engine._score_southeast_asia() == 2 - 1 + 1
+    t, pos = _synced(board)
+    forecast = fcst.forecast_controls(t, pos, Region.ASIA)
+    assert fcst.expected_southeast_asia_payout(t, forecast) == 2.0
+
+
+def test_southeast_asia_payout_is_linear_and_asia_only():
+    """Per-country payout, exact under any forecast -- and it never prices Asia's tiers."""
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    t, pos = _synced(engine.board)
+    forecast = fcst.forecast_controls(t, pos, Region.ASIA)
+    thailand = t.index["Thailand"]
+    mixed = forecast._replace(
+        probs=tuple((0.5, 0.5, 0.0) if k == t.member_pos[thailand] else p
+                    for k, p in enumerate(forecast.probs)))
+    us_sea = fcst.expected_southeast_asia_payout(t, fcst.force(forecast, t, thailand, ev.US))
+    ussr_sea = fcst.expected_southeast_asia_payout(t, fcst.force(forecast, t, thailand, ev.USSR))
+    assert fcst.expected_southeast_asia_payout(t, mixed) == pytest.approx(0.5 * us_sea + 0.5 * ussr_sea)
+    with pytest.raises(ValueError):
+        fcst.expected_southeast_asia_payout(t, fcst.forecast_controls(t, pos, Region.AFRICA))
+
+
+def test_europe_control_names_the_automatic_victory():
+    """Holding every European battleground plus more countries is Control --
+    the terminal outcome expected VP must never override."""
+    from struggler.engine.types import ScoringTier
+
+    from conftest import bare_engine
+
+    engine = bare_engine()
+    board = engine.board
+    t = ev.terrain()
+    pos = ev.Position(t).sync(board)
+    assert fcst.europe_control(t, pos) is None
+    europe_bg = [i for i in t.members[Region.EUROPE] if t.battleground[i]]
+    non_bg = next(i for i in t.members[Region.EUROPE] if not t.battleground[i])
+    assert len(europe_bg) > 0
+    for i in europe_bg:
+        board.influence[t.ids[i]]["US"] = t.stability[i]
+    board.influence[t.ids[non_bg]]["US"] = t.stability[non_bg]
+    pos = ev.Position(t).sync(board)
+    assert board.region_tier(Side.US, Region.EUROPE) is ScoringTier.CONTROL
+    assert fcst.europe_control(t, pos) is Side.US
+    board.influence[t.ids[europe_bg[0]]]["USSR"] = 2 * t.stability[europe_bg[0]]
+    pos = ev.Position(t).sync(board)
+    assert fcst.europe_control(t, pos) is None

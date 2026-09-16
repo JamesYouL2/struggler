@@ -10,6 +10,7 @@ path because `tests/test_recurring_defects.py` parses it.
 
 - [2026-09-16 — Perf evaluator gate verdict](2026-09-16-perf-evaluator-gate-verdict.md) — 2026-09-16
 - [2026-09-16 — Factor 1: one-region expected-scoring prototype (Africa)](2026-09-16-factor-1-africa-prototype.md) — 2026-09-16
+- [2026-09-16 — Schedule + other regions](2026-09-16-schedule-and-regions.md) — 2026-09-16
 - [Value-function rebuild — development plan](value-function-rebuild/README.md) — 2026-09-15; next priority: expected VP, scoring horizons, control forecasts, and regional accounting
 - [2026-09-15 — Repeat repository audit](2026-09-15-repeat-repository-audit.md) — historical findings and validation; development priority is the rebuild plan above
 - [2026-09-15 — Italy default opening (swap from iran), plus handoff](2026-09-15-italy-default-opening-and-handoff.md) — 2026-09-15

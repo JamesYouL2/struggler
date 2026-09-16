@@ -8,6 +8,16 @@ payout with the country-bonus and regional-tier parts kept separate. It is NOT
 wired into any ranking; the old evaluator and its corpus are untouched while
 the candidate is built.
 
+The prototype was built on Africa and is region-general: every function
+takes the region (or card) as an argument, and immediate scoring agrees with
+the engine in all six regions plus Southeast Asia's own payout. Two
+region-specific rules ride along: Southeast Asia pays per controlled country
+and never touches Asia's tiers, and Europe's Control tier is an automatic
+victory -- `europe_control` names it, but expected VP must never override a
+certain win or defeat, so its precedence over every payout here is
+integration work (the rebuild's common-units step), not a number in this
+module.
+
 The rebuild README asks the first implementation five questions. Answers:
 
 1. Partial influence -> control probability: the first forecast maps the
@@ -192,6 +202,50 @@ def expected_payout(t: ev.Terrain, forecast: ControlForecast,
     bonus = expected_country_bonus(t, forecast)
     tier = expected_tier_payout(t, forecast, overrides)
     return Breakdown(total=bonus + tier, bonus=bonus, tier=tier)
+
+
+def expected_southeast_asia_payout(t: ev.Terrain, asia_forecast: ControlForecast) -> float:
+    """Southeast Asia Scoring's expected payout, US-signed: +2 VP for Thailand,
+    +1 per other controlled Southeast Asia country.
+
+    Its own payout, never Asia's tiers: the one-shot card does not score
+    presence, domination or control, and final scoring never fires it (it
+    scores every *region*). Linear in the probabilities -- each country's
+    payout depends only on its own holder -- so this is exact under ANY
+    forecast, stochastic included, like the 10.1.2 country bonuses.
+    """
+    if asia_forecast.region is not Region.ASIA:
+        raise ValueError(f"Southeast Asia lives in Asia, forecast was {asia_forecast.region}")
+    total = 0.0
+    for i in t.southeast_asia:
+        p_us, p_ussr, _p_open = asia_forecast.probs[t.member_pos[i]]
+        value = 2.0 if t.ids[i] == 'Thailand' else 1.0
+        total += p_us * value - p_ussr * value
+    return total
+
+
+def europe_control(t: ev.Terrain, pos: ev.Position) -> Side | None:
+    """Who holds Europe Control now, if anyone: every battleground plus more
+    countries than the other side -- the engine's automatic-victory condition,
+    which takes precedence over any expected VP here.
+
+    A query, not a price: there is no VP number for ending the game, so the
+    integration step checks this before comparing potentials, exactly as
+    `_finish_game` scores Europe first and stops on it.
+    """
+    counts = ([0, 0], [0, 0])  # [countries, battlegrounds] per side
+    total_bg = 0
+    for i in t.members[Region.EUROPE]:
+        if t.battleground[i]:
+            total_bg += 1
+        holder = pos.control[i]
+        if holder != ev.NOBODY:
+            counts[holder][0] += 1
+            counts[holder][1] += t.battleground[i]
+    for side, other in ((ev.US, ev.USSR), (ev.USSR, ev.US)):
+        if total_bg > 0 and counts[side][1] == total_bg and counts[side][0] > counts[other][0]:
+            return Side.US if side == ev.US else Side.USSR
+    return None
 
 
 def region_potential(t: ev.Terrain, pos: ev.Position, seat: Side, region: Region, horizon: int = 0,

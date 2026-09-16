@@ -1,0 +1,129 @@
+"""The rebuild's schedule half: when each scoring can still pay, and with what mass.
+
+`bots/strategic/schedule.py` turns the public deck state into explicit
+opportunities -- (card, bucket, timing range, occurrence) -- one per scoring
+per category. These tests pin the rules-grounded parts (held cards fire this
+turn, spent one-shots and removed cards contribute zero, final scoring covers
+the six regions and never Southeast Asia) and the documented assumptions
+(unknown-holder halves, the unmodeled early-ending gap).
+"""
+from dataclasses import replace
+
+from struggler.engine import Engine, Region, Side
+from struggler.engine.core import SCORING_CARD_REGION
+from struggler.bots.strategic import public_cards as pc
+from struggler.bots.strategic import schedule as sch
+
+
+def _obs(**kwargs):
+    """A fresh deal's US observation with fields overridden: the deck inputs
+    the schedule reads, without playing a game to arrange them."""
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    obs = engine.observe(Side.US)
+    return replace(obs, **kwargs) if kwargs else obs
+
+
+def _by_card(opps):
+    grouped = {}
+    for opp in opps:
+        grouped.setdefault(opp.card, []).append(opp)
+    return grouped
+
+
+def test_full_schedule_names_every_card_in_order_no_bucket_four():
+    grouped = _by_card(sch.full_schedule(_obs()))
+    assert list(grouped) == [*list(SCORING_CARD_REGION), sch.SEA_SCORING]
+    for card, opps in grouped.items():
+        buckets = [o.bucket for o in opps]
+        assert buckets == sorted(buckets), f"{card}: categories latest-last"
+        assert sch.BUCKET_SECOND_RESHUFFLE not in buckets
+        for opp in opps:
+            assert 0.0 <= opp.occurrence <= 1.0
+            assert 0 <= opp.turns_lo <= opp.turns_hi
+
+
+def test_live_unknown_holder_splits_this_cycle_and_returns_next():
+    obs = _obs(discard_pile=(), removed_cards=())
+    for card in SCORING_CARD_REGION:
+        if pc.card_state(obs, card) != 'unseen':
+            continue  # dealt into a hand; the held test below owns that case
+        opps = _by_card(sch.opportunities(obs, card))[card]
+        by_bucket = {o.bucket: o for o in opps}
+        assert by_bucket[1].occurrence == 0.5
+        assert by_bucket[2].occurrence == 0.5
+        assert by_bucket[1].turns_lo == by_bucket[1].turns_hi == 0
+        assert by_bucket[3].occurrence == 1.0
+        break
+    else:
+        raise AssertionError('expected at least one unseen scoring in a fresh deal')
+
+
+def test_held_card_fires_this_turn_only():
+    obs = _obs(hand=('Africa_Scoring',))
+    opps = _by_card(sch.opportunities(obs, 'Africa_Scoring'))['Africa_Scoring']
+    by_bucket = {o.bucket: o for o in opps}
+    # The engine forbids holding a scoring past end of turn, so the whole
+    # this-cycle mass sits in bucket 1; nothing waits for later this cycle.
+    assert by_bucket[1].occurrence == 1.0
+    assert 2 not in by_bucket
+
+
+def test_discarded_card_returns_only_next_cycle():
+    obs = _obs(hand=(), discard_pile=('Africa_Scoring',))
+    assert pc.card_state(obs, 'Africa_Scoring') == 'discard'
+    opps = _by_card(sch.opportunities(obs, 'Africa_Scoring'))['Africa_Scoring']
+    assert {o.bucket for o in opps} == {3, 5}
+
+
+def test_future_card_names_its_entry_turn():
+    obs = _obs(turn=1)
+    card = next(c for c in SCORING_CARD_REGION if pc.card_state(obs, c) == 'future')
+    opps = _by_card(sch.opportunities(obs, card))[card]
+    by_bucket = {o.bucket: o for o in opps}
+    assert 1 not in by_bucket and 2 not in by_bucket
+    assert by_bucket[3].turns_lo == pc.entry_turn(pc.CARDS[card]) - 1
+
+
+def test_removed_and_spent_cards_contribute_zero():
+    obs = _obs(hand=(), removed_cards=('Asia_Scoring',), discard_pile=('Southeast_Asia_Scoring',))
+    grouped = _by_card(sch.full_schedule(obs))
+    assert 'Asia_Scoring' not in grouped  # removed: gone
+    assert sch.SEA_SCORING not in grouped  # discarded: the one-shot never fires again
+
+
+def test_final_scoring_covers_the_six_regions_never_the_southeast():
+    obs = _obs()
+    grouped = _by_card(sch.full_schedule(obs))
+    for card in SCORING_CARD_REGION:
+        finals = [o for o in grouped[card] if o.bucket == 5]
+        assert len(finals) == 1
+        assert finals[0].occurrence == pc.final_scoring_odds(obs)
+        assert finals[0].turns_lo == finals[0].turns_hi == pc.turns_to_final_scoring(obs)
+    if sch.SEA_SCORING in grouped:
+        assert all(o.bucket != 5 for o in grouped[sch.SEA_SCORING])
+
+
+def test_beyond_game_end_contributes_zero():
+    """A pile that outlasts the game: no next-cycle opportunity, final scoring intact."""
+    obs = _obs(turn=9, draw_pile_size=1000)
+    horizon = pc.turns_to_final_scoring(obs)
+    assert pc.turns_to_reshuffle(obs) > horizon
+    for card in SCORING_CARD_REGION:
+        if pc.card_state(obs, card) in ('hand', 'unseen', 'discard'):
+            buckets = {o.bucket for o in sch.opportunities(obs, card)}
+            assert 3 not in buckets
+            assert 5 in buckets
+    for opp in sch.full_schedule(obs):
+        assert opp.turns_hi <= horizon
+
+
+def test_region_of_and_unknown_cards():
+    assert sch.region_of('Africa_Scoring') is Region.AFRICA
+    assert sch.region_of(sch.SEA_SCORING) is None
+    obs = _obs()
+    try:
+        sch.opportunities(obs, 'The_China_Card')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('non-scoring cards must raise, not schedule')
