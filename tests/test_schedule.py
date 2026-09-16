@@ -63,7 +63,11 @@ def test_live_unknown_holder_uses_deck_math_this_cycle_and_returns_next():
         assert by_bucket[2].occurrence == expected_b2
         assert by_bucket[1].occurrence + by_bucket[2].occurrence <= 1.0 + 1e-12
         assert by_bucket[1].turns_lo == by_bucket[1].turns_hi == 0
-        assert by_bucket[3].occurrence == 1.0
+        survival = 1.0
+        for m in pc.post_reshuffle_deal_masses(obs):
+            survival *= 1.0 - m
+        assert by_bucket[3].occurrence == 1.0 - survival
+        assert 0.0 < by_bucket[3].occurrence <= 1.0
         break
     else:
         raise AssertionError('expected at least one unseen scoring in a fresh deal')
@@ -141,6 +145,51 @@ def test_beyond_game_end_contributes_zero():
             assert 5 in buckets
     for opp in sch.full_schedule(obs):
         assert opp.turns_hi <= horizon
+
+
+def test_recycled_pile_size_is_the_documented_accounting():
+    """entered by the reshuffle turn, less removed, less the held estimate,
+    less the spent one-shot -- the whole formula, pinned so it cannot drift
+    silently."""
+    obs = _obs(hand=(), removed_cards=(), discard_pile=('Asia_Scoring', 'Diplo_Aid'))
+    reshuffle = pc.turns_to_reshuffle(obs)
+    start = obs.turn + reshuffle
+    early = len(pc.cards_entering(pc.CARDS, pc.Period.EARLY_WAR, True))
+    entered = early + sum(n for t, n in pc.ENTERING.items() if t <= start)
+    expected = max(0, entered - 2 * pc.hand_limit(start))
+    assert pc.recycled_pile_size(obs, start) == expected
+
+
+def test_post_reshuffle_walk_bounds_and_identity():
+    """Each mass lies in (0, 1]; reshuffle 1 is `turns_to_reshuffle` turns
+    ahead; () when the reshuffle is absent."""
+    obs = _obs()
+    reshuffle = pc.turns_to_reshuffle(obs)
+    assert reshuffle <= pc.turns_to_final_scoring(obs)
+    masses = pc.post_reshuffle_deal_masses(obs)
+    assert masses
+    for m in masses:
+        assert 0.0 < m <= 1.0
+    assert all(m < 1.0 for m in masses[:-1])  # a 1.0 ends the walk
+    late = _obs(turn=9, draw_pile_size=1000)  # pile outlasts the game
+    assert pc.turns_to_reshuffle(late) > pc.turns_to_final_scoring(late)
+    assert pc.post_reshuffle_deal_masses(late) == ()
+    assert pc.post_reshuffle_deal_masses(_obs(turn=10)) == ()
+
+
+def test_bucket_three_is_the_dealt_before_game_end_mass():
+    """Bucket 3 no longer assumes the whole recycled card is dealt: the
+    same walk value for every recycling state, < the old flat 1.0 only
+    while a deal can fall past the horizon."""
+    obs = _obs(hand=(), discard_pile=('Africa_Scoring',))
+    assert pc.card_state(obs, 'Africa_Scoring') == 'discard'
+    survival = 1.0
+    for m in pc.post_reshuffle_deal_masses(obs):
+        survival *= 1.0 - m
+    hmm = _obs(hand=('Africa_Scoring',))
+    discard = [o.occurrence for o in sch.opportunities(obs, 'Africa_Scoring') if o.bucket == 3]
+    held = [o.occurrence for o in sch.opportunities(hmm, 'Africa_Scoring') if o.bucket == 3]
+    assert discard == held == [1.0 - survival]
 
 
 def test_region_of_and_unknown_cards():

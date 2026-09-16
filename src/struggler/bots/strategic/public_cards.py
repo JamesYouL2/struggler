@@ -1,5 +1,5 @@
 """Where a card is, from public information only (shared by every bot)."""
-from struggler.engine import Observation, Subregion
+from struggler.engine import Observation, Period, Subregion
 from struggler.engine.cards import (ENTRY_TURN, cards_entering, entry_turn,
                                     hand_limit, load_cards)
 from struggler.engine.core import LAST_TURN, SCORING_CARD_REGION
@@ -126,6 +126,27 @@ ENTERING = {turn: len(cards_entering(CARDS, period, True))
             for period, turn in ENTRY_TURN.items() if turn > 1}
 
 
+def deck_walk(obs: Observation) -> tuple[tuple[int, int, int, int], ...]:
+    """The draw pile's forward walk, one row per future deal this cycle.
+
+    Row = `(turn, pile_before, entering, deal)`: the effective pile for the
+    deal at `turn` is `pile_before + entering`, and `pile_after = effective
+    - deal`, which may go negative -- that row is the *exhausting* deal (the
+    pile ran out mid-deal; that is the reshuffle's trigger). Shared by
+    `turns_to_reshuffle`, `cycle_deal_masses` and `post_reshuffle_deal_masses`,
+    so the three walk one deck arithmetic instead of three copies of it.
+    """
+    pile = obs.draw_pile_size
+    walk = []
+    for ahead in range(1, LAST_TURN - obs.turn + 1):
+        turn = obs.turn + ahead
+        entering = ENTERING.get(turn, 0)
+        deal = deal_size(turn)
+        walk.append((turn, pile, entering, deal))
+        pile += entering - deal
+    return tuple(walk)
+
+
 def turns_to_reshuffle(obs: Observation) -> int:
     """Turns until the draw pile runs out and the discards come back.
 
@@ -149,13 +170,9 @@ def turns_to_reshuffle(obs: Observation) -> int:
     `scoring_schedule` then filters: a reshuffle that never comes must
     contribute nothing, not a discounted something.
     """
-    pile = obs.draw_pile_size
-    for ahead in range(1, LAST_TURN - obs.turn + 1):
-        turn = obs.turn + ahead
-        pile += ENTERING.get(turn, 0)
-        pile -= deal_size(turn)
-        if pile < 0:
-            return ahead
+    for turn, pile_before, entering, deal in deck_walk(obs):
+        if pile_before + entering - deal < 0:
+            return turn - obs.turn
     return LAST_TURN - obs.turn + 1  # never, within this game
 
 
@@ -197,19 +214,91 @@ def cycle_deal_masses(obs: Observation) -> tuple[float, ...]:
     is P(pile now) times that. Conservation the tests pin:
     sum(unconditional) + prod(1 - m) == 1, where unconditional_k
     = m_k * prod_{j<k}(1 - m_j)."""
-    pile = obs.draw_pile_size
     masses: list[float] = []
-    for ahead in range(1, LAST_TURN - obs.turn + 1):
-        turn = obs.turn + ahead
-        pile += ENTERING.get(turn, 0)
-        deal = deal_size(turn)
+    for _turn, pile_before, entering, deal in deck_walk(obs):
+        pile = pile_before + entering
         if pile - deal < 0:
             break  # exhausting deal: next cycle's, not this one's
         if pile <= 0:
             break
         masses.append(deal / pile)
+    return tuple(masses)
+
+
+def recycled_pile_size(obs: Observation, turn: int) -> int:
+    """Estimated size of the deck when the reshuffle at `turn` reaches the
+    recycled discards: every shuffle-able card that has entered by then
+    (the same universe `ENTERING` counts, Early War included, optional cards
+    included), less the removed cards and the spent Southeast Asia Scoring
+    (its one played life takes it out of every later cycle -- the discard
+    state makes that public), less the cards both players are still holding.
+
+    The holding estimate is `2 * hand_limit(turn)`: both hands were topped
+    up before the exhausting deal fell short, so each holds a full limit,
+    and the deal's recycled remainder tops them further. That remainder is
+    left out of the estimate, which biases the pile small -- this pile is
+    the denominator of a later deal mass -- so the bucket-3 masses it feeds
+    are a lower bound by at most one partial deal.
+    """
+    entered = len(cards_entering(CARDS, Period.EARLY_WAR, True))
+    entered += sum(n for t, n in ENTERING.items() if t <= turn)
+    live = entered - len(obs.removed_cards)
+    if 'Southeast_Asia_Scoring' in obs.discard_pile:
+        live -= 1  # the one-shot is out of every later cycle once discarded
+    return max(0, live - 2 * hand_limit(turn))
+
+
+def post_reshuffle_deal_masses(obs: Observation) -> tuple[float, ...]:
+    """Per-deal conditional masses for the deals after the (first) reshuffle,
+    down to the end of the game: each entry is P(a recycled card is dealt in
+    that deal | it survived the deals before it), the same `deal / pile`
+    shape as `cycle_deal_masses` over the recycled deck. The deck's size is
+    `recycled_pile_size`'s estimate, and its shortage against the
+    exhausting deal is taken from the shared `deck_walk`, not guessed: the
+    reshuffle fires mid-deal, so that deal's remainder is drawn from the
+    recycle at mass `deficit / recycle` and the rest of the deal was
+    already drawn.
+
+    Uniform order is the same prior `p_opponent_holds` uses -- the pile
+    order never leaks -- so this is deck calculation over a documented
+    pile-size estimate, not a fitted half. A deal that exceeds the pile
+    before the last turn is reshuffle 2: its leftover belongs to the next
+    cycle, which no pricing model exists for yet, so the walk stops there.
+    The last turn's exhausting deal is IN, fully: every card it deals is
+    played before final scoring. What nobody drew is the walk's documented
+    truncation (prod(1 - m) is the never-dealt mass).
+
+    Returns () when the reshuffle is absent (the pile outlasts the game) or
+    past the horizon (turn 10).
+    """
+    reshuffle = turns_to_reshuffle(obs)
+    if reshuffle > turns_to_final_scoring(obs):
+        return ()
+    start = obs.turn + reshuffle
+    deficit = 0
+    for _turn, pile_before, entering, deal in deck_walk(obs):
+        if pile_before + entering - deal < 0:
+            deficit = deal - (pile_before + entering)
+            break
+    pile = recycled_pile_size(obs, start)
+    masses: list[float] = []
+    for turn in range(start, LAST_TURN + 1):
+        if turn > start:
+            # The reshuffle turn's entries were drawn pre-exhaust (they are
+            # inside deck_walk's effective pile there); adding them again
+            # here would double-count them.
+            pile += ENTERING.get(turn, 0)
+        deal = deficit if turn == start else deal_size(turn)
+        if pile <= 0:
+            break
+        if deal <= 0:
+            continue
+        if pile - deal < 0 and turn < LAST_TURN:
+            break  # an exhausting deal before the last one: reshuffle 2's
+        masses.append(min(deal, pile) / pile)
         pile -= deal
     return tuple(masses)
+
 
 
 def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:

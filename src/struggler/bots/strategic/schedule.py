@@ -26,11 +26,23 @@ standing in for dated masses:
   deal belongs to the next cycle). Buckets 1+2 split this cycle by holder
   uncertainty, not timing -- an unseen card may be played this very turn by
   its holder, so bucket 2's range overlaps bucket 1 at turn 0.
-- Bucket 3 (next cycle): 1.0 whenever the card returns post-reshuffle
-  (live or discarded) or enters a future period -- same documented gap about
-  the game getting there.
-- Bucket 4 (second reshuffle): named, never emitted, zero mass. No timing
-  model exists for it; emitting it would be inventing one.
+- Bucket 3 (next cycle): the recycled card is dealt into someone's hand
+  post-reshuffle with certainty -- the must-play rule (bucket 1) puts every
+  live scoring in the discard pile by the reshuffle, so it re-enters with
+  mass 1.0 -- but then it fires the turn it is DEALT, not when the cycle
+  opens. The mass is therefore P(dealt before game end | the reshuffle
+  happens), from `cycle_deal_masses`'s walk continued over the recycled
+  deck (`post_reshuffle_deal_masses`; pile size estimated by
+  `recycled_pile_size`, the shuffle-able cards entered by then less
+  removed cards, the spent Southeast Asia one-shot and a full `2 x
+  hand_limit` of holdings -- every number documented in the module). It is
+  still emitted only when the reshuffle precedes the horizon; that
+  conditioning is the same "the reshuffle happens" prior as before, and
+  game-precedes-the-reshuffle remains the gap note below.
+- Bucket 4 (second reshuffle): named, never emitted, zero mass. Its
+  recycled pile would include cards neither played by today nor dealt
+  hence -- plays still to choose -- so its size is not derivable from
+  today's public state at all; emitting a mass would be inventing one.
 - Bucket 5 (final scoring): `final_scoring_odds` for each of the six region
   cards. Never for Southeast Asia: final scoring scores every *region*
   (`Engine._finish_game`), and the one-shot card is gone by then if played,
@@ -126,9 +138,21 @@ def opportunities(obs: Observation, card: str) -> tuple[Opportunity, ...]:
                 out.append(Opportunity(card, 2, 0, min(reshuffle, horizon), p_pile * deal_prob))
     if state in ('hand', 'unseen', 'discard'):
         # Next cycle, if the reshuffle (and hence the game) gets there.
+        # The card recycles with certainty (a scoring cannot go un-played
+        # past the reshuffle), so the mass is P(it is dealt before game end
+        # after the reshuffle), the post-reshuffle continuation of the same
+        # deal walk bucket 2 uses this cycle.
         if reshuffle <= horizon:
-            out.append(Opportunity(card, 3, reshuffle, horizon, 1.0))
+            mass = 1.0
+            for m in pc.post_reshuffle_deal_masses(obs):
+                mass *= 1.0 - m
+            out.append(Opportunity(card, 3, reshuffle, horizon, 1.0 - mass))
     elif state == 'future':
+        # Not yet in any deck: nothing recycles it. What it joins is the
+        # pile its period's entry adds, dealt from its entry turn on --
+        # same deal-walk shape, but its pile is future entries layered on
+        # whatever the earlier cycles left, which the current walk does not
+        # model. Flat 1.0 conditioned on entry within the horizon.
         entry = pc.entry_turn(pc.CARDS[card]) - obs.turn
         if entry <= horizon:
             out.append(Opportunity(card, 3, entry, horizon, 1.0))

@@ -449,6 +449,16 @@ turn (the engine forbids holding them), spent one-shots and removed cards
 contribute zero, final scoring covers the six regions and never Southeast
 Asia; the unknown-holder halves and the unmodeled early endings are stated in
 its docstring, and `tests/test_schedule.py` holds the rules-grounded parts.
+Bucket 1/2 masses are the deck math (`p_opponent_holds`, the cycle-deal
+walk); bucket 3 continues that walk over the recycled deck
+(`public_cards.post_reshuffle_deal_masses`) -- the card provably recycles
+(no scoring can be held past a reshuffle), so its mass is P(the recycled
+card is dealt before game end), with the recycled pile's size estimated by
+accounting, not measured. Bucket 4 is still zero mass: its recycle pool
+would include plays that have not been made yet, unknowable from today's
+public state. One deck walk (`public_cards.deck_walk`) serves both cycles
+and the reshuffle estimate; the schedules to reshuffle and masses cannot
+drift apart.
 
 ## Evaluate and train
 

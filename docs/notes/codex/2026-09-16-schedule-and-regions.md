@@ -18,6 +18,10 @@ Occurrence mass, first version, all assumptions in the module docstring:
   exactly what the urgency consumer prices this cycle; they are holder
   uncertainty, not timing, so bucket 2's range overlaps bucket 1 at turn 0.
   Shaping by `p_opponent_holds` is factor-2 work.
+  Correction (2026-09-16, realized the same day in `84eb703`): the halves
+  became the real pile-share and cycle-deal masses (`p_opponent_holds` for
+  bucket 1, `cycle_deal_masses` for bucket 2), and bucket 3 followed in
+  [the deal-walk note](2026-09-16-bucket-3-deal-walk.md).
 - Bucket 3: 1.0 when the card returns post-reshuffle or enters a future
   period. Bucket 4: named, never emitted. Bucket 5: `final_scoring_odds`
   for the six region cards -- never Southeast Asia (`_finish_game` scores
