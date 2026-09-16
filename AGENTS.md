@@ -143,8 +143,10 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
 - Fast A/B attribution: `git stash` + re-run the single failing test to decide
   "bundle or revert" before splitting branches.
 - `gh` is authed (JamesYouL2). Gate dispatch:
-  `gh workflow run gate.yml --ref <branch> -f bases='["<SHA>"]' -f decide=0 -f vary=0`;
+  `gh workflow run gate.yml --ref <branch> -f bases='["<SHA>"]' -f vary=0`;
   poll with `gh run view <id> --json status,conclusion`.
+  `decide` defaults to 1 (curtails ~15% once the verdict is stable); pass
+  `-f decide=0` only for a full read when the precise score matters.
 - Ledger `models/provenance.json`: 2-space indent, never plain `json.dumps`
   (a test parses the format). Recompute `_summary` counts, verify with
   `tests/test_provenance.py`. New weights need entries or the suite fails.
