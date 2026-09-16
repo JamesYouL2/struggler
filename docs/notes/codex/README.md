@@ -8,6 +8,8 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-16 — Overall sequencing with the active rebuild branch](2026-09-16-overall-rebuild-sequencing.md) — prototype exists on `rebuild/value-function`; next: schedule correction, stochastic tiers, forecasts, and integration
+- [2026-09-16 — Engine/strategic audit, rebuild progress, and small improvements](2026-09-16-engine-strategic-rebuild-audit.md) — two reproduced coup-reply defects; main-only assessment, see branch-aware sequencing above
 - [2026-09-16 — Perf evaluator gate verdict](2026-09-16-perf-evaluator-gate-verdict.md) — 2026-09-16
 - [2026-09-16 — Factor 1: one-region expected-scoring prototype (Africa)](2026-09-16-factor-1-africa-prototype.md) — 2026-09-16
 - [2026-09-16 — Schedule + other regions](2026-09-16-schedule-and-regions.md) — 2026-09-16
