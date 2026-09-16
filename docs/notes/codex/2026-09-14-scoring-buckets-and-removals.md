@@ -41,9 +41,11 @@ reach prices at zero), NOT as deleting the discount (which would be 1.0 --
 treating contested as exclusive -- and was never tested). If removal meant
 deletion, say so and the gate re-runs against that.
 
-## Gate (pending at time of writing)
+## Gate
 
-`gh workflow run gate --ref experiment/scoring-five-bucket -f bases='["main"]' -f decide=0 -f vary=0`
-Verdict + run id to be appended. On ACCEPT: merge, then update provenance
-source/determination + counts for the two weights. On REJECT: split the
-bundle and re-gate each half.
+Clean cherry-pick `experiment/five-bucket-clean` off `origin/main`
+(`4ea54c7`), byte-identical to the ACCEPTED tip on `src/ tests/ models/
+data/`. Run `35042129019`, `decide=0 vary=0` vs `4ea54c7`: **ACCEPTED**,
+pooled 0.506 +/- 0.027 over 128 seeds, upper 0.550 (halves 0.539/0.473,
+VP +0.21). Merged to `main`. ACCEPTED means not measurably worse, never
+better.
