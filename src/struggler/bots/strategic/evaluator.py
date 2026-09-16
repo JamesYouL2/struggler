@@ -474,6 +474,7 @@ def route_decay(stability: int, base: float) -> float:
     return base * (1. - CONVERSION_P_POOLED) / (1. - conversion_p(stability))
 
 
+@functools.lru_cache(maxsize=None)
 def route_weight(stability: int, base: float, routes: int) -> float:
     """The symmetric share of the aggregate value of ``routes`` routes.
 
@@ -542,7 +543,9 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
             # caught it: Venezuela's reach into Brazil did not fall when the
             # USSR took Brazil, because routes stayed at 1 either way.
             routes = 1
-            routes += sum(1 for m in neighbors[n] if m != i and inf_s[m] > 0)
+            for m in neighbors[n]:
+                if m != i and inf_s[m] > 0:
+                    routes += 1
             if n in home:
                 routes += 1      # the superpower reaches it without a holding
             if inf_s[n] > 0:
@@ -630,8 +633,9 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # stake is worth the uncontrolled battlegrounds it alone lets us reach.
     # Nothing for ground we already reach (a fourth point in Eastern Europe
     # opens nothing), and nothing for ground we hold.
-    value += w.access * (access(t, pos, i, s, w, urgency) * (own > 0)
-                         - access(t, pos, i, 1 - s, w, urgency) * (opp > 0))
+    access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
+    access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
+    value += w.access * (access_own - access_opp)
     return value
 
 
