@@ -1,6 +1,6 @@
 """The strategic bot: the policy, its value function, and its planner.
 
-Four modules, each a job the others do not do:
+Five modules, each a job the others do not do:
 
 - `evaluator`  pure board terms over an indexed snapshot, no state of their
                own. The part a native kernel would receive as-is.
@@ -8,6 +8,9 @@ Four modules, each a job the others do not do:
                region scores next, the odds the game reaches final scoring.
 - `defcon`     the whole-hand survival search, which ranks every card, mode
                and discard by turn-loss risk before value is consulted.
+- `forecast`   the rebuild prototype: one region's expected scoring payout
+               as bonuses plus a once-per-region tier term. Not wired into any
+               ranking yet; see its docstring and `tests/test_forecast.py`.
 - `policy`     everything stateful: the valuation context, Ops/VP pricing,
                the event sandbox, card valuation, risk integration, and the
                decision dispatch.

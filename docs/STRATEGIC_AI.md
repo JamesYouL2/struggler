@@ -434,6 +434,14 @@ neighbour left it stale, and the same position scored differently depending
 on what had been evaluated first: 39 of 598 corpus rankings changed when the
 memo was bypassed. A function that owns no state cannot do that.
 
+**Factor 1 prototype.** `bots/strategic/forecast.py` is the rebuild's first
+deliverable and is not wired into any ranking: one region's expected scoring
+payout (Africa first) as country bonuses plus a tier term computed once per
+region, with per-country values derived as potential differences. Its
+docstring answers the rebuild README's five questions; `tests/test_forecast.py`
+holds immediate scoring to the engine and the stochastic tier model to a
+`NotImplementedError` until the joint distribution lands.
+
 ## Evaluate and train
 
 Evaluation plays both seats on every seed, with events enabled. Identical seeds
