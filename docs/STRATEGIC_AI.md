@@ -440,7 +440,14 @@ payout (Africa first) as country bonuses plus a tier term computed once per
 region, with per-country values derived as potential differences. Its
 docstring answers the rebuild README's five questions; `tests/test_forecast.py`
 holds immediate scoring to the engine and the stochastic tier model to a
-`NotImplementedError` until the joint distribution lands.
+`NotImplementedError` until the joint distribution lands. Control at future
+scorings (horizon 1+) now reads the measured "D full +over" logistic
+(`p_control_at_scoring`, from the September 13 control-odds fits: Ops-to-control
+under the doubling rule, reach, stability/controller categories,
+overprotection; conditioned on the scoring occurring; fitted on battlegrounds
+only, so every non-battleground reading is a documented extrapolation). Horizon
+0 stays degenerate by the exactness criterion, and horizons above 2 clamp to
+the horizon-2 fit -- the only tables measured.
 
 **Schedule.** `bots/strategic/schedule.py` is the rebuild's other half and is
 likewise unwired: every future scoring opportunity as card, bucket, timing

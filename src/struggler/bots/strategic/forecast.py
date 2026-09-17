@@ -20,23 +20,24 @@ module.
 
 The rebuild README asks the first implementation five questions. Answers:
 
-1. Partial influence -> control probability: the first forecast maps the
-   board's current control (the same margin-vs-stability threshold `Position`
-   uses) to degenerate 0/1 probabilities. Partial progress earns nothing yet.
-   The September 13 control-odds fits are the evidence for the curve that
-   replaces this, conditioned on the scoring occurring -- that conditioning
-   must survive the replacement.
-2. Access, Ops-to-control cost, overprotection: not inputs yet, by design.
-   Access gates future acquisition (unreachable ground is ~0 to convert); the
-   pointwise cost is the influence needed to tip the margin past stability
-   against whoever holds; overprotection (margin above stability) currently
-   scores the same as bare control although the retention fits say it
-   matters. All three are named inputs of the next forecast, not this one.
-3. Horizon: accepted and carried on the forecast, but the first approximation
-   is horizon-invariant -- current control at every horizon. The scoring
-   schedule (this turn / pre-reshuffle / later cycles / final) plus a
-   per-cycle retention shapes it later; retention is per scoring cycle, never
-   compounded per turn.
+1. Partial influence -> control probability: READ. Horizon 1+ maps the
+   board through the measured "D full +over" logistic (`p_control_at_scoring`):
+   exact Ops-to-control under the doubling rule, reach, stability and
+   controller categories, overprotection. Conditioned on the scoring
+   occurring, exactly as the September 13 rows were. Horizon 0 stays
+   degenerate on purpose -- immediate scoring must reproduce the engine
+   exactly -- so Q2's access/Ops/overprotection are now priced THROUGH the
+   fit rather than absent from it.
+2. Access, Ops-to-control cost, overprotection: inputs THROUGH the fit
+   (see 1). What the fit does not carry is access-gated ACQUISITION for
+   countries we cannot place in beyond the logistic's `reach`
+   categories -- the reach feature is one binary, and its weight is what
+   the rows measured, so this is the shape the data says, not a gap
+   silently ignored.
+3. Horizon: two measured tables (next scoring, the one after), clamped
+   above 2 -- no further table exists, and a horizon-5 opportunity borrows
+   the horizon-2 shape as the only available evidence. The clamp is
+   documented at `p_control_at_scoring`, not silent.
 4. Tiers without multi-count: the tier payout is computed ONCE per region from
    the joint implied controls, through `evaluator.region_vp`'s own counting --
    never per country. A country's value is derived afterwards as a potential
@@ -50,10 +51,35 @@ The rebuild README asks the first implementation five questions. Answers:
 """
 from __future__ import annotations
 
+import math
 from typing import NamedTuple
 
 from struggler.engine import Region, Side
+from struggler.bots.rules_math import ops_to_control
 from struggler.bots.strategic import evaluator as ev
+
+
+# P(a side controls a country at its region's scoring), the "D full +over"
+# logistic fit from docs/notes/claude/2026-09-13-control-odds-fits.md
+# (192 games, seeds 7000-7191, at 27176ed; even seeds fit, odd score; the
+# best held-out log-loss at BOTH horizons, and the calibration printout
+# carries its residual bias). beta[0] is the intercept, then:
+# c_me, c_opp, reach_me, reach_opp, stability==2/3/4, controller==me/them,
+# over_me, over_opp -- in the order `fit_control_odds.FORMS['D full +over']`
+# reads its features.
+#
+# Conditioned on the scoring occurring: rows resolved only when the region
+# actually scored (censored rows dropped, never hidden). Measured under the
+# OLD policy's games; per the rebuild README, conditioning must survive and
+# these are evidence, not universal constants. Fitted on BATTLEGROUNDS only
+# -- every non-battleground reading here is a documented extrapolation.
+# Checked 2026-09-16 by re-running `fit_control_odds.py` over the recorded
+# rows: the betas reproduce to the printed digits, and the horizon-1 table's
+# cells fall where the measured ones do.
+CONTROL_ODDS_BETA: dict[int, tuple[float, ...]] = {
+    1: (0.012, -0.628, 0.357, 0.497, -0.439, 0.189, 0.091, -0.471, -0.860, 1.633, -0.367, 0.887),
+    2: (0.135, -0.473, 0.317, 0.433, -0.462, 0.120, 0.125, -0.286, -1.057, 1.310, -0.280, 0.564),
+}
 
 
 class ControlForecast(NamedTuple):
@@ -89,24 +115,81 @@ class Breakdown(NamedTuple):
     tier: float
 
 
-def forecast_controls(t: ev.Terrain, pos: ev.Position, region: Region, horizon: int = 0) -> ControlForecast:
-    """The first control forecast: current control, degenerate, at any horizon.
+def _control_features(t: ev.Terrain, pos: ev.Position, i: int, me: int, foe: int) -> tuple[float, ...]:
+    """The measured row's features, from the snapshot: exact Ops to control
+    point by point under the doubling rule (`rules_math.ops_to_control`,
+    0 when already held -- control now makes taking it free), whether each
+    side may place there at all (`reach`), the stability and current
+    controller as categories, and influence held beyond the stability
+    margin (the controller's overprotection, 0 when not in control).
+    Row-relative: `me` is the side the fit is read for."""
+    mine, theirs = pos.inf[me][i], pos.inf[foe][i]
+    stability = t.stability[i]
+    return (
+        float(ops_to_control(mine, theirs, stability)),
+        float(ops_to_control(theirs, mine, stability)),
+        1.0 if pos.reach[me][i] else 0.0,
+        1.0 if pos.reach[foe][i] else 0.0,
+        float(stability == 2), float(stability == 3), float(stability == 4),
+        1.0 if pos.control[i] == me else 0.0,
+        1.0 if pos.control[i] == foe else 0.0,
+        float(max(0, mine - theirs - stability)),
+        float(max(0, theirs - mine - stability)),
+    )
 
-    Each member controlled by the US (USSR) forecasts (1, 0, 0) ((0, 1, 0));
-    uncontrolled forecasts (0, 0, 1). Partial influence, access, Ops costs and
-    overprotection do not move it yet -- questions 1 and 2 above name what the
-    next forecast takes as input. A negative horizon is a caller bug.
+
+def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, horizon: int) -> float:
+    """P(`side` controls country `i` at its region's given scoring, if that
+    scoring happens -- the fits' conditioning, carried through here.
+
+    Horizon 1 means the region's NEXT scoring (this cycle, from the deck
+    walk); horizon 2 the one after. Beyond the measured two the horizon-2
+    fit stands (no further table exists); the clamp is documented, not
+    silent -- every later scoring borrows the second fit as its only
+    available shape.
+    """
+    me = ev.SIDE_INDEX[side]
+    foe = 1 - me
+    row = _control_features(t, pos, i, me, foe)
+    beta = CONTROL_ODDS_BETA[min(2, max(1, horizon))]
+    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
+    z = max(-35.0, min(35.0, z))
+    return 1.0 / (1.0 + math.exp(-z))
+
+
+def forecast_controls(t: ev.Terrain, pos: ev.Position, region: Region, horizon: int = 0) -> ControlForecast:
+    """The control forecast at one scoring opportunity's horizon.
+
+    Horizon 0 (a scoring NOW) stays degenerate -- the acceptance criterion
+    is that immediate scoring reproduces the engine's exact payout, which a
+    probability cannot. Horizon 1+ reads the measured "D full +over"
+    logistic (`p_control_at_scoring`, its provenance and its documented
+    extrapolations above). Per member the two sides' probabilities come
+    from the SAME row-relative function, so both seats' forecasts agree by
+    construction -- which is what the README asks. `p_open` takes what the
+    two side probabilities leave, clamped from below at 0 (the sigmoids
+    are independent reads, and nothing in the fit enforces their sum); the
+    triple always sums to one.
     """
     if horizon < 0:
         raise ValueError(f"horizon counts scoring opportunities from 0, got {horizon}")
     members = t.members[region]
     control = pos.control
-    probs = tuple(
-        (1.0, 0.0, 0.0) if control[i] == ev.US
-        else (0.0, 1.0, 0.0) if control[i] == ev.USSR
-        else (0.0, 0.0, 1.0)
-        for i in members
-    )
+    if horizon == 0:
+        probs = tuple(
+            (1.0, 0.0, 0.0) if control[i] == ev.US
+            else (0.0, 1.0, 0.0) if control[i] == ev.USSR
+            else (0.0, 0.0, 1.0)
+            for i in members
+        )
+    else:
+        probs = []
+        for i in members:
+            p_us = p_control_at_scoring(t, pos, i, Side.US, horizon)
+            p_ussr = p_control_at_scoring(t, pos, i, Side.USSR, horizon)
+            p_open = max(0.0, 1.0 - p_us - p_ussr)
+            probs.append((p_us, p_ussr, p_open))
+        probs = tuple(probs)
     return ControlForecast(region=region, members=members, probs=probs, horizon=horizon)
 
 

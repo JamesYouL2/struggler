@@ -61,23 +61,86 @@ def test_immediate_potential_matches_engine_scoring_with_overrides():
             assert got.total == expected
 
 
-def test_forecast_probabilities_are_valid_and_degenerate():
-    """US/USSR/uncontrolled mass per member lives in [0, 1] and sums to one."""
+def test_forecast_probabilities_are_valid_and_degenerate_now_only():
+    """Immediate scoring (horizon 0) stays degenerate; horizon 1+ reads the
+    measured fit, and its per-member masses still live in [0, 1] and sum to
+    one no matter what the sigmoids said."""
     board = _played_board()
     t, pos = _synced(board)
     for region in Region:
-        forecast = fcst.forecast_controls(t, pos, region, horizon=2)
-        assert forecast.horizon == 2
-        assert forecast.members == t.members[region]
-        for i, triple in zip(forecast.members, forecast.probs, strict=True):
-            assert len(triple) == 3
-            assert all(0.0 <= p <= 1.0 for p in triple)
-            assert sum(triple) == pytest.approx(1.0)
-            holder = pos.control[i]
-            assert triple == ((1.0, 0.0, 0.0) if holder == ev.US
-                              else (0.0, 1.0, 0.0) if holder == ev.USSR
-                              else (0.0, 0.0, 1.0))
-        assert forecast.is_degenerate()
+        now = fcst.forecast_controls(t, pos, region, horizon=0)
+        assert now.is_degenerate()
+        for horizon in (1, 2, 5):
+            forecast = fcst.forecast_controls(t, pos, region, horizon=horizon)
+            assert forecast.horizon == horizon
+            assert forecast.members == t.members[region]
+            assert not forecast.is_degenerate()
+            for _i, triple in zip(forecast.members, forecast.probs, strict=True):
+                assert len(triple) == 3
+                assert all(0.0 <= p <= 1.0 for p in triple)
+                assert sum(triple) == pytest.approx(1.0)
+
+
+def test_control_forecast_representative_rows_match_the_measurement():
+    """Representative boards price where the measured horizon-1 table fell:
+    being in control beats contested beats enemy-held, overprotection buys
+    keep odds, and the fit's cliff is where the data said. Shape pin, not
+    recalibration."""
+    engine = bare_engine()
+    board = engine.board
+    cid = next(cid for cid, info in board.countries.items()
+               if info.battleground and info.stability == 2
+               and info.region is Region.MIDDLE_EAST)
+    board.influence[cid]['US'] = 2
+    t, pos = _synced(board)
+    i = t.index[cid]
+    p_us_held = fcst.p_control_at_scoring(t, pos, i, Side.US, 1)
+    p_ussr_read = fcst.p_control_at_scoring(t, pos, i, Side.USSR, 1)
+    assert 0.6 < p_us_held < 0.95
+    assert p_ussr_read < 0.35
+    # The fit's mirror property: the same board, read from the other seat,
+    # uses the same row-relative function of it.
+    assert p_ussr_read < p_us_held
+
+
+def test_control_forecast_enemy_stab_4_ground_is_near_lost():
+    """Japan with 4 USSR influence, US never reached: the fit's cliff."""
+    engine = bare_engine()
+    board = engine.board
+    board.influence['Japan']['USSR'] = 4
+    t, pos = _synced(board)
+    assert fcst.p_control_at_scoring(t, pos, t.index['Japan'], Side.US, 2) < 0.05
+
+
+def test_control_forecast_horizon_clamps_above_two():
+    board = _played_board()
+    t, pos = _synced(board)
+    region = Region.AFRICA
+    assert (fcst.forecast_controls(t, pos, region, horizon=5).probs
+            == fcst.forecast_controls(t, pos, region, horizon=2).probs)
+    assert (fcst.forecast_controls(t, pos, region, horizon=1).probs
+            != fcst.forecast_controls(t, pos, region, horizon=2).probs)
+
+
+def test_overprotection_raises_the_hold():
+    """The maintainer's question, in the fit: influence beyond the stability
+    margin buys retention odds, in `over_me`'s positive coefficient."""
+    t, pos = _africa_position()  # Algeria US-controlled at exactly 2 influence
+    algeria = t.index['Algeria']
+    p_exact = fcst.p_control_at_scoring(t, pos, algeria, Side.US, 1)
+    over = fcst.p_control_at_scoring(*_overprotected_algeria(), algeria, Side.US, 1)
+    assert over > p_exact
+
+
+def _overprotected_algeria():
+    """The Africa position with one more US point in Algeria than control
+    needs."""
+    engine = bare_engine()
+    board = engine.board
+    board.influence['Algeria']['US'] = 3
+    board.influence['Nigeria']['US'] = 1
+    board.influence['Zaire']['US'] = 1
+    return _synced(board)
 
 
 def test_horizon_and_holder_misuse_raise():
