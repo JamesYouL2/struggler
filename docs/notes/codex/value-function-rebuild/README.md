@@ -147,4 +147,13 @@ Do not reopen the resolved access-accounting, regional-urgency, or reply-legalit
 - [Three-part battleground value and regional smoothing](../2026-09-14-battleground-value-three-terms.md)
 - [Accounting contract and September 13 findings](../2026-09-13-strategic-math-followup.md)
 
-This README records the requested development priority; implementation has not started.
+This README records the requested development priority. Implementation is
+under way, not "not started": the control forecast, the stochastic regional
+tiers (independence DP), the schedule masses and the incremental
+per-member-removed DP all exist, and the schedule masses are live in the
+urgency consumer. What is NOT wired is the whole expected-VP ranking --
+descoped on 2026-09-17 over the per-delta DP cost -- so the default ranking
+is still the old country/region/margin structure with the new schedule
+urgency, and the potential survives as the `scoring_potential` diagnostic.
+Common VP units remain outstanding. Status table:
+`../2026-09-17-correctness-speed-audit.md`.

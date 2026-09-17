@@ -71,16 +71,19 @@ def test_cycle_deal_masses_are_deal_over_pile_before_and_conserve():
     obs = engine.observe(Side.US)
     masses = cycle_deal_masses(obs)
     # Re-walk the same arithmetic independently: pile + entering, deal over
-    # pile-before, exhausting deal excluded like `turns_to_reshuffle`.
+    # pile-before, and the deal that empties the pile taking all of what is
+    # left -- the engine draws the pile down and reshuffles only when it is
+    # actually empty, so that last deal delivers a pile card with certainty.
     pile = obs.draw_pile_size
     expected: list[float] = []
     for ahead in range(1, LAST_TURN - obs.turn + 1):
         turn = obs.turn + ahead
         pile += ENTERING.get(turn, 0)
         deal = deal_size(turn)
-        if pile - deal < 0:
-            break
         if pile <= 0:
+            break
+        if pile - deal < 0:
+            expected.append(1.0)
             break
         expected.append(deal / pile)
         pile -= deal
@@ -92,12 +95,16 @@ def test_cycle_deal_masses_are_deal_over_pile_before_and_conserve():
         total += mass * survival
         survival *= 1.0 - mass
     assert total + survival == 1.0
+    # And where a reshuffle falls inside the game, survival is exactly zero:
+    # nothing is left un-dealt in a pile that gets emptied.
+    if turns_to_reshuffle(obs) <= LAST_TURN - obs.turn:
+        assert survival == 0.0 and total == 1.0
 
 
 def test_cycle_deal_masses_count_matches_the_reshuffle_walk():
-    """The masses name every full deal before the exhausting one: their count
-    is the reshuffle distance less one, or every turn left when the pile
-    outlasts the game."""
+    """The masses name every deal up to and including the one that exhausts
+    the pile, so their count is the reshuffle distance -- or every turn left
+    when the pile outlasts the game."""
     from dataclasses import replace
 
     from struggler.engine.core import LAST_TURN
@@ -108,12 +115,39 @@ def test_cycle_deal_masses_count_matches_the_reshuffle_walk():
     horizon = LAST_TURN - obs.turn
     masses = cycle_deal_masses(obs)
     if reshuffle <= horizon:
-        assert len(masses) == reshuffle - 1
+        assert len(masses) == reshuffle
+        assert masses[-1] == 1.0, 'the exhausting deal takes every card left'
     else:
         assert len(masses) == horizon
     # Past the end: no future deal, no masses.
     late = replace(obs, turn=10)
     assert cycle_deal_masses(late) == ()
+
+
+def test_the_exhausting_deal_share_is_the_survival_to_that_deal():
+    """`exhausting_deal_share` is the part of today's pile first dealt on the
+    reshuffle turn itself -- played after the recycled pile was built, so
+    bound for reshuffle 2 and not for the bucket 3 the schedule prices."""
+    from dataclasses import replace
+
+    from struggler.engine.core import LAST_TURN
+    from struggler.bots.strategic.public_cards import exhausting_deal_share
+
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    obs = engine.observe(Side.US)
+    survival = 1.0
+    for mass in cycle_deal_masses(obs)[:-1]:
+        survival *= 1.0 - mass
+    assert exhausting_deal_share(obs) == survival
+    # A pile that is drained by the very next deal: every card in it now is
+    # dealt by that deal, so the whole share is the exhausting one.
+    imminent = replace(obs, turn=9, draw_pile_size=5)
+    assert turns_to_reshuffle(imminent) == 1
+    assert exhausting_deal_share(imminent) == 1.0
+    # A pile that outlasts the game has no exhausting deal to share.
+    never = replace(obs, turn=9, draw_pile_size=500)
+    assert turns_to_reshuffle(never) > LAST_TURN - never.turn
+    assert exhausting_deal_share(never) == 0.0
 
 
 def test_entering_covers_every_period_after_the_first():

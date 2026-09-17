@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from typing import NamedTuple
 
 from struggler.engine import Region, Side
@@ -381,7 +382,7 @@ def _convolve_rows(rows) -> dict:
 
 def tier_e_minus(t: ev.Terrain, forecast: ControlForecast,
                  overrides: tuple[frozenset[int], frozenset[int]] | None,
-                 where: int) -> dict | None:
+                 where: int) -> tuple[Callable[..., float], dict] | None:
     """The count-distribution of everything but member `where`, for the
     incremental reconvolve: the buy-back's base. Its key insight: the
     members' OTHER features do not change between the delta's before and

@@ -272,3 +272,116 @@ def test_the_reply_is_off_at_reply_model_zero():
     bot.prepare(obs)
     raw = bot.delta(obs, 'Lebanon', own=3)
     assert bot._after_reply(obs, 'Lebanon', 3, raw) == raw
+
+
+# -- the reply's rules context is the reply's turn, not this one --------------
+#
+# `next_move` dates the answer 0 (later this turn) or 1 (a later turn).
+# Legality already read the later date -- DEFCON recovers one step at the end
+# of the turn -- but the roll arithmetic and the VP consequences read the live
+# observation, so a next-turn Coup was priced with this turn's modifiers.
+# Every effect below lapses at the end of the turn (`Engine._end_of_turn`
+# clears `turn_effects`), so none of them may reach an answer dated next turn.
+
+
+def _lebanon_at(when, side=Side.US, where='Lebanon', reach='Syria', **effects):
+    """An over-protected `where`, with the opponent's next move dated
+    `when`: `when == 0` leaves action rounds in turn 5, `when == 1` is the
+    phasing side's last play of the turn, so the answer falls on turn 6.
+
+    DEFCON is 5 for a same-turn answer and 2 for a next-turn one, because
+    the Middle East is closed to Coups below DEFCON 3 (8.1.5) and the point
+    of both is that a Coup answer exists to be priced. The next-turn case
+    is legal precisely because DEFCON recovers a step at the end of the
+    turn -- the one piece of reply context that was already right.
+    """
+    engine = _overprotected_lebanon(2 if when else 5)
+    if where != 'Lebanon':
+        engine.board.influence['Israel']['US'] = 0
+        engine.board.influence['Syria']['USSR'] = 0
+        engine.board.influence[reach]['USSR'] = 1
+        engine.board.influence[next(iter(engine.board.neighbors(where) - {reach}))]['US'] = 1
+    engine.turn, engine.phase = 5, 'action_rounds'
+    if when and side is Side.USSR:
+        # The US plays last in an ordinary turn, so only a Space Race extra
+        # round (a GAME effect: it cannot itself lapse and confuse the test)
+        # puts the USSR on the final play with the US answering next turn.
+        engine.game_effects['space_race_extra_round_holder'] = Side.USSR.value
+    total = engine._total_action_rounds()
+    engine.action_round, engine._ars_played = (total // 2 + 1, total) if when else (1, 1)
+    engine.turn_effects.update(effects)
+    engine.begin_influence_operations(side, 3)
+    obs = engine.observe(side)
+    assert rules_math.next_move(obs, side.opponent) == when
+    return engine
+
+
+# (effect, where, reach): a turn-scoped Coup roll modifier, a country it
+# actually applies in, and the neighbour the USSR needs to be able to answer
+# at all. SALT is global; Latin American Death Squads is regional, so pairing
+# it with Lebanon would have tested nothing -- the vacuous half is why each
+# case asserts it bites this turn before asserting it does not bite next.
+ROLL_MODIFIERS = [
+    ({'salt': True}, 'Lebanon', 'Syria'),
+    ({'la_death_squads': Side.USSR.value}, 'Haiti', 'Cuba'),
+]
+
+
+@pytest.mark.parametrize('effect, where, reach', ROLL_MODIFIERS)
+def test_an_expiring_roll_modifier_reaches_this_turn_and_not_the_next(effect, where, reach):
+    """SALT (-1 to every Coup roll) and Latin American Death Squads (+1 to
+    its owner's, in the Americas only) are turn effects. Charged against an
+    answer dated next turn they price a die nobody will roll: on the Lebanon
+    fixture a stale SALT moved the answer's cost by 3.36 raw, and on the
+    audit's version of it the candidate changed sign.
+
+    Both halves matter. Expiry is the rule, not "ignore the modifiers": an
+    answer they can still make THIS turn is rolled with this turn's effects,
+    and a fixture where the modifier does nothing either way would pass the
+    next-turn half while proving nothing.
+    """
+    def priced(when, active):
+        engine = _lebanon_at(when, where=where, reach=reach,
+                             **(effect if active else {}))
+        return _priced(engine, Side.US, where, 3, budget=4)
+
+    same_turn, same_turn_plain = priced(0, True), priced(0, False)
+    assert same_turn[0] == same_turn_plain[0], 'the raw valuation is not the reply context'
+    assert same_turn[1] != same_turn_plain[1], 'in force at their next move this turn'
+    assert priced(1, True) == priced(1, False), \
+        'an effect that has lapsed priced a next-turn Coup'
+
+
+def test_yuri_pays_us_for_a_us_reply_coup_made_this_turn():
+    """Yuri and Samantha gives the USSR 1 VP per US Coup ATTEMPT for the
+    remainder of the turn. Answering our placement with a Coup therefore
+    costs the US a point, which makes the answer cheaper for us to suffer
+    -- and next turn, when Yuri has lapsed, it does not."""
+    def cost(when, yuri):
+        effects = {'yuri_samantha': True} if yuri else {}
+        # Reversed seats: the USSR places and the US answers, so the
+        # answering Coup is the US one Yuri charges.
+        engine = _lebanon_at(when, side=Side.USSR, **effects)
+        raw, after = _priced(engine, Side.USSR, 'Lebanon', 3, budget=4)
+        return after - raw
+
+    assert cost(0, yuri=True) > cost(0, yuri=False), \
+        'their Coup pays us a VP; the answer hurts us less'
+    assert cost(1, yuri=True) == cost(1, yuri=False), \
+        'Yuri lapses with the turn and cannot reach a next-turn answer'
+
+
+def test_a_reply_coup_that_would_lose_them_the_game_is_not_an_answer():
+    """At USSR 19 VP, a US Coup attempt under Yuri is the 20th point and
+    ends the game. Nobody answers with a move that loses outright, and the
+    old code both missed the VP and offered the move."""
+    def answered(vp, yuri):
+        engine = _lebanon_at(0, side=Side.USSR,
+                             **({'yuri_samantha': True} if yuri else {}))
+        engine.vp = vp
+        raw, after = _priced(engine, Side.USSR, 'Lebanon', 3, budget=4)
+        return after < raw
+
+    assert answered(0, yuri=True), 'control: the Coup is the only answer here'
+    assert answered(-19, yuri=False), 'control: without Yuri the VP total is irrelevant'
+    assert not answered(-19, yuri=True), 'the answer would hand us the game'

@@ -197,11 +197,20 @@ def cycle_deal_masses(obs: Observation) -> tuple[float, ...]:
     leaks -- so this is deck calculation, not a fitted half.
 
     The walk shares `deal_size` and `ENTERING` with `turns_to_reshuffle`,
-    and stops the same way: the deal that exhausts the pile belongs to the
-    next cycle (it draws partly from the recycled discards), so it is
-    excluded here and counted there. No full deals left means `()`: the
-    horizon is past (turn 10), the pile is empty, or the reshuffle is this
-    coming deal.
+    and does NOT stop before the deal that exhausts the pile. That deal
+    draws from the old pile first and only reshuffles when the pile is
+    actually empty (`Engine._draw_card`), so every card still in the pile
+    is dealt by it with certainty -- its entry is 1.0, and it is the last.
+    Excluding the whole deal because part of it comes from the recycle was
+    an omission of a guaranteed draw, not a modelling simplification: at
+    turn 9 with five cards left against a sixteen-card deal it priced a
+    certainty at 0.12. The recycled remainder of the same deal is priced by
+    `post_reshuffle_deal_masses`, for the cards that are in the DISCARD --
+    a card in the old pile is not eligible for the pile it is not in, and
+    the consumer (`schedule.opportunities`) conditions on that.
+
+    No deals left means `()`: the horizon is past (turn 10) or the pile is
+    already empty.
 
     Mid-turn draws are unmodeled and documented as ~0: Our Man examines and
     returns (`events.py`), net zero after the reshuffle; Ask Not discards
@@ -213,16 +222,39 @@ def cycle_deal_masses(obs: Observation) -> tuple[float, ...]:
     P(dealt this cycle | pile now) = 1 - prod(1 - m), and bucket 2's mass
     is P(pile now) times that. Conservation the tests pin:
     sum(unconditional) + prod(1 - m) == 1, where unconditional_k
-    = m_k * prod_{j<k}(1 - m_j)."""
+    = m_k * prod_{j<k}(1 - m_j). Where a reshuffle falls inside the game
+    the last mass is 1 and the never-dealt term is exactly zero, which is
+    the deck fact: a card in the pile IS dealt before the pile recycles."""
     masses: list[float] = []
     for _turn, pile_before, entering, deal in deck_walk(obs):
         pile = pile_before + entering
-        if pile - deal < 0:
-            break  # exhausting deal: next cycle's, not this one's
         if pile <= 0:
+            break
+        if pile - deal < 0:
+            masses.append(1.0)  # the exhausting deal takes what is left
             break
         masses.append(deal / pile)
     return tuple(masses)
+
+
+def exhausting_deal_share(obs: Observation) -> float:
+    """P(a card in the pile now is first dealt by the deal that empties it).
+
+    The share that is dealt on the reshuffle turn itself, and therefore
+    played AFTER the reshuffle has already happened -- so it goes into the
+    discard for reshuffle 2, not into the one being modelled. It is the
+    survival through every earlier deal of `cycle_deal_masses`, whose last
+    entry is the exhausting deal.
+
+    0.0 when no deal exhausts the pile within the game: then nothing is
+    dealt on a reshuffle turn because there is no reshuffle.
+    """
+    if turns_to_reshuffle(obs) > turns_to_final_scoring(obs):
+        return 0.0
+    survival = 1.0
+    for mass in cycle_deal_masses(obs)[:-1]:
+        survival *= 1.0 - mass
+    return survival
 
 
 def recycled_pile_size(obs: Observation, turn: int) -> int:

@@ -12,9 +12,11 @@ import json
 import logging
 import math
 import os
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
-from typing import Sequence
+from types import MappingProxyType
+from typing import Any, Sequence
 
 from struggler.engine import Action, DecisionKind as K, Engine, Observation, Region, Side
 from struggler.engine.board import Board
@@ -43,7 +45,8 @@ RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARN
 # write sites, and both were checked to fail when one is broken.
 CHECK_SNAPSHOT = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
 from struggler.bots.rules_math import (
-    bonus_ops, coup_outcomes, coup_risks_defcon, coup_roll_modifier_estimate,
+    bonus_ops, coup_outcomes, coup_risks_defcon, coup_risks_defcon_under,
+    coup_roll_modifier, coup_roll_modifier_estimate,
     effective_ops_estimate, in_bonus_region, next_move, ops_to_control,
     phasing_side, realignment_bonus, realignment_modifier,
     space_race_expected_vp, sync_board,
@@ -155,6 +158,31 @@ def coup_bans(game_effects) -> ev.Prohibitions:
     return ev.Prohibitions(*(bool(game_effects.get(name)) for name in
                              ('nato', 'us_japan_pact', 'reformer',
                               'degaulle_france', 'willy_brandt')))
+
+
+# The rules context an answer is made in. `next_move` dates the opponent's
+# reply 0 (later this turn) or 1 (a later turn), and the two are different
+# positions to Coup from: a turn later DEFCON has improved by one
+# (`Engine._end_of_turn`) and EVERY turn effect has lapsed with it. Reading
+# the live observation for both charged a next-turn answer with this turn's
+# SALT, Latin American Death Squads, Cuban Missile Crisis, Nuclear Subs and
+# Yuri and Samantha -- and a lapsed SALT alone was enough to flip a
+# candidate's sign on the audit's over-protected Lebanon fixture (raw
+# 11.41 to -2.48 without it, +1.00 with it).
+#
+# Legality, roll modifiers and VP consequences all read THIS. The raw
+# valuation context does not: `delta` prices the board for the observation
+# the player was prepared for, and handing it a substitute observation
+# would both miss the prepared-urgency fast path and price the position for
+# a turn that is not the one being valued.
+NO_TURN_EFFECTS: Mapping[str, Any] = MappingProxyType({})
+
+
+def reply_context(obs: Observation, when: int) -> tuple[int, Mapping[str, Any]]:
+    """(DEFCON, turn effects) for an answer `when` turns from now."""
+    if when == 0:
+        return obs.defcon, obs.turn_effects
+    return min(5, obs.defcon + 1), NO_TURN_EFFECTS
 
 
 def scoring_flags(game_effects) -> tuple[bool, bool]:
@@ -711,10 +739,13 @@ class StrategicPlayer:
         countries, seen, out = self.board.countries, {}, []
         for cid in self._terrain.ids:
             info = countries[cid]
-            # Stability joins the key: retention compounds per country on
-            # this branch, so same-region countries no longer share one sum.
-            key = (info.region, Subregion.SOUTHEAST_ASIA in info.subregions,
-                   info.stability)
+            # `scoring_cards_for` reads the region and South East Asia
+            # membership and nothing else, so those two ARE the key.
+            # Stability was in it for the retention compounding, which the
+            # schedule masses replaced: the sum has not read stability since,
+            # and keeping it there split seven distinct answers across about
+            # thirty keys, each re-walking the deck.
+            key = (info.region, Subregion.SOUTHEAST_ASIA in info.subregions)
             weight = seen.get(key)
             if weight is None:
                 weight = seen[key] = self._scoring_weight_uncached(obs, cid)
@@ -844,27 +875,23 @@ class StrategicPlayer:
         return -1 if (self._obs is not None and self._obs.side is Side.USSR) else 1
 
     def _potential_total(self, pos: ev.Position | None = None, flags=None) -> float:
-        """The whole-board scoring potential for the prepared context: every
-        region's mass-weighted expected payout plus Southeast Asia's card.
-        Unsigned total (the E's are US-signed) times the seat sign -- the
-        seat sign appears exactly once.
+        """The whole-board scoring potential for the prepared context: the six
+        regions' mass-weighted expected payouts plus Southeast Asia's card.
+
+        Summed from `_region_term` and `_sea_term` rather than re-deriving
+        them, because re-deriving them is how the SEA half went missing. This
+        walked `_region_cards`, which maps each Region to its own scoring
+        card and therefore holds exactly the six regional ones -- so its
+        `card == SEA_SCORING` arm could never be taken and the total was six
+        terms, not seven. On a turn-5 held-SEA probe the missing term was
+        4.54. Each term carries the seat sign, and signing term by term is
+        exactly signing the sum (a multiplication by +/-1).
 
         THE number the ranking reads for the scoring half; deltas are its
         before/after."""
         pos = self._position if pos is None else pos
-        total = 0.0
-        for region, card in self._region_cards.items():
-            masses = self._masses[card]
-            e1, e2, sea1, sea2 = self._e_payout(region, pos, flags)
-            if card == sch.SEA_SCORING:
-                # Its own payout, read off the Asia forecast; never Asia's
-                # tiers.
-                total += sum(mass * (sea1 if horizon == 1 else sea2)
-                             for mass, horizon in masses)
-            else:
-                total += sum(mass * (e1 if horizon == 1 else e2)
-                             for mass, horizon in masses)
-        return total * self._seat_sign()
+        return (sum(self._region_term(region, pos, flags) for region in self._region_cards)
+                + self._sea_term(pos, flags))
 
     def _position_for(self, board: Board, pos: ev.Position | None = None) -> ev.Position:
         """A snapshot of `board`, brought up to date first.
@@ -1154,17 +1181,32 @@ class StrategicPlayer:
     def scoring_potential(self, board: Board, side: Side,
                           snapshot: ev.Position | None = None) -> float:
         """The whole-board scoring potential for `board`: every region's
-        mass-weighted expected payout (`_potential_total`), signed for
-        `side`.
+        mass-weighted expected payout plus Southeast Asia's
+        (`_potential_total`), signed for `side` the way `value` is.
 
         The diagnostic probe for the potential-delta rewrite, NOT the
         ranking path -- `value`/`delta` read the pre-rebuild shape until
         the DP cost is bought back. The exactness contract was verified on
         this shape before the descope: with context fixed,
         `potential(after) - potential(before)` over a one-country placement
-        equalled the full value difference to 1e-6 on seeds 4000/4001."""
+        equalled the full value difference to 1e-6 on seeds 4000/4001.
+
+        Two things this wrapper got wrong while nothing called it. It passed
+        `_overrides_map(pos)` -- a dict of six index-set pairs -- to a
+        parameter that unpacks two scoring FLAGS, so any position with
+        Formosan Resolution or Shuttle Diplomacy in force raised
+        `ValueError: too many values to unpack`. And it ignored `side`
+        entirely, answering for the prepared observation's seat, so a bot
+        prepared for the US returned the same number for both. The context
+        (masses, urgency, flags) is still the prepared one -- that is
+        `value`'s contract too -- but the seat asked for is the seat
+        answered."""
         pos = self._position_for(board, snapshot)
-        return self._potential_total(pos, self._overrides_map(pos))
+        total = self._potential_total(pos)
+        # `_potential_total` signs for the prepared seat. `side` is the seat
+        # the caller asked about, and the potential is zero-sum between them.
+        prepared = Side.USSR if self._seat_sign() < 0 else Side.US
+        return total if side is prepared else -total
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score: each future
@@ -1575,7 +1617,7 @@ class StrategicPlayer:
                         retake = self.delta(obs, cid, opp=need)
                     best = retake
                 if coup_ok and budget > 0:
-                    coup = self._coup_reply(obs, cid, them, budget, rolls)
+                    coup = self._coup_reply(obs, cid, them, budget, rolls, when)
                     if best is None or coup < best:
                         struck += w * coup
                         continue
@@ -1616,30 +1658,49 @@ class StrategicPlayer:
         persistent event may forbid it (`evaluator.coup_forbidden`, pinned
         to `Board.coup_prohibited`). The rest is what makes the Coup
         suicide rather than illegal, so no one would answer with it: the
-        attacker's own Cuban Missile Crisis, and a Battleground Coup at
+        attacker's own Cuban Missile Crisis, a Battleground Coup at
         DEFCON 2, which is nuclear war for the phasing player -- and on
-        its own move the attacker is phasing. Nuclear Subs exempts the US.
+        its own move the attacker is phasing; Nuclear Subs exempts the US
+        -- and a Coup that hands us the 20th VP through Yuri and Samantha.
 
-        A move next turn sees DEFCON one better (`Engine._end_of_turn`), and
-        by then the turn's effects -- the Crisis, Nuclear Subs -- have lapsed."""
+        Every one of those reads `reply_context`, not the live observation:
+        a move next turn sees DEFCON one better (`Engine._end_of_turn`) and
+        by then every turn effect has lapsed."""
         board = self.board
         info = board.countries[cid]
         if board.influence[cid][attacker.opponent.value] <= 0:
             return False
-        defcon = obs.defcon if when == 0 else min(5, obs.defcon + 1)
+        defcon, effects = reply_context(obs, when)
         if not defcon_allows_coup(info.region, defcon):
             return False
-        if when == 0 and obs.turn_effects.get('cuban_missile_crisis') == attacker.value:
+        if effects.get('cuban_missile_crisis') == attacker.value:
             return False
-        risks = coup_risks_defcon(obs, attacker, info) if when == 0 else info.battleground
-        if risks and defcon <= 2:
+        if coup_risks_defcon_under(effects, attacker, info) and defcon <= 2:
+            return False
+        if self._coup_loses_outright(obs, attacker, effects):
             return False
         t = self._terrain
         return not ev.coup_forbidden(t, self._position, t.index[cid], ev.SIDE_INDEX[attacker],
                                      coup_bans(obs.game_effects))
 
+    def _coup_loses_outright(self, obs: Observation, attacker: Side,
+                             effects: Mapping[str, Any]) -> bool:
+        """Whether the mere ATTEMPT hands the opponent the game.
+
+        One case: Yuri and Samantha pays the USSR 1 VP for every US Coup
+        attempt this turn, and if the USSR is on 19 that point is the 20th
+        (`Engine._change_vp_by`). A failed roll still owes it -- it is an
+        attempt, not a result -- so no amount of Ops makes the Coup worth
+        trying and nobody would answer with one. `effects` is the reply
+        horizon's, so an answer dated next turn is not refused by a Yuri
+        that lapses first.
+        """
+        if attacker is not Side.US or not effects.get('yuri_samantha'):
+            return False
+        return obs.vp - 1 <= -RULES['vp_to_win']
+
     def _coup_reply(self, obs: Observation, cid: str, attacker: Side, ops: int,
-                    memo: dict) -> float:
+                    memo: dict, when: int) -> float:
         """What `attacker` couping `cid` with `ops` does to us, averaged over
         the six rolls exactly as `coup` averages ours -- the same margins,
         from `coup_outcomes`, with the attacker's own roll modifiers -- and
@@ -1652,13 +1713,21 @@ class StrategicPlayer:
         board = self.board
         info = board.countries[cid]
         defender = board.influence[cid][attacker.opponent.value]
-        mod = coup_roll_modifier_estimate(obs, attacker, info)
+        _defcon, effects = reply_context(obs, when)
+        mod = coup_roll_modifier(effects, attacker, info)
         total = 0.
         for removed, gained in coup_outcomes(ops, info.stability, defender, mod):
             value = memo.get((removed, gained))
             if value is None:
                 value = memo[(removed, gained)] = self.delta(obs, cid, own=-removed, opp=gained)
             total += value / 6
+        if attacker is Side.US and effects.get('yuri_samantha'):
+            # Their Coup pays us a VP, whatever the die does. `attacker` is
+            # our opponent, so this branch is only ever reached as the USSR
+            # and the point is ours: the answer is that much cheaper to
+            # suffer. `_may_coup` has already refused the ones that would
+            # end the game in our favour -- nobody plays those.
+            total += self.vp_value(obs)
         return total
 
     def _invalidate_base(self) -> None:
@@ -1889,7 +1958,14 @@ class StrategicPlayer:
         gain *= self.weights.coup_discount
         if military:
             gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
-        if obs.side is Side.US and obs.game_effects.get('yuri_samantha'):
+        # Yuri and Samantha pays the USSR 1 VP per US Coup attempt for the
+        # remainder of the TURN: a turn effect (`engine.turn_effects`), not
+        # a game-long one. Read from `game_effects` this cost never applied,
+        # because the event has not written that dict since it was scoped to
+        # the turn -- the same stale key the engine's coup resolution held.
+        if obs.side is Side.US and obs.turn_effects.get('yuri_samantha'):
+            if self._coup_loses_outright(obs, obs.side, obs.turn_effects):
+                return LOSS  # the attempt itself is the USSR's 20th VP
             gain -= self.vp_value(obs)
         return gain
 

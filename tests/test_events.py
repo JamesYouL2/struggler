@@ -1189,9 +1189,19 @@ def test_tear_down_this_wall_free_op_ignores_defcon_region_restriction():
 
 
 def test_yuri_and_samantha_scores_ussr_on_us_coups():
+    """Driven through the real event, not through a hand-set flag.
+
+    The payout coverage used to install `game_effects["yuri_samantha"]`
+    itself, and the lapse test above checked the event wrote
+    `turn_effects`. Both passed for weeks while the producer and the two
+    consumers -- `Engine._handle_coup_roll` and the strategic bot's `coup`
+    -- disagreed about which dict held it, so ordinary play awarded the
+    point never rather than forever. A test that constructs the state
+    cannot see a pipeline that does not connect.
+    """
     engine = _bare(seed=1)
     engine.defcon = 5
-    engine.game_effects["yuri_samantha"] = True
+    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
     engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
     _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
     assert engine.vp == -1  # 1 VP to the USSR for the US coup attempt
@@ -1199,6 +1209,28 @@ def test_yuri_and_samantha_scores_ussr_on_us_coups():
     engine.vp = 0
     _resolve_coup_roll(engine, Side.USSR, "Cuba", ops=3, value=1)
     assert engine.vp == 0
+    # A failed Coup is still an *attempt*, and still owes the point.
+    engine.vp = 0
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=1, value=1)
+    assert engine.board.influence["Cuba"]["USSR"] == 1  # margin 0: no removal
+    assert engine.vp == -1
+    # And it expires with the turn: no more points next turn.
+    engine.turn_effects.clear()  # what _end_of_turn does
+    engine.vp = 0
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == 0
+
+
+def test_yuri_and_samantha_can_end_the_game_on_the_coup_it_scores():
+    """The 20th VP is the one the broken pipeline was throwing away."""
+    engine = _bare(seed=1)
+    engine.defcon, engine.vp = 5, -19
+    engine._fire_event(Side.USSR, "Yuri_and_Samantha")
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 1}
+    _resolve_coup_roll(engine, Side.US, "Cuba", ops=3, value=1)
+    assert engine.vp == -20
+    assert engine.is_terminal
 
 
 def test_iran_contra_penalises_only_us_realignment():

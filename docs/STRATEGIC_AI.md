@@ -29,23 +29,27 @@ action = bot.choose_action(observation, history)
 ## How it plays
 
 - A country is worth what its region will still score. Its importance is
-  multiplied by the sum, over the scoring cards that count it, of the
-  measured retention (`evaluator.retention_p` for its stability) compounded
-  once per expected scoring, from the static period schedule and where each
-  card is now (`bots/public_cards.scoring_schedule`): a live card banks
-  this cycle and again after the reshuffle, a discarded one only after the
-  reshuffle, a Mid War card from turn 4; Southeast Asia Scoring once.
-  Holding the card multiplies this cycle's term by `scoring_hand` (1.2):
-  we pick the moment. Experiment `experiment/deck-tracking` adds the rival
-  side: P(the opponent holds the scoring), from public counts alone
-  (`public_cards.p_opponent_holds`), multiplies this cycle's term by
-  (1 + `scoring_rival` * p), because they score at their best moment and
-  control banked before they do is worth more. This is deliberately not
-  side-agnostic; the gate decides. The scalar `scoring_discount` (0.8) no longer prices
-  the horizon on this branch: a scoring two cycles out is worth retention
-  squared, however many turns away it is, because the tables already
-  marginalize over turns-away. Experiment `experiment/turn-discount-two-state`;
-  the gate decides. The same schedule drives the checkpoint benchmark's
+  multiplied by the sum, over the scoring cards that count it, of each
+  future scoring opportunity's **occurrence mass** from the schedule
+  (`schedule.opportunities`, consumed by
+  `policy._scoring_weight_uncached`): bucket 1 is P(the opponent holds the
+  card now) or 1.0 when we hold it, bucket 2 the pile share times the
+  cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
+  recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
+  Holding the card multiplies this cycle's term by `scoring_hand` (1.2): we
+  pick the moment; `scoring_rival` raises it by P(the opponent holds it),
+  because they score at *their* best moment and control banked before they
+  do is worth more.
+
+  Two things this sum no longer reads, both replaced by the factor-2
+  masses: `evaluator.retention_p` (the CONTROL drift between now and a
+  scoring lives in the forecast's fitted horizons instead -- compounding
+  retention on top would charge the same uncertainty twice), and the scalar
+  `scoring_discount`. Because it reads neither, the sum is a function of the
+  region and South East Asia membership alone -- **not** of stability --
+  which is exactly the key `policy._urgency_for` memoises on, and
+  `test_the_urgency_memo_is_keyed_on_everything_the_weight_reads` is what
+  keeps that true. The same schedule drives the checkpoint benchmark's
   projection.
 - The schedule stops at the end of the game, and every region is scored once
   more there, at its measured odds of the game getting that far
@@ -190,9 +194,20 @@ action = bot.choose_action(observation, history)
   whichever hurts more in expectation: the retake, or a Coup on the same
   country with the same Ops, where the rules let them make one (a defender
   holding Influence, DEFCON allowing Coups in the region, no persistent ban,
-  and no suicidal battleground Coup at DEFCON 2). A Coup needs no reach and
+  no suicidal battleground Coup at DEFCON 2, and no attempt that hands us
+  the game outright through Yuri and Samantha). A Coup needs no reach and
   ignores the doubling rule, so it answers exactly the overprotected or
   unreachable placements the retake cannot.
+- **The answer is priced in the turn it is made, not in this one**
+  (`policy.reply_context`). `next_move` dates it 0 or 1; a reply dated next
+  turn sees DEFCON one step better (`Engine._end_of_turn`) and *no* turn
+  effects, because the end of the turn clears them all. Legality, the Coup
+  roll modifiers and the VP consequences all read that one context; the raw
+  valuation keeps the live observation, which is the position actually being
+  valued. Reading the live observation for the modifiers too was the
+  2026-09-17 audit's F4 -- an expiring SALT moved a next-turn answer's cost
+  by 3.36 raw on the over-protected Lebanon fixture, and flipped the
+  candidate's sign on the audit's own variant of it.
 - Enumerates all six coup rolls and all 36 realignment roll pairs. These are
   exact expectations of its local board evaluator, not a simulation at an
   average roll. Prices military-operations deficits and avoids directly fatal
@@ -468,10 +483,19 @@ contribute zero, final scoring covers the six regions and never Southeast
 Asia; the unknown-holder halves and the unmodeled early endings are stated in
 its docstring, and `tests/test_schedule.py` holds the rules-grounded parts.
 Bucket 1/2 masses are the deck math (`p_opponent_holds`, the cycle-deal
-walk); bucket 3 continues that walk over the recycled deck
-(`public_cards.post_reshuffle_deal_masses`) -- the card provably recycles
-(no scoring can be held past a reshuffle), so its mass is P(the recycled
-card is dealt before game end), with the recycled pile's size estimated by
+walk), and that walk INCLUDES the deal that exhausts the pile: the engine
+draws the pile to empty and reshuffles only then (`Engine._draw_card`), so
+every card still in the pile is dealt by that deal with certainty. Bucket 3
+continues over the recycled deck (`public_cards.post_reshuffle_deal_masses`)
+-- a live scoring cannot be held past a reshuffle, so it recycles -- times
+the share of the card that is IN that recycle. Two things are not:
+`public_cards.exhausting_deal_share`, the part of today's pile first dealt
+on the reshuffle turn and therefore played after the recycled pile was
+built (it belongs to reshuffle 2); and a one-shot, which has no bucket 3 at
+all because `remove_after_event` takes it out of the game. Counting either
+one twice was the 2026-09-17 audit's F2/F3: a held Southeast Asia card
+carried a lifetime occurrence of 1.96, and a turn-9 pile of five priced a
+guaranteed draw at 0.12. The recycled pile's size is still estimated by
 accounting, not measured. Bucket 4 is still zero mass: its recycle pool
 would include plays that have not been made yet, unknowable from today's
 public state. One deck walk (`public_cards.deck_walk`) serves both cycles

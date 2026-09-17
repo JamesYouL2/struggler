@@ -7,7 +7,7 @@ import pytest
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import (ASK, CARDS, TUNABLE_WEIGHTS, UNTUNED_WEIGHTS,
                                       StrategicPlayer, StrategicWeights)
-from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
+from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side, Subregion
 from struggler.bots.train import evaluate, mutate
 import random
 
@@ -206,11 +206,17 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     # region also has the end of the game to play for, at its measured odds,
     # so a scored region is not worth nothing.
     from struggler.bots.strategic.public_cards import (final_scoring_odds, cycle_deal_masses,
-                                                      p_opponent_holds, unseen_split)
+                                                      exhausting_deal_share, p_opponent_holds,
+                                                      post_reshuffle_deal_masses, unseen_split)
     dead_iran, live_iran, held_iran = weights  # weights ran (dead, live, held)
     # The rebuild's consumer: the gap to a dead card is the REAL this-cycle
-    # mass, holder-shaped -- and for a held card it is exactly the flat
-    # scoring_hand (P=1, no rival factor: we hold it, they cannot).
+    # mass, holder-shaped -- less what the live card gives up in bucket 3.
+    # The two are not comparable there: a DISCARDED card is certainly in the
+    # pile the reshuffle builds, while the part of a live one that is still
+    # in the draw pile when the exhausting deal comes is played on the
+    # reshuffle turn, after that pile was built, and so belongs to reshuffle
+    # 2. For a held card there is no such gap and no rival factor (P=1, we
+    # hold it, they cannot), so it is exactly the flat scoring_hand.
     theirs, pile = unseen_split(live)
     pool = theirs + pile
     masses = cycle_deal_masses(live)
@@ -220,7 +226,12 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     p_opp = p_opponent_holds(live, 'Middle_East_Scoring')
     this_cycle = (theirs / pool) + (pile / pool) * (1.0 - surv)
     shaped = this_cycle * (1. + bot.weights.scoring_rival * p_opp)
-    assert live_iran - dead_iran == pytest.approx(shaped)
+    recycled = 1.0
+    for m in post_reshuffle_deal_masses(live):
+        recycled *= 1.0 - m
+    shortfall = (pile / pool) * exhausting_deal_share(live) * (1.0 - recycled)
+    assert shortfall > 0.0, 'the fixture needs a reshuffle inside the horizon'
+    assert live_iran - dead_iran == pytest.approx(shaped - shortfall)
     assert held_iran - dead_iran == pytest.approx(bot.weights.scoring_hand)
     turn1 = dataclasses.replace(live, turn=1)
     # South America Scoring has not entered the deck at turn 1 (Mid War
@@ -1659,3 +1670,35 @@ def test_retention_is_measured_keep_rates_by_stability():
     # Same clamping as conversion_p, same reason.
     assert retention_p(0) == retention_p(1)
     assert retention_p(9) == retention_p(4)
+
+
+def test_the_urgency_memo_is_keyed_on_everything_the_weight_reads():
+    """`_urgency_for` memoises one sum per country class. Shape 1 of
+    `docs/notes/claude/bug-shapes.md` is a cache keyed on less state than it
+    reads, so the key is asserted against the uncached answer rather than
+    described in a comment.
+
+    The key was (region, South East Asia, stability) and the sum stopped
+    reading stability when the schedule masses replaced the retention
+    compounding -- thirty-odd keys for seven distinct answers, each
+    re-walking the deck. Dropping the dead component is only safe while
+    this holds.
+    """
+    from struggler.engine import Engine, Side
+
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    bot = StrategicPlayer()
+    for obs in (engine.observe(Side.US),
+                dataclasses.replace(engine.observe(Side.USSR), turn=5,
+                                    hand=('Asia_Scoring', 'Southeast_Asia_Scoring')),
+                dataclasses.replace(engine.observe(Side.US), turn=9,
+                                    draw_pile_size=5, discard_pile=('Africa_Scoring',))):
+        bot.prepare(obs)
+        memoised = bot._urgency_for(obs)
+        uncached = tuple(bot._scoring_weight_uncached(obs, cid)
+                         for cid in bot._terrain.ids)
+        assert memoised == uncached, 'the memo answered where a fresh sum would not'
+    # And the key really is collapsing work: seven classes, not one per country.
+    classes = {(i.region, Subregion.SOUTHEAST_ASIA in i.subregions)
+               for i in bot.board.countries.values()}
+    assert len(classes) == 7 < len(bot._terrain.ids)

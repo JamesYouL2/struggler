@@ -85,7 +85,7 @@ and fails with the rooting reverted. **The lesson is about the negative
 control above, not about paths: the fifth's gate was a real negative
 control and still missed this, because it controlled the wrong layout.**
 
-### 4. Two implementations of one rule, drifting (four times)
+### 4. Two implementations of one rule, drifting (five times)
 
 `cddb7a0` three copies of region scoring, only one of which knew about the
 scoring overrides; two Ops estimates, one for card choice and one for the
@@ -108,6 +108,26 @@ every card id in the shared history must already have been revealed by an
 event the history carries. The filter now matches option *values* against
 the card ids, which cannot be forgotten when a new decision spells its key
 differently.
+
+The fifth is not two implementations but one rule written down in three
+places: the event that *sets* an effect and the two consumers that read
+it. Yuri and Samantha is "for the remainder of the turn", so the event
+moved from `game_effects` -- which nothing clears, and which had been
+paying the USSR for every US Coup for the rest of the game -- to
+`turn_effects`. `Engine._handle_coup_roll` and the strategic bot's `coup`
+kept reading the old dict. From that commit the point was awarded *never*
+rather than forever, including the 20th VP that ends the game, and both
+sides had a passing test: one asserted the event wrote `turn_effects`, the
+other set `game_effects` by hand and asserted the Coup paid. **A test that
+constructs the state cannot see a pipeline that does not connect** --
+drive the real entry point, or the two halves agree only with themselves
+(shape 3 from the inside).
+
+Gated by `test_no_effect_is_read_from_the_dict_that_does_not_hold_it`,
+which scans the package for every literal key written to and read from
+either dict and fails on a key read from a dict nothing writes it to.
+It found the four Space Race abilities too -- written through
+`rules.json`'s key table, so data is a producer and the scan must know it.
 
 ### 5. A silent fallback hiding a defect (twice, and it paid off once)
 

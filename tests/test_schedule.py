@@ -63,10 +63,14 @@ def test_live_unknown_holder_uses_deck_math_this_cycle_and_returns_next():
         assert by_bucket[2].occurrence == expected_b2
         assert by_bucket[1].occurrence + by_bucket[2].occurrence <= 1.0 + 1e-12
         assert by_bucket[1].turns_lo == by_bucket[1].turns_hi == 0
+        # Bucket 3 is the post-reshuffle walk times the share of the card
+        # that is IN the recycled pile: what the exhausting deal delivers is
+        # played after the recycle was built, so it is reshuffle 2's.
         survival = 1.0
         for m in pc.post_reshuffle_deal_masses(obs):
             survival *= 1.0 - m
-        assert by_bucket[3].occurrence == 1.0 - survival
+        recycles = 1.0 - (pile / pool) * pc.exhausting_deal_share(obs)
+        assert by_bucket[3].occurrence == recycles * (1.0 - survival)
         assert 0.0 < by_bucket[3].occurrence <= 1.0
         break
     else:
@@ -202,3 +206,90 @@ def test_region_of_and_unknown_cards():
         pass
     else:
         raise AssertionError('non-scoring cards must raise, not schedule')
+
+
+# -- a one-shot pays once, and a card in the pile is dealt before it recycles --
+
+
+def _sea_states():
+    """Every deck state the Southeast Asia card can be in and still pay, as
+    (label, observation). `remove_after_event` means a played one is
+    `removed`, not `discard`, so those two are the ends of its life."""
+    base = _obs(hand=(), discard_pile=(), removed_cards=())
+    return [
+        ('held', replace(base, turn=4, hand=(sch.SEA_SCORING,), draw_pile_size=10)),
+        ('unseen, pile exhausts next deal', replace(base, turn=9, draw_pile_size=5)),
+        ('unseen, mid cycle', replace(base, turn=5, draw_pile_size=40)),
+        ('unseen, pile outlasts the game', replace(base, turn=9, draw_pile_size=500)),
+        ('future era', replace(base, turn=1)),
+    ]
+
+
+def test_a_one_shot_never_accumulates_more_than_one_lifetime_play():
+    """Southeast Asia Scoring is removed after its event, so the sum of its
+    occurrence masses over the whole schedule is at most 1.
+
+    It was not. `once` guarded the discarded card and final scoring but not
+    the generic recycling block, so a held SEA card took bucket 1 at 1.0 and
+    a bucket 3 of 0.96 on top -- and `_scoring_weight_uncached` sums exactly
+    these masses for every South East Asian country. 99 of the corpus's
+    records carried a SEA lifetime mass above one.
+    """
+    for label, obs in _sea_states():
+        opps = sch.opportunities(obs, sch.SEA_SCORING)
+        total = sum(o.occurrence for o in opps)
+        assert total <= 1.0 + 1e-12, (label, [(o.bucket, o.occurrence) for o in opps])
+        assert all(o.bucket != 5 for o in opps), (label, 'final scoring is by region')
+    # ...and the states where it is gone contribute nothing at all.
+    for gone in ('removed_cards', 'discard_pile'):
+        obs = _obs(hand=(), **{gone: (sch.SEA_SCORING,)})
+        assert sch.opportunities(obs, sch.SEA_SCORING) == ()
+
+
+def test_a_held_one_shot_fires_this_turn_and_never_again():
+    """The must-play rule fires it this turn; `remove_after_event` takes it
+    out of the game. There is no later opportunity to name."""
+    obs = replace(_obs(hand=(sch.SEA_SCORING,)), turn=4, draw_pile_size=10)
+    assert [(o.bucket, o.occurrence) for o in sch.opportunities(obs, sch.SEA_SCORING)] \
+        == [(1, 1.0)]
+    # The region card in the same position DOES recycle: the one-shot rule is
+    # about this card, not about holding a scoring.
+    held_region = replace(_obs(hand=('Asia_Scoring',)), turn=4, draw_pile_size=10)
+    assert {o.bucket for o in sch.opportunities(held_region, 'Asia_Scoring')} == {1, 3, 5}
+
+
+def test_a_card_in_the_pile_is_certainly_dealt_by_the_deal_that_empties_it():
+    """Turn 9, five cards left, a sixteen-card deal: every one of those five
+    is dealt at turn 10 before the reshuffle can happen (`Engine._draw_card`
+    empties the pile first). With the opponent holding nothing, the card is
+    in the pile with certainty and so is its play.
+
+    The walk used to drop that deal entirely for being partly recycled,
+    which priced the certainty at 0.121 -- and then also charged it a
+    bucket 3, as though the same card were in the old pile and in the
+    discard that replaces it.
+    """
+    obs = replace(_obs(hand=(), discard_pile=(), removed_cards=()),
+                  turn=9, draw_pile_size=5, opponent_hand_size=0)
+    assert pc.card_state(obs, 'Asia_Scoring') == 'unseen'
+    assert pc.turns_to_reshuffle(obs) == 1
+    by_bucket = {o.bucket: o.occurrence for o in sch.opportunities(obs, 'Asia_Scoring')}
+    assert by_bucket[1] == 0.0, 'the opponent holds nothing'
+    assert by_bucket[2] == 1.0, 'the exhausting deal delivers it'
+    assert 3 not in by_bucket, 'played on the reshuffle turn: reshuffle 2, not this one'
+    assert by_bucket[5] == pc.final_scoring_odds(obs)
+
+
+def test_a_discarded_card_still_takes_the_whole_recycled_walk():
+    """The negative control on the conditioning above: it is about where the
+    card is, not about suppressing bucket 3. A card already in the discard
+    is entirely in the pile the reshuffle builds."""
+    obs = replace(_obs(hand=(), removed_cards=()), turn=9,
+                  draw_pile_size=5, discard_pile=('Asia_Scoring',))
+    assert pc.card_state(obs, 'Asia_Scoring') == 'discard'
+    survival = 1.0
+    for m in pc.post_reshuffle_deal_masses(obs):
+        survival *= 1.0 - m
+    by_bucket = {o.bucket: o.occurrence for o in sch.opportunities(obs, 'Asia_Scoring')}
+    assert by_bucket[3] == 1.0 - survival
+    assert by_bucket[3] > 0.0

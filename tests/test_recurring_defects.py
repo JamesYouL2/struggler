@@ -31,6 +31,7 @@ import pytest
 from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.strategic.policy import LOSS, Certain, is_certain, priced
 from struggler.engine import Engine, Side
+from struggler.engine.rules import RULES
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTES = ROOT / 'docs' / 'notes' / 'claude' / 'bug-shapes.md'
@@ -55,6 +56,7 @@ SHAPE_GATES: dict[int, list[str]] = {
         'test_acceptance_warns_when_every_game_is_a_dead_heat',
         'test_every_record_pins_every_weight'],
     4: ['test_region_vp_matches_the_engine_region_scoring',
+        'test_no_effect_is_read_from_the_dict_that_does_not_hold_it',
         'test_region_vp_matches_the_engine_under_every_scoring_override',
         'test_coup_forbidden_matches_the_engine_under_every_prohibition',
         'test_shared_history_names_no_card_it_has_not_revealed',
@@ -391,3 +393,89 @@ def test_every_logger_lives_under_its_own_package():
                 f'under its package {package!r} nor an ancestor of it. It will not '
                 f'inherit the level set on that package, and its output goes missing '
                 f'without an error.')
+
+
+# -- shape 4: an effect key read from the dict that does not hold it ---------
+
+
+def _effect_keys() -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """Every literal key written to, and read from, `turn_effects` and
+    `game_effects` anywhere in the package.
+
+    A static scan, because that is the only thing that sees a producer and a
+    consumer that never meet at runtime: the pair this exists for agreed for
+    weeks in two separate unit tests and never once in a played game.
+    """
+    import ast
+
+    package_root = ROOT / 'src' / 'struggler'
+    writes: dict[str, set[str]] = {'turn_effects': set(), 'game_effects': set()}
+    reads: dict[str, set[str]] = {'turn_effects': set(), 'game_effects': set()}
+
+    def which(node):
+        """The effects dict `node` names, through any attribute chain
+        (`self.turn_effects`, `engine.turn_effects`, `obs.game_effects`),
+        or a bare parameter of that name."""
+        while isinstance(node, ast.Attribute):
+            if node.attr in writes:
+                return node.attr
+            node = node.value
+        if isinstance(node, ast.Name) and node.id in writes:
+            return node.id
+        return None
+
+    for path in sorted(package_root.rglob('*.py')):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Assign):
+                for tgt in node.targets:
+                    if isinstance(tgt, ast.Subscript) and isinstance(tgt.slice, ast.Constant):
+                        name = which(tgt.value)
+                        if name:
+                            writes[name].add(tgt.slice.value)
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                name = which(node.func.value)
+                if name and node.args and isinstance(node.args[0], ast.Constant):
+                    side = writes if node.func.attr in ('pop', 'setdefault') else reads
+                    side[name].add(node.args[0].value)
+            elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+                name = which(node.value)
+                if name and isinstance(node.ctx, ast.Load):
+                    reads[name].add(node.slice.value)
+    # The Space Race abilities are written through `rules.json`'s key table
+    # (`_update_space_race_ability`), so the literal never appears at the
+    # write. Data is a producer like any other.
+    writes['game_effects'].update(RULES['space_race_ability_keys'].values())
+    return writes, reads
+
+
+def test_no_effect_is_read_from_the_dict_that_does_not_hold_it():
+    """Every effect key a consumer reads is one some producer writes, in the
+    same dict.
+
+    Yuri and Samantha is "for the remainder of the turn", so the event was
+    moved from `game_effects` (which nothing clears, and which paid the USSR
+    for every US coup for the rest of the game) to `turn_effects`. Its two
+    consumers -- `Engine._handle_coup_roll` and the strategic bot's `coup`
+    -- were left reading the old dict, so from that commit ordinary play
+    awarded the point *never* rather than forever, including the 20th VP
+    that ends the game. Both sides had a passing test: one checked the event
+    wrote `turn_effects`, the other set `game_effects` by hand and checked
+    the coup paid. Neither could see the gap between them.
+
+    This is shape 4 -- one rule spelled in more than one place -- with the
+    places being the dict name. The fix cannot be "remember to grep": the
+    scan is the grep, and it fails when a key is read from a dict nothing
+    writes it to.
+    """
+    writes, reads = _effect_keys()
+    for dict_name, other in (('turn_effects', 'game_effects'),
+                             ('game_effects', 'turn_effects')):
+        orphans = sorted(reads[dict_name] - writes[dict_name])
+        detail = [f'{key!r}' + (f' (written to {other})' if key in writes[other] else
+                                ' (written nowhere)') for key in orphans]
+        assert not orphans, (
+            f'read from {dict_name} but never written there: ' + ', '.join(detail))
+    # A negative control on the scan itself: it must actually be reading
+    # both dicts, or the assertion above is vacuous.
+    assert reads['turn_effects'] and reads['game_effects']
+    assert 'yuri_samantha' in writes['turn_effects']

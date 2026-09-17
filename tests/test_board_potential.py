@@ -306,3 +306,75 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
         anchor = t.ids[t.region_anchor[region]]
         assert t.region_of[t.region_anchor[region]] is region
         assert not any(s.name == 'SOUTHEAST_ASIA' for s in bot.board.countries[anchor].subregions)
+
+
+# -- the diagnostic wrapper's own contract -----------------------------------
+#
+# `scoring_potential` is the potential-delta rewrite's oracle and nothing
+# else calls it, which is how all three of these survived: a component DP
+# test exercises the terms, never the wiring above them.
+
+
+def _prepared(side=Side.US, **overrides):
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    obs = engine.observe(side)
+    if overrides:
+        obs = dataclasses.replace(obs, **overrides)
+    bot = _player()
+    bot.prepare(obs)
+    return bot, obs
+
+
+@pytest.mark.parametrize('flags', [
+    pytest.param({'formosan_resolution': True}, id='formosan'),
+    pytest.param({'shuttle_diplomacy': True}, id='shuttle'),
+    pytest.param({'formosan_resolution': True, 'shuttle_diplomacy': True}, id='both'),
+])
+def test_scoring_potential_answers_under_the_scoring_modifiers(flags):
+    """It passed `_overrides_map(pos)` -- a dict of six index-set pairs --
+    to the parameter that unpacks the two scoring flags, so any position
+    with Formosan Resolution or Shuttle Diplomacy in force raised
+    `ValueError: too many values to unpack (expected 2)`."""
+    def probe(effects):
+        bot, _ = _prepared(game_effects=effects)
+        # The modifiers have to have something to bite on, or this pins
+        # nothing: Formosan promotes a US-Controlled Taiwan to a
+        # Battleground, Shuttle drops one USSR-Controlled Battleground from
+        # the nearer of the Middle East and Asia.
+        bot.board.influence['Taiwan'].update(US=4, USSR=0)
+        bot.board.influence['Iran'].update(US=0, USSR=4)
+        bot.board.influence['Iraq'].update(US=0, USSR=4)
+        return bot.scoring_potential(bot.board, Side.US)
+
+    under = probe(flags)
+    assert isinstance(under, float)
+    assert under != probe({})
+
+
+def test_scoring_potential_answers_the_seat_it_is_asked_about():
+    """It took `side` and ignored it, reading the prepared observation's
+    seat instead, so a bot prepared for the US returned the same number for
+    both. The potential is zero-sum between the seats, like `value`."""
+    for prepared_for in (Side.US, Side.USSR):
+        bot, _ = _prepared(prepared_for)
+        us = bot.scoring_potential(bot.board, Side.US)
+        ussr = bot.scoring_potential(bot.board, Side.USSR)
+        assert us != 0.0
+        assert us == -ussr
+
+
+def test_the_potential_is_its_six_regions_plus_the_southeast_asia_card():
+    """`_potential_total` walked `_region_cards`, which maps each Region to
+    its own scoring card and so holds exactly the six regional ones. Its
+    `card == SEA_SCORING` arm was unreachable and the SEA term was simply
+    absent from the sum."""
+    # Turn 5 with the card in hand and US influence in South East Asia, so
+    # the term is substantial rather than a rounding difference.
+    bot, _ = _prepared(turn=5, hand=('Southeast_Asia_Scoring',))
+    bot.board.influence['Thailand'].update(US=4, USSR=0)
+    pos = bot._position_for(bot.board)
+    regions = sum(bot._region_term(region, pos) for region in bot._region_cards)
+    sea = bot._sea_term(pos)
+    assert sea != 0.0, 'the fixture needs a live Southeast Asia card'
+    assert bot._potential_total(pos) == pytest.approx(regions + sea, rel=0, abs=1e-12)
+    assert bot._potential_total(pos) != pytest.approx(regions, rel=0, abs=1e-9)

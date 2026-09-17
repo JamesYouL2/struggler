@@ -165,9 +165,21 @@ beside the We Will Bury You rider that branch already defused). Either side
 playing UN Intervention pays it, since the card names none, and the flag
 lapses with the turn.
 
-**Persistent game-long triggers** (`game_effects`). Yuri and Samantha (USSR
-+1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2 VP per US
-war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).
+**Persistent game-long triggers** (`game_effects`). Flower Power (USSR +2 VP
+per US war-card play, via `_maybe_flower_power`, cancelled by An Evil
+Empire).
+
+**Turn-scoped triggers** (`turn_effects`, cleared by `_end_of_turn`). Yuri
+and Samantha: the USSR scores 1 VP for every US Coup *attempt* -- a failed
+roll owes it too -- "for the remainder of the turn", paid in
+`_handle_coup_roll`. It lived in `game_effects` and therefore paid for the
+rest of the game; when the event was corrected to write `turn_effects`, this
+paragraph and both consumers (`_handle_coup_roll` and the strategic bot's
+`coup`) were left naming the old dict, so for a while it paid *never*. The
+dict a trigger lives in is a rules fact -- how long it lasts -- so it
+belongs in this file beside the trigger, and
+`test_no_effect_is_read_from_the_dict_that_does_not_hold_it` now fails when
+a consumer and the event disagree about it.
 
 **Dice contests** (`push_dice_contest` — both roll, higher wins, logged as
 `CONTEST_ROLL`). Olympic Games (opponent boycotts, or a +2 contest with

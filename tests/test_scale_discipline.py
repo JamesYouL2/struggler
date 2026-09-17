@@ -56,8 +56,13 @@ KNOWN = {
     ('policy.py', 'value -= CHINA_HOLD_RAW'),
     ('policy.py', 'value -= max(0, len(obs.hand)-3)'),
     ('policy.py', 'total += mass'),
-    ('policy.py', 'total += sum(mass * (e1 if horizon == 1 else e2)'),
-    ('policy.py', 'total += sum(mass * (sea1 if horizon == 1 else sea2)'),
+    # `_potential_total`'s two `total += sum(mass * ...)` lines were here
+    # until 2026-09-17. It now sums `_region_term` and `_sea_term` instead of
+    # repeating their bodies -- the repeat is how the Southeast Asia half went
+    # missing from the total -- and neither of those is a site this scanner
+    # flags (one returns the sum, one binds it with `=`). Nothing was hidden:
+    # the same mass-times-VP products are still listed for `valuation.py` and
+    # `forecast.py` below.
     ('valuation.py', 'total += mass * fcst.expected_payout(t, forecast, overrides).total'),
     # tier_e_from_minus's reconvolve: p (a probability from the forecast's
     # member triple) times tier_of's signed VP result -- the same

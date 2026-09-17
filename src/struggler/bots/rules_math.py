@@ -24,6 +24,8 @@ now a call into `effective_ops`, which is how it stopped being wrong.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from struggler.engine import Observation, Region, Side, Subregion
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.core import (
@@ -60,15 +62,29 @@ def bonus_ops(info: CountryInfo, bonuses) -> int:
     return sum(1 for tag in bonuses or () if in_bonus_region(info, tag))
 
 
-def coup_roll_modifier_estimate(observation: Observation, side: Side, info: CountryInfo) -> float:
+def coup_roll_modifier(turn_effects: Mapping[str, object], side: Side,
+                       info: CountryInfo) -> float:
+    """The Coup die modifiers in force, from the turn effects alone.
+
+    Takes the effects rather than an observation because the answer is not
+    always asked about *now*: a forward search pricing the opponent's reply
+    on their next turn must ask it of a turn whose effects have lapsed.
+    Every modifier here is turn-scoped -- that is the whole reason this
+    reads `turn_effects` -- so handing it the live dict for a next-turn
+    question charges a SALT that will have expired.
+    """
     mod = 0.0
-    te = observation.turn_effects
-    lads = te.get("la_death_squads")
+    lads = turn_effects.get("la_death_squads")
     if lads and info.region in (Region.CENTRAL_AMERICA, Region.SOUTH_AMERICA):
         mod += 1.0 if side.value == lads else -1.0
-    if te.get("salt"):
+    if turn_effects.get("salt"):
         mod -= 1.0
     return mod
+
+
+def coup_roll_modifier_estimate(observation: Observation, side: Side, info: CountryInfo) -> float:
+    """`coup_roll_modifier` for the observation's own turn."""
+    return coup_roll_modifier(observation.turn_effects, side, info)
 
 
 def coup_outcomes(ops: int, stability: int, defender: int,
@@ -86,12 +102,22 @@ def coup_outcomes(ops: int, stability: int, defender: int,
     return tuple(out)
 
 
-def coup_risks_defcon(observation: Observation, side: Side, info: CountryInfo) -> bool:
+def coup_risks_defcon_under(turn_effects: Mapping[str, object], side: Side,
+                            info: CountryInfo) -> bool:
     """Whether a Coup here could degrade DEFCON at all: only Battleground
-    countries do, and even those not while Nuclear Subs exempts this side."""
+    countries do, and even those not while Nuclear Subs exempts this side.
+
+    Takes the effects for the same reason `coup_roll_modifier` does: Nuclear
+    Subs is a turn effect, so a reply dated next turn is not exempt by it.
+    """
     if not info.battleground:
         return False
-    return not (side is Side.US and bool(observation.turn_effects.get("nuclear_subs")))
+    return not (side is Side.US and bool(turn_effects.get("nuclear_subs")))
+
+
+def coup_risks_defcon(observation: Observation, side: Side, info: CountryInfo) -> bool:
+    """`coup_risks_defcon_under` for the observation's own turn."""
+    return coup_risks_defcon_under(observation.turn_effects, side, info)
 
 
 def realignment_bonus(board: Board, side: Side, country: str) -> float:
