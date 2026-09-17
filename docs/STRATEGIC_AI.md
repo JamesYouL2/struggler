@@ -434,6 +434,50 @@ neighbour left it stale, and the same position scored differently depending
 on what had been evaluated first: 39 of 598 corpus rankings changed when the
 memo was bypassed. A function that owns no state cannot do that.
 
+**Factor 1 prototype.** `bots/strategic/forecast.py` is the rebuild's first
+deliverable and is not wired into any ranking: one region's expected scoring
+payout (Africa first) as country bonuses plus a tier term computed once per
+region, with per-country values derived as potential differences. Its
+docstring answers the rebuild README's five questions; `tests/test_forecast.py`
+holds immediate scoring to the engine. Control at future
+scorings (horizon 1+) now reads the measured "D full +over" logistic
+(`p_control_at_scoring`, from the September 13 control-odds fits: Ops-to-control
+under the doubling rule, reach, stability/controller categories,
+overprotection; conditioned on the scoring occurring; fitted on battlegrounds
+only, so every non-battleground reading is a documented extrapolation). Horizon
+0 stays degenerate by the exactness criterion, and the triples are simplex
+points by construction (a scale over relative support, not a clamp). Horizons
+above 2 continue the h1->h2 movement geometrically, halving each further step:
+monotone in the ordering, bounded by the corridor between the two tables --
+the single further asymptote step of the same drift is documented, not
+measured. A shrinkage scan on the recorded rows (logistic toward the Laplace
+table, held-out log-loss) moved LL by at most 0.0008 at both horizons --
+noise by the fits' own reading, so the shape stands unshrunk. The joint
+distribution is in: a stochastic forecast prices the tiers through the
+independence count-DP (`_tier_distribution`), pinned degenerate-exact against
+`region_vp` at every override combination -- a pin that caught the Formosan
+promotion missing from `expected_country_bonus` on the way in. The DP's
+members are independent draws; how far that is from correlated truth is a
+measurement, not a silent assumption.
+
+**Schedule.** `bots/strategic/schedule.py` is the rebuild's other half and is
+likewise unwired: every future scoring opportunity as card, bucket, timing
+range and occurrence mass, from the public deck state. Held cards fire this
+turn (the engine forbids holding them), spent one-shots and removed cards
+contribute zero, final scoring covers the six regions and never Southeast
+Asia; the unknown-holder halves and the unmodeled early endings are stated in
+its docstring, and `tests/test_schedule.py` holds the rules-grounded parts.
+Bucket 1/2 masses are the deck math (`p_opponent_holds`, the cycle-deal
+walk); bucket 3 continues that walk over the recycled deck
+(`public_cards.post_reshuffle_deal_masses`) -- the card provably recycles
+(no scoring can be held past a reshuffle), so its mass is P(the recycled
+card is dealt before game end), with the recycled pile's size estimated by
+accounting, not measured. Bucket 4 is still zero mass: its recycle pool
+would include plays that have not been made yet, unknowable from today's
+public state. One deck walk (`public_cards.deck_walk`) serves both cycles
+and the reshuffle estimate; the schedules to reshuffle and masses cannot
+drift apart.
+
 ## Evaluate and train
 
 Evaluation plays both seats on every seed, with events enabled. Identical seeds

@@ -147,6 +147,17 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
   poll with `gh run view <id> --json status,conclusion`.
   `decide` defaults to 1 (curtails ~15% once the verdict is stable); pass
   `-f decide=0` only for a full read when the precise score matters.
+- `experiments.yml` runs weight A/Bs (one runner per arm, in parallel)
+  rather than comparing revisions: dispatch
+  `gh workflow run experiments.yml -f only=<slug>` (arms from
+  `.github/experiments.json`) or `-f inline='{"slug":...,"weights":{...},
+  "seeds":"...","held":"...",...}'` for a one-off without editing
+  anything. Both `--decide` and `--held-seeds` come from the arm's own
+  `held` field, which is required -- an arm without it silently never
+  early-stops. Size arms full (a runner per arm removes the local
+  one-at-a-time constraint; several 2026-09-12 runs were +/-0.075 and
+  could not see a 6-point effect). The run's verdict is the summarise
+  step's artifact, read it from the job summary, not the exit code.
 - Ledger `models/provenance.json`: 2-space indent, never plain `json.dumps`
   (a test parses the format). Recompute `_summary` counts, verify with
   `tests/test_provenance.py`. New weights need entries or the suite fails.
@@ -173,7 +184,7 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
   862 with the deck-tracking test).
 - New experiments branch off `origin/main`, never pile onto a branch with
   a running gate — a moved HEAD confounds the verdict in flight.
-- CI is free for verification, use it: `tests.yml` runs the full suite automatically on every push to `main`, and a full `decide=0` gate dispatches to isolated runners (`gh workflow run gate.yml --ref main -f bases='["<SHA>"]' -f decide=0 -f vary=0`). Route full-suite verification through CI whenever possible — a PR (or push to `main`) runs `tests.yml` with the parity oracle (`test_parity_corpus.py`) included. Prefer both over local runs and keep the local box free — local suite/gate contention is what corrupted the timing notes twice.
+- CI is free for verification, use it: `tests.yml` runs the full suite automatically on every push to `main`, and a full `decide=0` gate dispatches to isolated runners (`gh workflow run gate.yml --ref main -f bases='["<SHA>"]' -f decide=0 -f vary=0`). Route full-suite verification through CI whenever possible — a PR (or push to `main`) runs `tests.yml` with the parity oracle (`test_parity_corpus.py`) included. Prefer both over local runs and keep the local box free — local suite/gate contention is what corrupted the timing notes twice. Suites AND gates belong on GitHub; local runs are the exception, reserved for fast iterate-on-a-failure loops (2026-09-16, maintainer).
 - The remote gate cannot measure an opening-default change: `gate.yml` has
   no openings input and `scripts/gate.sh` defaults both arms to
   `iran/austria` (`GATE_BOOKS`). Same for drift (`DRIFT_OPENINGS` in

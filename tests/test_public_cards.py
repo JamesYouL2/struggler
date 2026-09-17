@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import re
 
-from struggler.bots.strategic.public_cards import ENTERING, turns_to_reshuffle
+from struggler.bots.strategic.public_cards import (
+    ENTERING,
+    cycle_deal_masses,
+    deal_size,
+    turns_to_reshuffle,
+)
 from struggler.engine import Engine, Side
 from struggler.engine.cards import ENTRY_TURN
 from struggler.bots.greedy import GreedyPlayer
@@ -47,6 +52,68 @@ def test_entering_matches_what_the_engine_adds(caplog):
                 f'{expected}. turns_to_reshuffle will be wrong by the difference, '
                 f'and so will every scoring card in hand.')
     assert sizes, 'no period entered; the fixture never reached turn 4'
+
+
+def test_deal_size_shares_the_reshuffle_arithmetic():
+    """One rule, one place: the deal walk and the reshuffle walk agree."""
+    from struggler.engine.cards import hand_limit
+
+    for turn in (1, 3, 4, 8, 10):
+        assert deal_size(turn) == max(1, 2 * hand_limit(turn) - 2)
+
+
+def test_cycle_deal_masses_are_deal_over_pile_before_and_conserve():
+    """Deck math, pinned at both ends: each mass is deal/pile-before, and the
+    unconditional masses plus survival sum to one."""
+    from struggler.engine.core import LAST_TURN
+
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    obs = engine.observe(Side.US)
+    masses = cycle_deal_masses(obs)
+    # Re-walk the same arithmetic independently: pile + entering, deal over
+    # pile-before, exhausting deal excluded like `turns_to_reshuffle`.
+    pile = obs.draw_pile_size
+    expected: list[float] = []
+    for ahead in range(1, LAST_TURN - obs.turn + 1):
+        turn = obs.turn + ahead
+        pile += ENTERING.get(turn, 0)
+        deal = deal_size(turn)
+        if pile - deal < 0:
+            break
+        if pile <= 0:
+            break
+        expected.append(deal / pile)
+        pile -= deal
+    assert masses == tuple(expected)
+    # Conservation: unconditional deal-at-k plus survival is one.
+    survival = 1.0
+    total = 0.0
+    for mass in masses:
+        total += mass * survival
+        survival *= 1.0 - mass
+    assert total + survival == 1.0
+
+
+def test_cycle_deal_masses_count_matches_the_reshuffle_walk():
+    """The masses name every full deal before the exhausting one: their count
+    is the reshuffle distance less one, or every turn left when the pile
+    outlasts the game."""
+    from dataclasses import replace
+
+    from struggler.engine.core import LAST_TURN
+
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    obs = engine.observe(Side.US)
+    reshuffle = turns_to_reshuffle(obs)
+    horizon = LAST_TURN - obs.turn
+    masses = cycle_deal_masses(obs)
+    if reshuffle <= horizon:
+        assert len(masses) == reshuffle - 1
+    else:
+        assert len(masses) == horizon
+    # Past the end: no future deal, no masses.
+    late = replace(obs, turn=10)
+    assert cycle_deal_masses(late) == ()
 
 
 def test_entering_covers_every_period_after_the_first():

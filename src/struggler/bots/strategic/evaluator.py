@@ -77,6 +77,10 @@ class Terrain:
     # count -- the first outside Southeast Asia -- whose urgency is
     # therefore the region's. See `region_urgency`.
     region_anchor: dict[Region, int]
+    # Southeast Asia's members, in `Terrain` order: the one-shot scoring card
+    # pays per controlled country here (+2 for Thailand) and never touches
+    # Asia's tiers, so the rebuild's payout half needs them as indices.
+    southeast_asia: tuple[int, ...]
     scoring_vp: dict[Region, tuple[int, int, int | None]]
     coup_min_defcon: tuple[int, ...]
     # The three countries the Coup prohibitions name, as indices, so the
@@ -116,6 +120,8 @@ def terrain() -> Terrain:
         members=members,
         member_pos=tuple(member_pos),
         region_anchor=region_anchor,
+        southeast_asia=tuple(i for i, cid in enumerate(ids)
+                             if Subregion.SOUTHEAST_ASIA in board.countries[cid].subregions),
         scoring_vp={r: tuple(RULES['scoring'][r.name]) for r in Region},
         japan=index['Japan'],
         france=index['France'],
@@ -455,6 +461,7 @@ def retention_p(stability: int) -> float:
     return RETENTION_P[min(max(stability, 1), len(RETENTION_P)) - 1]
 
 
+@functools.lru_cache(maxsize=None)
 def route_decay(stability: int, base: float) -> float:
     """What each redundant route into a country of `stability` is worth,
     relative to the one before it.
@@ -520,6 +527,13 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     battleground, stability, neighbors = t.battleground, t.stability, t.neighbors
     home = t.home[s]
     first = neighbors[i]
+    # Locals, not globals/attributes, in the neighbour loop: the same floats,
+    # fewer lookups per battleground. A native port takes these as precomputed
+    # vectors wholesale.
+    route_w = route_weight
+    importance_fn = importance
+    access_decay = w.access_decay
+    access_contested = w.access_contested
     total = 0.
     for n in first:
         if battleground[n] and control[n] != s:
@@ -550,10 +564,10 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 routes += 1      # the superpower reaches it without a holding
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
-            weight = route_weight(stability[n], w.access_decay, routes)
+            weight = route_w(stability[n], access_decay, routes)
             if reach_them[n]:
-                weight *= w.access_contested
-            total += weight * importance(t, w, urgency, n) / stability[n]
+                weight *= access_contested
+            total += weight * importance_fn(t, w, urgency, n) / stability[n]
     return total
 
 
@@ -633,8 +647,9 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # stake is worth the uncontrolled battlegrounds it alone lets us reach.
     # Nothing for ground we already reach (a fourth point in Eastern Europe
     # opens nothing), and nothing for ground we hold.
-    access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
-    access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
+    access_fn = access  # local: same call, fewer lookups per country
+    access_own = access_fn(t, pos, i, s, w, urgency) if own > 0 else 0.0
+    access_opp = access_fn(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
     value += w.access * (access_own - access_opp)
     return value
 
@@ -712,6 +727,7 @@ def region_vp(t: Terrain, pos: Position, region: Region,
     return us_value - ussr_value
 
 
+@functools.lru_cache(maxsize=None)
 def _contribution(is_bg: bool, stability: int, us: int, ussr: int):
     """One country's share of the region aggregates: per side (controlled
     countries, fractional battlegrounds, progress)."""
@@ -848,8 +864,13 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     sign = 1 if s == US else -1
     ov = (lambda _r: NO_OVERRIDES) if overrides is None else (
         lambda r: overrides.get(r, NO_OVERRIDES))
-    return (sum(country_value(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
+    # Locals for the per-country/per-region loops: identical floats, fewer
+    # global lookups over ~100 countries plus 12 region walks per board.
+    country_value_fn = country_value
+    region_vp_fn = region_vp
+    margin_basis_fn = margin_basis
+    return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
-                               ((region, sign * region_vp(t, pos, region, *ov(region)))
+                               ((region, sign * region_vp_fn(t, pos, region, *ov(region)))
                                 for region in Region))
-            + sum(sign * margin_basis(t, pos, region, w, urgency)[0] for region in Region))
+            + sum(sign * margin_basis_fn(t, pos, region, w, urgency)[0] for region in Region))

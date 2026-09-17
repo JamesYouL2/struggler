@@ -21,11 +21,15 @@ from struggler.engine.board import Board
 from struggler.engine.types import Subregion
 from struggler.engine.cards import load_cards
 from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks, defcon_allows_coup
+from struggler.engine.core import SCORING_CARD_REGION
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, p_opponent_holds,
-                                         scoring_buckets, scoring_cards_for)
+from struggler.bots.strategic import forecast as fcst
+from struggler.bots.strategic import schedule as sch
+from struggler.bots.strategic import public_cards as pc
+from struggler.bots.strategic import valuation
+from struggler.bots.strategic.public_cards import card_state, scoring_cards_for
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
@@ -603,6 +607,13 @@ class StrategicPlayer:
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
         self._urgency = None
+        # The potential's prepared state: shaped (mass, horizon) lists per
+        # scoring card, each region's card, and the E[payout] cache keyed on
+        # everything it reads. None before the first `prepare`; the
+        # diagnostic paths (bare `value`, unprepared `delta`) fall back.
+        self._masses = None
+        self._region_cards = None
+        self._e_cache = {}
         # (Formosan Resolution, Shuttle Diplomacy) as of `self._obs`.
         self._scoring_flags = (False, False)
         # The Coup prohibitions as of `self._obs`.
@@ -672,15 +683,24 @@ class StrategicPlayer:
 
     def prepare(self, observation: Observation) -> None:
         """Point the player at `observation`: the board, the snapshot of it,
-        and the scoring weight of every country. Everything that evaluates a
-        position starts here, so that nothing downstream has to ask an
-        observation what a country is worth."""
+        the scoring weight of every country, and the shaped scoring masses.
+        Everything that evaluates a position starts here, so that nothing
+        downstream has to ask an observation what a country is worth."""
         sync_board(self.board, observation)
         self._position.sync(self.board)
         self._obs = observation
         self._urgency = self._urgency_for(observation)
         self._scoring_flags = scoring_flags(observation.game_effects)
         self._coup_bans = coup_bans(observation.game_effects)
+        # The potential's masses: deck state, fixed within a decision (a
+        # placement does not move the deck), so they are prepared once and
+        # only E[payout] is asked of the moving board. SEA's card rides with
+        # Asia's masses under its own name.
+        cards_by_region = {r: c for c, r in SCORING_CARD_REGION.items()}
+        self._region_cards = cards_by_region
+        self._masses = {card: valuation.shaped_masses(observation, card, self.weights)
+                        for card in sch.SCORING_CARDS}
+        self._e_cache = {}
 
     def _urgency_for(self, obs: Observation) -> tuple[float, ...]:
         """Every country's scoring weight, in terrain order. It is a function
@@ -763,6 +783,88 @@ class StrategicPlayer:
         if not (formosan or shuttle):
             return None
         return {r: self._overrides_for(r, pos, (formosan, shuttle)) for r in Region}
+
+    def _e_payout(self, region: Region, pos: ev.Position | None = None, flags=None) -> tuple[float, float, float, float]:
+        """(E per horizon 1, E per horizon 2, SEA at h1, SEA at h2), US-signed.
+
+        Content-keyed cache in `_e_cache`: the key is EVERYTHING the payout
+        reads about the moving board -- the members' influence, reach and
+        control (the fit's features) plus the override pair in force -- so a
+        serving cache entry cannot go stale, the defect class the deleted
+        `_access` memo represented. A trial placement touches only the
+        changed member and its reached neighbours, so the base board's
+        regions always hit and the DP runs only for affected regions.
+        Southeast Asia's own payout rides the Asia forecast (linear,
+        override-independent); one cache entry, two consumers."""
+        pos = self._position if pos is None else pos
+        t = self._terrain
+        ov = self._overrides_for(region, pos, flags)
+        inf_us, inf_ussr = pos.inf
+        reach_us, reach_ussr = pos.reach
+        feat = tuple((inf_us[i], inf_ussr[i], reach_us[i], reach_ussr[i], pos.control[i])
+                     for i in t.members[region])
+        key = (region.value, ov, feat)
+        hit = self._e_cache.get(key)
+        if hit is None:
+            sea = [0.0, 0.0]
+            if region is Region.ASIA:
+                for k, horizon in ((0, 1), (1, 2)):
+                    sea[k] = fcst.expected_southeast_asia_payout(
+                        t, fcst.forecast_controls(t, pos, region, horizon))
+            e1 = fcst.expected_payout(t, fcst.forecast_controls(t, pos, region, 1), ov)
+            e2 = fcst.expected_payout(t, fcst.forecast_controls(t, pos, region, 2), ov)
+            hit = self._e_cache[key] = (e1.total, e2.total, sea[0], sea[1])
+        return hit
+
+    def _region_term(self, region: Region, pos: ev.Position | None = None, flags=None) -> float:
+        """One region's potential term for the prepared context: Sigma_e
+        mass x E[payout at e], signed for this context's seat. The masses
+        are deck state (prepared); only E[payout] is recomputed."""
+        pos = self._position if pos is None else pos
+        card = self._region_cards[region]
+        e1, e2, _sea1, _sea2 = self._e_payout(region, pos, flags)
+        return (sum(mass * (e1 if horizon == 1 else e2)
+                    for mass, horizon in self._masses[card])
+                * self._seat_sign())
+
+    def _sea_term(self, pos: ev.Position | None = None, flags=None) -> float:
+        """Southeast Asia Scoring's potential: its own payout, never Asia's
+        tiers. The masses are SEA-card shaped; the payout reads Asia's
+        forecast through the same cache. Signed like `_region_term`."""
+        pos = self._position if pos is None else pos
+        _e1, _e2, sea1, sea2 = self._e_payout(Region.ASIA, pos, flags)
+        total = sum(mass * (sea1 if horizon == 1 else sea2)
+                    for mass, horizon in self._masses[sch.SEA_SCORING])
+        return total * self._seat_sign()
+
+    def _seat_sign(self) -> int:
+        """The prepared context's side, as the potential's sign: the US
+        reads the US-signed payout, the USSR its negation. Bare contexts
+        (no observation: no masses, no diagnostics) read the US sign."""
+        return -1 if (self._obs is not None and self._obs.side is Side.USSR) else 1
+
+    def _potential_total(self, pos: ev.Position | None = None, flags=None) -> float:
+        """The whole-board scoring potential for the prepared context: every
+        region's mass-weighted expected payout plus Southeast Asia's card.
+        Unsigned total (the E's are US-signed) times the seat sign -- the
+        seat sign appears exactly once.
+
+        THE number the ranking reads for the scoring half; deltas are its
+        before/after."""
+        pos = self._position if pos is None else pos
+        total = 0.0
+        for region, card in self._region_cards.items():
+            masses = self._masses[card]
+            e1, e2, sea1, sea2 = self._e_payout(region, pos, flags)
+            if card == sch.SEA_SCORING:
+                # Its own payout, read off the Asia forecast; never Asia's
+                # tiers.
+                total += sum(mass * (sea1 if horizon == 1 else sea2)
+                             for mass, horizon in masses)
+            else:
+                total += sum(mass * (e1 if horizon == 1 else e2)
+                             for mass, horizon in masses)
+        return total * self._seat_sign()
 
     def _position_for(self, board: Board, pos: ev.Position | None = None) -> ev.Position:
         """A snapshot of `board`, brought up to date first.
@@ -1000,6 +1102,8 @@ class StrategicPlayer:
                  self.__dict__.get('_placement_values'),
                  self.__dict__.get('_unseen_hold_values'),
                  self.__dict__.get('_scoring_flags'), self.__dict__.get('_coup_bans'),
+                 self.__dict__.get('_masses'), self.__dict__.get('_region_cards'),
+                 self.__dict__.get('_e_cache'),
                  {c: dict(v) for c, v in self.board.influence.items()})
         self.prepare(observation)  # `board`, if given, must describe the same position
         self._ops_values = {}
@@ -1011,11 +1115,12 @@ class StrategicPlayer:
             return self.value(self.board, observation.side)
         finally:
             (self._obs, self._urgency, ops_values, vp_price, placements, unseen,
-             flags, bans, influence) = saved
+             flags, bans, masses, region_cards, e_cache, influence) = saved
             self._vp_price = vp_price
             for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
-                                ('_unseen_hold_values', unseen),
-                                ('_scoring_flags', flags), ('_coup_bans', bans)):
+                                ('_unseen_hold_values', unseen), ('_scoring_flags', flags),
+                                ('_coup_bans', bans), ('_masses', masses),
+                                ('_region_cards', region_cards), ('_e_cache', e_cache)):
                 if value is not None:
                     setattr(self, name, value)
             for c, v in influence.items():
@@ -1025,25 +1130,48 @@ class StrategicPlayer:
     def value(self, board: Board, side: Side) -> float:
         """`board`'s whole value to `side`.
 
-        The board comes from the caller, but the *context* does not: scoring
-        urgency and the scoring flags come from whatever observation this
-        player was last prepared for, and from a fresh player they are
-        all-ones urgency with no flags. So the same board scores differently
-        on two players, by design -- a battleground is worth more where more scoring is still to
-        come. Use `evaluate(observation)`, which prepares that context and puts
-        it back, for anything that compares positions, such as a search leaf.
-        Call `value` directly only for a bare, context-free reading of a
-        board, or after `prepare`. `evaluator.board_value` takes the context
-        explicitly and is the honest form of this call."""
+        The board comes from the caller, but the *context* does not: the
+        shaped masses, urgency and the scoring flags come from whatever
+        observation this player was last prepared for, and from a fresh
+        player they are all-ones urgency with no flags. So the same board
+        scores differently on two players, by design -- a battleground is
+        worth more where more scoring is still to come. Use
+        `evaluate(observation)`, which prepares that context and puts it
+        back, for anything that compares positions, such as a search leaf.
+
+        Prepared, the value reads the pre-rebuild shape; the potential-delta
+        candidate is DESCOPED off the ranking path (2026-09-17): the
+        per-delta DP cost (~11-23 ms per expected_payout, recomputed per
+        candidate placement) made full games unfinishable, so the ranking
+        reads this and the potential lives in the `scoring_potential`
+        diagnostic probe until the cost is bought back
+        (docs/notes/codex/2026-09-17-potential-delta-design.md)."""
         pos = self._position_for(board)
         return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
                               self._overrides_map(pos))
 
+    def scoring_potential(self, board: Board, side: Side,
+                          snapshot: ev.Position | None = None) -> float:
+        """The whole-board scoring potential for `board`: every region's
+        mass-weighted expected payout (`_potential_total`), signed for
+        `side`.
+
+        The diagnostic probe for the potential-delta rewrite, NOT the
+        ranking path -- `value`/`delta` read the pre-rebuild shape until
+        the DP cost is bought back. The exactness contract was verified on
+        this shape before the descope: with context fixed,
+        `potential(after) - potential(before)` over a one-country placement
+        equalled the full value difference to 1e-6 on seeds 4000/4001."""
+        pos = self._position_for(board, snapshot)
+        return self._potential_total(pos, self._overrides_map(pos))
+
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score: each future
-        scoring compounded by measured retention (see `_scoring_weight_uncached`;
-        `StrategicWeights.scoring_discount` is superseded on this branch).
+        scoring's REAL occurrence mass from the schedule (see
+        `_scoring_weight_uncached`; `StrategicWeights.scoring_discount` and
+        the retention compounding are superseded here -- the forecast's
+        fitted horizons carry the control drift).
 
         Answered from the prepared vector when `obs` is the observation this
         player was prepared for, which is every call on the hot path."""
@@ -1052,47 +1180,34 @@ class StrategicPlayer:
         return self._scoring_weight_uncached(obs, cid)
 
     def _scoring_weight_uncached(self, obs: Observation, cid: str) -> float:
-        # Experiment experiment/turn-discount-two-state: the turn discount is
-        # the measured retention `r` compounded per scoring, not the scalar
-        # `scoring_discount ** turns`. A scoring one cycle out banks only if
-        # the holder still holds then: r ** j, the audit's two-state model
-        # with P(own now) = 1. Acquisition (P(own now) = 0) is already priced
-        # in the access term via conversion_p; this prices what control
-        # banks. `j` indexes the cycle -- this one or post-reshuffle -- not
-        # the position in the schedule list, so discarding a card never
-        # renumbers the scorings that remain or inflates the Final Scoring
-        # term. The Final Scoring term compounds one step past the last
-        # scheduled cycle. Urgency stays side-agnostic -- retention of
-        # whoever holds -- so the zero-sum accounting is untouched; the gate
-        # decides.
+        # The rebuild's consumer: the schedule's real masses, not the
+        # 0.5/0.5/1.0 assumptions and not the two-state retention
+        # compounding. Occurrence lives in the masses (bucket 1 P(the
+        # opponent holds it), bucket 2 the pile-share cycle-deal walk,
+        # bucket 3 P(dealt after the reshuffle), bucket 5 the measured
+        # final-scoring odds); the CONTROL drift between now and a scoring
+        # lives in the forecast's fitted horizons -- compounding
+        # `retention_p` on top of it would charge the same uncertainty
+        # twice (the rebuild README's explicit warning), so this cycle's
+        # shape is only holder shaping: we pick the moment (scoring_hand)
+        # and they score at theirs (scoring_rival). No residual discount
+        # yet: 1.0 is the documented baseline until a measurement asks
+        # for one. Final scoring rides bucket 5's measured odds times
+        # `scoring_final`, the knob's meaning kept: what the end-of-game
+        # scoring is worth, times the odds the game gets there.
         w = self.weights
-        r = ev.retention_p(self.board.countries[cid].stability)
-        total, scorings = 0., 0
+        total = 0.
         for card in scoring_cards_for(self.board.countries[cid]):
-            held = card in obs.hand
-            rival = p_opponent_holds(obs, card) if w.scoring_rival else 0.
-            for bucket in scoring_buckets(obs, card):
-                # Cycle index and this-cycle share: buckets 1+2 split the
-                # current cycle equally -- each carries half of what the old
-                # turns==0 term priced, so the two sum to it exactly
-                # (halving is exact) -- and bucket 3 is the post-reshuffle
-                # cycle. Bucket 4 is never emitted yet: zero mass until
-                # factor 2 prices it. The holding bonus applies wherever
-                # this cycle scores: we pick the moment. The rival factor
-                # rides this cycle's term only.
-                j = 1 if bucket in (1, 2) else 2
-                mass = 0.5 if bucket in (1, 2) else 1.0
-                scorings = max(scorings, j)
-                total += (mass * r ** j * (w.scoring_hand if held and j == 1 else 1.)
-                          * (1. + w.scoring_rival * rival if j == 1 else 1.))
-        # Every region is scored once more at the end of the last turn, if the
-        # game gets there. Most do not: two thirds end early on the 20 VP
-        # auto-victory. So this is priced at its measured odds
-        # (`public_cards.FINAL_SCORING_ODDS`) rather than discounted like a
-        # scheduled card scoring, which would put it at more than double.
-        # Without the term at all, the Late War priced a region whose card had
-        # just been played as dead ground, in the era that decides the game.
-        total += w.scoring_final * final_scoring_odds(obs) * r ** (scorings + 1)
+            for opp in sch.opportunities(obs, card):
+                mass = opp.occurrence
+                if opp.bucket in (1, 2):
+                    if card in obs.hand:
+                        mass *= w.scoring_hand
+                    elif w.scoring_rival:
+                        mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
+                elif opp.bucket == 5:
+                    mass *= w.scoring_final
+                total += mass
         return total
 
     def importance(self, info) -> float:
@@ -1104,6 +1219,12 @@ class StrategicPlayer:
         worth: the country, its region's score and its region's margin, and
         the access every *other* country loses or gains by it, after minus
         before.
+
+        The potential-delta candidate was descoped off this path
+        (2026-09-17): exact (verified to 1e-6) but the per-delta DP cost
+        (~11-23 ms per expected_payout, recomputed per candidate placement)
+        made full games unfinishable. See `scoring_potential` for the
+        diagnostic probe, and the design note for the buy-back options.
 
         The contract is exactness: with the context fixed, this is
         `value(after) - value(before)` for the one-country change, so that a
@@ -1143,6 +1264,25 @@ class StrategicPlayer:
         s = ev.SIDE_INDEX[obs.side]
         sign = 1 if s == ev.US else -1
         vector = self._urgency_vector()
+        # `country_value` on the *unchanged* board, under the same contract
+        # `_base_regions` already runs under: every caller enters with the
+        # board as synced. `_placement_ops_value` asks for one country at
+        # one, two, three and four points, so this half is computed four
+        # times for one answer.
+        #
+        # `Position.digest` is what makes the contract checkable rather than
+        # merely asserted in a comment -- see the base-digest check below,
+        # which is what six historical stale-cache bugs would have tripped.
+        cache = self._base_country
+        key = (i, s)
+        own_before = None if cache is None else cache.get(key)
+        if own_before is None:
+            own_before = ev.country_value(t, pos, i, s, w, vector)
+            if cache is not None:
+                cache[key] = own_before
+        elif CHECK_SNAPSHOT:
+            assert own_before == ev.country_value(t, pos, i, s, w, vector), \
+                f'base country value for {cid} moved while cached'
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
         # region's starting score is fixed; anyone committing a change
@@ -1163,25 +1303,6 @@ class StrategicPlayer:
         # call here walks the region or builds a per-influence cache key.
         basis = self._margin_basis(region)
         margin_before = sign * basis[0]
-        # `country_value` on the *unchanged* board, under exactly the
-        # contract `_base_regions` and `_margin_basis` already run under:
-        # every caller enters with the board as synced. `_placement_ops_value`
-        # asks for one country at one, two, three and four points, so this
-        # half is computed four times for one answer.
-        #
-        # `Position.digest` is what makes the contract checkable rather than
-        # merely asserted in a comment -- see the base-digest check below,
-        # which is what six historical stale-cache bugs would have tripped.
-        cache = self._base_country
-        key = (i, s)
-        own_before = None if cache is None else cache.get(key)
-        if own_before is None:
-            own_before = ev.country_value(t, pos, i, s, w, vector)
-            if cache is not None:
-                cache[key] = own_before
-        elif CHECK_SNAPSHOT:
-            assert own_before == ev.country_value(t, pos, i, s, w, vector), \
-                f'base country value for {cid} moved while cached'
         # The region's VP is weighted by the region's own scoring urgency,
         # never by `cid`'s -- a Southeast Asian country's includes Southeast
         # Asia Scoring, which does not score Asia's tiers. One rule on every

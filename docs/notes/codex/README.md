@@ -8,7 +8,15 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-17 — Descope gate, and the CI-red pin note](2026-09-17-descope-gate-and-cipins.md) — 2026-09-17
+- [2026-09-17 — Factor-2 consumer gate: the real masses are STRONGER](2026-09-17-factor2-gate-verdict.md) — 2026-09-17
+- [2026-09-17 — Potential-delta rewrite: the design](2026-09-17-potential-delta-design.md) — 2026-09-17
+- [2026-09-16 — Tier expectation: the independence count-DP](2026-09-16-tier-independence-dp.md) — 2026-09-16
+- [2026-09-16 — Control forecast v2: the measured logistic](2026-09-16-control-forecast-v2.md) — 2026-09-16
+- [2026-09-16 — Bucket 3: the post-reshuffle deal walk](2026-09-16-bucket-3-deal-walk.md) — 2026-09-16
 - [2026-09-16 — Perf evaluator gate verdict](2026-09-16-perf-evaluator-gate-verdict.md) — 2026-09-16
+- [2026-09-16 — Factor 1: one-region expected-scoring prototype (Africa)](2026-09-16-factor-1-africa-prototype.md) — 2026-09-16
+- [2026-09-16 — Schedule + other regions](2026-09-16-schedule-and-regions.md) — 2026-09-16
 - [Value-function rebuild — development plan](value-function-rebuild/README.md) — 2026-09-15; next priority: expected VP, scoring horizons, control forecasts, and regional accounting
 - [2026-09-15 — Repeat repository audit](2026-09-15-repeat-repository-audit.md) — historical findings and validation; development priority is the rebuild plan above
 - [2026-09-15 — Italy default opening (swap from iran), plus handoff](2026-09-15-italy-default-opening-and-handoff.md) — 2026-09-15
