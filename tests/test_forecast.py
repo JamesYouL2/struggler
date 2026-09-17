@@ -299,6 +299,35 @@ def test_stochastic_payout_breakdown_adds_up_and_counts_once():
     assert -1.0 <= breakdown.tier <= 6.0  # presence 1 to control 6 VP, Africa's range
 
 
+def test_incremental_tier_e_matches_the_full_dp_per_member():
+    """The per-member-removed DP is the buy-back for the potential's
+    per-delta cost: E[full walk] == E[`tier_e_minus` + one reconvolve] for
+    EVERY member at once, on random triples. The reconvolve measures ~3ms
+    against the full walk's ~23ms at Europe; the sharp equality is what
+    lets the ranking path use it instead of the DP."""
+    import random
+
+    from struggler.bots.strategic.forecast import (_tier_distribution,
+                                                   tier_e_minus, tier_e_from_minus)
+    engine = bare_engine()
+    t = ev.terrain()
+    pos = ev.Position(t).sync(engine.board)
+    region = Region.EUROPE
+    rng = random.Random(4)
+    now = fcst.forecast_controls(t, pos, region, horizon=1)
+    for where in range(len(now.members)):
+        first, second = rng.random(), rng.random()
+        triple = (first, second, 1.0 - first - second)
+        forced = now._replace(probs=tuple(triple if j == where else now.probs[j]
+                                          for j in range(len(now.members))))
+        full = sum(v * p for v, p in _tier_distribution(t, forced, None).items())
+        tier_of, state_minus = tier_e_minus(t, forced, None, where)
+        member = (t.battleground[now.members[where]], forced.probs[where][0],
+                  forced.probs[where][1], forced.probs[where][2])
+        assert tier_e_from_minus(tier_of, state_minus, member) == pytest.approx(
+            full, abs=1e-9), where
+
+
 def test_southeast_asia_payout_matches_the_engine():
     """The one-shot card pays per controlled SEA country (+2 Thailand), US-signed."""
     from conftest import bare_engine

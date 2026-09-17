@@ -303,19 +303,44 @@ def _tier_distribution(t: ev.Terrain, forecast: ControlForecast,
     counted, as `region_vp` counts it) -- both are conditions the snapshot
     names, not outcomes the forecast prices.
     """
+    total_bg, scoring_vp, rows = _tier_rows(t, forecast, overrides)
+    tier_of = _tier_fn(total_bg, scoring_vp)
+    state = _convolve_rows(rows)
+    dist: dict[float, float] = defaultdict(float)
+    for (us, ussr, us_bg, ussr_bg), p in state.items():
+        dist[tier_of(us, us_bg, ussr, ussr_bg)] += p
+    return dist
+
+
+def _tier_rows(t: ev.Terrain, forecast: ControlForecast,
+               overrides: tuple[frozenset[int], frozenset[int]] | None,
+               skip: int | None = None) -> tuple[int, tuple[int, int, int, int], list]:
+    """One region's DP inputs: (total_bg, scoring_vp, member rows), with
+    member `skip` EXCLUDED when named (the per-member-removed DP's
+    building block). total_bg and every battleground flag are terrain and
+    override state -- STATIC within a snapshot: the removed member's
+    own is_bg stays counted in total_bg even though its draw is skipped,
+    exactly as the full walk counts it."""
     promoted, ignored = ev.NO_OVERRIDES if overrides is None else overrides
     total_bg = 0
     rows = []
-    for i, probs in zip(forecast.members, forecast.probs, strict=True):
+    for where, (i, probs) in enumerate(zip(forecast.members, forecast.probs, strict=True)):
         is_bg = t.battleground[i] or i in promoted
         total_bg += is_bg
+        if where == skip:
+            continue  # the excluded member's draw is the caller's to add
         p_us, p_ussr, p_open = probs
         if i in ignored:
             # The snapshot says the Shuttle already dropped it from this
             # region's scoring; every draw reads it uncontrolled.
             p_us, p_ussr, p_open = 0.0, 0.0, 1.0
         rows.append((is_bg, p_us, p_ussr, p_open))
-    scoring_vp = t.scoring_vp[forecast.region]
+    return total_bg, t.scoring_vp[forecast.region], rows
+
+
+def _tier_fn(total_bg: int, scoring_vp: tuple[int, int, int | None]):
+    """The tier-value closure over the count state — one copy of the rule,
+    shared by the full DP and the per-member reconvolve."""
     presence_vp, domination_vp, control_vp = scoring_vp
 
     def tier_of(us: int, us_bg: int, ussr: int, ussr_bg: int) -> float:
@@ -334,7 +359,11 @@ def _tier_distribution(t: ev.Terrain, forecast: ControlForecast,
         if theirs is None:
             return -ev.EUROPE_CONTROL_VP
         return ours - theirs
+    return tier_of
 
+
+def _convolve_rows(rows) -> dict:
+    """The joint count distribution of the rows' independent draws."""
     state = {(0, 0, 0, 0): 1.0}
     for is_bg, p_us, p_ussr, p_open in rows:
         nxt = defaultdict(float)
@@ -347,10 +376,47 @@ def _tier_distribution(t: ev.Terrain, forecast: ControlForecast,
             if p_open:
                 nxt[(us, ussr, us_bg, ussr_bg)] += p * p_open
         state = nxt
-    dist: dict[float, float] = defaultdict(float)
-    for (us, ussr, us_bg, ussr_bg), p in state.items():
-        dist[tier_of(us, us_bg, ussr, ussr_bg)] += p
-    return dist
+    return state
+
+
+def tier_e_minus(t: ev.Terrain, forecast: ControlForecast,
+                 overrides: tuple[frozenset[int], frozenset[int]] | None,
+                 where: int) -> dict | None:
+    """The count-distribution of everything but member `where`, for the
+    incremental reconvolve: the buy-back's base. Its key insight: the
+    members' OTHER features do not change between the delta's before and
+    after (a one-country trial only moves one member's own row i and its
+    neighbours' reach), so this distribution is per-decision constant
+    around a member and cached by the caller. `None` when the forecast is
+    degenerate (the exact snapshot path covers that; no DP is needed)."""
+    if forecast.is_degenerate():
+        return None
+    total_bg, scoring_vp, rows = _tier_rows(t, forecast, overrides, skip=where)
+    tier_of = _tier_fn(total_bg, scoring_vp)
+    state = _convolve_rows(rows)
+    return tier_of, state
+
+
+def tier_e_from_minus(tier_of, state_minus, member: tuple) -> float:
+    """E[signed tier payout] with member's own (`is_bg, p triple`) row added
+    back by a single reconvolve over `state_minus`. The buy-back's charge:
+    one pass over the cached dict instead of the full n-member walk.
+
+    Two layouts meet here and the mismatch is the defect this function
+    shipped with at first: `state_minus`'s keys are (us, ussr, us_bg,
+    ussr_bg) in the convolve's order, while `tier_of` reads (us, us_bg,
+    ussr, ussr_bg) -- the caught-by-the-hand-math swap."""
+    is_bg, p_us, p_ussr, p_open = member
+    bg = 1 if is_bg else 0
+    total = 0.0
+    for (us, ussr, us_bg, ussr_bg), p in state_minus.items():
+        if p_us:
+            total += p * p_us * tier_of(us + 1, us_bg + bg, ussr, ussr_bg)
+        if p_ussr:
+            total += p * p_ussr * tier_of(us, us_bg, ussr + 1, ussr_bg + bg)
+        if p_open:
+            total += p * p_open * tier_of(us, us_bg, ussr, ussr_bg)
+    return total
 
 
 def expected_country_bonus(t: ev.Terrain, forecast: ControlForecast,
