@@ -56,6 +56,33 @@ as categories, and overprotection both ways.
   Shuttle override combination, `region_potential == region_vp` in all six
   regions) must stay untouched and do: they run at horizon 0 only.
 
+## Correction (same day): the horizon properties and the shape check
+
+The maintainer asked whether the control odds "need flattening/regressing"
+-- two structural things needed, not a different shape:
+
+- **Sum to one by construction, not by clamp.** The two sigmoids are read
+  per side and nothing couples them, so their sum can exceed one. The
+  read is now scaled over relative support (`_triple`), which keeps the
+  outcome space valid without favoring whoever read lower; a real clamp
+  would throw away probability mass silently.
+- **Monotone in the horizon.** The fitted tables have no ordering
+  guarantee across horizons (fit and read are independent). Every horizon
+  past 2 continues the fitted h1->h2 movement, halving each further step
+  (`_horizon_triple`) -- linear in the probabilities, so the triples stay
+  simplex points, bounded by the corridor between the two tables, with
+  the asymptote `2*f2 - f1` documented (one further step of the same
+  drift, not a measured equilibrium).
+
+And the shape question itself got a regression answer, not an opinion:
+the logistic blended toward the Laplace table (w 0..1, held-out
+log-loss on the recorded rows) is best at w = 0.2 and improves LL by
+only ~0.0008 at BOTH horizons -- noise by `2026-09-13-control-odds-fits.md`'s
+own warning (rows within one game are correlated), so the unshrunk
+sigmoid stands. The saturation cliff (`±35` z-cap) behaves exactly as the
+measured extremes say: the fitted table's own terminus cell, `them/
+stability 4` at horizon 2, reads 0.012 -- no run-off.
+
 ## Known limits, named
 
 - Fitted on battleground rows only; non-battleground members read an

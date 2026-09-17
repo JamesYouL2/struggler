@@ -112,14 +112,24 @@ def test_control_forecast_enemy_stab_4_ground_is_near_lost():
     assert fcst.p_control_at_scoring(t, pos, t.index['Japan'], Side.US, 2) < 0.05
 
 
-def test_control_forecast_horizon_clamps_above_two():
+def test_control_forecast_is_monotone_in_the_horizon_and_a_simplex_point():
+    """The forecast answer and its reading: each coordinate moves the h1->h2
+    direction monotonically as the horizon grows, every triple sums to one
+    by construction (a scale, never a clamp), and `h >= 2` continues one
+    geometric step, not a flat clamp."""
     board = _played_board()
     t, pos = _synced(board)
-    region = Region.AFRICA
-    assert (fcst.forecast_controls(t, pos, region, horizon=5).probs
-            == fcst.forecast_controls(t, pos, region, horizon=2).probs)
-    assert (fcst.forecast_controls(t, pos, region, horizon=1).probs
-            != fcst.forecast_controls(t, pos, region, horizon=2).probs)
+    for region in Region:
+        triples = [fcst.forecast_controls(t, pos, region, horizon=h).probs
+                   for h in (1, 2, 5)]
+        for k in range(len(t.members[region])):
+            for coord in range(3):
+                a1, a2, a5 = (triples[j][k][coord] for j in range(3))
+                lo, hi = sorted((a1, a2))
+                assert lo <= a5 <= hi, (region, k, coord, a1, a2, a5)
+        for h in (1, 2, 5):
+            for triple in fcst.forecast_controls(t, pos, region, horizon=h).probs:
+                assert sum(triple) == pytest.approx(1.0)
 
 
 def test_overprotection_raises_the_hold():

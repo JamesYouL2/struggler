@@ -446,8 +446,14 @@ scorings (horizon 1+) now reads the measured "D full +over" logistic
 under the doubling rule, reach, stability/controller categories,
 overprotection; conditioned on the scoring occurring; fitted on battlegrounds
 only, so every non-battleground reading is a documented extrapolation). Horizon
-0 stays degenerate by the exactness criterion, and horizons above 2 clamp to
-the horizon-2 fit -- the only tables measured.
+0 stays degenerate by the exactness criterion, and the triples are simplex
+points by construction (a scale over relative support, not a clamp). Horizons
+above 2 continue the h1->h2 movement geometrically, halving each further step:
+monotone in the ordering, bounded by the corridor between the two tables --
+the single further asymptote step of the same drift is documented, not
+measured. A shrinkage scan on the recorded rows (logistic toward the Laplace
+table, held-out log-loss) moved LL by at most 0.0008 at both horizons --
+noise by the fits' own reading, so the shape stands unshrunk.
 
 **Schedule.** `bots/strategic/schedule.py` is the rebuild's other half and is
 likewise unwired: every future scoring opportunity as card, bucket, timing

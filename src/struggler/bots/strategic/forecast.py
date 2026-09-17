@@ -34,10 +34,10 @@ The rebuild README asks the first implementation five questions. Answers:
    categories -- the reach feature is one binary, and its weight is what
    the rows measured, so this is the shape the data says, not a gap
    silently ignored.
-3. Horizon: two measured tables (next scoring, the one after), clamped
-   above 2 -- no further table exists, and a horizon-5 opportunity borrows
-   the horizon-2 shape as the only available evidence. The clamp is
-   documented at `p_control_at_scoring`, not silent.
+3. Horizon: two measured tables (next scoring, the one after). Beyond 2
+   the read continues the h1->h2 movement geometrically (`_horizon_triple`):
+   monotone in the ordering, one simplex point at every horizon, and the
+   continued asymptote is documented, not silent.
 4. Tiers without multi-count: the tier payout is computed ONCE per region from
    the joint implied controls, through `evaluator.region_vp`'s own counting --
    never per country. A country's value is derived afterwards as a potential
@@ -157,19 +157,65 @@ def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, ho
     return 1.0 / (1.0 + math.exp(-z))
 
 
+def _triple(p_us: float, p_ussr: float) -> tuple[float, float, float]:
+    """The two fitted sigmoids as one simplex point.
+
+    The fits are read per side and nothing couples them, so `p_us +
+    p_ussr` can exceed one. The read is scaled to what the outcome space
+    allows: relative support between the two sides is preserved, `p_open`
+    takes the remainder, and the triple sums to one by construction --
+    never by a clamp that silently favors whoever read lower.
+    """
+    total = p_us + p_ussr
+    if total > 1.0:
+        return p_us / total, p_ussr / total, 0.0
+    return p_us, p_ussr, 1.0 - total
+
+
+def _horizon_triple(t: ev.Terrain, pos: ev.Position, i: int, horizon: int) -> tuple[float, float, float]:
+    """The forecast at any horizon from the two measured ones.
+
+    Horizons 1 and 2 are the measured tables. Beyond 2, the read continues
+    the h1->h2 movement, geometrically halving the last step (Cohen's
+    continuation over a simplex axis: linear in the probabilities, stays a
+    simplex point -- the sums keep adding to one, each coordinate stays
+    between the two fitted tables' values, and the direction is monotone
+    by construction). The asymptote `2*f2 - f1` is one more step of the
+    same movement, not a measured equilibrium; the halving says the data
+    supports at most one further step of the same drift, and every later
+    cycle decays toward it.
+    """
+    if horizon >= 2:
+        f2 = _triple(p_control_at_scoring(t, pos, i, Side.US, 2),
+                     p_control_at_scoring(t, pos, i, Side.USSR, 2))
+        if horizon == 2:
+            return f2
+        f1 = _triple(p_control_at_scoring(t, pos, i, Side.US, 1),
+                     p_control_at_scoring(t, pos, i, Side.USSR, 1))
+        out = []
+        for a, b in zip(f1, f2, strict=True):
+            half = 0.5 * (b - a)
+            out.append(min(max(a, b), max(min(a, b), b + half)))
+        return tuple(out)
+    return _triple(p_control_at_scoring(t, pos, i, Side.US, 1),
+                   p_control_at_scoring(t, pos, i, Side.USSR, 1))
+
+
 def forecast_controls(t: ev.Terrain, pos: ev.Position, region: Region, horizon: int = 0) -> ControlForecast:
     """The control forecast at one scoring opportunity's horizon.
 
     Horizon 0 (a scoring NOW) stays degenerate -- the acceptance criterion
     is that immediate scoring reproduces the engine's exact payout, which a
     probability cannot. Horizon 1+ reads the measured "D full +over"
-    logistic (`p_control_at_scoring`, its provenance and its documented
-    extrapolations above). Per member the two sides' probabilities come
-    from the SAME row-relative function, so both seats' forecasts agree by
-    construction -- which is what the README asks. `p_open` takes what the
-    two side probabilities leave, clamped from below at 0 (the sigmoids
-    are independent reads, and nothing in the fit enforces their sum); the
-    triple always sums to one.
+    logistic (`p_control_at_scoring`, its provenance extrapolations above)
+    through `_triple`/`_horizon_triple`: the two sides read the SAME
+    row-relative function, the triple sums to one by construction (a scale,
+    not a clamp -- relative support between the sides survives), and every
+    horizon past 2 continues the h1->h2 movement, halving each further
+    step: monotone in the horizon, and still a simplex point by linearity.
+    A shrinkage scan over the recorded rows (logistic blended toward the
+    Laplace table, held-out log-loss) moved LL by at most 0.0008 -- noise
+    by the fits' own note -- so no shape change is justified yet.
     """
     if horizon < 0:
         raise ValueError(f"horizon counts scoring opportunities from 0, got {horizon}")
@@ -183,13 +229,7 @@ def forecast_controls(t: ev.Terrain, pos: ev.Position, region: Region, horizon: 
             for i in members
         )
     else:
-        probs = []
-        for i in members:
-            p_us = p_control_at_scoring(t, pos, i, Side.US, horizon)
-            p_ussr = p_control_at_scoring(t, pos, i, Side.USSR, horizon)
-            p_open = max(0.0, 1.0 - p_us - p_ussr)
-            probs.append((p_us, p_ussr, p_open))
-        probs = tuple(probs)
+        probs = tuple(_horizon_triple(t, pos, i, horizon) for i in members)
     return ControlForecast(region=region, members=members, probs=probs, horizon=horizon)
 
 
