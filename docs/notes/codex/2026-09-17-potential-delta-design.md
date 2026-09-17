@@ -55,6 +55,34 @@ the base's full DP (cache-hot). Per-delta target ~6-15 ms (own region +
 reached-neighbour regions), then the wall-clock discipline decides
 whether more is needed before the re-wiring lands.
 
+## Viability verdict (2026-09-17, piece 1 landed, wiring paused)
+
+Even at the improved per-delta cost, the re-wiring is NOT viable in pure
+Python, and the arithmetic is the record:
+
+- The delta fan-out is not one call per candidate: `_investment` probes
+  1..4 point counts per candidate, and the half-action-round reply model
+  (reply_model=3) re-prices a break through `_after_reply`/`_coup_reply`,
+  each a further `delta` -- realistically 10-60 `delta` calls per
+  candidate, ~10-20 candidates per ranking, every one paying 6-30 ms of
+  DP-and-reconvolve work.
+- That is ~0.2-1.5 s per action-round ranking, ~40-120 s per GAME on top
+  of the ~21 s baseline the shipped bot already spends -- a 150-seed gate
+  goes from ~50 min to ~15-100 h per arm. No gate survives that.
+- The incremental shave only buys ~2-4x per candidate (the minus DP is
+  itself ~15-23 ms and a candidate's neighbours' reach moves with the
+  trial), so "the incremental DP makes full games finish" is FALSE at
+  the ranking-path fan-out; only a ~1 ms per-region-horizon potential
+  cost is compatible with the gate's wall clock.
+
+So the buy-back's remaining options are (1) the native/fast tier kernel
+(docs/RUST_PORT_PLAN.md -- an exactness-portable kernel would receive
+`tier_e_minus`'s state and `tier_of` as-is), or (2) staying descoped:
+the potential remains `scoring_potential`'s diagnostic, the bot's ranks
+the pre-rebuild shape, and the factor-2 masses' measured 0.543 remains
+the shipped strength. No further wiring lands until the maintainer picks
+-- the descoped tree is the correct resting state for the branch.
+
 ## What does not change
 
 Banked VP accounting, access/progress/guard terms, defcon planner,
