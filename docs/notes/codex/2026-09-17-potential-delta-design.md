@@ -40,6 +40,21 @@ forecast dots are 12-parameter sigmoids (cheap), the DP is the cost; the
 parity suite's pole (test_parity_corpus, 385 records) is the runtime
 thermometer, and the gate's wall clock checks the per-game total.
 
+READINGS after the descope (2026-09-17 evening): the per-member-removed
+DP is piece one (`1f1f8ef`): `forecast.tier_e_minus`/`tier_e_from_minus`.
+Exact to 1e-9 vs the full DP for EVERY member; the single-member
+reconvolve measures ~2.96 ms at Europe (full walk ~23 ms). That fixes
+the per-delta tier-E cost IF the minus state is cached per
+(region, horizon, member) keyed on the OTHER members' features -- but the
+wiring lesson before the slice: reach flips at the trial country's
+neighbours make the others' feature state move WITH the candidate, so a
+plain whole-feature content key never hits across candidates. The shape
+that works: the minus state cached per (region, h, member) with the
+OTHERS' key stable across candidates of one ranking, plus E(before) from
+the base's full DP (cache-hot). Per-delta target ~6-15 ms (own region +
+reached-neighbour regions), then the wall-clock discipline decides
+whether more is needed before the re-wiring lands.
+
 ## What does not change
 
 Banked VP accounting, access/progress/guard terms, defcon planner,
