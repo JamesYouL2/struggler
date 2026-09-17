@@ -233,19 +233,70 @@ def test_reordered_raw_changes_telescope():
     assert other_first + other_second == first + second
 
 
-def test_stochastic_tier_expectation_raises_instead_of_guessing():
-    """Per-country probabilities do not determine domination odds; the tier part
-    refuses a stochastic forecast while the (linear, exact) bonus still computes."""
+def test_stochastic_tier_expectation_is_the_named_independence_dp():
+    """The tier part no longer refuses a stochastic forecast: the exact
+    expectation of the count-keyed tiers under per-country independence.
+    Pinned two ways: degenerate forecasts run the DP and the region_vp
+    snapshot to the SAME number at every override combination, and a
+    hand-computable two-member position matches its closed form."""
     board = _played_board()
     t, pos = _synced(board)
-    forecast = fcst.forecast_controls(t, pos, Region.AFRICA)
-    mixed = forecast._replace(probs=((0.5, 0.5, 0.0), *forecast.probs[1:]))
-    assert fcst.expected_country_bonus(t, mixed) == pytest.approx(
-        fcst.expected_country_bonus(t, forecast))
-    with pytest.raises(NotImplementedError):
-        fcst.expected_tier_payout(t, mixed)
-    with pytest.raises(NotImplementedError):
-        fcst.expected_payout(t, mixed)
+    for region in Region:
+        for formosan, shuttle in itertools.product((False, True), repeat=2):
+            indices = ev.scoring_overrides(t, pos, region,
+                                           formosan_resolution=formosan,
+                                           shuttle_diplomacy=shuttle)
+            for h in (1, 2, 5):
+                forecast = fcst.forecast_controls(t, pos, region, horizon=h)
+                dp = fcst._tier_distribution(t, forecast, indices)
+                assert sum(dp.values()) == pytest.approx(1.0)
+            # The mirroring pin: a fully degenerate forecast through the DP
+            # must equal the region_vp snapshot path, every override
+            # combination -- this is what keeps tier_of from drifting from
+            # region_vp's counting.
+            now = fcst.forecast_controls(t, pos, region)
+            assert now.is_degenerate()
+            through_dp = sum(p * v for v, p in
+                             fcst._tier_distribution(t, now, indices).items())
+            through_vp = fcst.expected_tier_payout(t, now, indices)
+            assert through_dp == pytest.approx(through_vp, abs=1e-9)
+
+
+def test_stochastic_tier_matches_monte_carlo_independence():
+    """The DP is the MC estimator's mean, variance small over 4096 draws."""
+    import random
+
+    board = _played_board()
+    t, pos = _synced(board)
+    region = Region.ASIA
+    forecast = fcst.forecast_controls(t, pos, region, horizon=2)
+    rng = random.Random(9)
+    total = 0.0
+    for _ in range(4096):
+        shadow = ev.Position(t)
+        for i, (p_us, p_ussr, _p_open) in zip(forecast.members, forecast.probs, strict=True):
+            x = rng.random()
+            if x < p_us:
+                shadow.place(i, t.stability[i], 0)
+            elif x < p_us + p_ussr:
+                shadow.place(i, 0, t.stability[i])
+        total += ev.region_vp(t, shadow, region) - fcst.expected_country_bonus(t, forecast)
+    mc = total / 4096
+    dp = fcst.expected_tier_payout(t, forecast)
+    assert dp == pytest.approx(mc, abs=0.08)
+
+
+def test_stochastic_payout_breakdown_adds_up_and_counts_once():
+    """A stochastic region potential is bonus + DP tier, and the tier is
+    computed once (the sum of marginals would double-count; the total must
+    not)."""
+    board = _played_board()
+    t, pos = _synced(board)
+    forecast = fcst.forecast_controls(t, pos, Region.AFRICA, horizon=2)
+    breakdown = fcst.expected_payout(t, forecast)
+    assert breakdown.total == pytest.approx(
+        fcst.expected_country_bonus(t, forecast) + fcst.expected_tier_payout(t, forecast))
+    assert -1.0 <= breakdown.tier <= 6.0  # presence 1 to control 6 VP, Africa's range
 
 
 def test_southeast_asia_payout_matches_the_engine():

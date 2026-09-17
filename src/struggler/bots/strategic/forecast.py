@@ -43,15 +43,20 @@ The rebuild README asks the first implementation five questions. Answers:
    never per country. A country's value is derived afterwards as a potential
    difference (`marginal`), and differences are never summed back into a total.
 5. Correlation: a deterministic forecast is perfectly correlated through the
-   shared board, and the payout is exact. A stochastic forecast needs the
-   JOINT distribution -- per-country probabilities do not determine domination
-   odds -- so `expected_tier_payout` raises instead of guessing: neither the
-   independence approximation nor modal substitution is applied silently (the
-   first misprices domination, the second violates Jensen).
+   shared board, and the payout is exact. A stochastic forecast prices the
+   tiers through the independence DP (`_tier_distribution`) -- the exact
+   expectation of the count-keyed tiers under per-country independence,
+   the NAMED approximation the README contemplates, not a silent guess:
+   pinning it degenerate-exact against `region_vp` at every override
+   combination is what keeps the mirrored counting honest (and it caught
+   the Formosan promotion missing from the bonus on the way in). How far
+   independence is from correlated truth is a measurement, not this
+   module's business.
 """
 from __future__ import annotations
 
 import math
+from collections import defaultdict
 from typing import NamedTuple
 
 from struggler.engine import Region, Side
@@ -258,9 +263,8 @@ def force(forecast: ControlForecast, t: ev.Terrain, i: int, holder: int) -> Cont
 def implied_controls(forecast: ControlForecast) -> tuple[int, ...]:
     """The joint control outcome a degenerate forecast names, member by member.
 
-    Raises `NotImplementedError` for a stochastic forecast: picking the modal
-    outcome would substitute one board for an expectation over many (Jensen),
-    and that is exactly the silent step question 5 forbids.
+    The independence DP (`_tier_distribution`) covers stochastic forecasts;
+    a stochastic forecast arriving here is a caller bug.
     """
     controls = []
     for triple in forecast.probs:
@@ -271,25 +275,106 @@ def implied_controls(forecast: ControlForecast) -> tuple[int, ...]:
         elif triple[2] == 1.0:
             controls.append(ev.NOBODY)
         else:
-            raise NotImplementedError(
-                "stochastic tier expectation needs the joint control distribution, "
-                "which the first forecast does not model (see module docstring, "
-                "question 5); per-country probabilities do not determine domination odds")
+            raise ValueError("implied_controls is the degenerate path; "
+                             "a stochastic forecast belongs to the DP")
     return tuple(controls)
 
 
-def expected_country_bonus(t: ev.Terrain, forecast: ControlForecast) -> float:
+def _tier_distribution(t: ev.Terrain, forecast: ControlForecast,
+                       overrides: tuple[frozenset[int], frozenset[int]] | None) -> dict:
+    """The joint distribution of the four counts the tier payout reads.
+
+    Members are independent draws over (US / USSR / uncontrolled) -- THE
+    independence approximation, named in the rebuild README as a possible
+    first implementation and an assumption, not a rules consequence: a
+    real player pursues a region across several countries with one Ops
+    budget, so the draws are correlated in truth. What it buys: the exact
+    expectation of every count-keyed payout under per-country
+    probabilities, with no per-country tier share to double-count and no
+    modal substitution (Jensen). Tiers key on (countries controlled,
+    battlegrounds controlled) per side; the four-count DP is their exact
+    convolution when independence holds, and `expected_tier_payout`'s
+    tests pin it degenerate-exact against `region_vp` at every override
+    combination, so the mirroring cannot drift from the rules.
+
+    Overrides ride the snapshot, not the outcome: Formosan promotes
+    Taiwan into every draw's battleground status, and Shuttle ignores one
+    USSR-held member in every draw (its total-battleground share stays
+    counted, as `region_vp` counts it) -- both are conditions the snapshot
+    names, not outcomes the forecast prices.
+    """
+    promoted, ignored = ev.NO_OVERRIDES if overrides is None else overrides
+    total_bg = 0
+    rows = []
+    for i, probs in zip(forecast.members, forecast.probs, strict=True):
+        is_bg = t.battleground[i] or i in promoted
+        total_bg += is_bg
+        p_us, p_ussr, p_open = probs
+        if i in ignored:
+            # The snapshot says the Shuttle already dropped it from this
+            # region's scoring; every draw reads it uncontrolled.
+            p_us, p_ussr, p_open = 0.0, 0.0, 1.0
+        rows.append((is_bg, p_us, p_ussr, p_open))
+    scoring_vp = t.scoring_vp[forecast.region]
+    presence_vp, domination_vp, control_vp = scoring_vp
+
+    def tier_of(us: int, us_bg: int, ussr: int, ussr_bg: int) -> float:
+        def val(count: int, bg: int, opp: int, opp_bg: int):
+            if total_bg > 0 and bg == total_bg and count > opp:
+                # Europe's Control tier is an auto-victory, not a number
+                # (control_vp None); every other region's is control_vp.
+                return None if control_vp is None else control_vp
+            if count > opp and bg > opp_bg and count > bg:
+                return domination_vp  # 10.1.1: also >=1 non-battleground
+            return presence_vp if count > 0 else 0.0
+        ours = val(us, us_bg, ussr, ussr_bg)
+        if ours is None:
+            return ev.EUROPE_CONTROL_VP
+        theirs = val(ussr, ussr_bg, us, us_bg)
+        if theirs is None:
+            return -ev.EUROPE_CONTROL_VP
+        return ours - theirs
+
+    state = {(0, 0, 0, 0): 1.0}
+    for is_bg, p_us, p_ussr, p_open in rows:
+        nxt = defaultdict(float)
+        bg = 1 if is_bg else 0
+        for (us, ussr, us_bg, ussr_bg), p in state.items():
+            if p_us:
+                nxt[(us + 1, ussr, us_bg + bg, ussr_bg)] += p * p_us
+            if p_ussr:
+                nxt[(us, ussr + 1, us_bg, ussr_bg + bg)] += p * p_ussr
+            if p_open:
+                nxt[(us, ussr, us_bg, ussr_bg)] += p * p_open
+        state = nxt
+    dist: dict[float, float] = defaultdict(float)
+    for (us, ussr, us_bg, ussr_bg), p in state.items():
+        dist[tier_of(us, us_bg, ussr, ussr_bg)] += p
+    return dist
+
+
+def expected_country_bonus(t: ev.Terrain, forecast: ControlForecast,
+                           overrides: tuple[frozenset[int], frozenset[int]] | None = None) -> float:
     """Expected 10.1.2 country bonuses, US-signed: +1 VP per controlled
     battleground, +1 per controlled country adjacent to the enemy superpower.
 
     Linear in the probabilities, so this is exact under ANY forecast,
     stochastic included -- each country's bonus depends only on its own
-    holder. Africa has no superpower-adjacent members, but the term is general.
+    holder. Africa has no superpower-adjacent members, but the term is
+    general. The overrides ride along exactly as `region_vp` counts them:
+    a Formosan-promoted Taiwan is a battleground in the bonus too, and a
+    Shuttle-ignored member is uncontrolled in it. Without the promotion
+    the DP-vs-region_vp pin disagrees by exactly that +1 -- the mismatch
+    that forced this parameter to exist.
     """
     total = 0.0
+    promoted = frozenset() if overrides is None else overrides[0]
+    ignored = frozenset() if overrides is None else overrides[1]
     battleground, home = t.battleground, t.home
     for i, (p_us, p_ussr, _p_open) in zip(forecast.members, forecast.probs, strict=True):
-        bg = 1.0 if battleground[i] else 0.0
+        if i in ignored:
+            continue  # dropped from this region's scoring entirely
+        bg = 1.0 if (battleground[i] or i in promoted) else 0.0
         total += p_us * (bg + (i in home[ev.USSR])) - p_ussr * (bg + (i in home[ev.US]))
     return total
 
@@ -299,30 +384,36 @@ def expected_tier_payout(t: ev.Terrain, forecast: ControlForecast,
     """Expected presence/domination/control tier payout, US-signed, computed
     ONCE for the region -- never per country.
 
-    Under a degenerate forecast this is exact: the implied joint controls are
-    loaded into a scratch snapshot and `evaluator.region_vp` scores them with
-    its own counting, minus the country-bonus part (which `expected_payout`
-    adds back separately, so the two are never double-counted). Under a
-    stochastic forecast it raises via `implied_controls` -- the joint model is
-    deferred work, not a guess made here.
+    Degenerate forecast: exact -- the implied joint controls are loaded into
+    a scratch snapshot and `evaluator.region_vp` scores them with its own
+    counting, minus the country-bonus part (which `expected_payout` adds
+    back separately, so the two are never double-counted). Stochastic
+    forecast: the independence DP (`_tier_distribution`) -- the exact
+    expectation of the count-keyed tiers under per-country independence,
+    a NAMED approximation, not a silent one (the rebuild README's
+    "hardest modeling choice"); its calibration against correlated truth
+    is a measurement, not this function's business.
     """
-    controls = implied_controls(forecast)
-    shadow = ev.Position(t)
-    for i, holder in zip(forecast.members, controls, strict=True):
-        if holder != ev.NOBODY:
-            stability = t.stability[i]
-            if holder == ev.US:
-                shadow.place(i, stability, 0)
-            else:
-                shadow.place(i, 0, stability)
-    ov = ev.NO_OVERRIDES if overrides is None else overrides
-    return ev.region_vp(t, shadow, forecast.region, *ov) - expected_country_bonus(t, forecast)
+    if forecast.is_degenerate():
+        controls = implied_controls(forecast)
+        shadow = ev.Position(t)
+        for i, holder in zip(forecast.members, controls, strict=True):
+            if holder != ev.NOBODY:
+                stability = t.stability[i]
+                if holder == ev.US:
+                    shadow.place(i, stability, 0)
+                else:
+                    shadow.place(i, 0, stability)
+        ov = ev.NO_OVERRIDES if overrides is None else overrides
+        return ev.region_vp(t, shadow, forecast.region, *ov) - expected_country_bonus(t, forecast, overrides)
+    dist = _tier_distribution(t, forecast, overrides)
+    return sum(payout * p for payout, p in dist.items())
 
 
 def expected_payout(t: ev.Terrain, forecast: ControlForecast,
                     overrides: tuple[frozenset[int], frozenset[int]] | None = None) -> Breakdown:
     """The region's expected scoring payout, US-signed, with bonus and tier apart."""
-    bonus = expected_country_bonus(t, forecast)
+    bonus = expected_country_bonus(t, forecast, overrides)
     tier = expected_tier_payout(t, forecast, overrides)
     return Breakdown(total=bonus + tier, bonus=bonus, tier=tier)
 

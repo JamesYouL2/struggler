@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-16 — Tier expectation: the independence count-DP](2026-09-16-tier-independence-dp.md) — 2026-09-16
 - [2026-09-16 — Control forecast v2: the measured logistic](2026-09-16-control-forecast-v2.md) — 2026-09-16
 - [2026-09-16 — Bucket 3: the post-reshuffle deal walk](2026-09-16-bucket-3-deal-walk.md) — 2026-09-16
 - [2026-09-16 — Perf evaluator gate verdict](2026-09-16-perf-evaluator-gate-verdict.md) — 2026-09-16

@@ -439,8 +439,7 @@ deliverable and is not wired into any ranking: one region's expected scoring
 payout (Africa first) as country bonuses plus a tier term computed once per
 region, with per-country values derived as potential differences. Its
 docstring answers the rebuild README's five questions; `tests/test_forecast.py`
-holds immediate scoring to the engine and the stochastic tier model to a
-`NotImplementedError` until the joint distribution lands. Control at future
+holds immediate scoring to the engine. Control at future
 scorings (horizon 1+) now reads the measured "D full +over" logistic
 (`p_control_at_scoring`, from the September 13 control-odds fits: Ops-to-control
 under the doubling rule, reach, stability/controller categories,
@@ -453,7 +452,13 @@ monotone in the ordering, bounded by the corridor between the two tables --
 the single further asymptote step of the same drift is documented, not
 measured. A shrinkage scan on the recorded rows (logistic toward the Laplace
 table, held-out log-loss) moved LL by at most 0.0008 at both horizons --
-noise by the fits' own reading, so the shape stands unshrunk.
+noise by the fits' own reading, so the shape stands unshrunk. The joint
+distribution is in: a stochastic forecast prices the tiers through the
+independence count-DP (`_tier_distribution`), pinned degenerate-exact against
+`region_vp` at every override combination -- a pin that caught the Formosan
+promotion missing from `expected_country_bonus` on the way in. The DP's
+members are independent draws; how far that is from correlated truth is a
+measurement, not a silent assumption.
 
 **Schedule.** `bots/strategic/schedule.py` is the rebuild's other half and is
 likewise unwired: every future scoring opportunity as card, bucket, timing
