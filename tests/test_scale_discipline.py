@@ -41,13 +41,24 @@ SCALED_NAMES = BOARD | {'one_op', 'per_vp', 'imp', 'gap', 'guard', 'urgency',
                         'outcomes', 'w', 'weights', 'self', 'ev', 'margins',
                         'before', 'holds', 'pool'}
 
-# The two known unscaled adjustments, as (file, source line). Both are
+# The known unscaled adjustments, as (file, source line). Both are
 # deliberate and documented; see docs/notes/claude/, "The China charge is in
 # the wrong units". Matched on source text rather than line number so that
 # editing around them does not break the test.
+# The `total += mass` entries carry the rebuild's occurrence masses (the
+# schedule's P(occurs), the bucket 1/2/3/5 deck walks). A probability is
+# dimensionless -- it multiplies a VP quantity, never an Ops one -- so the
+# product is scale-carrying by construction, not a bare number: the
+# scanner's Ast does not know that `mass` is dimensionless, so these are
+# listed as deliberate (the docstrings where `mass` is defined say why: the
+# masses come out of `schedule` and multiply forecast payouts).
 KNOWN = {
     ('policy.py', 'value -= CHINA_HOLD_RAW'),
     ('policy.py', 'value -= max(0, len(obs.hand)-3)'),
+    ('policy.py', 'total += mass'),
+    ('policy.py', 'total += sum(mass * (e1 if horizon == 1 else e2)'),
+    ('policy.py', 'total += sum(mass * (sea1 if horizon == 1 else sea2)'),
+    ('valuation.py', 'total += mass * fcst.expected_payout(t, forecast, overrides).total'),
 }
 
 

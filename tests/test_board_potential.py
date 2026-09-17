@@ -198,17 +198,17 @@ def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
     """Codex M1, reproduced: US Cameroon 1 on an empty turn-1 board, US +1
     Nigeria. At M1's dating `delta` returned 13.9502222222 against a board
     difference of 8.4435555556; the missing -5.5066666667 was Cameroon's
-    access to an uncontrolled Nigeria. Re-pinned under the retention
-    urgency (board difference 4.132012930555556); the property -- delta
-    equals the board difference exactly -- is what carries, not the
-    number."""
+    access to an uncontrolled Nigeria. Re-pinned twice: under the retention
+    urgency at 4.132012930555556, and under the factor-2 masses at
+    14.05555555555555 (5cf67af); the property -- delta equals the board
+    difference exactly -- is what carries, not the number."""
     engine = _empty_engine()
     engine.board.influence['Cameroon']['US'] = 1
     obs = engine.observe(Side.US)
     bot = _cameroon_then_nigeria()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Nigeria', 1, 0)
-    assert expected == pytest.approx(4.132012930555556, abs=1e-9)
+    assert expected == pytest.approx(14.05555555555555, abs=1e-9)
     assert bot.delta(obs, 'Nigeria', own=1) == pytest.approx(expected, rel=0, abs=1e-9)
 
 
@@ -230,13 +230,14 @@ def _placements_in_order(make_bot, placements, side=Side.US):
 
 @pytest.mark.parametrize('first, second', [('Cameroon', 'Nigeria'), ('Nigeria', 'Cameroon')])
 def test_cameroon_and_nigeria_sum_to_the_same_board_in_either_order(first, second):
-    """Codex M1's table, re-pinned under the retention urgency: both orders
-    sum to the board exactly at 11.569636205555554 (at M1's dating Cameroon
+    """Codex M1's table, re-pinned to the factor-2 masses: both orders sum
+    to the board exactly at 39.355555555555554 (at M1's dating Cameroon
     then Nigeria summed 29.1486222222, Nigeria then Cameroon 23.6419555556,
-    both final boards 23.6419555556). The order-invariance is the property;
-    the level follows the urgency."""
+    both final boards 23.6419555556; under the retention urgency
+    11.569636205555554). The order-invariance is the property; the level
+    follows the urgency."""
     total, board = _placements_in_order(_cameroon_then_nigeria, [(first, 1), (second, 1)])
-    assert board == pytest.approx(11.569636205555554, abs=1e-9)
+    assert board == pytest.approx(39.355555555555554, abs=1e-9)
     assert total == pytest.approx(board, rel=0, abs=1e-9)
 
 
@@ -279,13 +280,12 @@ def test_fidel_is_worth_the_placement_that_makes_the_same_change(make_bot):
 
 
 def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
-    """Variant b, re-pinned under the retention urgency. US +2 Iran on an
+    """Variant b, re-pinned to the factor-2 masses. US +2 Iran on an
     empty turn-1 board, access off: `delta` and the board both read
-    41.10647617222223 (at variant-b dating 52.9822222222, with the Middle
-    East urgency 2.0222). Iran is not in Southeast Asia, so its urgency is
-    the Middle East's (now 1.5689494722222226), and the board weights the
-    Middle East's VP by it too -- that equality is the property, at any
-    level.
+    22.494949494949488 (under the retention urgency 41.10647617222223; at
+    variant-b dating 52.9822222222). Iran is not in Southeast Asia, so
+    its urgency is the Middle East's, and the board weights the Middle
+    East's VP by it too -- that equality is the property, at any level.
 
     And the case that made the old weighting incoherent: at turn 1 Thailand's
     urgency counts Southeast Asia Scoring and Pakistan's does not, yet
@@ -295,7 +295,7 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     bot = _no_access()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
-    assert expected == pytest.approx(41.10647617222223, abs=1e-9)
+    assert expected == pytest.approx(22.494949494949488, abs=1e-9)
     assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
 
     t, urgency = ev.terrain(), bot._urgency
