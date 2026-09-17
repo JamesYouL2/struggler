@@ -59,6 +59,12 @@ KNOWN = {
     ('policy.py', 'total += sum(mass * (e1 if horizon == 1 else e2)'),
     ('policy.py', 'total += sum(mass * (sea1 if horizon == 1 else sea2)'),
     ('valuation.py', 'total += mass * fcst.expected_payout(t, forecast, overrides).total'),
+    # tier_e_from_minus's reconvolve: p (a probability from the forecast's
+    # member triple) times tier_of's signed VP result -- the same
+    # dimensionless-mass-times-VP shape, summed over the count states.
+    ('forecast.py', 'total += p * p_us * tier_of(us + 1, us_bg + bg, ussr, ussr_bg)'),
+    ('forecast.py', 'total += p * p_ussr * tier_of(us, us_bg, ussr + 1, ussr_bg + bg)'),
+    ('forecast.py', 'total += p * p_open * tier_of(us, us_bg, ussr, ussr_bg)'),
 }
 
 
