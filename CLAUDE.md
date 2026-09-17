@@ -16,6 +16,7 @@ commit.
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
 | [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Codex's audit is `docs/notes/codex/`, the Rust plan `docs/RUST_PORT_PLAN.md`.) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
+| [.github/workflows/](.github/workflows/) | Running a gate, a drift check, a weight A/B or the full suite. Each workflow's header says what a hosted runner does that the one local box cannot, and `gate.yml`'s says which readings survive the move (the verdict) and which do not (the clock). Prefer CI; it is why these exist. |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
@@ -32,21 +33,38 @@ the tests.
   pytest`; that is a missing `uv run`, not a broken checkout. `environment.yml`
   (conda) and `pip install -e ".[test]"` still work but are not what this
   repo is developed against.
+- **CI runs the expensive things; read `.github/workflows/` before starting
+  one locally.** Four workflows, each with a header explaining what it is
+  for and what a hosted runner can do that the one local box cannot:
+  `tests.yml` (the full suite, on every push and PR), `gate.yml`
+  (`workflow_dispatch` with a JSON list of `bases`, one job per base -- the
+  local `gate.sh` holds a machine-wide lock, and that lock is a property of
+  having one machine, not of the gate), `drift.yml` (one job per anchor) and
+  `experiments.yml` (one runner per weight arm, from
+  `.github/experiments.json`). Push and dispatch instead of occupying the
+  maintainer's cores for an hour. The exception is anything whose RESULT is a
+  wall-clock number: `gate.yml`'s own header says the verdict survives the
+  move and the timings do not, because a shared 4 vCPU runner's clock means
+  nothing. Verdicts, suites and A/Bs go to CI; quotable timings stay local
+  and alone.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
-  the full suite before committing; it takes about six minutes (6:10 for
-  777 tests on an idle machine, 2026-09-12 evening).
-  `test_parity_corpus.py` is 4:41 of that -- three quarters of the suite --
-  and it grew from 1:26 the same afternoon without anyone touching it: the
-  corpus went from 344 records to 401 because the bot started reaching turn
-  9, and turn-9 positions are the most expensive there are to rank. That
-  cost is a function of how long the bot's games last, so it will move
-  again. ALWAYS RUN THE WHOLE THING.
+  the full suite before committing -- push and let `tests.yml` do it, or run
+  it locally if you are not pushing yet. ALWAYS RUN THE WHOLE THING.
+  Last timed locally at 5:30 for 915 tests on an idle 8-core box
+  (2026-09-17), of which `test_parity_corpus.py` is 3:41 -- two thirds of
+  the suite. It was 4:41 of a 6:10 suite on 2026-09-12 at 401 records, and
+  1:26 the afternoon before that at 344: the corpus grows when the bot's
+  games last longer, because turn-9 positions are the most expensive there
+  are to rank, and the record count moved 344 -> 401 -> 485 without anyone
+  editing a test. Expect it to move again, and expect any CI number to be
+  larger for the runner alone.
   This entry was wrong twice on 2026-09-12. It said three and a half minutes
   from before the tests that make up the difference existed, and was then
   "corrected" to eleven minutes from a run taken while a 128-seed gate held
   all eight cores -- contention recorded as fact, in the file that documents
   `sample_machine` and `contention_verdict` for exactly that reason. Time the
-  suite on an idle machine or do not time it. `test_parity_corpus.py` (a bot rebuilt per
+  suite on an idle machine or do not time it, and never quote a CI clock as
+  the suite's speed. `test_parity_corpus.py` (a bot rebuilt per
   record) and `test_poke_rate.py` (four played games) are the largest
   single files; both earn it -- one is the exactness oracle, the other the
   only behavioural rate the suite measures -- but run a subset while
