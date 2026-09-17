@@ -24,8 +24,9 @@ from struggler.engine.core import SANDBOX_LOG, chernobyl_blocks, defcon_allows_c
 from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic.public_cards import (card_state, final_scoring_odds, p_opponent_holds,
-                                         scoring_buckets, scoring_cards_for)
+from struggler.bots.strategic import schedule as sch
+from struggler.bots.strategic import public_cards as pc
+from struggler.bots.strategic.public_cards import card_state, scoring_cards_for
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
 from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
@@ -1042,8 +1043,10 @@ class StrategicPlayer:
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score: each future
-        scoring compounded by measured retention (see `_scoring_weight_uncached`;
-        `StrategicWeights.scoring_discount` is superseded on this branch).
+        scoring's REAL occurrence mass from the schedule (see
+        `_scoring_weight_uncached`; `StrategicWeights.scoring_discount` and
+        the retention compounding are superseded here -- the forecast's
+        fitted horizons carry the control drift).
 
         Answered from the prepared vector when `obs` is the observation this
         player was prepared for, which is every call on the hot path."""
@@ -1052,47 +1055,34 @@ class StrategicPlayer:
         return self._scoring_weight_uncached(obs, cid)
 
     def _scoring_weight_uncached(self, obs: Observation, cid: str) -> float:
-        # Experiment experiment/turn-discount-two-state: the turn discount is
-        # the measured retention `r` compounded per scoring, not the scalar
-        # `scoring_discount ** turns`. A scoring one cycle out banks only if
-        # the holder still holds then: r ** j, the audit's two-state model
-        # with P(own now) = 1. Acquisition (P(own now) = 0) is already priced
-        # in the access term via conversion_p; this prices what control
-        # banks. `j` indexes the cycle -- this one or post-reshuffle -- not
-        # the position in the schedule list, so discarding a card never
-        # renumbers the scorings that remain or inflates the Final Scoring
-        # term. The Final Scoring term compounds one step past the last
-        # scheduled cycle. Urgency stays side-agnostic -- retention of
-        # whoever holds -- so the zero-sum accounting is untouched; the gate
-        # decides.
+        # The rebuild's consumer: the schedule's real masses, not the
+        # 0.5/0.5/1.0 assumptions and not the two-state retention
+        # compounding. Occurrence lives in the masses (bucket 1 P(the
+        # opponent holds it), bucket 2 the pile-share cycle-deal walk,
+        # bucket 3 P(dealt after the reshuffle), bucket 5 the measured
+        # final-scoring odds); the CONTROL drift between now and a scoring
+        # lives in the forecast's fitted horizons -- compounding
+        # `retention_p` on top of it would charge the same uncertainty
+        # twice (the rebuild README's explicit warning), so this cycle's
+        # shape is only holder shaping: we pick the moment (scoring_hand)
+        # and they score at theirs (scoring_rival). No residual discount
+        # yet: 1.0 is the documented baseline until a measurement asks
+        # for one. Final scoring rides bucket 5's measured odds times
+        # `scoring_final`, the knob's meaning kept: what the end-of-game
+        # scoring is worth, times the odds the game gets there.
         w = self.weights
-        r = ev.retention_p(self.board.countries[cid].stability)
-        total, scorings = 0., 0
+        total = 0.
         for card in scoring_cards_for(self.board.countries[cid]):
-            held = card in obs.hand
-            rival = p_opponent_holds(obs, card) if w.scoring_rival else 0.
-            for bucket in scoring_buckets(obs, card):
-                # Cycle index and this-cycle share: buckets 1+2 split the
-                # current cycle equally -- each carries half of what the old
-                # turns==0 term priced, so the two sum to it exactly
-                # (halving is exact) -- and bucket 3 is the post-reshuffle
-                # cycle. Bucket 4 is never emitted yet: zero mass until
-                # factor 2 prices it. The holding bonus applies wherever
-                # this cycle scores: we pick the moment. The rival factor
-                # rides this cycle's term only.
-                j = 1 if bucket in (1, 2) else 2
-                mass = 0.5 if bucket in (1, 2) else 1.0
-                scorings = max(scorings, j)
-                total += (mass * r ** j * (w.scoring_hand if held and j == 1 else 1.)
-                          * (1. + w.scoring_rival * rival if j == 1 else 1.))
-        # Every region is scored once more at the end of the last turn, if the
-        # game gets there. Most do not: two thirds end early on the 20 VP
-        # auto-victory. So this is priced at its measured odds
-        # (`public_cards.FINAL_SCORING_ODDS`) rather than discounted like a
-        # scheduled card scoring, which would put it at more than double.
-        # Without the term at all, the Late War priced a region whose card had
-        # just been played as dead ground, in the era that decides the game.
-        total += w.scoring_final * final_scoring_odds(obs) * r ** (scorings + 1)
+            for opp in sch.opportunities(obs, card):
+                mass = opp.occurrence
+                if opp.bucket in (1, 2):
+                    if card in obs.hand:
+                        mass *= w.scoring_hand
+                    elif w.scoring_rival:
+                        mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
+                elif opp.bucket == 5:
+                    mass *= w.scoring_final
+                total += mass
         return total
 
     def importance(self, info) -> float:

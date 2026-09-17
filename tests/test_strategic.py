@@ -165,9 +165,17 @@ def test_evaluation_rejects_empty_seed_set():
 
 
 def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
-    """Scored < live == held, for the urgency and for what taking Iran is worth.
-    The holding bonus is flat at 1.0 since the removals bundle: holding the card
-    scores it no sooner than a live deck scores it, so live and held price the same.
+    """Scored < both live states, by the REAL this-cycle masses, for the
+    urgency and for what taking Iran is worth.
+
+    Under the rebuild's consumer the masses are real: a HELD scoring fires
+    this turn with probability 1 (the engine forbids holding it), a live
+    card of unknown holder fires this cycle with probability P(theirs) +
+    P(pile and dealt), and a scored one waits for the recycle. Whether
+    held or live prices higher is then a shape question (scoring_hand vs
+    the rival-shaped real mass), so the test pins the two GAPS to the dead
+    card -- the shaped this-cycle mass and the flat held P=1 -- instead of
+    an ordering the knobs could legally move.
 
     The three deltas are each asked in their own observation's prepared
     context. They used to be asked of an unprepared bot, where the country,
@@ -180,38 +188,49 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     engine.hands['US'] = ['Nasser']
     bot = StrategicPlayer()
     live = engine.observe(Side.US)
+    # A bare engine leaves the pool empty (no real deal behind it), which
+    # makes the unseen state a phantom: give the fixture a real deck split,
+    # the same instrument the drained-pile test uses.
+    live = dataclasses.replace(live, opponent_hand_size=8, draw_pile_size=22)
     dead = dataclasses.replace(live, discard_pile=('Middle_East_Scoring',))
     held = dataclasses.replace(live, hand=live.hand+('Middle_East_Scoring',))
     weights = [bot.scoring_weight(o, 'Iran') for o in (dead, live, held)]
-    assert weights[0] < weights[1] == weights[2]  # scored < live == held: the holding bonus is flat
+    assert weights[0] < min(weights[1], weights[2])  # scored loses to both
     deltas = []
     for o in (dead, live, held):
         bot.prepare(o)
         deltas.append(bot.delta(o, 'Iran', own=3))  # +3 takes control: the region score moves
-    assert deltas[0] < deltas[1] == deltas[2]
+    assert deltas[0] < min(deltas[1], deltas[2])
     # A live Early War region scores this cycle and after the reshuffle; a
     # scored one only after the reshuffle; a Mid War region from turn 4. Every
     # region also has the end of the game to play for, at its measured odds,
     # so a scored region is not worth nothing.
-    from struggler.bots.strategic.public_cards import final_scoring_odds
-    live_iran, dead_iran = (bot.scoring_weight(o, 'Iran') for o in (live, dead))
-    # Branch experiment/turn-discount-two-state: the gap is exactly this
-    # cycle's bankable value -- one-cycle retention, not 1.0. The cycle index
-    # is absolute (this cycle vs post-reshuffle), so the discarded card's
-    # remaining scoring keeps its later-cycle weight and the gap isolates the
-    # extra this-cycle scoring. Iran is stability 2; the gate decides whether
-    # the measured table earns its place.
-    from struggler.bots.strategic.evaluator import retention_p
-    assert live_iran - dead_iran == pytest.approx(retention_p(2))
-    assert dead_iran > final_scoring_odds(dead)
+    from struggler.bots.strategic.public_cards import (final_scoring_odds, cycle_deal_masses,
+                                                      p_opponent_holds, unseen_split)
+    dead_iran, live_iran, held_iran = weights  # weights ran (dead, live, held)
+    # The rebuild's consumer: the gap to a dead card is the REAL this-cycle
+    # mass, holder-shaped -- and for a held card it is exactly the flat
+    # scoring_hand (P=1, no rival factor: we hold it, they cannot).
+    theirs, pile = unseen_split(live)
+    pool = theirs + pile
+    masses = cycle_deal_masses(live)
+    surv = 1.0
+    for m in masses:
+        surv *= 1.0 - m
+    p_opp = p_opponent_holds(live, 'Middle_East_Scoring')
+    this_cycle = (theirs / pool) + (pile / pool) * (1.0 - surv)
+    shaped = this_cycle * (1. + bot.weights.scoring_rival * p_opp)
+    assert live_iran - dead_iran == pytest.approx(shaped)
+    assert held_iran - dead_iran == pytest.approx(bot.weights.scoring_hand)
     turn1 = dataclasses.replace(live, turn=1)
-    # Branch experiment/turn-discount-two-state: South America Scoring is
-    # discarded in this fixture (schedule (3,)), so its one remaining scoring
-    # is a post-reshuffle cycle banking r squared, and Final Scoring one step
-    # past that. Brazil is stability 2, like Iran above.
-    r = retention_p(2)
-    final = bot.weights.scoring_final * final_scoring_odds(turn1)
-    assert bot.scoring_weight(turn1, 'Brazil') == pytest.approx(r ** 2 + final * r ** 3)
+    # South America Scoring has not entered the deck at turn 1 (Mid War
+    # period): its one scoring opportunity is its entry, conditioned on
+    # entry within the horizon -- flat 1.0 in the current schedule -- and
+    # bucket 5 rides its own measured odds. Brazil is stability 2.
+    from struggler.bots.strategic.public_cards import post_reshuffle_deal_masses
+    final = final_scoring_odds(turn1)
+    assert post_reshuffle_deal_masses(turn1)  # sanity: the walk itself is live
+    assert bot.scoring_weight(turn1, 'Brazil') == pytest.approx(1.0 + final)
     assert bot.scoring_weight(dataclasses.replace(live, turn=5), 'Brazil') > 1
     # Southeast Asia Scoring reaches Thailand but not Japan, even with Asia Scoring dead.
     asia_dead = dataclasses.replace(live, turn=5, discard_pile=('Asia_Scoring',))
@@ -228,26 +247,38 @@ def test_rival_tracking_raises_urgency_only_where_they_may_hold_the_scoring():
     P(the opponent holds the scoring card), from public counts alone.
 
     The drained pile is the instrument: one card left to draw and eight in
-    their hand means every unseen card is likely theirs, while a discarded
-    scoring stays at zero however drained the pile is. With the arm off the
-    drain moves nothing -- off means off, bit for bit."""
+    their hand means every unseen card is likely theirs. The arm's own
+    claim is the SHAPING, not the raw mass (bucket 1's mass is the holder
+    probability by deck math now, not a knob): so the arm's off-position
+    still prices the split, and the discard state shows the factor's
+    boundary -- a scoring already in the discard pile carries no
+    this-cycle term, so two discard states with the SAME reshuffle timing
+    price identically however differently their unseen pool is split."""
     engine = Engine(seed=0)
     engine.turn = 2
     engine.board.influence['Iran']['USSR'] = 1
     engine.hands['US'] = ['Nasser']
     live = engine.observe(Side.US)
     drained = dataclasses.replace(live, draw_pile_size=1, opponent_hand_size=8)
+    other = dataclasses.replace(live, draw_pile_size=8, opponent_hand_size=1)
     from struggler.bots.strategic.public_cards import p_opponent_holds
     assert p_opponent_holds(drained, 'Middle_East_Scoring') > 0.8
     assert p_opponent_holds(live, 'Middle_East_Scoring') < 0.2  # control: full pile
+    assert p_opponent_holds(other, 'Middle_East_Scoring') < 0.2
     on = StrategicPlayer()
     assert on.weights.scoring_rival == 1.0  # the arm ships on
     assert on.scoring_weight(drained, 'Iran') > on.scoring_weight(live, 'Iran')
-    dead = dataclasses.replace(drained, discard_pile=('Middle_East_Scoring',))
-    assert on.scoring_weight(dead, 'Iran') == on.scoring_weight(
-        dataclasses.replace(live, discard_pile=('Middle_East_Scoring',)), 'Iran')
     off = StrategicPlayer(dataclasses.replace(StrategicWeights(), scoring_rival=0.))
-    assert off.scoring_weight(drained, 'Iran') == off.scoring_weight(live, 'Iran')
+    # Off still prices the split (bucket 1's mass IS the holder odds now);
+    # what the arm owns is the AMPLIFICATION of it: the on-arm widens the
+    # drained-vs-full gap by more than the raw masses do.
+    drained_on, live_on = on.scoring_weight(drained, 'Iran'), on.scoring_weight(live, 'Iran')
+    drained_off, live_off = off.scoring_weight(drained, 'Iran'), off.scoring_weight(live, 'Iran')
+    assert drained_on - live_on > drained_off - live_off
+    # The factor's boundary: a discarded scoring carries no this-cycle
+    # term to shape, so the arm is bit-for-bit off there.
+    dead_drained = dataclasses.replace(drained, discard_pile=('Middle_East_Scoring',))
+    assert on.scoring_weight(dead_drained, 'Iran') == off.scoring_weight(dead_drained, 'Iran')
 
 
 def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring():
@@ -289,12 +320,12 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
     dead = dataclasses.replace(obs, turn=9, discard_pile=('Middle_East_Scoring',),
                                draw_pile_size=40)
     assert scoring_schedule(dead, 'Middle_East_Scoring') == ()  # no reshuffle in time
-    # Branch experiment/turn-discount-two-state: with no scheduled scorings
-    # the Final Scoring term compounds a single retention step -- the holder
-    # must still hold then to bank it.
-    from struggler.bots.strategic.evaluator import retention_p
-    assert bot.scoring_weight(dead, 'Iran') == pytest.approx(
-        final_scoring_odds(dead) * retention_p(2))
+    # The rebuild's consumer: no scheduled scorings means ONLY bucket 5, at
+    # its measured odds -- the old shape compounded a retention step on top,
+    # which would have charged the holder-uncertainty twice.
+    from struggler.bots.strategic.public_cards import post_reshuffle_deal_masses
+    assert post_reshuffle_deal_masses(dead) == ()  # no recycle walk in time either
+    assert bot.scoring_weight(dead, 'Iran') == pytest.approx(final_scoring_odds(dead))
     # Zeroing the weight restores the old shape, minus the phantom scorings.
     off = StrategicPlayer(StrategicWeights(scoring_final=0.0))
     assert off.scoring_weight(dead, 'Iran') == 0.0

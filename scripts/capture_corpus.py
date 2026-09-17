@@ -162,6 +162,9 @@ def capture(seed: int, turns: tuple[int, ...] = CAPTURE_TURNS,
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--seeds', default='4000-4003')
+    parser.add_argument('--workers', type=int, default=3,
+                        help='seeds in parallel; capped so half the cores stay '
+                             'free on the 8-core box (the standing rule)')
     # The parity corpus samples 1/3/5/7/9 and must keep doing so -- it is the
     # exactness oracle and regenerating it is an explicit, reviewed act. These
     # two exist for *side* captures written elsewhere, e.g. sampling turn 2 to
@@ -179,11 +182,28 @@ def main(argv=None):
     dirty = subprocess.run(['git', 'status', '--porcelain', 'src', 'scripts/capture_corpus.py'],
                            capture_output=True, text=True).stdout.strip()
     generator_sha = hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
-    records = []
-    for seed in parse_seeds(args.seeds):
-        records.extend(capture(seed, tuple(int(t) for t in args.turns.split(',')),
-                               args.stop_turn))
-        print(f'seed {seed}: {len(records)} records so far', file=sys.stderr)
+    seeds = list(parse_seeds(args.seeds))
+    turns = tuple(int(t) for t in args.turns.split(','))
+    # Per-seed records are independent and concatenated in seed order, so a
+    # parallel capture is bit-for-bit the sequential one -- the pool only
+    # removes wall time, never changes WHAT is captured. Workers are capped
+    # at half the machine's cores: the maintainer keeps the other half free.
+    workers = max(1, min(args.workers, len(seeds)))
+    if workers > 1:
+        import functools
+        from multiprocessing import Pool
+        records = []
+        with Pool(workers) as pool:
+            for i, recs in enumerate(pool.imap(
+                    functools.partial(capture, turns=turns, stop_turn=args.stop_turn),
+                    seeds)):
+                records.extend(recs)
+                print(f'seed {seeds[i]}: {len(records)} records so far', file=sys.stderr)
+    else:
+        records = []
+        for seed in seeds:
+            records.extend(capture(seed, turns, args.stop_turn))
+            print(f'seed {seed}: {len(records)} records so far', file=sys.stderr)
     with gzip.open(args.out, 'wt') as f:
         json.dump({'version': 3, 'source_revision': revision, 'dirty_paths': dirty.splitlines(),
                    'generator_sha256': generator_sha, 'python': sys.version, 'records': records}, f, sort_keys=True)
