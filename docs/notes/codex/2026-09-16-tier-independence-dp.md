@@ -51,6 +51,35 @@ computed here.
   on Asia agrees with the DP within 0.08.
 - Forecast tests 18/18, ruff clean; full suite via CI on push.
 
+## Measurement: is the degenerate horizon-0 read the right imminent price?
+
+The maintainer asked whether "horizon == 0 doesn't need to be exactly 1".
+Measured over 40 strategic-vs-strategic games (seeds 7000-7039, script
+`logs/forecast-h0/forecast_calibration.py`), for every region scoring that
+actually fired, comparing at turn start:
+
+```
+region                  n   |errA|  |errB|    errA    errB
+EUROPE                 67   1.925   2.650   -0.343  -1.022
+ASIA                   83   1.831   2.871   -0.072   1.358
+MIDDLE_EAST            81   1.963   2.279   -0.160   0.518
+AFRICA                 39   1.179   1.867   -0.205  -0.197
+CENTRAL_AMERICA        46   2.152   2.685   -0.413  -1.303
+SOUTH_AMERICA          45   2.044   2.702   -0.311  -0.421
+ALL                   361   1.875   2.544   -0.230  -0.001
+```
+
+A = degenerate-now (current board, P=1); B = the fitted h1 forecast with
+the DP tier. A wins ABSOLUTE error in every region (1.88 vs 2.54); B is
+nearly unbiased where A carries a -0.23 systematic under-read -- the
+board moves between turn start and the scoring, and the snap read
+ignores everything that happens first. Verdict: keep `horizon 0`
+exact-degenerate (the acceptance criterion and the better imminent
+price); the imminent-TURN read stays probabilized. The bias is a
+consumer-level question (the old policy's `_scoring_weight_uncached`
+already shapes bucket 1 differently when the card is held), not a
+forecast-level one.
+
 ## Where this leaves the rebuild
 
 Both hard modeling pieces the integration step needed now exist: the
