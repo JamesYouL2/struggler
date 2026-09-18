@@ -15,15 +15,21 @@ name: drift
 on:
   workflow_dispatch:
     inputs:
-      # One job per anchor, so the default is a SPAN and not a list of
-      # everything. v0.2.0 is left out because v0.2.1 landed the same day and
-      # supersedes it, and v0.2.2/v0.2.4 because five points across a week is
-      # already enough to say which week a fall entered -- the finer anchors
-      # exist for a dispatch once a week is named. Adding one costs a runner
-      # for ~35 minutes; adding all nine costs nine.
+      # EVERY tag, one runner each, the maintainer's call (2026-09-17). A
+      # hosted runner is isolated, so nine anchors cost nine runners for
+      # ~35 minutes and no more wall clock than one -- which is the whole
+      # reason this workflow exists. The alternative, a span, saves CI
+      # minutes and buys a coarser answer: with all nine, "which week did it
+      # enter" and "which merge did it enter" are the same run.
+      #
+      # v0.1.0 predates the opening books and plays its own default rather
+      # than the canary's italy/austria; drift_check.sh says so in its log.
+      # Its reading is therefore on a different board from the other eight
+      # and is not commensurable with them -- it is kept because it is the
+      # oldest state believed sound, not because it lines up.
       anchors:
         description: 'JSON list of refs to measure against'
-        default: '["v0.1.0", "v0.2.1", "v0.2.5", "v0.3.0", "v0.3.1"]'
+        default: '["v0.1.0", "v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1"]'
       seeds:
         description: 'Seed range, the same for every anchor so the readings are commensurable'
         default: '6000-6127'
