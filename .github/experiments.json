@@ -120,6 +120,32 @@
       "logs": true,
       "title": "HEAD self-play with game logs: how does the USSR seat lose to DEFCON 1?",
       "context": "Diagnostic, not an A/B. Every drift reading has HEAD as USSR losing to DEFCON 1 in ~19-28% of its games (self-play included) against ~5-6% as US; WBC humans lose 2.7-5.8% per player-game. The logs say which play did it."
+    },
+    {
+      "slug": "hand-v3-main-vs-07d553a",
+      "bot_ref": "70f174c",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "logs": true,
+      "title": "main before the hand-safety fixes (70f174c) vs 07d553a, fresh seeds",
+      "context": "The paired baseline for hand-v3-fix-vs-07d553a: same seeds, same opponent, so collect reports the seed-by-seed difference. Fresh block 30000-31023: the 20000-21023 block every earlier anchor arm shares correlates them by shared luck. logs on, so nuclear losses by seat and card come from these games."
+    },
+    {
+      "slug": "hand-v3-fix-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "logs": true,
+      "compare_to": "hand-v3-main-vs-07d553a",
+      "title": "hand-safety fixes (audit F1-F5 + last-safe-window guard) vs 07d553a, paired against main",
+      "context": "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md step 3. The paired difference is the verdict. USSR nuclear losses should fall (196/1024 at the old HEAD on 20000-21023); Coups per game must not collapse -- a USSR that stops Couping to win is a regression. Cannot separate the guard from F1-F5: that needs an ablation if the reading is positive. Fresh block 30000-31023: the 20000-21023 block every earlier anchor arm shares correlates them by shared luck. logs on, so nuclear losses by seat and card come from these games."
+    },
+    {
+      "slug": "hand-v3-fix-vs-main",
+      "anchor": "70f174c",
+      "seeds": "30000-31023",
+      "logs": true,
+      "title": "hand-safety fixes vs their parent 70f174c, head to head",
+      "context": "The parent reading, beside the anchored pair. A parent-only gate missed the drift that started this, so this is not the verdict on its own. Fresh block 30000-31023: the 20000-21023 block every earlier anchor arm shares correlates them by shared luck. logs on, so nuclear losses by seat and card come from these games."
     }
   ],
   "_retired": {

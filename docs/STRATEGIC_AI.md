@@ -596,7 +596,8 @@ mode the engine would offer (Ops, event, Space Race, UN Intervention),
 firing an opponent card's event on Ops exactly as the engine does. Between
 our rounds a chance node applies `SurvivalPrior`:
 
-- `opponent_lowers_defcon` (flat default 0.75) while DEFCON is above 2;
+- `opponent_lowers_defcon` (flat default 0.15, just above the measured
+  0.098-0.108; it was 0.75 until 2026-09-12) while DEFCON is above 2;
 - `opponent_hand_attack` (flat default 0.10) that an Aldrich Ames,
   Terrorism, Grain Sales, or Missile Envy removes one of our safe cards,
   chosen adversarially so a plan with no spare safe card is charged for it;
@@ -660,8 +661,14 @@ without an event and rolls 1-4 to escape. `discard_risk` prices a mid-play
 discard (Blockade's choice, a trap step) with the current round already
 spent; `event_risk` prices a single event firing now, including the
 opponent-granted coups of CIA Created, Lone Gunman, Grain Sales, Tear Down
-This Wall, and Ortega. A hand with no hazardous card short-circuits to zero
-risk; a search over `max_states` states falls back to a conservative count
+This Wall, and Ortega (`BORROWED_COUPS`). Cuban Missile Crisis stops a coup
+threat only while the side it binds cannot pay to lift it
+(`Engine.cmc_defuse_countries`, the one statement of that rule): the engine
+offers the payment at every atomic boundary, including in the middle of our
+own borrowed-Coup action. The Space Race allowance follows the simulated
+marker, so reaching box 2 first inside the search grants the second attempt
+at once (`attempts_allowed`, proved equal to the engine box by box). A hand
+with no hazardous card short-circuits to zero risk; a search over `max_states` states falls back to a conservative count
 of safe cards versus rounds and is reported in the diagnostic log.
 
 The strategy behind these rules is [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md);
@@ -669,6 +676,36 @@ The strategy behind these rules is [DEFCON_STRATEGY.md](DEFCON_STRATEGY.md);
 (headline), 2401 (Blockade), and 2402 (coup target) regressions from
 `logs/game-check`; all four of the 2400-2403 strategic-vs-strategic games
 that ended in nuclear war now end on VP or final scoring.
+
+### Where the frozen board is not enough
+
+The search freezes the board, so a borrowed-Coup card that is safe only for
+want of a target (`latent_hazards`) is re-planned on the board a play leaves:
+an event that fires is resolved on a public sandbox (`_after_event`: the
+event helper's choices, chance at its middle option, no dice forks), and a
+placement of our Influence into a battleground we are absent from is
+re-planned with that point on the board (`_placement_risk`, priced like a
+Coup target, not ranked ahead of value). Nothing else pays for this: the
+trigger is a borrowed-Coup card in hand at DEFCON 3 or below.
+
+### The last safe disposal window
+
+At DEFCON 3 a card lethal at 2 can still be played safely. When the
+opponent has a **legal** battleground Coup that would lower DEFCON (the
+public board only -- never a read of their hand), `cornered_after_drop`
+re-runs the hand with that drop taken for certain, and a card play or play
+mode after which the hand is then certainly lost is priced as that loss
+(residual 1), provided some option in the same decision is not. It is a
+conservative guard, labelled as one: the 0.15 prior is a population
+average, and in the positions where a Coup is sitting there it is not the
+conditional probability. A play whose hand keeps an exit (a spare card to
+hold, a Space Race attempt, UN Intervention, The China Card) is not
+cornered; a certain win is never priced by it; the headline and anything
+past the turn end are not covered yet. See
+`docs/notes/claude/2026-09-18-hand-planner-plan-v3.md`.
+
+The choice log prints the planner's own `action_risk` for each option,
+never the sort key's middle slot, which is a constant for priced kinds.
 
 ## Limits
 

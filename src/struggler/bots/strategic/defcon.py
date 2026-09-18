@@ -36,6 +36,13 @@ ASK = 'Ask_Not_What_Your_Country_Can_Do_For_You'
 RAISERS = {'How_I_Learned_to_Stop_Worrying': 5, 'Salt_Negotiations': 2,
            'Nuclear_Test_Ban': 2, 'ABM_Treaty': 1}
 REDUCERS = {'Duck_and_Cover', 'We_Will_Bury_You', 'Soviets_Shoot_Down_KAL_007'}
+# Events that hand the opponent a Coup (or Ops they may Coup with): card ->
+# the side that Coups. Lethal at DEFCON 2 only while that side has a
+# battleground to Coup, so their danger is a property of the board, not the
+# card -- the board can create it (F3 of the 2026-09-18 audit).
+BORROWED_COUPS = {'CIA_Created': Side.US, 'Lone_Gunman': Side.USSR,
+                  'Grain_Sales_to_Soviets': Side.US, 'Tear_Down_This_Wall': Side.US,
+                  'Ortega_Elected_in_Nicaragua': Side.USSR}
 # Events that make the US discard a 3+-Ops card (modified value, per FAQ
 # 7.4 -- see DefconPlanner.payable) or take a board hit.
 # The discard never fires an event, so it is also an exit for a hazardous card.
@@ -149,9 +156,30 @@ class DefconPlanner:
     def coup_threat(self, actor, defcon, countries=None, ignore_defcon=False):
         if actor is self.side or defcon > 2:
             return False
-        # CMC makes the coup actor lose instead; Nuclear Subs prevents US drops.
-        if self.obs.turn_effects.get('cuban_missile_crisis') == actor.value:
+        return self.battleground_coup(actor, defcon, countries, ignore_defcon)
+
+    def opponent_can_lower_defcon(self):
+        """Whether the opponent has a legal battleground Coup right now that
+        would lower DEFCON: a fact about the public board, not a forecast.
+        Their unseen hand may lower it other ways; that stays in the prior."""
+        return self.obs.defcon > 2 and self.battleground_coup(self.side.opponent, self.obs.defcon)
+
+    def latent_hazards(self, hand):
+        """Borrowed-Coup cards in `hand` that would be lethal at DEFCON 2 but
+        for want of a target: safe on this board, not on one we move to."""
+        return [c for c in hand if c in BORROWED_COUPS and self.opponent_event(c)
+                and not self.coup_threat(BORROWED_COUPS[c], 2)]
+
+    def battleground_coup(self, actor, defcon, countries=None, ignore_defcon=False):
+        """Whether `actor` can Coup a battleground at `defcon` and lower it."""
+        # CMC makes the coup actor lose instead -- unless the actor can still
+        # pay to lift it, which the engine offers at every atomic boundary,
+        # our own borrowed-Coup action included. Paying removes the actor's
+        # OWN influence and a target needs ours, so it never removes one.
+        if (self.obs.turn_effects.get('cuban_missile_crisis') == actor.value
+                and not self.engine.cmc_defuse_countries(actor)):
             return False
+        # Nuclear Subs: US battleground Coups do not lower DEFCON.
         if actor is Side.US and self.obs.turn_effects.get('nuclear_subs'):
             return False
         old = self.engine.defcon
@@ -179,9 +207,7 @@ class DefconPlanner:
             a = self.engine._regions_dominated(self.side)
             b = self.engine._regions_dominated(self.side.opponent)
             return sum(y+b > x+a for x in range(1, 7) for y in range(1, 7))/36
-        actor = {'CIA_Created': Side.US, 'Lone_Gunman': Side.USSR,
-                 'Grain_Sales_to_Soviets': Side.US, 'Tear_Down_This_Wall': Side.US,
-                 'Ortega_Elected_in_Nicaragua': Side.USSR}.get(cid)
+        actor = BORROWED_COUPS.get(cid)
         if actor:
             countries = None
             if cid == 'Tear_Down_This_Wall':
@@ -215,8 +241,20 @@ class DefconPlanner:
 
     def space_ok(self, cid, pos, attempts):
         return (cid in CARDS and cid != CHINA and not CARDS[cid].scoring and
-                pos < RULES['space_race_max_box'] and attempts < self.engine._space_attempts_allowed(self.side) and
+                pos < RULES['space_race_max_box'] and attempts < self.attempts_allowed(pos) and
                 self.engine._effective_ops(self.side, CARDS[cid]) >= RULES['space_race_boxes'][str(pos+1)]['ops'])
+
+    def attempts_allowed(self, pos):
+        """Space Race attempts this turn with our marker at simulated box
+        `pos`. The root engine only knows the box we are in now; reaching
+        box 2 first in the search grants the second attempt at once (6.4.4),
+        exactly as `Engine.advance_space_race_box` would. The opponent's
+        marker is frozen with the rest of the board."""
+        allowed = self.engine._space_attempts_allowed(self.side)
+        root = self.obs.space_race[self.side.value]
+        if allowed < 2 and root < 2 <= pos and self.obs.space_race[self.side.opponent.value] < 2:
+            return 2
+        return allowed
 
     def modes(self, cid, hand, pos, attempts):
         if cid == '@replacement':
@@ -443,7 +481,7 @@ class DefconPlanner:
                      self.side.value, self.obs.turn, self.obs.action_round, hazards, self.obs.defcon, risk)
         return {'turn_loss_risk': risk,
                 'hazardous_cards': len(hazards),
-                'space_attempts_left': max(0, self.engine._space_attempts_allowed(self.side)-self.obs.space_race_attempts[self.side.value]),
+                'space_attempts_left': max(0, self.attempts_allowed(self.obs.space_race[self.side.value])-self.obs.space_race_attempts[self.side.value]),
                 'china_available': int(self.china), 'rounds_left': self.rounds,
                 'trapped': int(self.trapped),
                 'search_truncated': self.truncated}

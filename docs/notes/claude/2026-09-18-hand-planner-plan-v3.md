@@ -1,0 +1,221 @@
+# The hand planner, v3: after Codex's audit
+
+2026-09-18, evening. Supersedes the order of work in
+[v2](2026-09-18-hand-planner-plan.md), written this morning, after
+[Codex's audit of it](../codex/2026-09-18-hand-planner-audit.md) (PR #3).
+v2's diagnosis stands: the drift is the CIA Created / Lone Gunman trap, and
+nothing owns survival. What changed is **which defects come first** and
+**what the evidence says**. Steps 1 and 2 below are implemented in the same
+commit as this note.
+
+## Is v2 right? Checked finding by finding
+
+Every one of the audit's five findings reproduces on `70f174c`, from its
+own fixtures:
+
+| | claim | reproduced |
+| --- | --- | --- |
+| F1 | a spaceable suicide card is keyed certain defeat | Duck and Cover `(-1, 0, -317.5)` with `action_risk` `(0, 0)` |
+| F2 | CMC is assumed to protect even when its target can pay to lift it | planner risk 0.0; driven through real decisions, the US defuses in West Germany, Coups Cuba, wins |
+| F3 | an event that creates the first Coup target is priced on the old board | Fidel event then CIA Created: planner 0.0, US Coups Cuba, wins |
+| F4 | reaching box 2 in the search does not grant the second attempt | spacing Duck and Cover: 1.0 against the true 1/3 |
+| F5 | the choice log reads the risk from the sort key, whose risk slot is 0 | logged `risk=-0.000`, `action_risk` 0.15 |
+
+Where the audit is right about v2:
+
+- **G2 was wrong as written.** v2 said a DEFCON-3 hold "reads about 0". It
+  reads 0.15, and the bot *accepts* it for Decolonization's board value.
+  The defect is that 0.15 is a population average applied to positions
+  where the opponent has a battleground Coup available. There the
+  conditional chance is far higher. The prior is not zero.
+- **"CIA Created can never be spaced" is false.** Brezhnev Doctrine's
+  Ops bonus makes it spaceable. `test_one_op_cia_is_not_spaceable_without_ops_bonus`
+  already said so. A context-free `lethal_below(card)` would have
+  hard-coded the error.
+- **The adversarial drop imported omniscience.** The US does not know we
+  hold CIA Created. The legitimate form is a *legal-reachability* guard,
+  labelled as worst case, as step 2 below does.
+- **The "cornered" counter was not trustworthy.** F1 inflates "EVERY option
+  is a certain loss" and F5 hides accepted risk, so v2's "35 of 36 were
+  cornered first" reads the symptom through the broken instrument. The
+  game endings are real. The decision that first made them inevitable is
+  not identified by them.
+- **Several targets were imitation, not correctness.** These were the
+  human 3-6% nuclear band, "space like Sankt", and v2's unconditional
+  Blockade reservation. The audit is also right that a draw-cost term
+  cancels between plans that hold the same number of cards.
+- **Scoring regret from the logs is descriptive, not causal.** A different
+  slot changes both players' later play. Forks from the decision with a
+  fixed reply policy are the measurement.
+
+Where I think the audit is wrong, or under-specified:
+
+- **"Finish the VP rebuild" is not step 3. It is a decision that belongs
+  to the maintainer.** The audit sets a checkpoint for this: "if it still
+  needs unresolved kernel/performance work, record that blocker and revisit
+  the dependency". It does. [The viability verdict](../codex/2026-09-17-potential-delta-design.md)
+  puts the potential at 0.2-1.5 s per action-round ranking, 40-120 s per
+  game on a 21 s baseline, and says no further wiring lands until the
+  maintainer picks a native kernel or stays descoped. So the rebuild blocks
+  the allocator only if the answer is "kernel".
+- **F1's full fix ("rank card+mode pairs") is the TurnPlan, not a patch.**
+  The patch that meets the audit's own rule ("certain defeat means every
+  legal continuation loses") is smaller. A card is only as bad as its best
+  legal mode, and the modes come from the engine's own `_play_modes`. That
+  patch is done. The pair ranking belongs to step 5.
+- **F2's "payment that removes the last relevant target" cannot happen.**
+  The CMC payment removes the *payer's* influence, and a Coup target needs
+  *ours*. The code says so where the rule is read. I did not write a test
+  for a state that has no legal path.
+
+## The plan
+
+| | step | status |
+| --- | --- | --- |
+| 1 | Safety contracts: F1-F5 | **done here** |
+| 2 | The last safe disposal window, as a legal-reachability guard | **done here** |
+| 3 | Validation: paired, fixed anchor, fresh seeds | dispatched with this commit |
+| 4 | Instruments on the fixed log: the first decision that closes the last exit | next |
+| 5 | **Maintainer:** kernel or descope for the VP potential | blocks 6's production form |
+| 6 | Joint space / hold allocation | after 5 |
+| 7 | Scoring and event timing by forks | after 6 |
+
+### 1. Safety contracts (done)
+
+- **F1.** `_score_card_play` looks at the card's non-firing modes (Space
+  Race, UN pairing, from the engine's `_play_modes`) before returning the
+  Ops play's LOSS. UN Intervention played alone no longer inherits its
+  partner's LOSS as a flag. It is priced at the game, and the planner says
+  whether the partner is really stranded. Gate:
+  `test_certain_defeat_in_the_key_means_certain_defeat_in_the_planner`. The
+  key's certain flag and the planner's risk now agree option by option.
+  It is listed under bug shape 2, which is now at six instances.
+- **F2.** `Engine.cmc_defuse_countries` is the one statement of the defuse
+  rule. It was written twice in the engine already. `battleground_coup`
+  treats CMC as protection only when it returns nothing.
+- **F3.** `latent_hazards` lists the borrowed-Coup cards that are safe only
+  for lack of a target. When one is in hand at DEFCON 3 or below, a firing
+  event is resolved on a public sandbox and the hand is re-planned there
+  (`_mode_risk`). A placement into a battleground we are absent from is
+  re-planned the same way (`_placement_risk`). Placements are now priced,
+  not ranked, as Coup targets already were. The trigger keeps the cost off
+  every other decision.
+- **F4.** `DefconPlanner.attempts_allowed(pos)` is proved equal to the
+  engine box by box for all sixteen marker pairs.
+- **F5.** `safety_key` records each option's `action_risk`, and the log
+  prints those numbers. A test checks the logged number against
+  `action_risk`.
+
+### 2. The last safe disposal window (done)
+
+`StrategicPlayer.cornered_after_drop`, for card plays and play modes at
+DEFCON 3. The opponent must have a legal battleground Coup that lowers
+DEFCON; this uses the public board and never their hand. The hand is then
+re-planned with that drop taken for certain. A play after which the hand
+is certainly lost is priced at residual 1 (the whole game), provided some
+option in the decision is not. Fixtures:
+
+- CIA Created before Decolonization, with a legal US Coup in Cuba. This is
+  the audit's F5 position.
+- The control: a spare card to hold keeps the exit, and Decolonization
+  still wins on the board.
+- Lone Gunman, the US mirror.
+- No legal drop (Nuclear Subs): the prior stays in charge and the 0.15 is
+  accepted.
+
+**Maintainer ruling, 2026-09-18: the guard should be a probability, not a
+rule.** It now prices a cornered play at residual 1, which is a hard rule.
+The target is `P(opponent drops | a legal DEFCON-lowering Coup exists) x
+P(loss | dropped)`, priced through the existing game value. That value is
+40 VP (`GAME_SWING_VP`, the whole track) times the turn's price of a VP.
+At 40 VP a loss outweighs almost any board gain, so the probability will
+still say "dispose while it is safe" in many or most positions, but as a
+price the rest of the ranking can trade against. The rule stays in place
+until the conditional rate is measured. That is the audit's held-out,
+both-seat, state-conditioned fit on eligible opportunities, and not the
+0.15 population prior. The swap is then one line in `safety_key`:
+residual = that product instead of 1.
+
+Not covered, deliberately: the headline, and the turn end (v2's G1). The
+next turn opens at DEFCON +1 with the USSR moving first. Step 4's
+instrument decides whether G1 is worth building. It should not be built on
+the strength of the old log counts.
+
+### 3. Validation (dispatched)
+
+Three arms in `experiments.yml` on a fresh block, seeds 30000-31023, run
+35359674299. This branch plays `07d553a`, and `main` (`70f174c`) plays
+`07d553a` with `compare_to`, so that pair's reading is paired. The third
+arm plays this branch against its parent head to head. All three have
+`logs` on, so the nuclear losses by seat and card come from the same
+games. What counts:
+
+- **the paired difference** is the verdict;
+- **USSR nuclear losses** (196 of 1024 at HEAD against 07d553a) should fall;
+- **Coups per game** must not collapse. A USSR that stops Couping to win
+  is a regression, not a fix.
+
+No gate verdict is claimed here; the runs report on their own.
+
+### A hot spot found on the way (not caused by this change)
+
+The recaptured corpus reaches a T9 USSR headline at DEFCON 3 with nine
+cards (record 223) that ranks in about 25 s: 68 s under the profiler, the
+same on 70f174c. Almost all of it is the event sandbox's helper player
+re-running the survival search (1.29M `_next` calls) while it plays a
+simulated event's choices. A real game pays this too. It belongs before
+step 6, whose search runs through the same machinery. Profile it before
+porting anything, as the audit says.
+
+### 3. Results (run 35359674299, gate 35363144066)
+
+| arm, 1024 seeds 30000-31023 | score | one-sided 95% |
+| --- | ---: | --- |
+| old main (70f174c) vs 07d553a | 0.477 | [0.460, 0.494] |
+| **this branch vs 07d553a** | **0.520** | **[0.503, 0.537]** |
+| this branch vs 70f174c, head to head | 0.550 | [0.539, 0.561] |
+| paired: this branch minus old main, vs 07d553a | **+0.043** | [+0.032, +0.055] |
+
+- **The drift reproduces on a fresh block, and this branch reverses it.**
+  Old main is measurably behind 07d553a (upper bound 0.494). This branch
+  is measurably ahead (lower bound 0.503), a paired gain of 0.043, which
+  is larger than the 0.033 gap the drift note measured.
+- **The trap is gone, not just smaller.** Against 07d553a the bot lost 169
+  games as the USSR to DEFCON 1 before; it loses 37 now (of 512). As the
+  US it lost 67 and loses 31 now. The opponent's own nuclear losses do not
+  move (155/95 before, 154/104 after), so this is the bot's play, not the
+  board.
+- **Coups did not collapse.** From each arm's first shard (128 games a
+  seat), bot Coups per game went from 12.2 to 12.5 as the US and from 16.0
+  to 17.4 as the USSR; battleground Coups went from 5.8 to 5.9 and from 7.6
+  to 8.5. The rise is plausibly longer games, now that fewer end in
+  nuclear war.
+- **The seat that gained is the USSR:** 0.413 to 0.483 against the same
+  opponent, which is where CIA Created lived.
+- **The gate against 70f174c: ACCEPTED**, 0.520 +/- 0.024 over 75 seeds.
+
+Not separated: F1-F5 against the guard. That needs an ablation arm (guard
+off) if anyone wants to know which one carries it.
+
+### 4-7
+
+4 counts, per game, the first decision after which the hand had no exit.
+It uses the fixed log and the planner's own risk, so it can say whether
+G1 matters. 6 is the audit's step 4 as written: one objective, no double
+allocation of an exit, and holds that are what the card flows leave. 7 is
+the audit's step 5. If 5 comes back "stay descoped", 6 is built in raw
+units and labelled as such. It is the audit's fallback, not a calibrated
+expected-VP optimiser.
+
+## Open questions for the maintainer
+
+1. **The VP potential: native kernel, or stay descoped?** (Step 5. It
+   decides whether step 6 waits.) There is now a third option: per-position
+   linear weights, exact for one-country moves, with a delta at 4 us and an
+   estimated ~8 s a game. See
+   [the note](2026-09-18-the-potential-as-per-position-linear-weights.md).
+2. ~~Rule or probability for the guard?~~ **Answered: a probability,
+   with the loss at -40 VP**. See step 2.
+3. v2's questions on scoring timing and space aggression stand, minus the
+   human-band target. The audit is right that it is not a correctness
+   target.

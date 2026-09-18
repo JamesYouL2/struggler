@@ -23,7 +23,7 @@ was the right structural move and did not stop instance six, because the
 cycle was in the stateful wrapper. **Nothing may be memoised until this
 test exists**, and the planner memoisation is next in the queue.
 
-### 2. A sentinel used as a number (four times)
+### 2. A sentinel used as a number (six times)
 
 `LOSS = -1e6` means "certain defeat", and it has escaped into arithmetic
 through `ops_value`, `_resolve_sandbox`, `hold_value`, and dice averaging
@@ -33,6 +33,17 @@ through `ops_value`, `_resolve_sandbox`, `hold_value`, and dice averaging
 versus a float price -- so the type checker refuses the mean of a hand
 containing defeat. Codex proposed this independently. Clamps are a fourth
 patch on a design that invites the mistake.
+
+The fifth and sixth came after `Certain` existed, and it could not stop
+them, because they are not arithmetic: the flag asserted a *verdict* the
+planner contradicted. `_score_card_play` returned the Ops play's LOSS for
+an opponent card before looking at its Space Race mode, so a spaceable
+Duck and Cover was keyed certain defeat at planner risk 0 (F1 of Codex's
+2026-09-18 audit); and UN Intervention played alone inherited its
+partner's LOSS, though the partner could still be held. Certain defeat
+means every legal continuation loses, which only the planner knows.
+Gated by `test_certain_defeat_in_the_key_means_certain_defeat_in_the_planner`:
+the key's certain flag and the planner's risk agree, option by option.
 
 ### 3. The measurement comparing something against itself (seven times)
 

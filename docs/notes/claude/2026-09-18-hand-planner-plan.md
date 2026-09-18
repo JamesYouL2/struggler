@@ -1,5 +1,11 @@
 # The hand planner, v2: disposal, space, hold, scoring timing
 
+> **Superseded in its order of work by [v3](2026-09-18-hand-planner-plan-v3.md)**,
+> after Codex's audit. G2 below is wrong as written (the drop is priced at
+> 0.15 and accepted, not read as 0), "CIA Created can never be spaced" is
+> false under Brezhnev Doctrine, and the "cornered" counts read through the
+> F1/F5 instrument defects. The diagnosis stands.
+
 2026-09-18. Builds on
 [the 2026-09-11 plan](2026-09-11-the-hand-planner-plan.md), which still
 holds for the constraints, the maintainer's rules on the space and hold

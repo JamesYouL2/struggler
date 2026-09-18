@@ -348,3 +348,186 @@ def test_the_hand_attack_prior_is_not_fitted_to_bot_games():
     report = json.loads(Path('models/opponent-model-v1.json.report.json').read_text())
     measured = report['test']['hand_attack']['rate']
     assert SurvivalPrior().opponent_hand_attack > 10 * measured
+
+
+# -- the 2026-09-18 hand-safety audit (docs/notes/codex/2026-09-18-hand-planner-audit.md) --
+
+
+def ranked_with_risk(e, side=Side.USSR, **prior):
+    prior.setdefault('opponent_hand_attack', 0)
+    bot = StrategicPlayer(survival_prior=SurvivalPrior(**prior))
+    obs = e.observe(side)
+    return bot, obs, [(key, action, bot.action_risk(obs, action)) for key, action in bot.rank_actions(obs)]
+
+
+@pytest.mark.parametrize('spare', ['space', 'un'])
+def test_certain_defeat_in_the_key_means_certain_defeat_in_the_planner(spare):
+    # F1: a card whose Ops play fires a lethal event, but which has a legal
+    # mode that does not fire it, was keyed -1 while the planner said 0.
+    e = setup_hand(['Duck_and_Cover', 'Fidel'] + (['UN_Intervention'] if spare == 'un' else []),
+                   rounds=2, defcon=2, space_used=1 if spare == 'un' else 0)
+    e._push_action_round_play(Side.USSR)
+    _, _, ranked = ranked_with_risk(e)
+    assert {a.payload['card'] for _, a, _ in ranked} >= {'Duck_and_Cover', 'Fidel'}
+    for key, action, (_, risk) in ranked:
+        assert (key[0] < 0) == (risk >= 1), (action.payload, key, risk)
+
+
+def test_a_spaceable_suicide_card_still_ranks_as_defeat_once_the_space_slot_is_used():
+    # The control for F1: without an attempt, Duck and Cover's only plays fire it.
+    e = setup_hand(['Duck_and_Cover', 'Fidel'], rounds=2, defcon=2, space_used=1)
+    e._push_action_round_play(Side.USSR)
+    _, _, ranked = ranked_with_risk(e)
+    key = next(k for k, a, _ in ranked if a.payload['card'] == 'Duck_and_Cover')
+    assert key[0] < 0
+
+
+@pytest.mark.parametrize('side,card,payer,country', [
+    (Side.USSR, 'CIA_Created', Side.US, 'West_Germany'),
+    (Side.USSR, 'CIA_Created', Side.US, 'Turkey'),
+    (Side.US, 'Lone_Gunman', Side.USSR, 'Cuba'),
+])
+@pytest.mark.parametrize('can_pay', [True, False])
+def test_cuban_missile_crisis_protects_only_while_its_target_cannot_cancel_it(side, card, payer, country, can_pay):
+    # F2: the engine offers the CMC side a defuse at every atomic boundary,
+    # our own borrowed-Coup action included; paying 2 lifts the ban.
+    e = setup_hand([card, 'Decolonization' if side is Side.USSR else 'Marshall_Plan'],
+                   side=side, rounds=1, defcon=2, space_used=1)
+    if side is Side.US:
+        e.board.influence['Panama']['US'] = 1  # a battleground for the USSR to Coup
+    e.turn_effects['cuban_missile_crisis'] = payer.value
+    for c in ('Cuba', 'West_Germany', 'Turkey'):
+        e.board.influence[c][payer.value] = 0
+    e.board.influence[country][payer.value] = 2 if can_pay else 1
+    assert planner(e, side).event_risk(card) == (1. if can_pay else 0.)
+    assert e.cmc_defuse_countries(payer) == ([country] if can_pay else [])
+
+
+def test_cancellable_cuban_missile_crisis_does_not_tempt_the_bot_into_cia():
+    # F2 through the real decisions: with one round left, CIA Created must be held.
+    e = setup_hand(['CIA_Created', 'Fidel'], rounds=1, defcon=2, space_used=1)
+    e.turn_effects['cuban_missile_crisis'] = 'US'
+    e.board.influence['West_Germany']['US'] = 4
+    e._push_action_round_play(Side.USSR)
+    assert StrategicPlayer().choose_action(e.observe(Side.USSR), []).payload['card'] == 'Fidel'
+
+
+def test_an_event_that_creates_the_first_coup_target_is_priced_on_the_board_it_leaves():
+    # F3: Fidel's event puts 3 USSR in Cuba, the first battleground the US
+    # can Coup with CIA Created. The frozen board said zero; the play lost.
+    e = setup_hand(['CIA_Created', 'Fidel'], rounds=2, defcon=2, space_used=1)
+    e.board.influence['Cuba']['USSR'] = 0
+    e._push_action_round_play(Side.USSR)
+    e.step(Action(K.ACTION_ROUND_PLAY, {'card': 'Fidel'}))
+    _, _, ranked = ranked_with_risk(e)
+    risks = {a.payload['mode']: r for _, a, (_, r) in ranked}
+    assert risks['event'] == 1 and risks['ops'] == 0
+    assert ranked[0][1].payload['mode'] != 'event'
+    # The reverse order is safe, so this is not a ban on Fidel: with CIA
+    # Created gone, the same event is priced at zero.
+    e = setup_hand(['Fidel', 'Nasser'], rounds=2, defcon=2, space_used=1)
+    e.board.influence['Cuba']['USSR'] = 0
+    e.push_full_card_play(Side.USSR, 'Fidel')
+    _, _, ranked = ranked_with_risk(e)
+    assert {a.payload['mode']: r for _, a, (_, r) in ranked}['event'] == 0
+
+
+def test_a_placement_that_creates_the_first_coup_target_is_priced():
+    # F3 for Ops: placing into an empty battleground is the same new target.
+    e = setup_hand(['CIA_Created', 'Fidel'], rounds=2, defcon=2, space_used=1)
+    e.board.influence['Cuba']['USSR'] = 0
+    e.hands['USSR'].remove('Fidel')  # Fidel is being played for its Ops
+    e._push(Side.USSR, K.PLACE_INFLUENCE,
+            tuple(Action(K.PLACE_INFLUENCE, {'country': c}) for c in ('Cuba', 'Afghanistan')),
+            {'ops_remaining': 1, 'phasing_player': 'USSR'})
+    _, _, ranked = ranked_with_risk(e)
+    risks = {a.payload['country']: r for _, a, (_, r) in ranked}
+    assert risks == {'Cuba': 1, 'Afghanistan': 0}
+    assert ranked[0][1].payload['country'] == 'Afghanistan'
+
+
+@pytest.mark.parametrize('opponent_box,expected', [(0, 1/3), (2, 1.)])
+def test_reaching_box_two_in_the_search_grants_the_second_attempt(opponent_box, expected):
+    # F4: success (4 in 6) reaches box 2 first and allows spacing KAL too;
+    # failure, or an opponent already there, leaves one disposal for two hazards.
+    e = setup_hand(['Duck_and_Cover', 'Soviets_Shoot_Down_KAL_007', 'CIA_Created'], rounds=2, defcon=2)
+    e.space_race['USSR'], e.space_race['US'] = 1, opponent_box
+    assert planner(e, opponent_lowers_defcon=0).risk('Duck_and_Cover', 'space_race') == pytest.approx(expected)
+
+
+@pytest.mark.parametrize('root,opponent', [(r, o) for r in range(4) for o in range(4)])
+def test_the_simulated_attempt_allowance_matches_the_engine(root, opponent):
+    # Derived, so proved equal: advance the engine's marker one box at a
+    # time and ask it, against the planner's answer for that box. The box-2
+    # holder follows from the markers: whoever alone has reached it.
+    e = setup_hand(['Fidel'], rounds=2, defcon=3)
+    e.space_race['USSR'], e.space_race['US'] = root, opponent
+    if (root >= 2) != (opponent >= 2):
+        e.game_effects['space_race_double_attempt_holder'] = 'USSR' if root >= 2 else 'US'
+    p = planner(e)
+    for pos in range(root, 5):
+        assert p.attempts_allowed(pos) == e._space_attempts_allowed(Side.USSR), (pos, e.game_effects)
+        e.advance_space_race_box(Side.USSR)
+
+
+def test_the_choice_log_reports_the_planner_risk_not_the_key(caplog):
+    # F5: the key's middle slot is 0 for every priced kind, and the log read
+    # it. Nuclear Subs leaves the US no DEFCON-lowering Coup, so the guard
+    # is off and the 0.15 prior is genuinely accepted for Decolonization.
+    import logging
+    e = setup_hand(['Duck_and_Cover', 'Decolonization'], rounds=2, defcon=3, space_used=1)
+    e.turn_effects['nuclear_subs'] = True
+    e._push_action_round_play(Side.USSR)
+    bot = StrategicPlayer(survival_prior=SurvivalPrior(opponent_hand_attack=0))
+    obs = e.observe(Side.USSR)
+    with caplog.at_level(logging.INFO, logger='struggler.bots.strategic'):
+        choice = bot.choose_action(obs, [])
+    risk = bot.action_risk(obs, choice)[1]
+    assert choice.payload['card'] == 'Decolonization' and risk == pytest.approx(.15)
+    assert 'accepting turn-loss risk 0.150' in caplog.text
+
+
+# -- the last safe disposal window (step 2 of the 2026-09-18 plan) --------------
+
+
+def closing_window(cards, side=Side.USSR, **kw):
+    e = setup_hand(cards, side=side, rounds=2, defcon=3, space_used=1, **kw)
+    for c, v in [('Italy', 3), ('France', 3), ('West_Germany', 4), ('Egypt', 2)]:
+        e.board.influence[c]['US'] = v
+    e._push_action_round_play(side)
+    return e
+
+
+def test_cia_created_is_played_while_defcon_three_still_makes_it_safe():
+    # The audit's F5 fixture: holding CIA past this round, a legal US Coup
+    # in Cuba drops DEFCON and the held CIA becomes a forced loss.
+    e = closing_window(['CIA_Created', 'Decolonization'])
+    bot, obs, ranked = ranked_with_risk(e)
+    assert ranked[0][1].payload['card'] == 'CIA_Created'
+    assert bot.cornered_after_drop(obs, next(a for _, a, _ in ranked if a.payload['card'] == 'Decolonization'))
+
+
+def test_a_spare_card_to_hold_keeps_the_exit_open():
+    # The control: a third card means CIA Created can be held after the
+    # drop, so Decolonization is not cornered and wins on the board.
+    e = closing_window(['CIA_Created', 'Decolonization', 'Fidel'])
+    bot, obs, ranked = ranked_with_risk(e)
+    assert not any(bot.cornered_after_drop(obs, a) for _, a, _ in ranked)
+    assert ranked[0][1].payload['card'] != 'CIA_Created'
+
+
+def test_lone_gunman_is_the_mirror_for_the_us():
+    e = setup_hand(['Lone_Gunman', 'Marshall_Plan'], side=Side.US, rounds=2, defcon=3, space_used=1)
+    e._push_action_round_play(Side.US)
+    _, _, ranked = ranked_with_risk(e, Side.US)
+    assert ranked[0][1].payload['card'] == 'Lone_Gunman'
+
+
+def test_no_legal_drop_leaves_the_prior_in_charge():
+    # Nuclear Subs: US battleground Coups do not lower DEFCON, so there is no
+    # legal drop to guard against; Duck and Cover's risk stays the prior.
+    e = setup_hand(['Duck_and_Cover', 'Decolonization'], rounds=2, defcon=3, space_used=1)
+    e.turn_effects['nuclear_subs'] = True
+    e._push_action_round_play(Side.USSR)
+    bot, obs, ranked = ranked_with_risk(e)
+    assert not any(bot.cornered_after_drop(obs, a) for _, a, _ in ranked)
