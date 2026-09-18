@@ -94,3 +94,38 @@ contention_verdict() {  # contention_verdict <workers>
       printf "clean (peak load %.2f against %d workers, %d idle foreign python) -- %s", peak, workers, foreign, quotable
   }'
 }
+
+# The drift canary's opening rule: shared by scripts/drift_check.sh (local)
+# and .github/workflows/drift.yml (CI), so the two cannot disagree about
+# which anchors play which books.
+#
+# ASK WHETHER THE ANCHOR KNOWS *THESE* BOOKS, not whether it has books at
+# all. This used to grep for `DEFAULT_OPENINGS` and assume that "every
+# anchor since 3955b3e defaults to exactly these". v0.2.0 has
+# `DEFAULT_OPENINGS` and does NOT have `iran` -- its US books are
+# france/italy/germany -- so it was handed `--openings US=iran` and the
+# benchmark died twenty seconds in with `unknown opening(s) ['US:iran']`,
+# exit 3. The canary reported a crash where it should have reported a
+# reading, and the v0.2.0 anchor has been unmeasurable since the iran book
+# landed: on 2026-09-18 v0.1.0 read level and v0.2.1 read measurably ahead,
+# and the anchor that would have bracketed them was the one that could not
+# run. A presence check standing in for a compatibility question is
+# `Decision.public()` deciding "is this private?" from a key name --
+# docs/notes/claude/bug-shapes.md shape 4.
+opening_args() {  # opening_args <snapshot-dir>: prints the flag, or nothing
+  local books=${DRIFT_OPENINGS-US=italy,USSR=austria} pol="$1/strategic/policy.py"
+  [ -n "$books" ] || return 0
+  [ -f "$pol" ] || { echo "note: anchor has no strategic policy; it plays its own default" >&2; return 0; }
+  # Every `SIDE=book` the caller asked for must appear in the anchor's own
+  # OPENINGS table, on that side's row.
+  local pair side book
+  for pair in ${books//,/ }; do
+    side=${pair%%=*}; book=${pair#*=}
+    if ! grep -A3 "^OPENINGS = {" "$pol" 2>/dev/null \
+         | grep -q "'$side': ([^)]*'$book'"; then
+      echo "note: anchor does not know $side=$book; each side plays its own default" >&2
+      return 0
+    fi
+  done
+  printf -- '--openings %s' "$books"
+}

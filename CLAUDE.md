@@ -39,7 +39,9 @@ the tests.
   `tests.yml` (the full suite, on every push and PR), `gate.yml`
   (`workflow_dispatch` with a JSON list of `bases`, one job per base -- the
   local `gate.sh` holds a machine-wide lock, and that lock is a property of
-  having one machine, not of the gate), `drift.yml` (one job per anchor) and
+  having one machine, not of the gate), `drift.yml` (every anchor as an anchored
+  `experiments.yml` arm, 1024 seeds sharded, with the canary's verdict on
+  the pooled readings) and
   `experiments.yml` (arms from `.github/experiments.json`, cut into
   128-seed shards so an arm can be 1024+ seeds, played against HEAD's
   defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`). Push and dispatch instead of occupying the

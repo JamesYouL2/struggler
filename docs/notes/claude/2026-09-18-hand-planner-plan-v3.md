@@ -167,6 +167,36 @@ simulated event's choices. A real game pays this too. It belongs before
 step 6, whose search runs through the same machinery. Profile it before
 porting anything, as the audit says.
 
+### 3. Results (run 35359674299, gate 35363144066)
+
+| arm, 1024 seeds 30000-31023 | score | one-sided 95% |
+| --- | ---: | --- |
+| old main (70f174c) vs 07d553a | 0.477 | [0.460, 0.494] |
+| **this branch vs 07d553a** | **0.520** | **[0.503, 0.537]** |
+| this branch vs 70f174c, head to head | 0.550 | [0.539, 0.561] |
+| paired: this branch minus old main, vs 07d553a | **+0.043** | [+0.032, +0.055] |
+
+- **The drift reproduces on a fresh block, and this branch reverses it.**
+  Old main is measurably behind 07d553a (upper bound 0.494). This branch
+  is measurably ahead (lower bound 0.503), a paired gain of 0.043, which
+  is larger than the 0.033 gap the drift note measured.
+- **The trap is gone, not just smaller.** Against 07d553a the bot lost 169
+  games as the USSR to DEFCON 1 before; it loses 37 now (of 512). As the
+  US it lost 67 and loses 31 now. The opponent's own nuclear losses do not
+  move (155/95 before, 154/104 after), so this is the bot's play, not the
+  board.
+- **Coups did not collapse.** From each arm's first shard (128 games a
+  seat), bot Coups per game went from 12.2 to 12.5 as the US and from 16.0
+  to 17.4 as the USSR; battleground Coups went from 5.8 to 5.9 and from 7.6
+  to 8.5. The rise is plausibly longer games, now that fewer end in
+  nuclear war.
+- **The seat that gained is the USSR:** 0.413 to 0.483 against the same
+  opponent, which is where CIA Created lived.
+- **The gate against 70f174c: ACCEPTED**, 0.520 +/- 0.024 over 75 seeds.
+
+Not separated: F1-F5 against the guard. That needs an ablation arm (guard
+off) if anyone wants to know which one carries it.
+
 ### 4-7
 
 4 counts, per game, the first decision after which the hand had no exit.
