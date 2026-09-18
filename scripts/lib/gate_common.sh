@@ -81,10 +81,16 @@ contention_verdict() {  # contention_verdict <workers>
   # would mark every run contended and the flag would be ignored within a week.
   # A process that is not running is not contention -- load is what moves the
   # clock.
-  awk -v peak="$PEAK_LOAD" -v foreign="$PEAK_OTHER" -v workers="${1:-8}" 'BEGIN {
+  # "quotable" is about CONTENTION, and on a hosted runner that is only half
+  # the question: four vCPU against a budget calibrated on eight makes the
+  # wall time clean AND incomparable. Saying "timings are quotable" there
+  # invites exactly the comparison that cannot be made.
+  local quotable="timings are quotable"
+  [ -n "${GITHUB_ACTIONS:-}${CI:-}" ] && quotable="no contention, but a hosted runner's wall time is not comparable with the local budget"
+  awk -v peak="$PEAK_LOAD" -v foreign="$PEAK_OTHER" -v workers="${1:-8}" -v quotable="$quotable" 'BEGIN {
     if (peak > workers + 2)
       printf "CONTENDED (peak load %.2f against %d workers, %d foreign python) -- wall time and mean_game_seconds are NOT quotable from this run", peak, workers, foreign
     else
-      printf "clean (peak load %.2f against %d workers, %d idle foreign python) -- timings are quotable", peak, workers, foreign
+      printf "clean (peak load %.2f against %d workers, %d idle foreign python) -- %s", peak, workers, foreign, quotable
   }'
 }

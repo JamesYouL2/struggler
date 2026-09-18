@@ -367,12 +367,23 @@ STATUS=0
 $PY -m struggler.bots.benchmark --accept "$OUT/full-vs-base.json" "$OUT/full-vs-held.json" || STATUS=$?
 TOOK=$(elapsed)
 SECONDS_TAKEN=$(( $(date +%s) - GATE_STARTED ))
-echo "took $TOOK (budget: under 60m; $( [ "$SECONDS_TAKEN" -lt 3600 ] && echo ok || echo OVER ))"
+# THE BUDGET IS A LOCAL BUDGET. It was calibrated on the maintainer's eight
+# cores; a hosted runner has four, so comparing a runner's wall time against
+# it prints OVER for the hardware and nothing else. gate.yml's header has
+# said so since the workflow was written -- but the header is not what
+# anyone reads at 01:00, the log is, and the log said OVER and then asked
+# whether something else was using the cores. On 2026-09-18 that sent a
+# reader hunting a stall that did not exist. Say it where it is read.
+if [ -n "${GITHUB_ACTIONS:-}${CI:-}" ]; then
+  echo "took $TOOK (budget: N/A on a hosted runner -- 4 vCPU against a budget set on 8 cores)"
+else
+  echo "took $TOOK (budget: under 60m; $( [ "$SECONDS_TAKEN" -lt 3600 ] && echo ok || echo OVER ))"
+fi
 sample_machine
 echo "  machine at start: $MACHINE_AT_START"
 echo "  machine at end:   $(machine)"
 echo "  contention:       $(contention_verdict "$WORKERS")"
-if [ "$SECONDS_TAKEN" -ge 3600 ]; then
+if [ "$SECONDS_TAKEN" -ge 3600 ] && [ -z "${GITHUB_ACTIONS:-}${CI:-}" ]; then
   # Not a failure -- the verdict is about the bot, not the clock -- but the
   # maintainer wants to know, and a gate that drifts past an hour stops
   # being run.

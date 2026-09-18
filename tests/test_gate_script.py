@@ -240,3 +240,46 @@ def test_the_advisory_step_cannot_end_the_gate():
     assert 'now=${now:-0}' not in body, (
         'defaulting a missing count to 0 reports a clean bill of health that '
         'nobody measured')
+
+
+def test_the_time_budget_is_not_applied_to_a_hosted_runner():
+    """The 60-minute budget was set on the maintainer's eight cores. A runner
+    has four, so comparing a runner's wall time against it prints OVER for
+    the hardware and nothing else.
+
+    gate.yml's header has said this since the workflow was written -- "the
+    script's 'budget: under 60m' line will say OVER simply because 4 vCPU is
+    half the cores it was calibrated on" -- but a header is not what anyone
+    reads when a run finishes. The log is. On 2026-09-18 the log said
+    `took 69m58s (budget: under 60m; OVER)` and then `WARN ... Was anything
+    else using the cores?`, and a reader went looking for a stall that was
+    not there. Shape 7 with the contention removed: the clock was clean and
+    the COMPARISON was still invalid.
+    """
+    script = (ROOT / 'scripts' / 'gate.sh').read_text()
+    budget = [ln for ln in script.splitlines() if 'budget:' in ln]
+    assert budget, 'the budget line is gone; this test is guarding nothing'
+    assert any('N/A on a hosted runner' in ln for ln in budget), \
+        'no runner-aware branch: a 4 vCPU run will be judged against an 8-core budget'
+    assert any('GITHUB_ACTIONS' in ln for ln in script.splitlines()
+               if 'SECONDS_TAKEN' in ln and '3600' in ln), \
+        'the over-the-hour WARN still fires on a runner, where it misdirects'
+
+
+def test_the_contention_verdict_does_not_call_a_runners_clock_quotable():
+    """`contention_verdict` answers "was the clock shared?". On a hosted
+    runner that is only half the question: four vCPU against a budget set on
+    eight is uncontended AND incomparable, and "timings are quotable" invites
+    exactly the comparison that cannot be made."""
+    common = ROOT / 'scripts' / 'lib' / 'gate_common.sh'
+    probe = (f'. {common}; PEAK_LOAD=5.60; PEAK_OTHER=3; '
+             'export PEAK_LOAD PEAK_OTHER; contention_verdict 4')
+    local = subprocess.run(['bash', '-c', f'unset GITHUB_ACTIONS CI; {probe}'],
+                           capture_output=True, text=True)
+    ci = subprocess.run(['bash', '-c', probe], capture_output=True, text=True,
+                        env={'PATH': '/usr/bin:/bin', 'GITHUB_ACTIONS': 'true'})
+    assert 'timings are quotable' in local.stdout, local.stdout
+    assert 'clean' in ci.stdout, ci.stdout
+    assert 'timings are quotable' not in ci.stdout, \
+        f'a runner was told its wall time is quotable: {ci.stdout}'
+    assert 'not comparable' in ci.stdout, ci.stdout
