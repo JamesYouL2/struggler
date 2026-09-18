@@ -142,6 +142,16 @@ nuclear losses by seat and card come from the same games. What counts:
 
 No gate verdict is claimed here; the runs report on their own.
 
+### A hot spot found on the way (not caused by this change)
+
+The recaptured corpus reaches a T9 USSR headline at DEFCON 3 with nine
+cards (record 223) that ranks in about 25 s: 68 s under the profiler, the
+same on 70f174c. Almost all of it is the event sandbox's helper player
+re-running the survival search (1.29M `_next` calls) while it plays a
+simulated event's choices. A real game pays this too. It belongs before
+step 6, whose search runs through the same machinery. Profile it before
+porting anything, as the audit says.
+
 ### 4-7
 
 4 counts, per game, the first decision after which the hand had no exit.
