@@ -75,11 +75,35 @@ ships; F1 alone (Yuri never paying its VP in ordinary play, including the
 
 ## Clock
 
-`took 69m58s`, against 50m17s and 53m11s for the two earlier CI gates. Do
-not read that as "the fixes made games longer": those runs had a different
-base AND a different candidate, so the comparison is not controlled. The
-corpus growing 385 -> 485 records on the same recapture is suggestive of
-longer games and is the thing to measure if anyone wants the answer.
+`took 69m58s`, against 50m17s and 53m11s for the two earlier CI gates. That
+comparison is NOT controlled -- those runs had a different base and a
+different candidate -- so it is not the evidence for anything.
+
+The corpus is, and it says the fixes made games markedly longer. Both
+captures are self-play on seeds 4000-4003 and differ only in these commits,
+and the capture samples turns 1/3/5/7/9, so the deepest sampled turn per
+seed is a free readout of how far the game got:
+
+| seed | deepest turn, d541db2 | deepest turn, HEAD |
+| --- | ---: | ---: |
+| 4000 | 7 | 9 |
+| 4001 | **3** | **9** |
+| 4002 | 5 | 5 |
+| 4003 | 9 | 9 |
+
+Records per turn went 105/117/94/60/**9** to 110/111/114/79/**71**: turn-9
+positions, the most expensive there are to rank, multiplied by eight. That
+is the whole of the corpus growing 385 -> 485, the whole of
+`test_parity_corpus.py` going 1:24 -> 3:41, and the likeliest explanation
+of the gate's extra twenty minutes.
+
+Seed 4001 is the one to look at: it was ending before turn 5 and now
+reaches turn 9. An ending that early in self-play is a DEFCON-1 loss or an
+early auto-victory, so something in F1-F4 stopped a catastrophe on that
+seed. Which one is not established here -- F4 changes what Coups the reply
+model believes are available near DEFCON 2, and F1 changes what a US Coup
+costs while Yuri is live, so either could do it. A capture with one fix
+reverted would say; nothing downstream currently depends on the answer.
 
 The run also printed `budget: under 60m; OVER` and a WARN asking whether
 anything else was using the cores, while the contention check said the
