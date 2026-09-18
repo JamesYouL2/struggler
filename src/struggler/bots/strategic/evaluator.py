@@ -44,7 +44,9 @@ from typing import NamedTuple
 
 from struggler.engine import Region, Side, Subregion
 from struggler.engine.board import Board
-from struggler.bots.strategic.stakes import EUROPE_CONTROL_VP
+import math
+
+from struggler.bots.strategic.stakes import AUTO_VICTORY_VP, EUROPE_CONTROL_VP
 from struggler.engine.rules import RULES
 
 US, USSR = 0, 1
@@ -345,6 +347,25 @@ def importance(t: Terrain, w, urgency, i: int, s: int | None = None) -> float:
 
 
 FITTED_WEIGHTS_PATH = Path(__file__).resolve().parents[2] / 'data' / 'fitted_country_weights.json'
+
+
+def europe_curve_vp(us_value, ussr_value, k: float) -> float:
+    """Europe, US-signed, as `20 * tanh(x / k)`: `x` the net VP Europe would
+    score now, Control the automatic victory at exactly +/-20
+    (`AUTO_VICTORY_VP`, the maintainer's "+20, auto win"). `value_for`'s
+    None is Control. `k` (VP) is fitted to the exact potential by
+    scripts/fit_europe_curve.py: small k saturates early, so domination
+    already reads most of the way to the win.
+
+    The tiers jump from domination (7 + bonuses) to Control (40) with
+    nothing between. That is the one region a fixed country weight could
+    not describe (held-out R^2 0.63, docs/notes/claude/
+    2026-09-18-fitted-country-weights.md)."""
+    if us_value is None:
+        return AUTO_VICTORY_VP
+    if ussr_value is None:
+        return -AUTO_VICTORY_VP
+    return AUTO_VICTORY_VP * math.tanh((us_value - ussr_value) / k)
 
 
 @functools.lru_cache(maxsize=None)
@@ -742,7 +763,8 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
               ignored: frozenset[int] = frozenset(),
-              europe_control_vp: float = EUROPE_CONTROL_VP) -> float:
+              europe_control_vp: float = EUROPE_CONTROL_VP,
+              europe_curve: float = 0.0) -> float:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
@@ -751,6 +773,9 @@ def region_vp(t: Terrain, pos: Position, region: Region,
     is an immediate win, not a card outcome -- so it stands in as
     `europe_control_vp`, the game's 40 VP swing unless a caller prices it
     otherwise (`StrategicWeights.europe_control_vp`, for experiments).
+
+    `europe_curve` > 0 prices Europe as one continuous curve instead
+    (`europe_curve_vp`): the tiers' step to Control becomes a slope.
     """
     presence_vp, domination_vp, control_vp = t.scoring_vp[region]
     control, battleground, home = pos.control, t.battleground, t.home
@@ -781,6 +806,8 @@ def region_vp(t: Terrain, pos: Position, region: Region,
             return presence_vp + bonus
         return bonus
 
+    if europe_curve and region is Region.EUROPE:
+        return europe_curve_vp(value_for(US), value_for(USSR), europe_curve)
     us_value = value_for(US)
     if us_value is None:
         return europe_control_vp
@@ -934,6 +961,6 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     margin_basis_fn = margin_basis
     return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
-                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp))
+                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp, w.europe_curve))
                                 for region in Region))
             + sum(sign * margin_basis_fn(t, pos, region, w, urgency)[0] for region in Region))

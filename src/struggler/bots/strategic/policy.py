@@ -358,6 +358,11 @@ class StrategicWeights:
     # a weight only so experiments can price it otherwise. The fitted
     # weights were fitted at 40 and do not read this.
     europe_control_vp: float = 40.0
+    # Europe as one continuous curve, `20 * tanh(net VP / k)` with Control
+    # at the +20 of an automatic victory, in place of the tiers' step
+    # (evaluator.europe_curve_vp). k in VP, fitted by
+    # scripts/fit_europe_curve.py; 0 (off) keeps the tiers.
+    europe_curve: float = 0.0
     progress: float = 2.8
     # A flat reserve per spare point past control, up to two. Removing it lost
     # the gate outright (0.328 against the previous commit, one nuclear loss),
@@ -1223,7 +1228,7 @@ class StrategicPlayer:
         `evaluator.region_vp`)."""
         pos = self._position_for(board, snapshot)
         net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos),
-                           self.weights.europe_control_vp)
+                           self.weights.europe_control_vp, self.weights.europe_curve)
         return net if side is Side.US else -net
 
     def region_margin(self, board: Board, region: Region, side: Side,
@@ -1503,7 +1508,7 @@ class StrategicPlayer:
         # trial change below can move, so they are derived on both sides of it.
         overrides = self._overrides_for(region, pos)
         if net_before is None:
-            net_before = ev.region_vp(t, pos, region, *overrides, w.europe_control_vp)
+            net_before = ev.region_vp(t, pos, region, *overrides, w.europe_control_vp, w.europe_curve)
             if base is not None:
                 base[region] = net_before
         region_before = sign * net_before
@@ -1535,7 +1540,7 @@ class StrategicPlayer:
             region_after = (region_before if pos.control[i] == controller
                             else sign * ev.region_vp(
                                 t, pos, region, *self._overrides_for(region, pos),
-                                w.europe_control_vp))
+                                w.europe_control_vp, w.europe_curve))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
             change = (ev.country_value(t, pos, i, s, w, vector)
@@ -2255,7 +2260,7 @@ class StrategicPlayer:
                     if c in affected else v for c, v in countries.items())
         after += ev.region_potential(t, w, vector, (
             (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags),
-                                    w.europe_control_vp)
+                                    w.europe_control_vp, w.europe_curve)
              if r in changed_regions else v) for r, v in regions.items()))
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())

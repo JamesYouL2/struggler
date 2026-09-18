@@ -177,6 +177,12 @@
       "source": "derived",
       "determination": "bounded",
       "note": "Europe Control in the region term, in VP. It ends the game, so it is the whole track: stakes.GAME_SWING_VP (40), the maintainer's ruling 2026-09-18 ('cost control at a fixed number, 40 VP'). A weight only so experiments can price it at 20 or 60; the fitted country weights were fitted at 40 and do not read it."
+    },
+    "europe_curve": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "Europe as 20*tanh(net VP now / k), Control at exactly the +20 of an automatic victory (maintainer, 2026-09-18). 0 keeps the tiers. k cannot be fitted to the exact potential from self-play: scripts/fit_europe_curve.py over 2130 positions (seeds 40000-40007) found zero Europe Control rows and k at the grid edge (a straight line), R^2 0.732 against the tier step's 0.736. So k is a judgment; the arm europe-curve-k10 tries 10 (domination with two bonus battlegrounds reads 14.3 of 20)."
     }
   },
   "SurvivalPrior": {
@@ -295,13 +301,13 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 16,
+      "guess": 17,
       "gate": 8,
       "derived": 6,
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 14,
       "known-wrong": 2,
       "bounded": 12,
       "inert": 4,

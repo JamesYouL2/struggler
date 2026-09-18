@@ -87,5 +87,34 @@ paired with the first (`compare_to`):
   carry tier changes, so that term may count them twice;
 - `fitted-eu20` and `fitted-eu60`: Europe Control at 20 and 60 VP.
 
-Results are added here when the run reports. The winner's default is
+Plus one Europe-only arm, dispatched separately:
+
+- `europe-curve-k10`: Europe as `20 * tanh(net VP / 10)`, with Control at
+  exactly the +20 of an automatic victory (maintainer). The fit is off, so
+  the arm is isolated.
+
+**Why k is a judgment.** `scripts/fit_europe_curve.py` tried to fit k to
+the exact potential and could not. Over 2130 self-play positions (seeds
+40000-40007) no side held or neared Europe Control, so the potential sees
+Europe as roughly linear in its current score. k ran to the grid edge (a
+straight line), and R² was 0.732 against the tier step's 0.736. At k=10,
+domination with two bonus battlegrounds reads 14.3 of 20, and presence
+reads 5.8.
+
+**Other regions ("good overall?").** The same script fits `C * tanh(x/k)`
+per region:
+
+| region | tier step R² | curve R² |
+| --- | ---: | ---: |
+| Central America | 0.62 | 0.72 |
+| South America | 0.87 | 0.91 |
+| Africa | 0.67 | 0.68 |
+| Asia | 0.84 | 0.84 |
+| Middle East | 0.81 | 0.80 |
+
+Asia and the Middle East fit to a straight line. A curve would help the
+small regions, where returns diminish. That is a candidate arm, not yet
+run.
+
+Results are added here when the runs report. The winner's default is
 then flipped and gated against the branch point.

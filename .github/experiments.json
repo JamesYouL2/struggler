@@ -208,6 +208,15 @@
       "title": "fitted weights, Europe Control priced at 60 VP",
       "context": "The other side of the 40 VP bracket. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
       "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "europe-curve-k10",
+      "weights": {
+        "europe_curve": 10.0
+      },
+      "seeds": "32000-33023",
+      "title": "Europe as 20*tanh(net VP / 10), Control = +20 (auto win), fit off",
+      "context": "Europe alone: the tiers' step from domination to Control replaced by one continuous curve reaching exactly the +20 of an automatic victory (maintainer, 2026-09-18). Isolated -- the fitted country weights are off -- against this branch's defaults on the same seeds as the fitted-* arms, so it reads beside fitted-matched though not paired with it. k=10 is a judgment: the exact potential cannot fit it, since self-play never approaches Europe Control (scripts/fit_europe_curve.py: 0 Control rows in 2130 positions). docs/notes/claude/2026-09-18-fitted-country-weights.md."
     }
   ],
   "_retired": {
