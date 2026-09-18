@@ -1,9 +1,9 @@
 """The fitted per-country weights (`StrategicWeights.country_vp_scale`) and
 the Europe Control price (`europe_control_vp`).
 
-See docs/notes/claude/2026-09-18-fitted-country-weights.md. Off by default,
-where the parity corpus pins the old tiers; these tests pin what switching
-the fit on means.
+See docs/notes/claude/2026-09-18-fitted-country-weights.md. On by default
+since 2026-09-18 (the parity corpus still pins the tiers: its records carry
+country_vp_scale 0.0 from capture); these tests pin what the fit means.
 """
 import dataclasses
 import math
@@ -72,7 +72,7 @@ def test_switching_the_fit_on_changes_country_values_and_off_leaves_the_tiers():
     t = ev.terrain()
     pos = ev.Position(t).sync(engine.board)
     france, urgency = t.index['France'], ev.ones(t)
-    off = StrategicWeights()
+    off = StrategicWeights(country_vp_scale=0.0)
     assert ev.importance(t, off, urgency, france, ev.US) == off.battleground
     assert ev.country_value(t, pos, france, ev.US, fitted_weights(), urgency) != \
         ev.country_value(t, pos, france, ev.US, off, urgency)

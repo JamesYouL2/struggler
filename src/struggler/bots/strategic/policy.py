@@ -351,8 +351,11 @@ class StrategicWeights:
     # scripts/fit_country_weights.py) times the same turn-and-deck mass
     # `urgency` already carries. The file's `matched_scale` keeps
     # importance's overall level where the tiers had it, so an arm at that
-    # value tests the shape of the weights, not their size.
-    country_vp_scale: float = 0.0
+    # value tests the shape of the weights, not their size. On at that
+    # value since 2026-09-18: 0.518 [0.502, 0.534] against the tiers over
+    # 1024 seeds, and half (-0.036) and double (-0.026) both measurably
+    # worse, paired (experiments run 35367356155).
+    country_vp_scale: float = 2.795
     # What controlling all of Europe is worth in the region term, in VP. It
     # ends the game, so it is the whole 40 VP swing (stakes.GAME_SWING_VP);
     # a weight only so experiments can price it otherwise. The fitted

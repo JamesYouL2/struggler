@@ -116,5 +116,27 @@ Asia and the Middle East fit to a straight line. A curve would help the
 small regions, where returns diminish. That is a candidate arm, not yet
 run.
 
-Results are added here when the runs report. The winner's default is
-then flipped and gated against the branch point.
+## Results (run 35367356155, 1024 seeds 32000-33023, against the fit off)
+
+| arm | score | one-sided 95% | paired vs fitted-matched |
+| --- | ---: | --- | --- |
+| **fitted-matched (2.795)** | **0.518** | **[0.502, 0.534]** | -- |
+| fitted-half (1.40) | 0.482 | [0.465, 0.499] | -0.036 [-0.059, -0.013] |
+| fitted-double (5.59) | 0.492 | [0.475, 0.509] | -0.026 [-0.048, -0.004] |
+| fitted-no-region | 0.451 | [0.434, 0.468] | -0.067 [-0.089, -0.045] |
+| fitted-eu20 | 0.512 | [0.496, 0.528] | -0.005 [-0.009, -0.002] |
+| fitted-eu60 | 0.513 | [0.497, 0.529] | -0.004 [-0.007, -0.001] |
+
+- **The fit beats the guessed tiers, measurably**, and at the matched
+  scale; half and double both lose. The size is bounded on both sides.
+- **The region term is not double counting**; removing it costs 0.067.
+  The fitted weights price a country's marginal, while the region term
+  prices the tier the region is in now. Both are needed.
+- **Europe Control at 40 VP (the ruling) beats 20 and 60**, by a little on
+  each side. It is bounded, not just chosen.
+- The gain is in the US seat (0.612) more than the USSR (0.424); the
+  opponent is the tiers, same code otherwise.
+
+**Default flipped to 2.795** on this branch, gated by its PR against main
+(PR #4's hand safety plus the drift CI). The Europe-curve arm (fit off,
+run 35387907944) is independent and still running.
