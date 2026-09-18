@@ -55,12 +55,22 @@ trap 'git worktree remove --force "$SNAP"' EXIT
 cd "$SNAP"
 export PYTHONPATH=src
 
-# OPENINGS: iran/austria for both arms, passed explicitly (DRIFT_OPENINGS
+# OPENINGS: italy/austria for both arms, passed explicitly (DRIFT_OPENINGS
 # overrides; empty means each side plays its own revision's default). It
 # stops a default change from silently starting the two arms from different
 # boards. An anchor that cannot play the requested books plays its own
 # default instead, and says so. No --vary-openings: the rotation is the
 # gate's GATE_VARY=1, not the canary's question.
+#
+# WHY ITALY. `DEFAULT_OPENINGS` is US=italy, so italy/austria is the board
+# the bot actually plays; a canary run on iran measures drift on a board
+# neither arm would ever choose. It also reaches further back: every anchor
+# from v0.2.0 on knows italy, while iran arrived only in v0.2.1, so the
+# switch buys a v0.2.0 reading rather than costing one. v0.1.0 predates the
+# opening books entirely and still falls back to its own default, which the
+# log says. Readings taken on different books are NOT commensurable --
+# 2026-09-18's v0.2.1 reading of 0.438 was on iran -- so a book change
+# re-bases the series and every anchor wants re-reading together.
 #
 # ASK WHETHER THE ANCHOR KNOWS *THESE* BOOKS, not whether it has books at
 # all. This used to grep for `DEFAULT_OPENINGS` and assume that "every
@@ -76,7 +86,7 @@ export PYTHONPATH=src
 # `Decision.public()` deciding "is this private?" from a key name --
 # docs/notes/claude/bug-shapes.md shape 4.
 opening_args() {  # opening_args <snapshot-dir>: prints the flag, or nothing
-  local books=${DRIFT_OPENINGS-US=iran,USSR=austria} pol="$1/strategic/policy.py"
+  local books=${DRIFT_OPENINGS-US=italy,USSR=austria} pol="$1/strategic/policy.py"
   [ -n "$books" ] || return 0
   [ -f "$pol" ] || { echo "note: anchor has no strategic policy; it plays its own default" >&2; return 0; }
   # Every `SIDE=book` the caller asked for must appear in the anchor's own

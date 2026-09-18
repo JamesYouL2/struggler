@@ -27,9 +27,10 @@ on:
       # (drift_check.sh says so in the log) -- and for v0.2.0 that means
       # US=germany against HEAD's US=italy, which is two different games.
       # Overriding to a book both sides know is how such an anchor gets a
-      # clean reading. Blank keeps the default iran/austria.
+      # clean reading. Blank keeps the default italy/austria, which is what
+      # DEFAULT_OPENINGS ships and what every anchor from v0.2.0 on knows.
       books:
-        description: 'Opening books both arms play, e.g. US=italy,USSR=austria (blank = iran/austria)'
+        description: 'Opening books both arms play, e.g. US=france,USSR=poland (blank = italy/austria)'
         default: ''
   schedule:
     # Sunday 03:00 UTC. Drift is a slow signal; weekly is often enough, and
