@@ -36,10 +36,13 @@ action = bot.choose_action(observation, history)
   card now) or 1.0 when we hold it, bucket 2 the pile share times the
   cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
   recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
-  Holding the card multiplies this cycle's term by `scoring_hand` (1.2): we
-  pick the moment; `scoring_rival` raises it by P(the opponent holds it),
-  because they score at *their* best moment and control banked before they
-  do is worth more.
+  Holding the card multiplies this cycle's term by `scoring_hand`, and
+  `scoring_rival` raises it by `scoring_rival * P(the opponent holds it)`:
+  we pick the moment, and they score at *their* best moment, so control
+  banked before they do is worth more. **Both ship at 1.0**, which means the
+  hand premium is currently OFF (a multiplier of one) while the rival
+  shaping is at full strength (up to 2x for a card they certainly hold).
+  This paragraph said 1.2 for a while after the value moved.
 
   Two things this sum no longer reads, both replaced by the factor-2
   masses: `evaluator.retention_p` (the CONTROL drift between now and a

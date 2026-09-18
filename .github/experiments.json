@@ -100,6 +100,26 @@
       "held": "11364-11427",
       "title": "rival-held urgency halved (0.5 vs 1.0), first reading",
       "context": "scoring_rival just shipped with deck-tracking (ACCEPTED 0.520) at 1.0 on no basis beyond symmetry with the holding bonus; 0.0 is off. This arm bisects [0, 1]: a pass says urgency can shrink and 0.25 comes next; a fail says the symmetry guess holds. Cannot price the deck model's p_opponent_holds itself, only this weight on it."
+    },
+    {
+      "slug": "scoring-hand-premium",
+      "weights": {
+        "scoring_hand": 1.25
+      },
+      "seeds": "11428-11555",
+      "held": "11556-11619",
+      "title": "a premium for holding the scoring card (1.25 vs 1.0, currently off)",
+      "context": "scoring_hand ships at 1.0, i.e. no premium at all, and the docs said 1.2 for long enough that nobody re-read it. The 2026-09-17 deck-walk fix (audit F3) moved 0.39 of occurrence mass per position out of bucket 3 and into bucket 2 -- a card in the draw pile is dealt THIS cycle, with certainty, not recycled into the next -- so the this-cycle mass of a card we do NOT hold rose 16% (2.42 -> 2.81 per position) while the mass of one we do hold did not move at all. Holding is therefore worth relatively less in mass terms than it was, and the only thing that could pay for the difference is the knob that is switched off. This arm asks whether choosing the MOMENT deserves a premium now that the deck math prices the timing correctly. A pass says 1.25 is free and the next arm brackets upward; a fail says holding is already fully paid for by bucket 1's certainty. It cannot separate 'holding is worth nothing' from 'holding is worth something the forecast already credits'."
+    },
+    {
+      "slug": "scoring-rival-quarter",
+      "weights": {
+        "scoring_rival": 0.25
+      },
+      "seeds": "11620-11747",
+      "held": "11748-11811",
+      "title": "rival urgency at a quarter (0.25 vs 1.0), the far side of scoring-rival-half",
+      "context": "scoring_rival multiplies buckets 1+2 by (1 + r * P(the opponent holds it)), so at 1.0 a card they certainly hold doubles its own this-cycle urgency. F3 grew exactly that base by 16%, which means this knob's leverage went UP without anyone choosing that. scoring-rival-half (0.5) brackets the near side; this is the far side, so the pair reads as a direction rather than one point. Run both or neither: a single not-measurably-worse at 0.5 cannot distinguish 'the term is over-set' from 'the term does nothing', and 0.25 failing while 0.5 passes is what would locate the edge. Cannot calibrate r itself; three points on a curve is not a fit."
     }
   ]
 }
