@@ -123,6 +123,19 @@ option in the decision is not. Fixtures:
 - No legal drop (Nuclear Subs): the prior stays in charge and the 0.15 is
   accepted.
 
+**Maintainer ruling, 2026-09-18: the guard should be a probability, not a
+rule.** It now prices a cornered play at residual 1, which is a hard rule.
+The target is `P(opponent drops | a legal DEFCON-lowering Coup exists) x
+P(loss | dropped)`, priced through the existing game value. That value is
+40 VP (`GAME_SWING_VP`, the whole track) times the turn's price of a VP.
+At 40 VP a loss outweighs almost any board gain, so the probability will
+still say "dispose while it is safe" in many or most positions, but as a
+price the rest of the ranking can trade against. The rule stays in place
+until the conditional rate is measured. That is the audit's held-out,
+both-seat, state-conditioned fit on eligible opportunities, and not the
+0.15 population prior. The swap is then one line in `safety_key`:
+residual = that product instead of 1.
+
 Not covered, deliberately: the headline, and the turn end (v2's G1). The
 next turn opens at DEFCON +1 with the USSR moving first. Step 4's
 instrument decides whether G1 is worth building. It should not be built on
@@ -168,10 +181,8 @@ expected-VP optimiser.
 
 1. **The VP potential: native kernel, or stay descoped?** (Step 5. It
    decides whether step 6 waits.)
-2. The guard is binary and conservative: cornered after a legal drop means
-   the play is priced at the whole game. Is "dispose while it is safe"
-   right as a rule even when the board gain given up is large, or should
-   it be a probability once the conditional drop rate is measured?
+2. ~~Rule or probability for the guard?~~ **Answered: a probability,
+   with the loss at -40 VP**. See step 2.
 3. v2's questions on scoring timing and space aggression stand, minus the
    human-band target. The audit is right that it is not a correctness
    target.
