@@ -542,8 +542,7 @@ class Engine:
                 or d.context.get("cmc_offered_for") == d.id):
             return
         side = Side(affected)
-        countries = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
-        eligible = [c for c in countries if self.board.influence[c][side.value] >= 2]
+        eligible = self.cmc_defuse_countries(side)
         if not eligible:
             return
         self._decision_stack[-1] = replace(d, context={**d.context, "cmc_offered_for": d.id})
@@ -1203,6 +1202,14 @@ class Engine:
         else:
             self._push_action_round_play(side)
 
+    def cmc_defuse_countries(self, side: Side) -> list[str]:
+        """Where `side` can pay to lift a Cuban Missile Crisis aimed at it:
+        2 of its own Influence from Cuba (USSR) or West Germany/Turkey (US).
+        The one statement of the rule -- both offers below and the survival
+        planner (`DefconPlanner.coup_threat`) read it from here."""
+        countries = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
+        return [c for c in countries if self.board.influence[c][side.value] >= 2]
+
     def _push_cmc_defuse_offer(self, side: Side) -> None:
         """Cuban Missile Crisis: `side` may remove 2 Influence from Cuba
         (USSR) or West Germany/Turkey (US, its choice) to lift the
@@ -1212,8 +1219,7 @@ class Engine:
         if self.pending_decision is not None:
             self._offer_cmc_interrupt()
         else:
-            countries = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
-            eligible = [c for c in countries if self.board.influence[c][side.value] >= 2]
+            eligible = self.cmc_defuse_countries(side)
             if eligible:
                 self.push_event_choice("Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",))
 

@@ -34,7 +34,7 @@ from struggler.bots.strategic import valuation
 from struggler.bots.strategic.public_cards import card_state, scoring_cards_for
 from struggler.engine.player import Event
 from struggler.bots.strategic.stakes import GAME_SWING_VP
-from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS
+from struggler.bots.strategic.defcon import DefconPlanner, SurvivalPrior, ASK, US_PAYABLE_DISCARDS, BORROWED_COUPS
 
 log = logging.getLogger('struggler.bots.strategic')
 RISK_WARNING = 0.5  # accepted turn-loss risk at or above this is logged at WARNING
@@ -140,7 +140,10 @@ CHINA_HOLD_RAW = 5.0
 # with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
 # their own ad-hoc scales and keep risk as a separate, prior key.
 _RAW_SCORE_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE,
-                    K.COUP_TARGET, K.OPS_TYPE)
+                    K.COUP_TARGET, K.OPS_TYPE, K.PLACE_INFLUENCE, K.EVENT_INFLUENCE)
+# Placements that can hand the opponent its first Coup target for a
+# borrowed-Coup card in our hand: the planner is built for them only then.
+_PLACEMENT_KINDS = (K.PLACE_INFLUENCE, K.EVENT_INFLUENCE)
 
 
 def coup_bans(game_effects) -> ev.Prohibitions:
@@ -705,6 +708,12 @@ class StrategicPlayer:
         self._space_card = None
         self._un_card = None
         self._planner = None
+        self._stress = None
+        # What `action_risk` returned for each option, by identity, so the
+        # choice log reports the planner's numbers instead of decoding them
+        # from the sort key -- whose risk slot is 0 for every priced kind.
+        self._risks = {}
+        self._placement_risks = {}
         # Fix the VP price now, from a cold cache, so it cannot depend on
         # which arm of the ranking happened to ask for it first. Everything
         # downstream reads the memo.
@@ -712,6 +721,11 @@ class StrategicPlayer:
         if decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE, K.EVENT_CHOICE,
                              K.QUAGMIRE_DISCARD, K.OPS_TYPE, K.COUP_TARGET):
             self._planner = self.planner_for(observation)
+        elif (decision.kind in _PLACEMENT_KINDS and not decision.context.get('setup')
+              and observation.defcon <= 3 and BORROWED_COUPS.keys() & set(observation.hand)):
+            self._planner = self.planner_for(observation)
+            if not self._planner.latent_hazards(self._planner.hand):
+                self._planner = None  # no placement can create the target that matters
         try:
             return sorted(((self.safety_key(observation, a), a) for a in decision.options),
                           key=lambda pair: pair[0], reverse=True)
@@ -931,17 +945,23 @@ class StrategicPlayer:
         if card:
             prefix += ' [%s]' % card
         def describe(key, action):
-            lost, neg_risk, score = key
-            return '%s lost=%d risk=%.3f score=%.2f' % (action.payload, -lost, -neg_risk, score)
+            lost, _, score = key
+            _, risk, cornered = self._risks.get(id(action), (0., 0., False))
+            return '%s lost=%d risk=%.3f%s score=%.2f' % (
+                action.payload, -lost, risk, ' cornered-after-drop' if cornered else '', score)
         best_key, best = ranked[0]
-        forced_loss, neg_risk, _ = best_key
+        forced_loss = best_key[0]
+        # The planner's own number, not the key's middle slot: that slot is 0
+        # for every priced kind, so reading it logged `risk=-0.000` and never
+        # warned, whatever the risk (F5 of the 2026-09-18 audit).
+        risk = self._risks.get(id(best), (0., 0., False))[1]
         if forced_loss < 0:
             log.warning('%s: EVERY option is a certain loss; picking %s', prefix, describe(best_key, best))
-        elif -neg_risk > 0:
+        elif risk > 0:
             # Prior-sized risk (a held hazard the opponent might steal a spare
             # from) is routine at DEFCON 2; only a real gamble is a warning.
-            log.log(logging.WARNING if -neg_risk >= RISK_WARNING else logging.INFO,
-                    '%s: accepting turn-loss risk %.3f with %s', prefix, -neg_risk, describe(best_key, best))
+            log.log(logging.WARNING if risk >= RISK_WARNING else logging.INFO,
+                    '%s: accepting turn-loss risk %.3f with %s', prefix, risk, describe(best_key, best))
         if self._planner is not None and decision.kind in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
             log.info('%s: hand=%s DEFCON=%d rounds_left=%d china=%s', prefix, list(obs.hand), obs.defcon,
                      self._planner.rounds, self._planner.china)
@@ -961,6 +981,8 @@ class StrategicPlayer:
         against the game (`game_value`) rather than ranked ahead of it."""
         kind = action.kind
         immediate, risk = self.action_risk(obs, action)
+        cornered = self.cornered_after_drop(obs, action)
+        self._risks[id(action)] = (immediate, risk, cornered)
         score = self.score(obs, action)
         certain = -int(immediate >= 1 or score <= LOSS)
         if kind in _RAW_SCORE_KINDS:
@@ -996,6 +1018,11 @@ class StrategicPlayer:
                 return (certain, 0.0, score)
             residual = (risk - immediate) / (1 - immediate) if immediate < 1 else 0.
             residual = max(0., min(1., residual))  # a headline blends two DEFCONs; keep it a probability
+            if cornered:
+                # The last safe disposal window (see `cornered_after_drop`):
+                # priced as the loss it becomes if the opponent takes the
+                # drop they legally can, so a play that keeps an exit wins.
+                residual = 1.
             return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs))
         return (certain, -round(risk, 8), score)
 
@@ -1016,7 +1043,7 @@ class StrategicPlayer:
             elif kind is K.PLAY_MODE:
                 fires = p['mode'] == 'event' or (p['mode'] == 'ops' and planner.opponent_event(cid))
                 immediate = planner.event_risk(cid) if fires else 0.
-                risk = planner.risk(cid, p['mode'])
+                risk = self._mode_risk(obs, cid, p['mode'])
             elif cid == 'Missile_Envy' and obs.game_effects.get('missile_envy_forced') == obs.side.value:
                 # This forced play explicitly suppresses the event.
                 risk = planner.transition(cid, 'un_intervention', planner.hand, planner.rounds,
@@ -1032,6 +1059,11 @@ class StrategicPlayer:
                 # `DefconPlanner.transition`'s own `fires` rule.
                 immediate = planner.event_risk(cid) if planner.opponent_event(cid) else 0.
                 risk = planner.risk(cid)
+                if (not planner.trapped and obs.defcon <= 3
+                        and planner.latent_hazards([c for c in planner.hand if c != cid])):
+                    risk = min((self._mode_risk(obs, cid, m) for m in planner.modes(
+                        cid, planner.hand, obs.space_race[obs.side.value],
+                        obs.space_race_attempts[obs.side.value])), default=risk)
                 # The mode is not chosen yet and `risk` mins over the ones on
                 # offer, so a Space Race play can dodge the event entirely.
                 # The immediate ending is one way the turn is lost, never a
@@ -1041,6 +1073,8 @@ class StrategicPlayer:
                 immediate = min(immediate, risk)
         elif planner and kind is K.COUP_TARGET:
             risk = self.coup_survival_risk(obs, p['country'])
+        elif planner and kind in _PLACEMENT_KINDS:
+            risk = self._placement_risk(obs, action)
         elif planner and kind is K.OPS_TYPE:
             # Compare Ops types on the same footing: a coup may lower DEFCON
             # and hand the opponent a target; the other types leave both alone.
@@ -1058,6 +1092,114 @@ class StrategicPlayer:
             choice = p['choice']
             risk = planner.discard_risk(None if choice == 'refuse' else choice)
         return immediate, risk
+
+    def _mode_risk(self, obs, cid, mode) -> float:
+        """`planner.risk(cid, mode)`, on the board the play leaves behind.
+
+        The planner freezes the board, so an event that creates the first
+        Coup target for a borrowed-Coup card still in hand was invisible:
+        Fidel's event put 3 in Cuba and made the held CIA Created a forced
+        loss, at zero risk (F3 of the 2026-09-18 audit). Only when such a
+        card is safe for want of a target is the event resolved on a public
+        sandbox and the hand re-planned there; the rest keep the frozen
+        board, which is what they are priced on everywhere else."""
+        planner = self._planner
+        risk = planner.risk(cid, mode)
+        fires = mode == 'event' or (mode == 'ops' and planner.opponent_event(cid))
+        if (not fires or risk >= 1 or obs.defcon > 3
+                or not planner.latent_hazards([c for c in planner.hand if c != cid])):
+            return risk
+        after = self._after_event(obs, cid)
+        if after is None:
+            return risk
+        return max(risk, self.planner_for(after).risk(cid, mode))
+
+    def _after_event(self, obs, cid):
+        """`obs` with `cid`'s event resolved on a public sandbox: the event
+        helper plays its choices and chance takes its middle option, as in
+        `_resolve_sandbox`, without forking the dice -- this asks where
+        influence can land, not what it is worth. None when the event ends
+        the game or cannot be driven to rest."""
+        engine = self.public_engine(obs)
+        helper = self._event_helper()
+        try:
+            engine._fire_event(obs.side, cid)
+            for _ in range(64):
+                if engine.is_terminal or engine.pending_decision is None:
+                    break
+                d = engine.pending_decision
+                engine.step(d.options[len(d.options) // 2] if d.actor is Side.CHANCE
+                            else helper.choose_action(engine.observe(d.actor), []))
+            else:
+                return None
+        except SandboxUnsupported:
+            return None
+        if engine.is_terminal:
+            return None
+        influence = {c: dict(engine.board.influence[c]) for c in obs.influence}
+        return replace(obs, influence=influence, defcon=engine.defcon)
+
+    def _placement_risk(self, obs, action) -> float:
+        """Turn-loss risk after a point of our Influence lands.
+
+        Only a placement into a battleground we are absent from can change
+        it: that is the first target a borrowed-Coup card in hand needs
+        (F3 of the 2026-09-18 audit). Everything else is the hand as it
+        stands, which prices every option alike."""
+        planner, cid, ctx = self._planner, action.payload['country'], obs.pending_decision.context
+        if None not in self._placement_risks:
+            self._placement_risks[None] = planner.discard_risk(None)
+        base = self._placement_risks[None]
+        ours = action.kind is K.PLACE_INFLUENCE or (
+            ctx.get('op') == 'add' and ctx.get('inf_side') == obs.side.value)
+        if (not ours or not self.board.countries[cid].battleground
+                or obs.influence[cid][obs.side.value] > 0):
+            return base
+        if cid not in self._placement_risks:
+            influence = {c: dict(v) for c, v in obs.influence.items()}
+            influence[cid][obs.side.value] = 1
+            after = self.planner_for(replace(obs, influence=influence)).discard_risk(None)
+            self._placement_risks[cid] = max(base, after)
+        return self._placement_risks[cid]
+
+    def cornered_after_drop(self, obs, action) -> bool:
+        """Whether this play spends the last safe window for a hazardous card.
+
+        At DEFCON 3 a card lethal at 2 -- CIA Created, Lone Gunman, a reducer
+        -- can still be played safely. The planner prices the opponent's
+        drop as a flat 0.15 prior, the population average over positions
+        where a drop is impossible and positions where a battleground Coup
+        is sitting there; in the second kind the bot accepted the 0.15 for
+        Decolonization's board value and lost the game to its own CIA
+        Created (F5's fixture; 25 of 36 self-play nuclear losses were CIA).
+
+        This is a conservative guard, labelled as one, not a forecast: when
+        the opponent has a LEGAL battleground Coup that lowers DEFCON (the
+        public board, never their hand), a play after which that drop would
+        leave the hand certainly lost is "cornered", provided some option
+        in this decision is not. It does not ban anything outright: a play
+        whose hand keeps an exit -- a spare card to hold, a Space Race
+        attempt, UN Intervention, The China Card -- is not cornered, and a
+        certain win is never priced by it."""
+        planner = self._planner
+        if (planner is None or action.kind not in (K.ACTION_ROUND_PLAY, K.PLAY_MODE)
+                or obs.defcon != 3 or planner.trapped):
+            return False
+        if self._stress is None:
+            self._stress = {}
+            if (any(planner.hazardous(c) for c in planner.hand) and planner.opponent_can_lower_defcon()):
+                stress = DefconPlanner(obs, planner.engine,
+                                       replace(planner.prior, opponent_lowers_defcon=1.))
+                for option in obs.pending_decision.options:
+                    p = option.payload
+                    if option.kind is K.PLAY_MODE:
+                        value = stress.risk(obs.pending_decision.context['card'], p['mode'])
+                    else:
+                        value = stress.risk(p['card'])
+                    self._stress[id(option)] = value
+                if min(self._stress.values(), default=1.) >= 1:
+                    self._stress = {}  # nothing keeps an exit: the guard has nothing to choose
+        return self._stress.get(id(action), 0.) >= 1
 
     def region_score(self, board: Board, region: Region, side: Side,
                      snapshot: ev.Position | None = None) -> float:
@@ -2965,6 +3107,14 @@ class StrategicPlayer:
             # adjustment between prices and does not apply to a flag.
             return event if is_certain(event) else event - 0.5 * self.ops_value(obs, ops)
         value = self.card_play_value(obs, cid, ops, event)
+        if is_certain(value) and value < 0:
+            # Certain defeat is the Ops play firing their event. A mode that
+            # keeps it from firing is a different play of the same card, and
+            # the card is only as bad as its best legal mode: returning the
+            # sentinel here keyed a spaceable Duck and Cover as certain
+            # defeat while the planner said risk 0 (F1 of the 2026-09-18
+            # audit), whichever card `space_card` had picked.
+            value = self._non_firing_value(obs, cid, ops, value)
         if is_certain(value):
             # A certain outcome takes none of the nudges below -- the
             # China charge, the Five Year Plan tie-break, the space
@@ -2979,11 +3129,12 @@ class StrategicPlayer:
         if cid == 'UN_Intervention' and self.un_card(obs):
             # Played alone it is a 1-Op card; it is worth keeping for
             # the card it neutralises. If that card's event is certain
-            # defeat, holding UN for it is worth the flag, not a price:
-            # `ops + LOSS` was arithmetic on an unreachable number.
-            harm = self.event_value(obs, self.un_card(obs))
-            value = harm if is_certain(harm) and harm < 0 else min(
-                value, self.ops_value(obs, 1) + min(0, harm))
+            # defeat, spending UN elsewhere costs the game -- priced, not
+            # flagged: the partner may still be held or spaced, and a flag
+            # here keyed UN as certain defeat while the planner said 0
+            # (the F1 shape, 2026-09-18). The planner owns whether it is.
+            harm = priced(self.event_value(obs, self.un_card(obs)), self.game_value(obs))
+            value = min(value, self.ops_value(obs, 1) + min(0, harm))
         if cid == 'Five_Year_Plan' and obs.side is Side.USSR:
             # Prefer the controlled late-hand use when survival risks tie.
             value -= max(0, len(obs.hand)-3)
@@ -2992,6 +3143,21 @@ class StrategicPlayer:
         if cid == self.space_card(obs):
             value = max(value, self.space_value(obs, ops))
         return value
+
+    def _non_firing_value(self, obs: Observation, cid: str, ops: int, default: float) -> float:
+        """The best of `cid`'s legal modes that do not fire its event --
+        the Space Race and a UN Intervention pairing -- priced as
+        `_score_play_mode` prices them; `default` when there is none. The
+        modes are the engine's own list, not a second copy of the rule."""
+        engine = self.public_engine(obs)
+        engine.events_enabled = True  # UN Intervention is only offered with events on
+        modes = engine._play_modes(obs.side, cid)
+        values = []
+        if 'space_race' in modes:
+            values.append(self.space_value(obs, ops))
+        if 'un_intervention' in modes:
+            values.append(self.ops_value(obs, ops))
+        return max(values, default=default)
 
     def _score_play_mode(self, obs: Observation, action: Action, kind, p, ctx):
         """Whether to take a card's event, its Operations, or the space race.
