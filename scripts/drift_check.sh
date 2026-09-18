@@ -56,20 +56,41 @@ cd "$SNAP"
 export PYTHONPATH=src
 
 # OPENINGS: iran/austria for both arms, passed explicitly (DRIFT_OPENINGS
-# overrides; empty means each side plays its own revision's default). Every
-# anchor since 3955b3e defaults to exactly these, so this changes nothing for
-# them -- but it stops a future default change from silently starting the two
-# arms from different boards. An anchor from before the opening books cannot
-# be given one; it plays its own default, and says so. No --vary-openings:
-# the rotation is the gate's GATE_VARY=1, not the canary's question.
+# overrides; empty means each side plays its own revision's default). It
+# stops a default change from silently starting the two arms from different
+# boards. An anchor that cannot play the requested books plays its own
+# default instead, and says so. No --vary-openings: the rotation is the
+# gate's GATE_VARY=1, not the canary's question.
+#
+# ASK WHETHER THE ANCHOR KNOWS *THESE* BOOKS, not whether it has books at
+# all. This used to grep for `DEFAULT_OPENINGS` and assume that "every
+# anchor since 3955b3e defaults to exactly these". v0.2.0 has
+# `DEFAULT_OPENINGS` and does NOT have `iran` -- its US books are
+# france/italy/germany -- so it was handed `--openings US=iran` and the
+# benchmark died twenty seconds in with `unknown opening(s) ['US:iran']`,
+# exit 3. The canary reported a crash where it should have reported a
+# reading, and the v0.2.0 anchor has been unmeasurable since the iran book
+# landed: on 2026-09-18 v0.1.0 read level and v0.2.1 read measurably ahead,
+# and the anchor that would have bracketed them was the one that could not
+# run. A presence check standing in for a compatibility question is
+# `Decision.public()` deciding "is this private?" from a key name --
+# docs/notes/claude/bug-shapes.md shape 4.
 opening_args() {  # opening_args <snapshot-dir>: prints the flag, or nothing
-  local books=${DRIFT_OPENINGS-US=iran,USSR=austria}
+  local books=${DRIFT_OPENINGS-US=iran,USSR=austria} pol="$1/strategic/policy.py"
   [ -n "$books" ] || return 0
-  if grep -q "^DEFAULT_OPENINGS" "$1/strategic/policy.py" 2>/dev/null; then
-    printf -- '--openings %s' "$books"
-  else
-    echo "note: anchor predates the opening books; each side plays its own default" >&2
-  fi
+  [ -f "$pol" ] || { echo "note: anchor has no strategic policy; it plays its own default" >&2; return 0; }
+  # Every `SIDE=book` the caller asked for must appear in the anchor's own
+  # OPENINGS table, on that side's row.
+  local pair side book
+  for pair in ${books//,/ }; do
+    side=${pair%%=*}; book=${pair#*=}
+    if ! grep -A3 "^OPENINGS = {" "$pol" 2>/dev/null \
+         | grep -q "'$side': ([^)]*'$book'"; then
+      echo "note: anchor does not know $side=$book; each side plays its own default" >&2
+      return 0
+    fi
+  done
+  printf -- '--openings %s' "$books"
 }
 OPENINGS_FLAG=$(opening_args "$OUT/old")
 echo "  openings: ${OPENINGS_FLAG:-each revision plays its own default}"

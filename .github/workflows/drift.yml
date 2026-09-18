@@ -21,6 +21,16 @@ on:
       seeds:
         description: 'Seed range, the same for every anchor so the readings are commensurable'
         default: '6000-6127'
+      # Both arms must play the SAME opening or the reading is confounded by
+      # the board rather than by the code. An anchor that cannot play the
+      # requested book falls back to "each side plays its own default"
+      # (drift_check.sh says so in the log) -- and for v0.2.0 that means
+      # US=germany against HEAD's US=italy, which is two different games.
+      # Overriding to a book both sides know is how such an anchor gets a
+      # clean reading. Blank keeps the default iran/austria.
+      books:
+        description: 'Opening books both arms play, e.g. US=italy,USSR=austria (blank = iran/austria)'
+        default: ''
   schedule:
     # Sunday 03:00 UTC. Drift is a slow signal; weekly is often enough, and
     # a scheduled run on a quiet day competes with nothing.
@@ -68,8 +78,20 @@ jobs:
         #
         # Exit 1 means drift was called and the job should fail. Exit 3 means
         # the benchmark crashed, which is a different problem and also fails.
+        env:
+          # Unset (not empty) when no override is given: drift_check.sh reads
+          # `${DRIFT_OPENINGS-default}`, so an EMPTY value is a deliberate
+          # "each side plays its own default" and would silently switch the
+          # meaning of a blank input.
+          DRIFT_BOOKS: ${{ github.event.inputs.books }}
         run: |
           set -o pipefail
+          # An `if`, not `[ -n x ] && export`. Both work here -- checked,
+          # because `bash -e` plus a blank default input looks like it should
+          # abort and does not: the failing test is part of an && list and is
+          # not the command after the final &&, which is one of `set -e`'s
+          # documented exceptions. The `if` does not depend on knowing that.
+          if [ -n "${DRIFT_BOOKS:-}" ]; then export DRIFT_OPENINGS="$DRIFT_BOOKS"; fi
           scripts/drift_check.sh "${{ matrix.anchor }}" "${{ github.event.inputs.seeds || '6000-6127' }}" 4 \
             2>&1 | tee drift-${{ matrix.anchor }}.log
 
