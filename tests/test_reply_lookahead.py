@@ -205,6 +205,21 @@ def test_a_coup_answers_a_placement_no_retake_can():
     assert after < raw, 'a 4-Op Coup wipes three points and was not charged'
 
 
+def test_reply_coup_zero_prices_the_retake_only():
+    """The ablation switch: with `reply_coup` off, the placement the Coup
+    answered above is priced as if no answer existed (no retake reaches the
+    seven points it would take), exactly as `_may_coup` returning False."""
+    engine = _overprotected_lebanon(5)
+    obs = engine.observe(Side.US)
+    weights = dataclasses.replace(StrategicWeights(), reply_model=1., reply_ops=4., reply_coup=0.)
+    bot = StrategicPlayer(weights)
+    bot.prepare(obs)
+    raw = bot.delta(obs, 'Lebanon', own=3)
+    assert bot._after_reply(obs, 'Lebanon', 3, raw) == raw
+    _, on = _priced(_overprotected_lebanon(5), Side.US, 'Lebanon', 3, budget=4)
+    assert on < raw, 'the same position with the switch on must still be answered'
+
+
 def test_no_coup_answer_where_defcon_bans_coups_in_the_region():
     """The Middle East closes to Coups below DEFCON 3 (8.1.5)."""
     raw, after = _priced(_overprotected_lebanon(3), Side.US, 'Lebanon', 3, budget=4)

@@ -547,6 +547,15 @@ class StrategicWeights:
     # Gated by `tests/test_poke_rate.py`.
     reply_ops: float = 2.0
     reply_model: float = 3.0
+    # Whether the reply may be a Coup as well as a retake (`_coup_reply`,
+    # merged at 4813570, v0.2.2): 0 prices only the retake, anything else
+    # lets them take whichever hurts us more. On by default, as shipped. It
+    # exists as a switch because it is one of the changes inside the
+    # v0.2.1..v0.2.3 interval where the drift canary located a ~0.1 loss
+    # against the older bot (2026-09-18), and it alters the price of every
+    # placement that changes control -- an ablation needs to reach it
+    # without a branch.
+    reply_coup: float = 1.0
 
     def __post_init__(self):
         if any(not math.isfinite(v) or v < 0 for v in asdict(self).values()):
@@ -580,7 +589,7 @@ class StrategicWeights:
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_ops', 'reply_model')
+UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -1599,7 +1608,7 @@ class StrategicPlayer:
                 inf = board.influence[cid]
                 undo = ops_to_control(inf[them.value], inf[obs.side.value],
                                       board.countries[cid].stability)
-            coup_ok = self._may_coup(obs, them, cid, when)
+            coup_ok = bool(self.weights.reply_coup) and self._may_coup(obs, them, cid, when)
             if undo is None and not coup_ok:
                 return raw
             # Per budget, the answer that hurts us more. The retake's value

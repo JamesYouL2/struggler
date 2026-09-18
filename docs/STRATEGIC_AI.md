@@ -200,7 +200,10 @@ action = bot.choose_action(observation, history)
   no suicidal battleground Coup at DEFCON 2, and no attempt that hands us
   the game outright through Yuri and Samantha). A Coup needs no reach and
   ignores the doubling rule, so it answers exactly the overprotected or
-  unreachable placements the retake cannot.
+  unreachable placements the retake cannot. `reply_coup = 0` switches the
+  Coup answer off and leaves the retake; it is on by default and exists as
+  an ablation switch, because the Coup answer (v0.2.2) sits inside the
+  interval where the drift canary placed a ~0.1 loss against the older bot.
 - **The answer is priced in the turn it is made, not in this one**
   (`policy.reply_context`). `next_move` dates it 0 or 1; a reply dated next
   turn sees DEFCON one step better (`Engine._end_of_turn`) and *no* turn

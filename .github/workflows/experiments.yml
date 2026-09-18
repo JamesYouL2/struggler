@@ -1,4 +1,4 @@
-# Weight A/Bs, one runner per arm, all at once.
+# Weight A/Bs, ablations and anchor matchups, sharded, all at once.
 #
 # The third thing the local queue could not do. `gate.yml` compares
 # revisions and `drift.yml` compares anchors; neither runs
@@ -10,22 +10,50 @@
 # a workflow change. Dispatch can also take an inline arm for a one-off
 # without editing anything.
 #
-# SIZE THEM PROPERLY. The local queue's sizes were chosen against a machine
-# that runs one thing at a time; a runner per arm removes that constraint and
-# the reason to skimp with it. Several 2026-09-12 runs read +/-0.06 to
-# +/-0.075 and could not settle what they were asked -- vp_swing 1.0 and
-# access_chain both came back "not measurably worse" at a resolution that
-# could not have seen a six-point loss. Prefer more arms at full size.
+# SHARDED, SO AN ARM CAN BE AS BIG AS THE QUESTION. Each arm's seeds (and
+# `held`, if given -- both are just seeds here) are cut into shards of
+# `shard` seeds (default 128), one job per shard, and the `collect` job pools
+# them with scripts/pool_reports.py, which reuses `benchmark.summarize` so a
+# pooled reading is computed the way a single run's is. One 128-seed shard
+# is 30-65 minutes on a 4 vCPU runner; 1024 seeds in one job would be 4-9
+# hours against GitHub's 6-hour ceiling, which is why the old per-arm job
+# capped arms at 256 and read +/-0.06 on questions that needed +/-0.02.
+# 1024 seeds reads about +/-0.016 one-sided.
+#
+# No early stopping. `--decide` saved wall time on a box that runs one thing
+# at a time; on shards it saves nothing (every shard still has to finish for
+# the pooled reading) and it cannot see the pooled sample anyway.
+#
+# OPPONENTS. Default: the same code with default weights, a plain weight
+# A/B. `anchor: <ref>` plays the arm against that revision's bot instead
+# (snapshotted exactly as the gate and the drift canary do), which is what an
+# ablation has to be measured against when the question is "which piece lost
+# strength against the old bot" -- measuring it against HEAD only asks
+# whether HEAD beats itself, and intransitivity is the thing under suspicion.
+# `bot_ref: <ref>` makes the CHALLENGER an old revision too, for
+# anchor-vs-anchor readings. Any arm with a ref pins both seats to
+# italy/austria unless it names `openings`, for the same reason drift.yml
+# does: two revisions' defaults are not the same board.
+#
+# `"logs": true` also uploads every game's INFO log.
+#
+# `compare_to: <slug>` asks `collect` for a seed-by-seed paired difference
+# against another arm. Arms on the same seeds and the same opponent share
+# every deal; the paired difference cancels the deal and resolves about
+# twice as finely as comparing two intervals.
+#
+# Matrix jobs run ~20 at a time on a public repo, so 8 arms of 1024 seeds is
+# 64 jobs in about four waves: an overnight run, not an hour.
 name: experiments
 
 on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Run one arm by slug (blank = every arm in experiments.json)'
+        description: 'Run these arms by slug, comma-separated (blank = every arm in experiments.json)'
         default: ''
       inline:
-        description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9163","held":"9164-9227","title":"t","context":"c"}'
+        description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9611","anchor":"v0.2.1","title":"t","context":"c"}'
         default: ''
 
 permissions:
@@ -35,7 +63,7 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
-      arms: ${{ steps.pick.outputs.arms }}
+      shards: ${{ steps.pick.outputs.shards }}
       count: ${{ steps.pick.outputs.count }}
     steps:
       - uses: actions/checkout@v4
@@ -44,13 +72,15 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
           inline = os.environ.get('INLINE', '').strip()
-          only = os.environ.get('ONLY', '').strip()
+          only = [x.strip() for x in os.environ.get('ONLY', '').split(',') if x.strip()]
           if inline:
               arms = [json.loads(inline)]
           else:
               arms = json.load(open('.github/experiments.json'))['experiments']
               if only:
-                  arms = [a for a in arms if a['slug'] == only]
+                  unknown = set(only) - {a['slug'] for a in arms}
+                  assert not unknown, f'no such arm(s): {sorted(unknown)}'
+                  arms = [a for a in arms if a['slug'] in only]
           # A matrix over an empty list is a workflow error, not an empty run,
           # so say so plainly instead of failing with a YAML message.
           assert arms, ('no arms to run: experiments.json is empty and no inline '
@@ -58,12 +88,41 @@ jobs:
           seen = [a['slug'] for a in arms]
           assert len(set(seen)) == len(seen), f'duplicate slugs: {seen}'
           for a in arms:
-              assert a.get('held'), (
-                  f"{a['slug']}: 'held' is required. --decide is gated on a held "
-                  f"sample existing, so without it early stopping silently does "
-                  f"nothing and the arm always runs to full length.")
-          print(f'arms={json.dumps(arms)}')
-          print(f'count={len(arms)}')
+              assert '--' not in a['slug'], f"{a['slug']}: '--' separates slug from shard"
+              # `--bot-weights` builds HEAD's StrategicWeights and hands it to
+              # whatever class the challenger is, so an old revision would
+              # play HEAD's weights instead of its own -- silently, when the
+              # field names still match.
+              assert not (a.get('bot_ref') and a.get('weights')), (
+                  f"{a['slug']}: weights apply to HEAD's bot only; drop bot_ref or weights")
+              if a.get('compare_to'):
+                  assert a['compare_to'] in seen, (
+                      f"{a['slug']}: compare_to {a['compare_to']!r} is not in this run")
+          def span(text):
+              lo, hi = (int(x) for x in text.split('-'))
+              return list(range(lo, hi + 1))
+          shards = []
+          for a in arms:
+              blocks = [span(a['seeds'])] + ([span(a['held'])] if a.get('held') else [])
+              flat = [x for b in blocks for x in b]
+              assert len(set(flat)) == len(flat), f"{a['slug']}: seeds and held overlap"
+              size = int(a.get('shard', 128))
+              # Cut each block separately so no shard straddles a gap.
+              chunks = [b[i:i + size] for b in blocks for i in range(0, len(b), size)]
+              openings = a.get('openings') or (
+                  'US=italy,USSR=austria' if (a.get('anchor') or a.get('bot_ref')) else '')
+              for i, chunk in enumerate(chunks):
+                  shards.append({
+                      'slug': a['slug'], 'shard': i, 'of': len(chunks),
+                      'seeds': f'{chunk[0]}-{chunk[-1]}',
+                      'weights': a.get('weights') or {},
+                      'anchor': a.get('anchor', ''), 'bot_ref': a.get('bot_ref', ''),
+                      'openings': openings, 'compare_to': a.get('compare_to', ''),
+                      'logs': bool(a.get('logs')),
+                  })
+          assert len(shards) <= 256, f'{len(shards)} shards; a matrix holds 256'
+          print(f'shards={json.dumps(shards)}')
+          print(f'count={len(shards)}')
           PY
         env:
           INLINE: ${{ github.event.inputs.inline }}
@@ -72,23 +131,26 @@ jobs:
   run:
     needs: plan
     # Without this the job is titled from EVERY matrix field, so a run reads
-    # `run (smoke, 1.3, 9100-9103, 9104-9107, smoke, end-to-end check of...)`
-    # and the arm you are looking for is unfindable in a list of twenty.
-    name: ${{ matrix.arm.slug }}
+    # `run (smoke, 1.3, 9100-9103, ...)` and the arm you are looking for is
+    # unfindable in a list of sixty.
+    name: ${{ matrix.s.slug }} [${{ matrix.s.shard }}/${{ matrix.s.of }}]
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    # One 128-seed shard measured 30-65 minutes; this leaves room for a slow
+    # runner without letting a hang eat the 6-hour ceiling.
+    timeout-minutes: 180
     strategy:
       # An arm coming back surprising is a RESULT. Cancelling its siblings
       # throws away the comparison that makes a set of arms worth more than
       # the sum of its runs.
       fail-fast: false
       matrix:
-        arm: ${{ fromJSON(needs.plan.outputs.arms) }}
+        s: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
-      # No fetch-depth: 0 here, unlike gate.yml and drift.yml. Those snapshot
-      # a base revision with `git archive` and need history; a weight A/B runs
-      # current code on both sides and differs only in a weights file.
+      # Full history: an `anchor` or `bot_ref` is snapshotted with `git
+      # archive`, as gate.yml and drift.yml do.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -99,66 +161,81 @@ jobs:
       # the benchmark is stdlib. ruff and ty are only needed by the gate.
       - run: uv sync --frozen
 
-      - name: ${{ matrix.arm.slug }}
+      - name: ${{ matrix.s.slug }} seeds ${{ matrix.s.seeds }}
         run: |
           set -o pipefail
-          echo '${{ toJSON(matrix.arm.weights) }}' \
-            | python3 -c 'import json,sys; print(json.dumps({"version":1,"weights":json.load(sys.stdin)}))' \
+          . scripts/lib/gate_common.sh
+          echo "$SHARD" > arm.json
+          python3 -c 'import json,sys; print(json.dumps({"version":1,"weights":json.loads(sys.argv[1])["weights"]}))' "$SHARD" \
             > arm.weights.json
-          cat arm.weights.json
-          # --decide AND --held-seeds, both: _decided is gated on a held sample
-          # existing, so --decide alone does nothing. --stall-timeout is not the
-          # same guard twice -- early stopping is only evaluated when a game
-          # finishes, so it cannot rescue a hang.
-          #
-          # An arm with "decide": false plays every seed. Early stopping ends an
-          # arm as soon as the verdict is settled, which for an arm that is
-          # merely "not worse" can be ~77 of 256 seeds and an interval too wide
-          # to act on (coup_discount and first_mover, 2026-09-12).
+          cat arm.json
+          BOT=strategic OPP=strategic ARGS=()
+          # Only when the arm sets weights: see the bot_ref assertion in plan.
+          if [ "$(python3 -c 'import json,sys; print(bool(json.loads(sys.argv[1])["weights"]))' "$SHARD")" = True ]; then
+            ARGS+=(--bot-weights arm.weights.json)
+          fi
+          if [ -n "$BOT_REF" ]; then
+            snapshot "$BOT_REF" snap-bot
+            BOT="strategic@$PWD/snap-bot/strategic/policy.py"
+          fi
+          if [ -n "$ANCHOR" ]; then
+            snapshot "$ANCHOR" snap-opp
+            OPP="strategic@$PWD/snap-opp/strategic/policy.py"
+          fi
+          if [ -n "$OPENINGS" ]; then ARGS+=(--openings "$OPENINGS"); fi
+          # `"logs": true` keeps every game's INFO log, for diagnosing HOW a
+          # result happened (which play took DEFCON to 1) rather than only
+          # what it scored. Tens of MB a shard; leave it off for A/Bs.
+          if [ "$LOGS" = true ]; then ARGS+=(--log-dir game-logs); fi
+          # Exit 6 is a stall: the report is still written and the shard's
+          # games still count, but the shard is marked failed so the run
+          # says so. Anything else nonzero is a crash.
           uv run python -m struggler.bots.benchmark \
-            --bot strategic --bot-weights arm.weights.json --opponent strategic \
-            --seeds '${{ matrix.arm.seeds }}' \
-            --held-seeds '${{ matrix.arm.held }}' \
-            --held-report '${{ matrix.arm.slug }}.held.json' \
-            ${{ matrix.arm.decide != false && '--decide' || '' }} --stall-timeout 1200 --workers 4 \
-            --report '${{ matrix.arm.slug }}.json' 2>&1 | tail -40
-
-      - name: summarise
-        if: always()
-        run: |
-          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json, os, statistics, math, collections, pathlib
-          slug = os.environ['SLUG']
-          games = []
-          for p in (f'{slug}.json', f'{slug}.held.json'):
-              if pathlib.Path(p).exists():
-                  games += json.load(open(p))['games']
-          print(f"### `{slug}`\n")
-          print(f"```\n{json.dumps(json.loads(os.environ['W']))}\n```\n")
-          by = collections.defaultdict(list)
-          for g in games:
-              if g.get('result') is not None:
-                  by[g['seed']].append(g['result'])
-          m = [statistics.fmean(v) for v in by.values()]
-          if len(m) > 1:
-              hw = 1.96 * statistics.stdev(m) / math.sqrt(len(m))
-              print(f"**pooled {statistics.fmean(m):.3f} +/-{hw:.3f}** over {len(m)} seeds, {len(games)} games\n")
-              print("_Pooled over both samples, by seed: both seats of a seed play the "
-                    "same deal and are one observation, not two._\n")
-          else:
-              print("_no finished games_\n")
-          print("_A score is not a verdict. This says what was measured, not what it means._")
-          PY
+            --bot "$BOT" --opponent "$OPP" \
+            --seeds "$SEEDS" --stall-timeout 1200 --workers 4 "${ARGS[@]}" \
+            --report "$SLUG.json" 2>&1 | tail -15
         env:
-          SLUG: ${{ matrix.arm.slug }}
-          W: ${{ toJSON(matrix.arm.weights) }}
+          SHARD: ${{ toJSON(matrix.s) }}
+          SLUG: ${{ matrix.s.slug }}
+          SEEDS: ${{ matrix.s.seeds }}
+          ANCHOR: ${{ matrix.s.anchor }}
+          BOT_REF: ${{ matrix.s.bot_ref }}
+          OPENINGS: ${{ matrix.s.openings }}
+          LOGS: ${{ matrix.s.logs }}
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: experiment-${{ matrix.arm.slug }}
+          name: experiment-${{ matrix.s.slug }}--${{ matrix.s.shard }}
           path: |
-            ${{ matrix.arm.slug }}.json
-            ${{ matrix.arm.slug }}.held.json
+            ${{ matrix.s.slug }}.json
+            arm.json
             arm.weights.json
+            game-logs/
           retention-days: 30
+
+  collect:
+    needs: [plan, run]
+    # Pool whatever finished: a shard that crashed or timed out is listed as
+    # MISSING next to its arm rather than silently pooled around.
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: experiment-*
+          path: shards
+      - name: pool
+        run: |
+          uv run python scripts/pool_reports.py shards --json pooled.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pooled
+          path: pooled.json
+          retention-days: 90

@@ -3,123 +3,238 @@
   "_schema": {
     "slug": "filename-safe id; names the artifact and the report",
     "weights": "object merged into StrategicWeights, e.g. {\"scoring_final\": 3.0}",
-    "seeds": "the verdict sample, as lo-hi",
-    "held": "the held-out sample, disjoint from seeds -- required, because --decide is gated on a held sample existing and passing --decide alone does nothing",
+    "seeds": "the sample, as lo-hi. Any size: the workflow cuts it into shards of `shard` seeds (default 128) and pools them",
+    "held": "optional second block, disjoint from seeds; pooled with them (there is no early stopping to hold it out for any more)",
     "title": "one line for the generated note",
-    "context": "why this arm, what it should show, and what it cannot -- the runner will not interpret the result for you"
+    "context": "why this arm, what it should show, and what it cannot -- the runner will not interpret the result for you",
+    "anchor": "optional git ref: play against that revision's bot instead of HEAD with default weights",
+    "bot_ref": "optional git ref: the challenger is that revision instead of HEAD. Cannot be combined with weights",
+    "openings": "optional US=x,USSR=y; defaults to italy/austria whenever a ref is involved",
+    "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference",
+    "shard": "optional shard size in seeds (default 128, ~30-65 min on a runner)",
+    "logs": "optional true: upload every game's INFO log"
   },
-  "_sizing": "128 seeds by default and 256 the ceiling, matching scripts/lib/queue_common.sh. The reason for 128 is early stopping: ACCEPTANCE min_games is 150 pooled, so an 80-seed run is 160 games and --decide has ten games of slack. Measured 2026-09-12: an 80-seed run saved 4%, a 128-seed run 16%. The reason for 256 as a ceiling is that half-width falls as 1/sqrt(n) and 512 would buy +/-0.028 for four and a half hours.",
+  "_sizing": "1024 seeds is the default for a question worth asking: +/-0.016 one-sided, against +/-0.045 at 128. The old 256-seed ceiling was one job's 6-hour limit, not a statistical choice; sharding removed it. Arms that share a seed block and an opponent are paired, so give every ablation of one question the same block and a compare_to.",
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
-      "slug": "region-par-rerun",
-      "weights": {
-        "region": 1.0
-      },
-      "seeds": "9700-9827",
-      "held": "9828-9891",
-      "title": "region at par (1.0 vs 1.3), full-size re-run on current main",
-      "context": "Rebuild step 2 prices factor-1 value with region at par (2026-09-14-value-rebuild-plan). The 2026-09-14 arm read pooled ~0.514 (0.523 over 128 seeds, 0.496 over 64 held) on the superseded pre-merge model: a lean, not a verdict. Re-run at full 128+64 on current main (italy default, rival urgency, retention merged). Shows whether par is free; cannot ship calibration by itself, the rebuild re-derives factor 1 anyway."
+      "slug": "base-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "title": "HEAD vs 07d553a (#100, last strong point) at 1024 seeds",
+      "context": "The size of the gap every ablation below is paired against. 07d553a is commit #100 of v0.2.1..v0.2.2, the last point of the plateau where every anchor beats HEAD (2026-09-18 drift readings 0.39-0.43 over 128 seeds); every anchor from v0.2.3 on reads level. The bot changes after it: first-mover deletion (#130), access cap (#151), legal reply look-ahead (#154), M2b urgency-weighted regional VP (#159), Coup replies (#167), two-state retention (#173, since superseded), deck-tracking rival urgency (#183 = v0.2.3)."
     },
     {
-      "slug": "access-contested-off-rerun",
-      "weights": {
-        "access_contested": 0.0
-      },
-      "seeds": "9892-10019",
-      "held": "10020-10083",
-      "title": "contested reach at zero (0.0 vs 0.25), isolated on current main",
-      "context": "Isolates the contested-zero piece of the removals bundle without the five-bucket change. The 2026-09-14 arm read pooled 0.512 (0.498 over 128, 0.539 over 64 held) pre-italy: dead heat leaning up. Re-run on the stronger base; informs the five-bucket bisect whichever way it lands. Measures only the weight piece: the flat holding bonus is code, not a weight, and is not covered by this arm."
+      "slug": "base-vs-v0.2.2",
+      "anchor": "v0.2.2",
+      "seeds": "20000-21023",
+      "title": "HEAD vs v0.2.2 at 1024 seeds",
+      "context": "Read 0.475 +/-0.044 at 128: between the plateau and level. Places the loss before or after v0.2.2."
     },
     {
-      "slug": "coup-discount-flat",
-      "weights": {
-        "coup_discount": 1.0
-      },
-      "seeds": "10084-10211",
-      "held": "10212-10275",
-      "title": "no coup discount (1.0 vs 0.9), isolated ablation at full size",
-      "context": "The 2026-09-09 audit proposed testing coup_discount=1 as an isolated ablation; the 2026-09-12 arms came back not-measurably-worse at +/-0.06 to +/-0.075, too wide to act on. Full 128+64 re-run on current main. A pass means the discount is free, not that it is useless; a fail prices the discount. Cannot distinguish a useless discount from coups mispriced elsewhere."
+      "slug": "base-vs-v0.2.3",
+      "anchor": "v0.2.3",
+      "seeds": "20000-21023",
+      "title": "HEAD vs v0.2.3 at 1024 seeds",
+      "context": "Read 0.504 +/-0.042 at 128. If level at 1024 too, nothing after v0.2.3 moved strength and the loss is inside #100..#183."
     },
     {
-      "slug": "access-half",
-      "weights": {
-        "access": 0.75
-      },
-      "seeds": "10276-10403",
-      "held": "10404-10467",
-      "title": "reach value halved (0.75 vs 1.5), first reading",
-      "context": "access scales all reach-into-battlegrounds value and ships at an uncalibrated 1.5 (provenance: underdetermined, no note). First reading at half: a pass means the reach term can shrink and the next bisect quarters it; a fail means 1.5 is load-bearing. Cannot say where in (0.75, 1.5] the edge is, only which side of 0.75 it is on."
+      "slug": "v0.2.3-vs-07d553a",
+      "bot_ref": "v0.2.3",
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "title": "v0.2.3 vs 07d553a -- the transitivity check",
+      "context": "If HEAD ~ v0.2.3 and HEAD loses to 07d553a, transitivity predicts v0.2.3 loses to 07d553a by the same margin. Level here instead would mean the gates are measuring an intransitive game and a parent-only gate cannot see drift at all."
     },
     {
-      "slug": "control-half",
+      "slug": "coup-reply-off-vs-07d553a",
       "weights": {
-        "control": 0.75
+        "reply_coup": 0.0
       },
-      "seeds": "10468-10595",
-      "held": "10596-10659",
-      "title": "control value halved (0.75 vs 1.5), first reading",
-      "context": "control values a battleground's control for the access term; expert reasoning puts a 1-stability non-battleground at 1.25-1.67 per Op, but the region model it belongs to is measured wrong overall so it inherits that doubt. First reading at half on current main. A pass shrinks it toward the rebuild's factor-1 replacement; a fail keeps 1.5 until the rebuild. Cannot validate the expert reasoning itself, only the scale."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "ablate Coup replies (#167) against the old bot",
+      "context": "The Coup answer re-prices every placement that changes control. Its gate (vs parent) was accepted; this asks whether it cost strength against a bot outside its lineage."
     },
     {
-      "slug": "margin-bg-half",
+      "slug": "reply-off-vs-07d553a",
       "weights": {
-        "margin_battleground": 0.125
+        "reply_model": 0.0
       },
-      "seeds": "10660-10787",
-      "held": "10788-10851",
-      "title": "battleground margin credit halved (0.125 vs 0.25), first reading",
-      "context": "margin_battleground gives partial tier-flip credit per battleground of margin, fitted to expert valuations (31 -> 26 misses). First reading at half: tests whether the fitted credit survives contact with self-play strength. A pass reopens the fit; a fail keeps it. Cannot distinguish a wrong scale from a wrong shape (the rebuild computes this per future scoring turn)."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "ablate the whole reply look-ahead against the old bot",
+      "context": "Simplification. The look-ahead shipped on a dead heat (0.497 +/-0.032) for its behaviour (poke rate 6.27 -> 0.08 a seat), never for strength. Its legality fix (#154) and Coup answers (#167) are in the interval. test_poke_rate will fail with it off; this measures strength only."
     },
     {
-      "slug": "margin-country-half",
+      "slug": "rival-off-vs-07d553a",
       "weights": {
-        "margin_country": 0.025
+        "scoring_rival": 0.0
       },
-      "seeds": "10852-10979",
-      "held": "10980-11043",
-      "title": "country margin credit halved (0.025 vs 0.05), first reading",
-      "context": "margin_country is the per-country counterpart of margin_bg, same expert fit. Same read as its sibling arm: a pass reopens the fit, a fail keeps 0.05. Run as a separate arm rather than bundled so a rejection attributes to one credit, not the pair."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "ablate deck-tracking rival urgency (#183) against the old bot",
+      "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
     },
     {
-      "slug": "progress-half",
+      "slug": "margin-off-vs-07d553a",
       "weights": {
-        "progress": 1.4
+        "margin_presence": 0.0,
+        "margin_battleground": 0.0,
+        "margin_country": 0.0
       },
-      "seeds": "11044-11171",
-      "held": "11172-11235",
-      "title": "presence-progress weight halved (1.4 vs 2.8), first reading",
-      "context": "progress scales credit toward a first controlled country where a side has none (e.g. USSR Iraq); ships at an uncalibrated 2.8. First reading at half on current main. A pass means presence races are over-weighted and quarters come next; a fail means the urgency is real. Cannot see the positions the credit is for (early presence fights are rare in the sample), same caveat as no-f5."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "simplification: no region-margin partial credit",
+      "context": "Pre-interval term, so a simplification test rather than a drift suspect: does partial credit toward presence/domination earn its keep now that the five-bucket schedule prices the payouts? Level or better = delete candidate."
     },
     {
-      "slug": "scoring-rival-half",
+      "slug": "access-off-vs-07d553a",
       "weights": {
-        "scoring_rival": 0.5
+        "access": 0.0
       },
-      "seeds": "11236-11363",
-      "held": "11364-11427",
-      "title": "rival-held urgency halved (0.5 vs 1.0), first reading",
-      "context": "scoring_rival just shipped with deck-tracking (ACCEPTED 0.520) at 1.0 on no basis beyond symmetry with the holding bonus; 0.0 is off. This arm bisects [0, 1]: a pass says urgency can shrink and 0.25 comes next; a fail says the symmetry guess holds. Cannot price the deck model's p_opponent_holds itself, only this weight on it."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "simplification: no access term",
+      "context": "Access has been re-derived four times (chain, conversion probability, route decay by stability, the #151 cap). If deleting it outright is level against the old bot, the machinery is not paying for itself."
     },
     {
-      "slug": "scoring-hand-premium",
+      "slug": "final-off-vs-07d553a",
       "weights": {
-        "scoring_hand": 1.25
+        "scoring_final": 0.0
       },
-      "seeds": "11428-11555",
-      "held": "11556-11619",
-      "title": "a premium for holding the scoring card (1.25 vs 1.0, currently off)",
-      "context": "scoring_hand ships at 1.0, i.e. no premium at all, and the docs said 1.2 for long enough that nobody re-read it. The 2026-09-17 deck-walk fix (audit F3) moved 0.39 of occurrence mass per position out of bucket 3 and into bucket 2 -- a card in the draw pile is dealt THIS cycle, with certainty, not recycled into the next -- so the this-cycle mass of a card we do NOT hold rose 16% (2.42 -> 2.81 per position) while the mass of one we do hold did not move at all. Holding is therefore worth relatively less in mass terms than it was, and the only thing that could pay for the difference is the knob that is switched off. This arm asks whether choosing the MOMENT deserves a premium now that the deck math prices the timing correctly. A pass says 1.25 is free and the next arm brackets upward; a fail says holding is already fully paid for by bucket 1's certainty. It cannot separate 'holding is worth nothing' from 'holding is worth something the forecast already credits'."
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "title": "simplification: no final-scoring bucket",
+      "context": "Bucket 5 prices every region at final-scoring odds. Games end before turn 10 about 70% of the time here; is the term worth anything?"
     },
     {
-      "slug": "scoring-rival-quarter",
-      "weights": {
-        "scoring_rival": 0.25
-      },
-      "seeds": "11620-11747",
-      "held": "11748-11811",
-      "title": "rival urgency at a quarter (0.25 vs 1.0), the far side of scoring-rival-half",
-      "context": "scoring_rival multiplies buckets 1+2 by (1 + r * P(the opponent holds it)), so at 1.0 a card they certainly hold doubles its own this-cycle urgency. F3 grew exactly that base by 16%, which means this knob's leverage went UP without anyone choosing that. scoring-rival-half (0.5) brackets the near side; this is the far side, so the pair reads as a direction rather than one point. Run both or neither: a single not-measurably-worse at 0.5 cannot distinguish 'the term is over-set' from 'the term does nothing', and 0.25 failing while 0.5 passes is what would locate the edge. Cannot calibrate r itself; three points on a curve is not a fit."
+      "slug": "selfplay-defcon-logs",
+      "seeds": "22048-22175",
+      "logs": true,
+      "title": "HEAD self-play with game logs: how does the USSR seat lose to DEFCON 1?",
+      "context": "Diagnostic, not an A/B. Every drift reading has HEAD as USSR losing to DEFCON 1 in ~19-28% of its games (self-play included) against ~5-6% as US; WBC humans lose 2.7-5.8% per player-game. The logs say which play did it."
     }
-  ]
+  ],
+  "_retired": {
+    "_what": "arms already run (results in docs/notes/codex/); kept so their seed blocks stay reserved",
+    "arms": [
+      {
+        "slug": "region-par-rerun",
+        "weights": {
+          "region": 1.0
+        },
+        "seeds": "9700-9827",
+        "held": "9828-9891",
+        "title": "region at par (1.0 vs 1.3), full-size re-run on current main",
+        "context": "Rebuild step 2 prices factor-1 value with region at par (2026-09-14-value-rebuild-plan). The 2026-09-14 arm read pooled ~0.514 (0.523 over 128 seeds, 0.496 over 64 held) on the superseded pre-merge model: a lean, not a verdict. Re-run at full 128+64 on current main (italy default, rival urgency, retention merged). Shows whether par is free; cannot ship calibration by itself, the rebuild re-derives factor 1 anyway."
+      },
+      {
+        "slug": "access-contested-off-rerun",
+        "weights": {
+          "access_contested": 0.0
+        },
+        "seeds": "9892-10019",
+        "held": "10020-10083",
+        "title": "contested reach at zero (0.0 vs 0.25), isolated on current main",
+        "context": "Isolates the contested-zero piece of the removals bundle without the five-bucket change. The 2026-09-14 arm read pooled 0.512 (0.498 over 128, 0.539 over 64 held) pre-italy: dead heat leaning up. Re-run on the stronger base; informs the five-bucket bisect whichever way it lands. Measures only the weight piece: the flat holding bonus is code, not a weight, and is not covered by this arm."
+      },
+      {
+        "slug": "coup-discount-flat",
+        "weights": {
+          "coup_discount": 1.0
+        },
+        "seeds": "10084-10211",
+        "held": "10212-10275",
+        "title": "no coup discount (1.0 vs 0.9), isolated ablation at full size",
+        "context": "The 2026-09-09 audit proposed testing coup_discount=1 as an isolated ablation; the 2026-09-12 arms came back not-measurably-worse at +/-0.06 to +/-0.075, too wide to act on. Full 128+64 re-run on current main. A pass means the discount is free, not that it is useless; a fail prices the discount. Cannot distinguish a useless discount from coups mispriced elsewhere."
+      },
+      {
+        "slug": "access-half",
+        "weights": {
+          "access": 0.75
+        },
+        "seeds": "10276-10403",
+        "held": "10404-10467",
+        "title": "reach value halved (0.75 vs 1.5), first reading",
+        "context": "access scales all reach-into-battlegrounds value and ships at an uncalibrated 1.5 (provenance: underdetermined, no note). First reading at half: a pass means the reach term can shrink and the next bisect quarters it; a fail means 1.5 is load-bearing. Cannot say where in (0.75, 1.5] the edge is, only which side of 0.75 it is on."
+      },
+      {
+        "slug": "control-half",
+        "weights": {
+          "control": 0.75
+        },
+        "seeds": "10468-10595",
+        "held": "10596-10659",
+        "title": "control value halved (0.75 vs 1.5), first reading",
+        "context": "control values a battleground's control for the access term; expert reasoning puts a 1-stability non-battleground at 1.25-1.67 per Op, but the region model it belongs to is measured wrong overall so it inherits that doubt. First reading at half on current main. A pass shrinks it toward the rebuild's factor-1 replacement; a fail keeps 1.5 until the rebuild. Cannot validate the expert reasoning itself, only the scale."
+      },
+      {
+        "slug": "margin-bg-half",
+        "weights": {
+          "margin_battleground": 0.125
+        },
+        "seeds": "10660-10787",
+        "held": "10788-10851",
+        "title": "battleground margin credit halved (0.125 vs 0.25), first reading",
+        "context": "margin_battleground gives partial tier-flip credit per battleground of margin, fitted to expert valuations (31 -> 26 misses). First reading at half: tests whether the fitted credit survives contact with self-play strength. A pass reopens the fit; a fail keeps it. Cannot distinguish a wrong scale from a wrong shape (the rebuild computes this per future scoring turn)."
+      },
+      {
+        "slug": "margin-country-half",
+        "weights": {
+          "margin_country": 0.025
+        },
+        "seeds": "10852-10979",
+        "held": "10980-11043",
+        "title": "country margin credit halved (0.025 vs 0.05), first reading",
+        "context": "margin_country is the per-country counterpart of margin_bg, same expert fit. Same read as its sibling arm: a pass reopens the fit, a fail keeps 0.05. Run as a separate arm rather than bundled so a rejection attributes to one credit, not the pair."
+      },
+      {
+        "slug": "progress-half",
+        "weights": {
+          "progress": 1.4
+        },
+        "seeds": "11044-11171",
+        "held": "11172-11235",
+        "title": "presence-progress weight halved (1.4 vs 2.8), first reading",
+        "context": "progress scales credit toward a first controlled country where a side has none (e.g. USSR Iraq); ships at an uncalibrated 2.8. First reading at half on current main. A pass means presence races are over-weighted and quarters come next; a fail means the urgency is real. Cannot see the positions the credit is for (early presence fights are rare in the sample), same caveat as no-f5."
+      },
+      {
+        "slug": "scoring-rival-half",
+        "weights": {
+          "scoring_rival": 0.5
+        },
+        "seeds": "11236-11363",
+        "held": "11364-11427",
+        "title": "rival-held urgency halved (0.5 vs 1.0), first reading",
+        "context": "scoring_rival just shipped with deck-tracking (ACCEPTED 0.520) at 1.0 on no basis beyond symmetry with the holding bonus; 0.0 is off. This arm bisects [0, 1]: a pass says urgency can shrink and 0.25 comes next; a fail says the symmetry guess holds. Cannot price the deck model's p_opponent_holds itself, only this weight on it."
+      },
+      {
+        "slug": "scoring-hand-premium",
+        "weights": {
+          "scoring_hand": 1.25
+        },
+        "seeds": "11428-11555",
+        "held": "11556-11619",
+        "title": "a premium for holding the scoring card (1.25 vs 1.0, currently off)",
+        "context": "scoring_hand ships at 1.0, i.e. no premium at all, and the docs said 1.2 for long enough that nobody re-read it. The 2026-09-17 deck-walk fix (audit F3) moved 0.39 of occurrence mass per position out of bucket 3 and into bucket 2 -- a card in the draw pile is dealt THIS cycle, with certainty, not recycled into the next -- so the this-cycle mass of a card we do NOT hold rose 16% (2.42 -> 2.81 per position) while the mass of one we do hold did not move at all. Holding is therefore worth relatively less in mass terms than it was, and the only thing that could pay for the difference is the knob that is switched off. This arm asks whether choosing the MOMENT deserves a premium now that the deck math prices the timing correctly. A pass says 1.25 is free and the next arm brackets upward; a fail says holding is already fully paid for by bucket 1's certainty. It cannot separate 'holding is worth nothing' from 'holding is worth something the forecast already credits'."
+      },
+      {
+        "slug": "scoring-rival-quarter",
+        "weights": {
+          "scoring_rival": 0.25
+        },
+        "seeds": "11620-11747",
+        "held": "11748-11811",
+        "title": "rival urgency at a quarter (0.25 vs 1.0), the far side of scoring-rival-half",
+        "context": "scoring_rival multiplies buckets 1+2 by (1 + r * P(the opponent holds it)), so at 1.0 a card they certainly hold doubles its own this-cycle urgency. F3 grew exactly that base by 16%, which means this knob's leverage went UP without anyone choosing that. scoring-rival-half (0.5) brackets the near side; this is the far side, so the pair reads as a direction rather than one point. Run both or neither: a single not-measurably-worse at 0.5 cannot distinguish 'the term is over-set' from 'the term does nothing', and 0.25 failing while 0.5 passes is what would locate the edge. Cannot calibrate r itself; three points on a curve is not a fit."
+      }
+    ]
+  }
 }

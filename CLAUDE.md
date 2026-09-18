@@ -40,8 +40,9 @@ the tests.
   (`workflow_dispatch` with a JSON list of `bases`, one job per base -- the
   local `gate.sh` holds a machine-wide lock, and that lock is a property of
   having one machine, not of the gate), `drift.yml` (one job per anchor) and
-  `experiments.yml` (one runner per weight arm, from
-  `.github/experiments.json`). Push and dispatch instead of occupying the
+  `experiments.yml` (arms from `.github/experiments.json`, cut into
+  128-seed shards so an arm can be 1024+ seeds, played against HEAD's
+  defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`). Push and dispatch instead of occupying the
   maintainer's cores for an hour. The exception is anything whose RESULT is a
   wall-clock number: `gate.yml`'s own header says the verdict survives the
   move and the timings do not, because a shared 4 vCPU runner's clock means
