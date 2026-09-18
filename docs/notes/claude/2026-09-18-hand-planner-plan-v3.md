@@ -214,7 +214,23 @@ porting anything, as the audit says.
 0 off. Arms `guard-on`, `guard-off` and `guard-measured` (0.43) run on the
 same seeds and anchor as above, paired.
 
-Not separated until those report: F1-F5 against the guard. That needs an ablation arm (guard
+**The guard arms (run 35374218178, 1024 seeds vs 07d553a, paired against
+guard on):**
+
+| arm | score | paired vs on |
+| --- | --- | --- |
+| on (1.0) | 0.520 [0.503, 0.537] | -- |
+| off (0) | 0.519 [0.502, 0.536] | -0.001 [-0.002, 0.001] |
+| measured (0.43) | 0.520 [0.503, 0.537] | 0.000 |
+
+- **Guard on reproduces PR #4's validation to the last digit**, so the
+  determinism check passes.
+- **PR #4's +0.043 is F1-F5, not the guard.** Off costs about nothing in
+  score, though the bot's USSR nuclear losses rise from 37 to 42.
+- **At 0.43 the guard plays identically to 1.0.** At 40 VP, a 43% loss
+  still outweighs the board gain in every position these seeds reached,
+  as the maintainer expected.
+- **Default set to 0.43**, the measured probability, per the ruling. That needs an ablation arm (guard
 off) if anyone wants to know which one carries it.
 
 ### 4-7

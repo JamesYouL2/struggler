@@ -349,7 +349,11 @@ class StrategicWeights:
     # the whole 40 VP game. 1.0 is the shipped stopgap (treat the drop as
     # certain); the maintainer's ruling (2026-09-18) is that it should be the
     # measured probability (scripts/measure_defcon_drop.py). 0 is off.
-    last_window_guard: float = 1.0
+    # 0.43 since 2026-09-18: the measured rate, and it plays identically to
+    # 1.0 over 1024 seeds (paired diff 0.000) -- at 40 VP a 43% loss still
+    # outweighs the board gain. Off reads -0.001 [-0.002, 0.001], USSR
+    # nuclear losses 37 -> 42 (run 35374218178).
+    last_window_guard: float = 0.43
     progress: float = 2.8
     # A flat reserve per spare point past control, up to two. Removing it lost
     # the gate outright (0.328 against the previous commit, one nuclear loss),

@@ -167,10 +167,10 @@
       "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
     },
     "last_window_guard": {
-      "value": 1.0,
-      "source": "guess",
-      "determination": "underdetermined",
-      "note": "P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for cornered_after_drop. 1.0 is the stopgap that shipped with the guard (PR #4: +0.043 paired against the old main vs 07d553a, USSR nuclear losses 169 -> 37, F1-F5 and the guard not separated). The maintainer's ruling (2026-09-18) is that it should be the measured probability, priced at the 40 VP game; scripts/measure_defcon_drop.py measures it on self-play. 0 is off, the ablation."
+      "value": 0.43,
+      "source": "measured",
+      "determination": "bounded",
+      "note": "P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for cornered_after_drop, priced at the 40 VP game (maintainer ruling 2026-09-18: a probability, not a rule). Measured by scripts/measure_defcon_drop.py over 32 self-play games (seeds 42000-42031): in the guard's case (the other side holds a borrowed Coup) 60/140 = 0.43 (US 0.36, USSR 0.60); a bot-vs-bot rate. Over 1024 seeds vs 07d553a (run 35374218178, paired against 1.0): 0.43 plays identically (diff 0.000), off reads -0.001 [-0.002, 0.001] with USSR nuclear losses 37 -> 42. So PR #4's +0.043 is F1-F5, and the guard's value is a few nuclear losses."
     }
   },
   "SurvivalPrior": {
@@ -289,15 +289,15 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 17,
+      "guess": 16,
       "gate": 8,
       "derived": 4,
-      "measured": 7
+      "measured": 8
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 12,
       "known-wrong": 2,
-      "bounded": 11,
+      "bounded": 12,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11
