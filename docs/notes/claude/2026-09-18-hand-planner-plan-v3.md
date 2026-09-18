@@ -130,10 +130,12 @@ the strength of the old log counts.
 
 ### 3. Validation (dispatched)
 
-Two arms in `experiments.yml` on a fresh block, seeds 30000-31023: this
-commit against `07d553a`, and `main` (`70f174c`) against `07d553a` with
-`compare_to`, so the reading is paired. Both have `logs` on, so the
-nuclear losses by seat and card come from the same games. What counts:
+Three arms in `experiments.yml` on a fresh block, seeds 30000-31023, run
+35359674299. This branch plays `07d553a`, and `main` (`70f174c`) plays
+`07d553a` with `compare_to`, so that pair's reading is paired. The third
+arm plays this branch against its parent head to head. All three have
+`logs` on, so the nuclear losses by seat and card come from the same
+games. What counts:
 
 - **the paired difference** is the verdict;
 - **USSR nuclear losses** (196 of 1024 at HEAD against 07d553a) should fall;
