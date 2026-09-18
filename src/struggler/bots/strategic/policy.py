@@ -343,6 +343,13 @@ class StrategicWeights:
     # and gives reach, priced by the access terms below.
     control: float = 1.5
     battleground: float = 5.0
+    # P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for the
+    # last-safe-window guard (`cornered_after_drop`): a play that is certain
+    # loss after that drop is charged at least this residual risk, priced at
+    # the whole 40 VP game. 1.0 is the shipped stopgap (treat the drop as
+    # certain); the maintainer's ruling (2026-09-18) is that it should be the
+    # measured probability (scripts/measure_defcon_drop.py). 0 is off.
+    last_window_guard: float = 1.0
     progress: float = 2.8
     # A flat reserve per spare point past control, up to two. Removing it lost
     # the gate outright (0.328 against the previous commit, one nuclear loss),
@@ -1020,9 +1027,11 @@ class StrategicPlayer:
             residual = max(0., min(1., residual))  # a headline blends two DEFCONs; keep it a probability
             if cornered:
                 # The last safe disposal window (see `cornered_after_drop`):
-                # priced as the loss it becomes if the opponent takes the
-                # drop they legally can, so a play that keeps an exit wins.
-                residual = 1.
+                # a cornered play is lost if the opponent takes the drop they
+                # legally can, so its residual is at least the chance they
+                # take it. `last_window_guard` is that chance; at 1.0 (the
+                # shipped stopgap) the play is priced as the whole game.
+                residual = max(residual, self.weights.last_window_guard)
             return (certain, 0.0, (1 - residual) * score - residual * self.game_value(obs))
         return (certain, -round(risk, 8), score)
 
@@ -1183,7 +1192,7 @@ class StrategicPlayer:
         certain win is never priced by it."""
         planner = self._planner
         if (planner is None or action.kind not in (K.ACTION_ROUND_PLAY, K.PLAY_MODE)
-                or obs.defcon != 3 or planner.trapped):
+                or obs.defcon != 3 or planner.trapped or not self.weights.last_window_guard):
             return False
         if self._stress is None:
             self._stress = {}

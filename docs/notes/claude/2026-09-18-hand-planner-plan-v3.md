@@ -194,7 +194,27 @@ porting anything, as the audit says.
   opponent, which is where CIA Created lived.
 - **The gate against 70f174c: ACCEPTED**, 0.520 +/- 0.024 over 75 seeds.
 
-Not separated: F1-F5 against the guard. That needs an ablation arm (guard
+**The guard's probability, measured** (`scripts/measure_defcon_drop.py`,
+32 self-play games, seeds 42000-42031, 570 action rounds begun at DEFCON 3):
+
+| side to play | P(DEFCON falls in its round) | when the other side holds a borrowed Coup |
+| --- | ---: | ---: |
+| US | 0.27 [0.22, 0.33] | 0.36 [0.27, 0.46], 98 rounds |
+| USSR | 0.40 [0.35, 0.45] | 0.60 [0.45, 0.73], 42 rounds |
+
+- A legal DEFCON-lowering Coup existed in **all 570** rounds, so at
+  DEFCON 3 the guard's legality test never discriminates.
+- The rate is **2-4x the planner's 0.15 prior**. The prior is a
+  per-round rate over every DEFCON above 2; at DEFCON 3 it is too low.
+  That is a separate finding for `SurvivalPrior`.
+- The guard's case pools to 60/140 = **0.43**. This is a bot-vs-bot rate,
+  labelled as one.
+
+`StrategicWeights.last_window_guard` is that probability: 1.0 as shipped,
+0 off. Arms `guard-on`, `guard-off` and `guard-measured` (0.43) run on the
+same seeds and anchor as above, paired.
+
+Not separated until those report: F1-F5 against the guard. That needs an ablation arm (guard
 off) if anyone wants to know which one carries it.
 
 ### 4-7

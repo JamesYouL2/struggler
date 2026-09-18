@@ -165,6 +165,12 @@
       "source": "measured",
       "determination": "determined",
       "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
+    },
+    "last_window_guard": {
+      "value": 1.0,
+      "source": "guess",
+      "determination": "underdetermined",
+      "note": "P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for cornered_after_drop. 1.0 is the stopgap that shipped with the guard (PR #4: +0.043 paired against the old main vs 07d553a, USSR nuclear losses 169 -> 37, F1-F5 and the guard not separated). The maintainer's ruling (2026-09-18) is that it should be the measured probability, priced at the 40 VP game; scripts/measure_defcon_drop.py measures it on self-play. 0 is off, the ablation."
     }
   },
   "SurvivalPrior": {
@@ -269,7 +275,12 @@
       "note": "The same 3888 observations pooled. Used only to hold the LEVEL of `route_decay` fixed while its SHAPE varies with stability, so `access_decay` stays the single lever an A/B can pull. Implies a pooled decay of 1.403 against the shipped access_decay of 1.445 -- close enough that the constant's value was never the error; its being constant was."
     },
     "RETENTION_P": {
-      "value": [0.565, 0.805, 0.894, 0.907],
+      "value": [
+        0.565,
+        0.805,
+        0.894,
+        0.907
+      ],
       "source": "measured",
       "determination": "determined",
       "note": "P(control now is still control at the region's next scoring), by stability 1-4, pooled over contested and uncontested holdings. Measured 2026-09-12 by scripts/measure_access_conversion.py alongside CONVERSION_P (same games, condition flipped): keep rates over n 1103/3573/2952/540, censored (game ended first) 404/1305/1011/198. Contested holdings retain less at every stability (stability 2: 0.773 contested against 0.840 uncontested), so pooling is a documented choice, not a finding. The flip half of the audit's two-state model; prices what current control banks in the retention-discount urgency."
@@ -278,13 +289,13 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 16,
+      "guess": 17,
       "gate": 8,
       "derived": 4,
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 12,
+      "underdetermined": 13,
       "known-wrong": 2,
       "bounded": 11,
       "inert": 4,
