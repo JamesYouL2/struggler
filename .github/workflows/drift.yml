@@ -15,9 +15,15 @@ name: drift
 on:
   workflow_dispatch:
     inputs:
+      # One job per anchor, so the default is a SPAN and not a list of
+      # everything. v0.2.0 is left out because v0.2.1 landed the same day and
+      # supersedes it, and v0.2.2/v0.2.4 because five points across a week is
+      # already enough to say which week a fall entered -- the finer anchors
+      # exist for a dispatch once a week is named. Adding one costs a runner
+      # for ~35 minutes; adding all nine costs nine.
       anchors:
         description: 'JSON list of refs to measure against'
-        default: '["v0.1.0", "v0.2.0", "v0.2.1"]'
+        default: '["v0.1.0", "v0.2.1", "v0.2.5", "v0.3.0", "v0.3.1"]'
       seeds:
         description: 'Seed range, the same for every anchor so the readings are commensurable'
         default: '6000-6127'
