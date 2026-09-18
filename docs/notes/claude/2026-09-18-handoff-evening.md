@@ -46,7 +46,17 @@ What happened today, where each piece is, and what is still running.
   judgment. Curves do fit the small regions better (Central America R²
   0.62 to 0.72).
 
-## Still running (check `gh run list`)
+## Later the same evening
+
+- **PR #6 (fitted weights) gate: ACCEPTED**, 0.507 +/- 0.036 over 76
+  seeds. It waits for the maintainer's merge.
+- **Guard arms:** on reproduced PR #4 exactly; off is -0.001 (USSR
+  nuclear losses 37 -> 42); 0.43 plays identically to 1.0. PR #4's gain
+  was F1-F5. **PR #7** sets the default to the measured 0.43.
+- **Europe curve k=10: 0.486 [0.471, 0.501]**, not adopted.
+- The drift run was still going at 41/74 shards.
+
+## Still running at the time of writing (check `gh run list`)
 
 | run | what | reads as |
 | --- | --- | --- |

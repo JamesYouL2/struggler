@@ -138,5 +138,10 @@ run.
   opponent is the tiers, same code otherwise.
 
 **Default flipped to 2.795** on this branch, gated by its PR against main
-(PR #4's hand safety plus the drift CI). The Europe-curve arm (fit off,
-run 35387907944) is independent and still running.
+(PR #4's hand safety plus the drift CI). PR #6's gate: ACCEPTED, 0.507
++/- 0.036 over 76 seeds.
+
+**The Europe curve (run 35387907944, fit off, k=10): 0.486 [0.471,
+0.501]** against the tiers. That leans worse without being measurably
+worse, so it is not adopted. `europe_curve` stays in the code, off, for a
+different k or for a curve in every region.
