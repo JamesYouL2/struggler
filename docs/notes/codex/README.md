@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-17 — Three scoring arms after the deck-walk fix](2026-09-17-scoring-knob-arms.md) — 2026-09-17 (all level; the rival term orders monotonically and is not over-set)
 - [2026-09-17 — Audit F1-F5 gate: correcting the consumer is a wash](2026-09-17-audit-fixes-gate-verdict.md) — 2026-09-17 (0.482 +/-0.028 ACCEPTED; what it settles about a buggy consumer measuring as a gain)
 - [2026-09-17 — Correctness, rebuild sequencing, and speed audit](2026-09-17-correctness-speed-audit.md) — 2026-09-17
 - [2026-09-17 — Descope gate, and the CI-red pin note](2026-09-17-descope-gate-and-cipins.md) — 2026-09-17
