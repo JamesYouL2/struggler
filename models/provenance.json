@@ -127,8 +127,8 @@
     "reply_coup": {
       "value": 1.0,
       "source": "gate",
-      "determination": "underdetermined",
-      "note": "Switch for the Coup answer in the reply look-ahead (merged at 4813570, v0.2.2): 0 prices only the retake. On as shipped; its merge gate against the parent was accepted. Underdetermined, because it sits inside the #100..v0.2.3 interval where the 2026-09-18 drift readings place a ~0.1 loss against the older bot, and the ablation against that bot (experiments arm coup-reply-off-vs-07d553a, run 35306328917) has not reported. A switch, not a scale: any nonzero value is on."
+      "determination": "bounded",
+      "note": "Switch for the Coup answer in the reply look-ahead (merged at 4813570, v0.2.2): 0 prices only the retake. On as shipped; its merge gate against the parent was accepted. Underdetermined, because it sits inside the #100..v0.2.3 interval where the 2026-09-18 drift readings place a ~0.1 loss against the older bot, and was ablated against that bot: off reads -0.059 [-0.082, -0.037] paired over 1024 seeds (experiments arm coup-reply-off-vs-07d553a, run 35306328917). On is bounded by that; values other than 0/1 mean nothing. A switch, not a scale: any nonzero value is on."
     },
     "vp_base": {
       "value": 0.5,
@@ -284,9 +284,9 @@
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 12,
       "known-wrong": 2,
-      "bounded": 10,
+      "bounded": 11,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11

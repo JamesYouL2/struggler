@@ -1,5 +1,11 @@
 # The drift has one boundary, between #100 of v0.2.1..v0.2.2 and v0.2.3
 
+> **Superseded by the overnight results at the end of this note.** At 1024
+> seeds on a fresh block the gap is 0.033, not 0.10, v0.2.3 is level with
+> the plateau bot, every ablated feature is a gain, and the remaining loss
+> is the DEFCON trap. The 128-seed series below is kept as the record of
+> why the overnight run was designed the way it was.
+
 2026-09-18. Fourteen drift readings: HEAD (`dc59c7d`/`8507eb9`, the same bot
 code as v0.3.1) against each anchor, with the bot's own code snapshotted per
 anchor, both seats on italy/austria, seeds 6000-6127 (128 seeds, one-sided
@@ -106,3 +112,70 @@ Paired against `base-vs-07d553a` (HEAD as it is against the plateau bot):
 `base-vs-v0.2.3`. Transitivity: `v0.2.3-vs-07d553a`. Diagnostic:
 `selfplay-defcon-logs` (128 seeds of HEAD self-play with every game's log,
 to see which play the USSR seat loses DEFCON on).
+
+## Overnight results (run 35306328917, all 81 shards, 1024 seeds each)
+
+| arm | score | one-sided 95% | paired diff vs base |
+| --- | ---: | --- | ---: |
+| HEAD vs 07d553a (base) | 0.467 | [0.450, 0.484] | -- |
+| HEAD vs v0.2.2 | 0.475 | [0.459, 0.491] | |
+| HEAD vs v0.2.3 | 0.495 | [0.479, 0.511] | |
+| v0.2.3 vs 07d553a | 0.501 | [0.485, 0.517] | |
+| Coup replies off | 0.408 | | **-0.059** [-0.082, -0.037] |
+| reply look-ahead off | 0.412 | | **-0.056** [-0.079, -0.032] |
+| access off | 0.429 | | **-0.038** [-0.061, -0.015] |
+| rival urgency off | 0.443 | | **-0.025** [-0.046, -0.004] |
+| final scoring off | 0.448 | | -0.020 [-0.041, +0.001] |
+| region margin off | 0.468 | | +0.001 [-0.022, +0.024] |
+
+**The 128-seed series overstated the gap about threefold.** Every one of
+those readings used seeds 6000-6127, so they shared one block's luck and
+were not fourteen independent looks: 07d553a read 0.400 there and 0.467 on
+20000-21023. A series of anchors on one seed block is correlated; its
+agreement is not evidence of size.
+
+**Hypothesis 2 is refuted.** Every ablatable change in the bracket is a
+*gain* against the plateau bot, measured paired: Coup replies +0.059, the
+reply look-ahead +0.056, access +0.038, rival urgency +0.025. Keep them all.
+And v0.2.3 is level with 07d553a (0.501), so the bracket lost nothing.
+
+**Hypothesis 1 is not established.** Transitivity predicts HEAD vs 07d553a
+of about 0.496 from the other two readings; it measured 0.467. That is
+about 1.7 standard errors, so a lean, not a finding.
+
+**Simplification: the region-margin terms read +0.001.** Setting
+`margin_presence`, `margin_battleground` and `margin_country` to zero is
+level against the old bot at 1024 seeds. It is the one deletion candidate.
+
+## The remaining loss is one DEFCON trap
+
+HEAD self-play with logs (128 seeds, `selfplay-defcon-logs`): 36 of 128
+seeds end in DEFCON 1, and **33 of the 36 are one mechanism**. The phasing
+side plays CIA Created (25, the USSR) or Lone Gunman (8, the US, its
+mirror); the opponent spends the event's Ops on a battleground Coup at
+DEFCON 2; the phasing player is responsible (ARCHITECTURE.md, "DEFCON
+responsibility"). In 35 of the 36 the bot had already logged "EVERY option
+is a certain loss": it was cornered before the play, not choosing badly
+at it.
+
+In all 25 CIA games the USSR was **holding CIA Created when DEFCON fell to
+2**. The US dropped it (a battleground Coup at DEFCON 3) in 17; the USSR's
+own battleground Coup dropped it in 8, which is walking into its own trap.
+CIA Created is 1 Op, so it can never go to the Space Race: its only exits
+are playing it at DEFCON 3+, UN Intervention, or keeping a spare safe card
+to hold it past the turn. `defcon.py` already prices it as lethal at
+DEFCON 2 (`_event_risk`, via `coup_threat`); what it does not do is get rid
+of it while DEFCON is still 3.
+
+And it got worse after v0.2.3. Against the same opponent (07d553a, 1024
+seeds): v0.2.3 as USSR loses 147 games to DEFCON 1, HEAD 196; v0.2.3 as US
+pushes the old USSR into it 199 times, HEAD 170. About 78 games change
+hands, roughly 0.038 of score, against a measured gap of 0.033. That is the
+whole drift, within the noise.
+
+**The fix is in the survival planner, not the value function:** hold a
+card that is lethal at DEFCON 2 only when a safe exit survives the
+opponent's measured chance of dropping DEFCON, and never Coup a
+battleground at DEFCON 3 while holding one. Measure it on self-play
+nuclear rate (21% of USSR games now; WBC humans 3-6%) and on a 1024-seed arm
+against 07d553a paired with `base-vs-07d553a`.

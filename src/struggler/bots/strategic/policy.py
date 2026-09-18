@@ -550,11 +550,11 @@ class StrategicWeights:
     # Whether the reply may be a Coup as well as a retake (`_coup_reply`,
     # merged at 4813570, v0.2.2): 0 prices only the retake, anything else
     # lets them take whichever hurts us more. On by default, as shipped. It
-    # exists as a switch because it is one of the changes inside the
-    # v0.2.1..v0.2.3 interval where the drift canary located a ~0.1 loss
-    # against the older bot (2026-09-18), and it alters the price of every
-    # placement that changes control -- an ablation needs to reach it
-    # without a branch.
+    # exists as a switch so an ablation can reach it without a branch: it
+    # sat inside the interval the 2026-09-18 drift readings suspected, and
+    # it re-prices every placement that changes control. Off measured
+    # -0.059 [-0.082, -0.037] paired over 1024 seeds against 07d553a
+    # (run 35306328917), so the Coup answer is worth keeping.
     reply_coup: float = 1.0
 
     def __post_init__(self):

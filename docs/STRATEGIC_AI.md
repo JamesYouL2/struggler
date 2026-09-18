@@ -202,8 +202,9 @@ action = bot.choose_action(observation, history)
   ignores the doubling rule, so it answers exactly the overprotected or
   unreachable placements the retake cannot. `reply_coup = 0` switches the
   Coup answer off and leaves the retake; it is on by default and exists as
-  an ablation switch, because the Coup answer (v0.2.2) sits inside the
-  interval where the drift canary placed a ~0.1 loss against the older bot.
+  an ablation switch. Off measured -0.059 paired over 1024 seeds against
+  the pre-v0.2.2 bot `07d553a` (2026-09-18), so the Coup answer earns its
+  place.
 - **The answer is priced in the turn it is made, not in this one**
   (`policy.reply_context`). `next_move` dates it 0 or 1; a reply dated next
   turn sees DEFCON one step better (`Engine._end_of_turn`) and *no* turn
