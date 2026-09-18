@@ -1,5 +1,10 @@
 # The hand planner: the plan, and what has to happen first
 
+> The order of work is superseded by
+> [the v2 plan](2026-09-18-hand-planner-plan.md) (2026-09-18), which starts
+> from the measured DEFCON trap. The constraints and the maintainer's rules
+> below still stand, and v2 relies on them.
+
 Four separate investigations on 2026-09-11 ended at the same place, which
 is the argument for doing this rather than any of them:
 

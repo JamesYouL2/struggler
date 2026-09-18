@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The hand planner, v2: disposal, space, hold, scoring timing](2026-09-18-hand-planner-plan.md) — 2026-09-18 (the plan; phase 1 is the CIA Created / Lone Gunman trap, measured as the whole drift)
 - [The drift has one boundary, between #100 of v0.2.1..v0.2.2 and v0.2.3](2026-09-18-drift-located-at-v0.2.1-v0.2.3.md) — 2026-09-18 (the 128-seed gap was 3x too big; every ablated feature is a gain; the remaining loss is the CIA Created / Lone Gunman DEFCON trap)
 - [The correctness/speed audit's F1-F5, applied](2026-09-17-audit-fixes-applied.md) — 2026-09-17 (what was fixed, what the corpus says about each, and the three items deliberately not done)
 - [Handoff, 2026-09-13 midday — supersedes the morning handoff](2026-09-13-handoff-midday.md) — 2026-09-13
