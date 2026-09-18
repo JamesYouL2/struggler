@@ -577,6 +577,20 @@ does not demonstrate that learning improved playing strength.
 Validation: 392 tests passed, 3 skipped, including tactical regressions,
 observation non-mutation, deterministic paired games, and model serialization.
 
+## Fitted country weights (off as shipped)
+
+`StrategicWeights.country_vp_scale` replaces the guessed `battleground` and
+`control` tiers in `evaluator.importance` with a fixed per-country, per-side
+weight fitted to the exact scoring potential
+(`data/fitted_country_weights.json`, produced by
+`scripts/fit_country_weights.py`). It is multiplied by the same
+turn-and-deck scoring mass (`urgency`) the tiers used. Southeast Asia's own
+payout rides its card's mass exactly. `country_value` then prices our
+control at our weight and the opponent's at theirs, and stays zero-sum
+across the seats. At 0 the old tiers run unchanged. `europe_control_vp`
+(40, the whole track) is Europe Control's price in the region term. See
+`docs/notes/claude/2026-09-18-fitted-country-weights.md`.
+
 ## Hand survival
 
 `bots/strategic/defcon.py`'s `DefconPlanner` is the tactical guard in front of every

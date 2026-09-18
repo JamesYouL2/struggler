@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Fitted fixed country weights, proportional to turn and deck](2026-09-18-fitted-country-weights.md) — 2026-09-18 (weights fitted to the exact potential; held-out R² 0.96-0.98 outside Europe, 0.63 in it; six experiment arms)
 - [The VP potential as per-position linear weights](2026-09-18-the-potential-as-per-position-linear-weights.md) — 2026-09-18 (exact per-country weights by forward-backward; a delta goes from 6-30 ms to 4 us; an estimated ~8 s a game against the verdict's 40-120 s)
 - [The hand planner, v3: after Codex's audit](2026-09-18-hand-planner-plan-v3.md) — 2026-09-18 (the audit's F1-F5 reproduced and fixed, the last-safe-window guard, the VP rebuild as a maintainer decision rather than a step)
 - [The hand planner, v2: disposal, space, hold, scoring timing](2026-09-18-hand-planner-plan.md) — 2026-09-18 (superseded in order of work by v3; the diagnosis stands)

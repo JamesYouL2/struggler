@@ -35,9 +35,11 @@ observation is available and every country counts for its printed value.
 from __future__ import annotations
 
 import functools
+import json
 import os
 import random
 from dataclasses import dataclass
+from pathlib import Path
 from typing import NamedTuple
 
 from struggler.engine import Region, Side, Subregion
@@ -331,9 +333,47 @@ def ones(t: Terrain) -> tuple[float, ...]:
     return (1.0,) * len(t.ids)
 
 
-def importance(t: Terrain, w, urgency, i: int) -> float:
-    """A country's tier times what its region will still score."""
+def importance(t: Terrain, w, urgency, i: int, s: int | None = None) -> float:
+    """A country's tier times what its region will still score.
+
+    With `w.country_vp_scale` set, the tier is the fitted per-country,
+    per-side weight instead (`fitted_importance`); off, it is the guessed
+    battleground/control pair, untouched."""
+    if w.country_vp_scale and s is not None:
+        return w.country_vp_scale * fitted_importance(t, urgency, i, s)
     return (w.battleground if t.battleground[i] else w.control) * urgency[i]
+
+
+FITTED_WEIGHTS_PATH = Path(__file__).resolve().parents[2] / 'data' / 'fitted_country_weights.json'
+
+
+@functools.lru_cache(maxsize=None)
+def _fitted_table(ids: tuple[str, ...]) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    """`a[s][i]`, from `data/fitted_country_weights.json`: VP of future
+    regional scoring, per unit of scoring mass, that side `s` gains by
+    controlling country `i` instead of leaving it uncontrolled. Fitted to
+    the exact potential by `scripts/fit_country_weights.py`. A country the
+    file does not cover is an error, not a zero: a missing weight would
+    silently make it worthless (bug shape 5)."""
+    data = json.loads(FITTED_WEIGHTS_PATH.read_text())['weights']
+    missing = [c for c in ids if c not in data]
+    if missing:
+        raise KeyError(f'fitted_country_weights.json has no weight for {missing}')
+    return (tuple(data[c]['US'] for c in ids), tuple(data[c]['USSR'] for c in ids))
+
+
+def fitted_importance(t: Terrain, urgency, i: int, s: int) -> float:
+    """Fixed weight times turn-and-deck mass, in VP of expected scoring.
+
+    The region's own scoring mass is its anchor's urgency (`region_urgency`);
+    what a Southeast Asian country carries beyond it is Southeast Asia
+    Scoring's mass, whose payout is exact and fixed (2 VP for Thailand, 1
+    otherwise), so it needs no fit."""
+    regional = region_urgency(t, t.region_of[i], urgency)
+    value = _fitted_table(t.ids)[s][i] * regional
+    if i in t.southeast_asia:
+        value += (2.0 if i == t.index['Thailand'] else 1.0) * (urgency[i] - regional)
+    return value
 
 
 def region_urgency(t: Terrain, region: Region, urgency) -> float:
@@ -628,6 +668,8 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # Control is worth what the region will still score (a battleground in an
     # unscored Early War region >> one in a region just scored, or one whose
     # scoring is turns away). That is what `urgency` carries.
+    if w.country_vp_scale:
+        return _fitted_country_value(t, pos, i, s, w, urgency, margin, stability, own, opp)
     imp = importance(t, w, urgency, i)
     value = imp * (1 if margin >= stability else -1 if margin <= -stability else 0)
     # Progress toward control is convex: control is worth VP, a lone point is
@@ -652,6 +694,25 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     access_opp = access_fn(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
     value += w.access * (access_own - access_opp)
     return value
+
+
+def _fitted_country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency,
+                          margin: int, stability: int, own: int, opp: int) -> float:
+    """`country_value` on the fitted weights. The same four terms, with one
+    difference the fit makes visible: a country is not worth the same to
+    both sides (the 10.1.2 adjacency bonus pays only the side whose enemy
+    superpower it borders, and tiers fall differently), so our control is
+    priced at OUR weight and theirs at THEIRS -- the tier pair was symmetric."""
+    mine = importance(t, w, urgency, i, s)
+    theirs = importance(t, w, urgency, i, 1 - s)
+    value = mine if margin >= stability else -theirs if margin <= -stability else 0.0
+    fraction = max(-1.0, min(1.0, margin / stability))
+    value += w.progress * (mine * fraction if fraction > 0 else theirs * fraction)
+    value += w.reserve * (mine * min(2, max(0, margin - stability))
+                          - theirs * min(2, max(0, -margin - stability)))
+    access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
+    access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
+    return value + w.access * (access_own - access_opp)
 
 
 def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
@@ -680,14 +741,16 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
 
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
-              ignored: frozenset[int] = frozenset()) -> float:
+              ignored: frozenset[int] = frozenset(),
+              europe_control_vp: float = EUROPE_CONTROL_VP) -> float:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
 
     Europe's Control tier has no scoring value -- controlling all of Europe
     is an immediate win, not a card outcome -- so it stands in as
-    `EUROPE_CONTROL_VP`.
+    `europe_control_vp`, the game's 40 VP swing unless a caller prices it
+    otherwise (`StrategicWeights.europe_control_vp`, for experiments).
     """
     presence_vp, domination_vp, control_vp = t.scoring_vp[region]
     control, battleground, home = pos.control, t.battleground, t.home
@@ -720,10 +783,10 @@ def region_vp(t: Terrain, pos: Position, region: Region,
 
     us_value = value_for(US)
     if us_value is None:
-        return EUROPE_CONTROL_VP
+        return europe_control_vp
     ussr_value = value_for(USSR)
     if ussr_value is None:
-        return -EUROPE_CONTROL_VP
+        return -europe_control_vp
     return us_value - ussr_value
 
 
@@ -871,6 +934,6 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     margin_basis_fn = margin_basis
     return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
-                               ((region, sign * region_vp_fn(t, pos, region, *ov(region)))
+                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp))
                                 for region in Region))
             + sum(sign * margin_basis_fn(t, pos, region, w, urgency)[0] for region in Region))

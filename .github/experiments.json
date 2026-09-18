@@ -146,6 +146,68 @@
       "logs": true,
       "title": "hand-safety fixes vs their parent 70f174c, head to head",
       "context": "The parent reading, beside the anchored pair. A parent-only gate missed the drift that started this, so this is not the verdict on its own. Fresh block 30000-31023: the 20000-21023 block every earlier anchor arm shares correlates them by shared luck. logs on, so nuclear losses by seat and card come from these games."
+    },
+    {
+      "slug": "fitted-matched",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "seeds": "32000-33023",
+      "title": "fitted country weights at the matched scale (2.79)",
+      "context": "The fit on, sized so importance's total equals the old tiers' on the fit sample: tests the SHAPE of the fitted weights (battlegrounds distinguished, per-side, steeper BG:non-BG) against the guessed 5.0/1.5 pair. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md."
+    },
+    {
+      "slug": "fitted-half",
+      "weights": {
+        "country_vp_scale": 1.3975
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights at half the matched scale",
+      "context": "Brackets the size from below; the matched scale is level-matching, not a measurement. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "fitted-double",
+      "weights": {
+        "country_vp_scale": 5.59
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights at double the matched scale",
+      "context": "Brackets the size from above. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "fitted-no-region",
+      "weights": {
+        "country_vp_scale": 2.795,
+        "region": 0.0
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights with the old region term off",
+      "context": "The fitted weights already carry each country's tier change; the region term (current tier VP x urgency x 1.3) may count it twice. Read against fitted-matched. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "fitted-eu20",
+      "weights": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 20.0
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights, Europe Control priced at 20 VP",
+      "context": "The maintainer's ruling is a fixed 40 VP (the whole track); this and eu60 bracket it in the region term. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "fitted-eu60",
+      "weights": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 60.0
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights, Europe Control priced at 60 VP",
+      "context": "The other side of the 40 VP bracket. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
     }
   ],
   "_retired": {
