@@ -343,6 +343,29 @@ class StrategicWeights:
     # and gives reach, priced by the access terms below.
     control: float = 1.5
     battleground: float = 5.0
+    # The fitted alternative to the two tiers above, in raw board units per
+    # VP of expected regional scoring. 0 (off) keeps `control` and
+    # `battleground`; set, each country's importance is its own fitted
+    # weight (data/fitted_country_weights.json: VP per unit of scoring mass,
+    # per side, fitted to the exact potential by
+    # scripts/fit_country_weights.py) times the same turn-and-deck mass
+    # `urgency` already carries. The file's `matched_scale` keeps
+    # importance's overall level where the tiers had it, so an arm at that
+    # value tests the shape of the weights, not their size. On at that
+    # value since 2026-09-18: 0.518 [0.502, 0.534] against the tiers over
+    # 1024 seeds, and half (-0.036) and double (-0.026) both measurably
+    # worse, paired (experiments run 35367356155).
+    country_vp_scale: float = 2.795
+    # What controlling all of Europe is worth in the region term, in VP. It
+    # ends the game, so it is the whole 40 VP swing (stakes.GAME_SWING_VP);
+    # a weight only so experiments can price it otherwise. The fitted
+    # weights were fitted at 40 and do not read this.
+    europe_control_vp: float = 40.0
+    # Europe as one continuous curve, `20 * tanh(net VP / k)` with Control
+    # at the +20 of an automatic victory, in place of the tiers' step
+    # (evaluator.europe_curve_vp). k in VP, fitted by
+    # scripts/fit_europe_curve.py; 0 (off) keeps the tiers.
+    europe_curve: float = 0.0
     progress: float = 2.8
     # A flat reserve per spare point past control, up to two. Removing it lost
     # the gate outright (0.328 against the previous commit, one nuclear loss),
@@ -1204,9 +1227,11 @@ class StrategicPlayer:
     def region_score(self, board: Board, region: Region, side: Side,
                      snapshot: ev.Position | None = None) -> float:
         """Net VP from scoring `region` now. Europe's control tier has no
-        scoring value, so it stands in as +/-100 (see `evaluator.region_vp`)."""
+        scoring value, so it stands in as +/-`europe_control_vp` (see
+        `evaluator.region_vp`)."""
         pos = self._position_for(board, snapshot)
-        net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos))
+        net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos),
+                           self.weights.europe_control_vp, self.weights.europe_curve)
         return net if side is Side.US else -net
 
     def region_margin(self, board: Board, region: Region, side: Side,
@@ -1486,7 +1511,7 @@ class StrategicPlayer:
         # trial change below can move, so they are derived on both sides of it.
         overrides = self._overrides_for(region, pos)
         if net_before is None:
-            net_before = ev.region_vp(t, pos, region, *overrides)
+            net_before = ev.region_vp(t, pos, region, *overrides, w.europe_control_vp, w.europe_curve)
             if base is not None:
                 base[region] = net_before
         region_before = sign * net_before
@@ -1517,7 +1542,8 @@ class StrategicPlayer:
             # change to the overrides, which read control too.
             region_after = (region_before if pos.control[i] == controller
                             else sign * ev.region_vp(
-                                t, pos, region, *self._overrides_for(region, pos)))
+                                t, pos, region, *self._overrides_for(region, pos),
+                                w.europe_control_vp, w.europe_curve))
             margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
                                                     was_us, was_ussr, w, vector)
             change = (ev.country_value(t, pos, i, s, w, vector)
@@ -2236,7 +2262,8 @@ class StrategicPlayer:
         after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
                     if c in affected else v for c, v in countries.items())
         after += ev.region_potential(t, w, vector, (
-            (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
+            (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags),
+                                    w.europe_control_vp, w.europe_curve)
              if r in changed_regions else v) for r, v in regions.items()))
         after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
                      for r, v in margins.items())
