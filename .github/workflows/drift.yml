@@ -1,132 +1,135 @@
-# The drift canary, one job per anchor, all at once.
+# The drift canary: every anchor at once, 1024 seeds each, sharded.
 #
 # This is the thing a local machine cannot do. `scripts/gate.sh` enforces one
 # run at a time with a lock, because eight shared cores mean two runs halve
 # each other's speed and corrupt both sets of timings. A hosted runner is
-# isolated: every anchor gets its own 4 vCPU and 16 GB and cannot see the
-# others, so bisecting drift stops being sequential. Ask v0.1.0, v0.2.0 and
-# v0.2.1 in one pass instead of three, and read where the drift entered from
-# the table rather than from three runs a day apart.
+# isolated, so bisecting drift stops being sequential. Ask every tag in one
+# pass and read where the drift entered from the table.
 #
-# `drift_check.sh` takes no lock (only `gate.sh` does), so concurrency here
-# is safe by construction rather than by convention.
+# 1024 SEEDS, BY WAY OF experiments.yml (2026-09-18). One job per anchor at
+# 128 seeds read +/-0.045, too blunt for a drift the 1024-seed readings put at
+# a third of the 128-seed estimate (docs/notes/claude/
+# 2026-09-18-drift-located-at-v0.2.1-v0.2.3.md), and 1024 seeds in one job is
+# 4-9 hours against GitHub's 6-hour ceiling. experiments.yml already shards
+# an arm into 128-seed jobs and pools them, so this workflow no longer runs
+# games itself. It turns each anchor into an anchored arm and calls
+# experiments.yml, then applies the canary's verdict to the pooled readings
+# (scripts/drift_verdict.py: DRIFT when the one-sided 95% upper bound is
+# below 0.500, drift_check.sh's rule). Nine anchors at 1024 seeds are 72
+# shard jobs, about four waves at ~20 concurrent: hours, not days.
+#
+# What still lives in scripts: the anchor rules. An anchor older than the
+# package split is skipped (`snapshot ... optional`), and one that does not
+# know the requested books plays its own default (`opening_args`). Both are
+# in scripts/lib/gate_common.sh, shared with drift_check.sh, which stays the
+# local canary.
 name: drift
 
 on:
   workflow_dispatch:
     inputs:
-      # EVERY tag, one runner each, the maintainer's call (2026-09-17). A
-      # hosted runner is isolated, so nine anchors cost nine runners for
-      # ~35 minutes and no more wall clock than one -- which is the whole
-      # reason this workflow exists. The alternative, a span, saves CI
-      # minutes and buys a coarser answer: with all nine, "which week did it
-      # enter" and "which merge did it enter" are the same run.
+      # EVERY tag, one arm each, the maintainer's call (2026-09-17): with all
+      # of them, "which week did it enter" and "which merge did it enter" are
+      # the same run.
       #
       # v0.1.0 predates the opening books and plays its own default rather
-      # than the canary's italy/austria; drift_check.sh says so in its log.
-      # Its reading is therefore on a different board from the other eight
-      # and is not commensurable with them -- it is kept because it is the
-      # oldest state believed sound, not because it lines up.
+      # than the canary's italy/austria. Its reading is therefore on a
+      # different board from the others and is not commensurable with them --
+      # it is kept because it is the oldest state believed sound.
       anchors:
         description: 'JSON list of refs to measure against'
         default: '["v0.1.0", "v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1"]'
+      # The same block for every anchor, so the readings are commensurable.
+      # It extends the old 128-seed canary block (6000-6127), which is its
+      # first shard.
       seeds:
-        description: 'Seed range, the same for every anchor so the readings are commensurable'
-        default: '6000-6127'
+        description: 'Seed range, the same for every anchor (1024 = 8 shards of 128)'
+        default: '6000-7023'
       # Both arms must play the SAME opening or the reading is confounded by
-      # the board rather than by the code. An anchor that cannot play the
-      # requested book falls back to "each side plays its own default"
-      # (drift_check.sh says so in the log) -- and for v0.2.0 that means
-      # US=germany against HEAD's US=italy, which is two different games.
-      # Overriding to a book both sides know is how such an anchor gets a
-      # clean reading. Blank keeps the default italy/austria, which is what
-      # DEFAULT_OPENINGS ships and what every anchor from v0.2.0 on knows.
+      # the board rather than by the code. Blank keeps italy/austria, which is
+      # what DEFAULT_OPENINGS ships and what every anchor from v0.2.0 on knows.
       books:
         description: 'Opening books both arms play, e.g. US=france,USSR=poland (blank = italy/austria)'
         default: ''
   schedule:
-    # Sunday 03:00 UTC. Drift is a slow signal; weekly is often enough, and
-    # a scheduled run on a quiet day competes with nothing.
+    # Sunday 03:00 UTC. Drift is a slow signal; weekly is often enough.
     - cron: '0 3 * * 0'
 
 permissions:
   contents: read
 
 jobs:
-  drift:
+  anchors:
     runs-on: ubuntu-latest
-    # ~2h expected at 128 seeds on 4 vCPU, against GitHub's 6h ceiling. Set
-    # explicitly so a hang is killed by us at a known point rather than by
-    # the platform at an arbitrary one.
-    timeout-minutes: 300
-    strategy:
-      # One anchor failing is a RESULT, not a reason to cancel the others --
-      # the whole point of asking three at once is to see which ones trip.
-      fail-fast: false
-      matrix:
-        anchor: ${{ fromJSON(github.event.inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1"]') }}
+    outputs:
+      arms: ${{ steps.arms.outputs.arms }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # REQUIRED, and the failure is silent without it. drift_check.sh
-          # runs `git archive <anchor>` to snapshot the old bot and
-          # `git worktree add HEAD` for the new one. The default shallow
-          # checkout has neither the tags nor the history to do either.
+          # REQUIRED: `snapshot` runs `git archive <anchor>`, which needs the
+          # tags and the history a shallow checkout does not have.
           fetch-depth: 0
-
-      - uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-
-      - run: uv sync --frozen
-
-      - name: drift vs ${{ matrix.anchor }}
-        id: drift
-        # 4 workers, not the script's default of 8: ubuntu-latest gives
-        # public repos 4 vCPU, and oversubscribing costs throughput and makes
-        # the wall clock meaningless. The VERDICT is unaffected either way --
-        # the seeds are deterministic, so contention moves the clock and never
-        # the result, which is why CI is a legitimate home for this.
-        #
-        # Exit 1 means drift was called and the job should fail. Exit 3 means
-        # the benchmark crashed, which is a different problem and also fails.
+      - id: arms
         env:
-          # Unset (not empty) when no override is given: drift_check.sh reads
-          # `${DRIFT_OPENINGS-default}`, so an EMPTY value is a deliberate
-          # "each side plays its own default" and would silently switch the
-          # meaning of a blank input.
-          DRIFT_BOOKS: ${{ github.event.inputs.books }}
+          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1"]' }}
+          SEEDS: ${{ inputs.seeds || '6000-7023' }}
+          DRIFT_BOOKS: ${{ inputs.books }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/gate_common.sh
+          # Unset, not empty, when no override is given: opening_args reads
+          # `${DRIFT_OPENINGS-default}`, so an EMPTY value would mean "each
+          # side plays its own default" for every anchor.
+          if [ -n "${DRIFT_BOOKS:-}" ]; then export DRIFT_OPENINGS="$DRIFT_BOOKS"; fi
+          : > arms.jsonl
+          for anchor in $(python3 -c 'import json, os; print(" ".join(json.loads(os.environ["ANCHORS"])))'); do
+            ANCHOR_OK=1
+            snapshot "$anchor" "snap/$anchor" optional
+            if [ "$ANCHOR_OK" != 1 ]; then
+              echo "- \`$anchor\`: SKIPPED, predates the package split" >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            flag=$(opening_args "snap/$anchor")
+            books=${flag#--openings }
+            [ -n "$flag" ] || books=default
+            echo "- \`$anchor\`: openings $books" >> "$GITHUB_STEP_SUMMARY"
+            python3 - "$anchor" "$books" "$SEEDS" >> arms.jsonl <<'PY'
+          import json, sys
+          anchor, books, seeds = sys.argv[1:]
+          print(json.dumps({'slug': f'drift-{anchor}', 'anchor': anchor, 'seeds': seeds,
+                            'openings': books,
+                            'title': f'drift: HEAD vs {anchor}', 'context': 'drift.yml canary'}))
+          PY
+          done
+          echo "arms=$(python3 -c 'import json; print(json.dumps([json.loads(l) for l in open("arms.jsonl")]))')" \
+            >> "$GITHUB_OUTPUT"
+
+  measure:
+    needs: anchors
+    uses: ./.github/workflows/experiments.yml
+    with:
+      arms: ${{ needs.anchors.outputs.arms }}
+
+  verdict:
+    needs: [anchors, measure]
+    # Read whatever pooled: a crashed shard is INCOMPLETE in the verdict, not
+    # silently pooled around.
+    if: always() && needs.anchors.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: pooled
+          path: pooled
+      # THE EXIT STATUS IS THE VERDICT: 1 is drift against at least one
+      # anchor, 3 an incomplete reading. Wall time from a shared runner is not
+      # quotable; the verdict is.
+      - name: drift verdict
         run: |
           set -o pipefail
-          # An `if`, not `[ -n x ] && export`. Both work here -- checked,
-          # because `bash -e` plus a blank default input looks like it should
-          # abort and does not: the failing test is part of an && list and is
-          # not the command after the final &&, which is one of `set -e`'s
-          # documented exceptions. The `if` does not depend on knowing that.
-          if [ -n "${DRIFT_BOOKS:-}" ]; then export DRIFT_OPENINGS="$DRIFT_BOOKS"; fi
-          scripts/drift_check.sh "${{ matrix.anchor }}" "${{ github.event.inputs.seeds || '6000-6127' }}" 4 \
-            2>&1 | tee drift-${{ matrix.anchor }}.log
-
-      - name: summarise
-        if: always()
-        run: |
-          {
-            echo "### drift vs \`${{ matrix.anchor }}\`"
-            echo
-            echo '```'
-            grep -E "score |DRIFT|ok: upper bound|took |contention" \
-              drift-${{ matrix.anchor }}.log || tail -20 drift-${{ matrix.anchor }}.log
-            echo '```'
-            echo
-            echo "_Wall time from a shared runner is not quotable; the verdict is._"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: drift-${{ matrix.anchor }}
-          path: |
-            drift-${{ matrix.anchor }}.log
-            logs/drift/
-          retention-days: 30
+          { echo '### drift verdict'; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          python3 scripts/drift_verdict.py pooled/pooled.json | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status

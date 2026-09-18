@@ -55,6 +55,21 @@ on:
       inline:
         description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9611","anchor":"v0.2.1","title":"t","context":"c"}'
         default: ''
+  # Callable, so another workflow can hand it a list of arms and get the
+  # sharding, pooling and paired readings without a second copy of them.
+  # drift.yml is the caller: each anchor becomes an anchored arm.
+  workflow_call:
+    inputs:
+      arms:
+        description: 'JSON list of arms in the experiments.json schema; replaces the file'
+        type: string
+        default: ''
+      only:
+        type: string
+        default: ''
+      inline:
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -72,8 +87,11 @@ jobs:
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
           inline = os.environ.get('INLINE', '').strip()
+          given = os.environ.get('ARMS', '').strip()
           only = [x.strip() for x in os.environ.get('ONLY', '').split(',') if x.strip()]
-          if inline:
+          if given:
+              arms = json.loads(given)
+          elif inline:
               arms = [json.loads(inline)]
           else:
               arms = json.load(open('.github/experiments.json'))['experiments']
@@ -111,6 +129,11 @@ jobs:
               chunks = [b[i:i + size] for b in blocks for i in range(0, len(b), size)]
               openings = a.get('openings') or (
                   'US=italy,USSR=austria' if (a.get('anchor') or a.get('bot_ref')) else '')
+              # "default": each side plays its own revision's default book --
+              # for an anchor that does not know the requested ones (drift.yml
+              # asks gate_common.sh's `opening_args`, as drift_check.sh does).
+              if openings == 'default':
+                  openings = ''
               for i, chunk in enumerate(chunks):
                   shards.append({
                       'slug': a['slug'], 'shard': i, 'of': len(chunks),
@@ -125,8 +148,11 @@ jobs:
           print(f'count={len(shards)}')
           PY
         env:
-          INLINE: ${{ github.event.inputs.inline }}
-          ONLY: ${{ github.event.inputs.only }}
+          # `inputs`, not `github.event.inputs`: the one context both a
+          # dispatch and a workflow_call fill.
+          INLINE: ${{ inputs.inline }}
+          ONLY: ${{ inputs.only }}
+          ARMS: ${{ inputs.arms }}
 
   run:
     needs: plan
