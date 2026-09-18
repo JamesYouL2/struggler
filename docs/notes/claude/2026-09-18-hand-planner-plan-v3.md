@@ -180,7 +180,10 @@ expected-VP optimiser.
 ## Open questions for the maintainer
 
 1. **The VP potential: native kernel, or stay descoped?** (Step 5. It
-   decides whether step 6 waits.)
+   decides whether step 6 waits.) There is now a third option: per-position
+   linear weights, exact for one-country moves, with a delta at 4 us and an
+   estimated ~8 s a game. See
+   [the note](2026-09-18-the-potential-as-per-position-linear-weights.md).
 2. ~~Rule or probability for the guard?~~ **Answered: a probability,
    with the loss at -40 VP**. See step 2.
 3. v2's questions on scoring timing and space aggression stand, minus the

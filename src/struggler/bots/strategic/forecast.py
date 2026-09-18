@@ -366,18 +366,96 @@ def _tier_fn(total_bg: int, scoring_vp: tuple[int, int, int | None]):
 def _convolve_rows(rows) -> dict:
     """The joint count distribution of the rows' independent draws."""
     state = {(0, 0, 0, 0): 1.0}
-    for is_bg, p_us, p_ussr, p_open in rows:
-        nxt = defaultdict(float)
-        bg = 1 if is_bg else 0
-        for (us, ussr, us_bg, ussr_bg), p in state.items():
-            if p_us:
-                nxt[(us + 1, ussr, us_bg + bg, ussr_bg)] += p * p_us
-            if p_ussr:
-                nxt[(us, ussr + 1, us_bg, ussr_bg + bg)] += p * p_ussr
-            if p_open:
-                nxt[(us, ussr, us_bg, ussr_bg)] += p * p_open
-        state = nxt
+    for row in rows:
+        state = _convolve_step(state, row)
     return state
+
+
+def _convolve_step(state: dict, row) -> dict:
+    """`state` with one more independent member drawn: one DP step."""
+    is_bg, p_us, p_ussr, p_open = row
+    nxt = defaultdict(float)
+    bg = 1 if is_bg else 0
+    for (us, ussr, us_bg, ussr_bg), p in state.items():
+        if p_us:
+            nxt[(us + 1, ussr, us_bg + bg, ussr_bg)] += p * p_us
+        if p_ussr:
+            nxt[(us, ussr + 1, us_bg, ussr_bg + bg)] += p * p_ussr
+        if p_open:
+            nxt[(us, ussr, us_bg, ussr_bg)] += p * p_open
+    return nxt
+
+
+def tier_weights(t: ev.Terrain, forecast: ControlForecast,
+                 overrides: tuple[frozenset[int], frozenset[int]] | None = None
+                 ) -> tuple[tuple[float, float, float], ...]:
+    """Per member, E[signed tier payout] with that member FORCED to each of
+    (US, USSR, uncontrolled) and every other member left as forecast.
+
+    Under the independence DP the tier expectation is multilinear in the
+    members' triples, so for any one member it is exactly affine in that
+    member's own triple:
+
+        E[tier | member c drawn from q] = q . tier_weights(...)[c]
+
+    These are the linear weights of the potential AT THIS POSITION: a trial
+    that changes one member's triple is priced exactly by a dot product,
+    with no DP, and a trial that changes several members of one region is
+    priced to first order (the interaction terms are what it drops). The
+    table is a per-position object -- it moves with every other member --
+    never a set of global constants.
+
+    Built as forward-backward over the members: alpha_k is the count
+    distribution of members 1..k, beta_k(y) the expected payout given the
+    counts after k members are y. Then
+
+        W[k][s] = sum_x alpha_{k-1}(x) * beta_k(x + shift_k(s)),
+
+    about four DP walks for the whole region where `tier_e_minus` takes
+    one per member. `beta` is kept on every state a FORCED outcome can
+    reach, not only those the forecast reaches: forcing US on a member the
+    forecast says the US cannot win is exactly the question a placement asks.
+
+    A Shuttle-ignored member reads uncontrolled whatever it is forced to,
+    as `_tier_rows` scores it, so its three weights are equal."""
+    total_bg, scoring_vp, rows = _tier_rows(t, forecast, overrides)
+    tier_of = _tier_fn(total_bg, scoring_vp)
+    ignored = frozenset() if overrides is None else overrides[1]
+    frozen = [i in ignored for i in forecast.members]
+
+    def shifts(k):
+        bg = 1 if rows[k][0] else 0
+        if frozen[k]:
+            return ((0, 0, 0, 0),) * 3
+        return ((1, 0, bg, 0), (0, 1, 0, bg), (0, 0, 0, 0))
+
+    def add(x, d):
+        return (x[0] + d[0], x[1] + d[1], x[2] + d[2], x[3] + d[3])
+
+    n = len(rows)
+    alphas = [{(0, 0, 0, 0): 1.0}]
+    for row in rows:
+        alphas.append(_convolve_step(alphas[-1], row))
+    # needed[k]: the states beta_{k+1} (counts after members 0..k) must be
+    # defined on -- every forced outcome from alpha_k, plus what the later
+    # members' live outcomes carry those to.
+    needed: list[set] = []
+    for k in range(n):
+        forced = {add(x, d) for x in alphas[k] for d in shifts(k)}
+        if k:
+            live = [d for d, p in zip(shifts(k), rows[k][1:]) if p]
+            forced |= {add(y, d) for y in needed[k - 1] for d in live}
+        needed.append(forced)
+    beta = {y: tier_of(y[0], y[2], y[1], y[3]) for y in needed[n - 1]} if n else {}
+    weights: list[tuple[float, float, float]] = [None] * n  # type: ignore[list-item]
+    for k in range(n - 1, -1, -1):
+        alpha = alphas[k]
+        weights[k] = tuple(sum(p * beta[add(x, d)] for x, p in alpha.items())
+                           for d in shifts(k))
+        if k:
+            live = [(d, p) for d, p in zip(shifts(k), rows[k][1:]) if p]
+            beta = {y: sum(p * beta[add(y, d)] for d, p in live) for y in needed[k - 1]}
+    return tuple(weights)
 
 
 def tier_e_minus(t: ev.Terrain, forecast: ControlForecast,

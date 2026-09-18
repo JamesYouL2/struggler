@@ -383,3 +383,46 @@ def test_europe_control_names_the_automatic_victory():
     board.influence[t.ids[europe_bg[0]]]["USSR"] = 2 * t.stability[europe_bg[0]]
     pos = ev.Position(t).sync(board)
     assert fcst.europe_control(t, pos) is None
+
+
+@pytest.mark.parametrize('region', list(Region))
+@pytest.mark.parametrize('horizon', [1, 2])
+@pytest.mark.parametrize('with_overrides', [False, True])
+def test_tier_weights_are_the_exact_linear_weights_of_every_member(region, horizon, with_overrides):
+    """`tier_weights` is proved equal, member by member and outcome by
+    outcome, to the per-member-removed DP it replaces (`tier_e_minus` +
+    one reconvolve with the member forced), and each member's dot product
+    with its own triple reproduces the full DP. Random triples, so no
+    member is degenerate by accident; both override kinds where the region
+    has them (a Formosan promotion and a Shuttle-ignored member)."""
+    import random
+
+    from struggler.bots.strategic.forecast import (_tier_distribution, tier_e_minus,
+                                                   tier_e_from_minus, tier_weights)
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    t, pos = _synced(engine.board)
+    base = fcst.forecast_controls(t, pos, region, horizon)
+    rng = random.Random(hash((region.value, horizon)) & 0xffff)
+    probs = []
+    for _ in base.members:
+        a, b = sorted((rng.random(), rng.random()))
+        probs.append((a, b - a, 1.0 - b))
+    forecast = base._replace(probs=tuple(probs))
+    overrides = None
+    if with_overrides:
+        promoted = frozenset(i for i in base.members if t.ids[i] == 'Taiwan')
+        ignored = frozenset(base.members[1:2])
+        overrides = (promoted, ignored)
+    weights = tier_weights(t, forecast, overrides)
+    full = sum(v * p for v, p in _tier_distribution(t, forecast, overrides).items())
+    promoted, ignored = overrides or (frozenset(), frozenset())
+    for where, i in enumerate(forecast.members):
+        assert sum(q * w for q, w in zip(forecast.probs[where], weights[where])) == pytest.approx(full, abs=1e-9)
+        if i in ignored:
+            assert weights[where] == pytest.approx((full,) * 3, abs=1e-9)
+            continue
+        tier_of, state_minus = tier_e_minus(t, forecast, overrides, where)
+        is_bg = t.battleground[i] or i in promoted
+        for s, forced in enumerate(((1., 0., 0.), (0., 1., 0.), (0., 0., 1.))):
+            want = tier_e_from_minus(tier_of, state_minus, (is_bg, *forced))
+            assert weights[where][s] == pytest.approx(want, abs=1e-9), (t.ids[i], s)
