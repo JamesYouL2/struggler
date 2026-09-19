@@ -217,6 +217,35 @@
       "seeds": "32000-33023",
       "title": "Europe as 20*tanh(net VP / 10), Control = +20 (auto win), fit off",
       "context": "Europe alone: the tiers' step from domination to Control replaced by one continuous curve reaching exactly the +20 of an automatic victory (maintainer, 2026-09-18). Isolated -- the fitted country weights are off -- against this branch's defaults on the same seeds as the fitted-* arms, so it reads beside fitted-matched though not paired with it. k=10 is a judgment: the exact potential cannot fit it, since self-play never approaches Europe Control (scripts/fit_europe_curve.py: 0 Control rows in 2130 positions). docs/notes/claude/2026-09-18-fitted-country-weights.md."
+    },
+    {
+      "slug": "guard-on-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "title": "main (guard at 1.0, as shipped) vs 07d553a",
+      "context": "The paired baseline for the guard arms. Same seeds (30000-31023) and anchor as run 35359674299's hand-v3-fix-vs-07d553a, which guard-on should reproduce exactly (a determinism check). docs/notes/claude/2026-09-18-hand-planner-plan-v3.md."
+    },
+    {
+      "slug": "guard-off-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "weights": {
+        "last_window_guard": 0.0
+      },
+      "compare_to": "guard-on-vs-07d553a",
+      "title": "last-safe-window guard OFF vs 07d553a, paired with it on",
+      "context": "The ablation: separates the guard from F1-F5 in PR #4's +0.043. Same seeds (30000-31023) and anchor as run 35359674299's hand-v3-fix-vs-07d553a, which guard-on should reproduce exactly (a determinism check). docs/notes/claude/2026-09-18-hand-planner-plan-v3.md."
+    },
+    {
+      "slug": "guard-measured-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "weights": {
+        "last_window_guard": 0.43
+      },
+      "compare_to": "guard-on-vs-07d553a",
+      "title": "guard as a probability, 0.43 (measured), vs 07d553a",
+      "context": "The maintainer's ruling: the guard as P(drop | legal) x the 40 VP game. 0.43 = 60/140 drops in the guard's case over 32 self-play games (scripts/measure_defcon_drop.py, seeds 42000-42031); a bot-vs-bot rate. Same seeds (30000-31023) and anchor as run 35359674299's hand-v3-fix-vs-07d553a, which guard-on should reproduce exactly (a determinism check). docs/notes/claude/2026-09-18-hand-planner-plan-v3.md."
     }
   ],
   "_retired": {
