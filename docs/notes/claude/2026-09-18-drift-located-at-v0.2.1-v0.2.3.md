@@ -179,3 +179,31 @@ opponent's measured chance of dropping DEFCON, and never Coup a
 battleground at DEFCON 3 while holding one. Measure it on self-play
 nuclear rate (21% of USSR games now; WBC humans 3-6%) and on a 1024-seed arm
 against 07d553a paired with `base-vs-07d553a`.
+
+## Update, evening: the first 1024-seed canary (run 35371538598)
+
+`drift.yml` now reads every tag at 1024 seeds (PR #5). The first run
+measured PR #4's hand-safety code, before the fitted weights, on seeds
+6000-7023:
+
+| tag | score | one-sided 95% |
+| --- | ---: | --- |
+| v0.1.0 | 0.541 | [0.524, 0.558] |
+| **v0.2.0** | **0.474** | **[0.458, 0.490]** DRIFT |
+| **v0.2.1** | **0.470** | **[0.453, 0.487]** DRIFT |
+| v0.2.2 | 0.520 | [0.504, 0.536] |
+| v0.2.3 / v0.2.4 | 0.548 | [0.532, 0.564] (identical: v0.2.4 changed no bot code) |
+| v0.2.5 | 0.552 | [0.536, 0.568] |
+| v0.3.0 | 0.549 | [0.534, 0.564] |
+| v0.3.1 | 0.544 | [0.533, 0.555] |
+
+- **The hand safety beat every tag from v0.2.2 on**, and `07d553a` too
+  (0.520 on seeds 30000-31023).
+- **It is still behind v0.2.0 and v0.2.1**, by about 0.03. `07d553a`
+  sits between v0.2.1 and v0.2.2, so this remaining loss entered between
+  v0.2.1 and `07d553a`. That is earlier than this note first placed it:
+  the CIA Created trap masked it.
+- Re-reading on main with the fitted weights (+0.018 against the tiers)
+  against v0.2.0, v0.2.1 and 07d553a: run 35416380534. If the gap holds,
+  bisect v0.2.1..07d553a with 1024-seed anchored arms.
+

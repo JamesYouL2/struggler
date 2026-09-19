@@ -56,6 +56,19 @@ What happened today, where each piece is, and what is still running.
 - **Europe curve k=10: 0.486 [0.471, 0.501]**, not adopted.
 - The drift run was still going at 41/74 shards.
 
+## Later still
+
+- **PR #6 merged, and it broke every snapshot of main.** A gate's baseline
+  is `src/struggler/bots` alone, and the fitted weights lived in
+  `src/struggler/data/`. **PR #8** moved them into the bots package and
+  added a test that loads a bots-only copy as the gate does (bug shape 3,
+  eighth instance). It is merged. PR #8's own gate crashed the same way,
+  as it had to: its baseline was the broken main.
+- **The 1024-seed drift canary works end to end** (run 35371538598). See
+  the drift note's update. The remaining loss is against v0.2.0 and v0.2.1
+  and lies between v0.2.1 and 07d553a.
+- **PR #7** (guard 0.43) has main merged in; its gate is re-running.
+
 ## Still running at the time of writing (check `gh run list`)
 
 | run | what | reads as |
