@@ -183,6 +183,12 @@
       "source": "guess",
       "determination": "underdetermined",
       "note": "Europe as 20*tanh(net VP now / k), Control at exactly the +20 of an automatic victory (maintainer, 2026-09-18). 0 keeps the tiers. k cannot be fitted to the exact potential from self-play: scripts/fit_europe_curve.py over 2130 positions (seeds 40000-40007) found zero Europe Control rows and k at the grid edge (a straight line), R^2 0.732 against the tier step's 0.736. So k is a judgment; the arm europe-curve-k10 tries 10 (domination with two bonus battlegrounds reads 14.3 of 20)."
+    },
+    "last_window_guard": {
+      "value": 0.43,
+      "source": "measured",
+      "determination": "bounded",
+      "note": "P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for cornered_after_drop, priced at the 40 VP game (maintainer ruling 2026-09-18: a probability, not a rule). Measured by scripts/measure_defcon_drop.py over 32 self-play games (seeds 42000-42031): in the guard's case (the other side holds a borrowed Coup) 60/140 = 0.43 (US 0.36, USSR 0.60); a bot-vs-bot rate. Over 1024 seeds vs 07d553a (run 35374218178, paired against 1.0): 0.43 plays identically (diff 0.000), off reads -0.001 [-0.002, 0.001] with USSR nuclear losses 37 -> 42. So PR #4's +0.043 is F1-F5, and the guard's value is a few nuclear losses."
     }
   },
   "SurvivalPrior": {
@@ -304,12 +310,12 @@
       "guess": 17,
       "gate": 10,
       "derived": 4,
-      "measured": 7
+      "measured": 8
     },
     "counts_by_determination": {
       "underdetermined": 13,
       "known-wrong": 2,
-      "bounded": 13,
+      "bounded": 14,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11
