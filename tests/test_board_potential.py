@@ -59,7 +59,7 @@ def _as_in_a_ranking(bot: StrategicPlayer) -> None:
     """Open the per-decision base caches exactly as `rank_actions` does, so
     `delta` runs its cached path: before-values of the changed country and
     of its neighbours are then read from `_base_country` on repeat calls."""
-    bot._base_regions, bot._base_margins, bot._base_country = {}, {}, {}
+    bot._base_regions, bot._base_country = {}, {}
     bot._base_digest = bot._position.digest
 
 
@@ -189,9 +189,10 @@ def test_a_repeated_delta_from_warm_caches_is_still_exact(overrides):
 
 
 def _cameroon_then_nigeria():
-    """Codex's M1 weights: region VP and the margin off, so what is left of
-    the gap is access alone."""
-    return _player(region=0, margin_presence=0, margin_battleground=0, margin_country=0)
+    """Codex's M1 weights: region VP off, so what is left of the gap is
+    access alone. (The margin terms this also switched off were deleted on
+    2026-09-19; there is nothing left to switch.)"""
+    return _player(region=0)
 
 
 def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
@@ -298,7 +299,9 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     bot = _no_access()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
-    assert expected == pytest.approx(22.494949494949488, abs=1e-9)
+    # Re-pinned 2026-09-19 from 22.494949494949488 when the region-margin
+    # terms were deleted: the same board difference with one fewer summand.
+    assert expected == pytest.approx(20.77777777777777, abs=1e-9)
     assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
 
     t, urgency = ev.terrain(), bot._urgency

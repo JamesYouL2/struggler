@@ -820,110 +820,6 @@ def region_vp(t: Terrain, pos: Position, region: Region,
     return us_value - ussr_value
 
 
-@functools.lru_cache(maxsize=None)
-def _contribution(is_bg: bool, stability: int, us: int, ussr: int):
-    """One country's share of the region aggregates: per side (controlled
-    countries, fractional battlegrounds, progress)."""
-    margin = us - ussr
-    if margin >= stability:
-        return (1, float(is_bg), 1.), (0, 0., 0.)
-    if -margin >= stability:
-        return (0, 0., 0.), (1, float(is_bg), 1.)
-    if us > 0 and margin > 0:
-        frac = margin / stability
-        return (0, is_bg * frac, frac), (0, 0., 0.)
-    if ussr > 0 and margin < 0:
-        frac = -margin / stability
-        return (0, 0., 0.), (0, is_bg * frac, frac)
-    return (0, 0., 0.), (0, 0., 0.)
-
-
-def _bg_total(fractions: dict) -> float:
-    """Sum the per-member battleground fractions in member order. The full
-    walk adds a 0.0 for every other member and `x + 0.0 == x`, so this is
-    bitwise identical to it, which keeps a swapped aggregate from reordering
-    near-ties against a freshly computed one."""
-    total = 0.
-    for _, value in sorted(fractions.items()):
-        total += value
-    return total
-
-
-def _unit(t: Terrain, region: Region, w, urgency) -> tuple[float, bool, float]:
-    presence_vp, domination_vp, _ = t.scoring_vp[region]
-    sw = region_urgency(t, region, urgency)
-    # One battleground's control value in this region is the unit; the
-    # domination gap is in presence units.
-    return w.battleground * sw, sw >= w.margin_live, (domination_vp - presence_vp) / presence_vp
-
-
-def _credit(agg, unit: float, live: bool, gap: float, w) -> float:
-    """Net US credit from the aggregates [countries, battlegrounds, best progress]."""
-    net = 0.
-    for s, sign in ((US, 1), (USSR, -1)):
-        mine, theirs = agg[s], agg[1 - s]
-        credit = 0.
-        if live and mine[0] == 0:
-            credit += w.margin_presence * mine[2]
-        bg_margin = max(-2., min(2., mine[1] - theirs[1]))
-        c_margin = max(-2, min(2, mine[0] - theirs[0]))
-        credit += gap * (w.margin_battleground * bg_margin + w.margin_country * c_margin)
-        net += sign * credit * unit
-    return net
-
-
-def margin_basis(t: Terrain, pos: Position, region: Region, w, urgency):
-    """Partial credit toward the region's next scoring tier, net for the US,
-    with the aggregates it came from: `(net, agg, unit, live, gap, fractions,
-    members)`. See `StrategicWeights.margin_presence`."""
-    unit, live, gap = _unit(t, region, w, urgency)
-    members = t.members[region]
-    us, ussr = pos.inf
-    battleground, stability = t.battleground, t.stability
-    agg = ([0, 0., 0.], [0, 0., 0.])
-    fractions = ({}, {})
-    for where, i in enumerate(members):
-        for s, (countries, bgf, progress) in enumerate(
-                _contribution(battleground[i], stability[i], us[i], ussr[i])):
-            a = agg[s]
-            a[0] += countries
-            a[1] += bgf
-            if bgf:
-                fractions[s][where] = bgf
-            if progress > a[2]:
-                a[2] = progress
-    return _credit(agg, unit, live, gap, w), agg, unit, live, gap, fractions, members
-
-
-def margin_swapped(t: Terrain, pos: Position, region: Region, basis, i: int,
-                   was_us: int, was_ussr: int, w, urgency) -> float:
-    """The region margin after country `i` moved from `(was_us, was_ussr)` to
-    what the snapshot now holds, by swapping that one country's contribution
-    into `basis`'s aggregates. Falls back to a full pass only when the country
-    may have held the region's best progress toward presence."""
-    _, agg, unit, live, gap, fractions, _members = basis
-    is_bg, stability = t.battleground[i], t.stability[i]
-    old = _contribution(is_bg, stability, was_us, was_ussr)
-    new = _contribution(is_bg, stability, pos.inf[US][i], pos.inf[USSR][i])
-    where = t.member_pos[i]
-    adjusted = [None, None]
-    for s, (o, n) in enumerate(zip(old, new, strict=True)):
-        a = agg[s]
-        if o[2] > 0 and o[2] >= a[2] and n[2] < o[2]:
-            return margin_basis(t, pos, region, w, urgency)[0]
-        if n[1] == o[1]:
-            bg_total = a[1]  # unchanged, and exactly as the walk summed it
-        else:
-            swapped = dict(fractions[s])
-            if n[1]:
-                swapped[where] = n[1]
-            else:
-                swapped.pop(where, None)
-            bg_total = _bg_total(swapped)
-        adjusted[s] = [a[0] - o[0] + n[0], bg_total, max(a[2], n[2])]
-    return _credit(adjusted, unit, live, gap, w)
-
-
 NO_OVERRIDES: tuple[frozenset[int], frozenset[int]] = (frozenset(), frozenset())
 
 
@@ -947,7 +843,7 @@ def region_potential(t: Terrain, w, urgency, nets) -> float:
 
 
 def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -> float:
-    """Every country, every region score, every region margin, for side `s`.
+    """Every country and every region score, for side `s`.
 
     `overrides` maps a region to its `scoring_overrides` pair; regions absent
     from it (and every region when it is None) score with none in force.
@@ -961,9 +857,7 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     # global lookups over ~100 countries plus 12 region walks per board.
     country_value_fn = country_value
     region_vp_fn = region_vp
-    margin_basis_fn = margin_basis
     return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
                                ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp, w.europe_curve))
-                                for region in Region))
-            + sum(sign * margin_basis_fn(t, pos, region, w, urgency)[0] for region in Region))
+                                for region in Region)))

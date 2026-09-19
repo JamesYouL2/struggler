@@ -90,7 +90,6 @@ def outputs(bot: StrategicPlayer, engine: Engine, side: Side) -> dict:
     rec.update({
         'country_value': {c: probe.country_value(board, c, side) for c in board.countries},
         'region_score': {r.name: probe.region_score(board, r, side) for r in Region},
-        'region_margin': {r.name: probe.region_margin(board, r, side) for r in Region},
         'ops_value': {n: probe.ops_value(obs, n) for n in (1, 2, 3, 4)},
         # Ordered: event pricing shares the planner's budget and caches, so
         # the order the hand was priced in is part of the contract.

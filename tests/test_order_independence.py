@@ -91,7 +91,7 @@ def _ask(bot, obs, key):
 # and every later order agrees with it. A first version of this test skipped
 # the reset and passed happily with a known order-dependence reintroduced.
 PER_DECISION_CACHES = ('_ops_values', '_vp_price', '_events', '_event_basis',
-                       '_placement_values', '_base_regions', '_base_margins')
+                       '_placement_values', '_base_regions')
 
 
 def _clear_caches(bot, obs):

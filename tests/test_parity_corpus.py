@@ -24,7 +24,7 @@ from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 CORPUS = pathlib.Path(__file__).parent / 'corpus' / 'positions.json.gz'
 ABS, REL = 1e-9, 1e-9
 REQUIRED = ('engine', 'side', 'kind', 'ranking', 'production_nodes', 'weights', 'prior', 'options',
-            'country_value', 'region_score', 'region_margin', 'ops_value', 'event_value')
+            'country_value', 'region_score', 'ops_value', 'event_value')
 PLANNER_REQUIRED = ('probes', 'nodes_after_probes', 'truncated')
 
 
@@ -154,7 +154,6 @@ def test_evaluator_and_planner_reproduce_the_corpus(corpus):
         board = probe.board
         checks = [('country_value', lambda c, p=probe, b=board, s=side: p.country_value(b, c, s)),
                   ('region_score', lambda r, p=probe, b=board, s=side: p.region_score(b, Region[r], s)),
-                  ('region_margin', lambda r, p=probe, b=board, s=side: p.region_margin(b, Region[r], s)),
                   ('ops_value', lambda n, p=probe, o=obs: p.ops_value(o, int(n)))]
         for field, fn in checks:
             for k, v in rec[field].items():

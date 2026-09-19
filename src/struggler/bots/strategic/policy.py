@@ -339,7 +339,7 @@ class StrategicWeights:
     # third of that. Per Op, a battleground is its tier over its stability
     # (1.25 at stability 4, 1.67 at 3); the expert puts a 1-stability
     # non-battleground between those, so `control` 1.5. Its control also
-    # moves the domination tally, which the region score and margin carry,
+    # moves the domination tally, which the region score carries,
     # and gives reach, priced by the access terms below.
     control: float = 1.5
     battleground: float = 5.0
@@ -387,29 +387,13 @@ class StrategicWeights:
     # 2026-09-13; retention is now measured directly instead
     # (scripts/measure_access_conversion.py).
     reserve: float = 0.35
-    # Region margin: the exact region score pays nothing until a tier flips,
-    # so being one battleground short of domination looks like being three
-    # short, and a first controlled country in a region where we have none
-    # (presence, 3 VP in the Early War regions: "presence versus no presence
-    # is the whole game") is worth nothing until it is finished. Partial
-    # credit, in VP like the region score: progress toward presence times
-    # the presence VP; each battleground and each country of margin toward
-    # (or past) domination times the domination-minus-presence gap, capped
-    # at two of each. On the country-importance scale (a battleground's
-    # control value in the region), not the region score's VP scale:
-    # margin_presence 1 makes a finished first presence worth one
-    # battleground control.
-    # Presence credit counts only where the region is live (its scoring
-    # weight at least `margin_live`: scores this cycle), so the bot does
-    # not scatter footholds toward presence in regions that will not score
-    # for turns (presence 3.0 everywhere lost 0.375 against its base).
-    # Battleground margin is stepwise linear: progress toward an
-    # uncontrolled battleground counts toward the margin at the linear
-    # rate, control is the step, over-protection is the `reserve`.
-    margin_presence: float = 1.0
-    margin_battleground: float = 0.25
-    margin_country: float = 0.05
-    margin_live: float = 1.0
+    # (A region-margin term -- partial credit toward the next scoring tier:
+    # progress toward presence, and battlegrounds and countries of margin
+    # toward domination -- stood here until 2026-09-19. Measured paired at
+    # 1024 seeds against 07d553a it read +0.001 [-0.022, +0.024], the one
+    # term the ablations found to be doing nothing, so it was deleted rather
+    # than kept as a weight at zero. docs/notes/claude/
+    # 2026-09-19-delete-the-region-margin.md.)
     access: float = 1.5
     # The per-route share of the capped geometric aggregate for k routes into
     # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
@@ -676,7 +660,6 @@ class StrategicPlayer:
         # cache that only exists after one turns that into an AttributeError.
         self._reply_budget_pool = None
         self._base_regions = None
-        self._base_margins = None
         self._base_country = None
         self._base_digest = 0
         self._obs = None
@@ -714,7 +697,6 @@ class StrategicPlayer:
         # corpus caught a headline's basis pricing action round 1's events).
         self._event_basis = None
         self._base_regions = {}
-        self._base_margins = {}
         self._base_country = {}
         # What the board looked like when these were established. `delta`
         # prices against them, so calling it with the board moved reads a
@@ -766,7 +748,7 @@ class StrategicPlayer:
             return sorted(((self.safety_key(observation, a), a) for a in decision.options),
                           key=lambda pair: pair[0], reverse=True)
         finally:
-            self._base_regions = self._base_margins = self._base_country = None  # callers may move the board after ranking
+            self._base_regions = self._base_country = None  # callers may move the board after ranking
 
     def prepare(self, observation: Observation) -> None:
         """Point the player at `observation`: the board, the snapshot of it,
@@ -1249,45 +1231,6 @@ class StrategicPlayer:
                            self.weights.europe_control_vp, self.weights.europe_curve)
         return net if side is Side.US else -net
 
-    def region_margin(self, board: Board, region: Region, side: Side,
-                      snapshot: ev.Position | None = None) -> float:
-        """Partial credit toward the region's next scoring tier."""
-        net = ev.margin_basis(self._terrain, self._position_for(board, snapshot), region,
-                              self.weights, self._urgency_vector())[0]
-        return net if side is Side.US else -net
-
-    def _margin_basis(self, region: Region):
-        """The region margin's aggregates for the board as this ranking found
-        it. Cached per region under the same contract as `_base_regions` (a
-        caller that commits a change mid-ranking clears both), so the hot path
-        neither walks the region nor builds an influence-keyed cache key."""
-        base = self._base_margins
-        hit = None if base is None else base.get(region)
-        if hit is None:
-            hit = ev.margin_basis(self._terrain, self._position, region,
-                                  self.weights, self._urgency_vector())
-            if base is not None:
-                base[region] = hit
-        return hit
-
-    def region_margin_after(self, board: Board, region: Region, side: Side, cid: str,
-                            before: dict) -> float:
-        """The region margin after `cid` moved from `before` to what the board
-        now holds, swapped into the pre-change aggregates. Kept for callers
-        (and the parity test) that hold no basis. Reads the snapshot only: the
-        board is not touched."""
-        t = self._terrain
-        pos = self._position_for(board)
-        i, was_us, was_ussr = t.index[cid], before['US'], before['USSR']
-        now = pos.place(i, was_us, was_ussr)
-        try:
-            basis = ev.margin_basis(t, pos, region, self.weights, self._urgency_vector())
-        finally:
-            pos.place(i, now[0], now[1])
-        net = ev.margin_swapped(t, pos, region, basis, i, was_us, was_ussr,
-                                self.weights, self._urgency_vector())
-        return net if side is Side.US else -net
-
     def country_value(self, board: Board, cid: str, side: Side,
                       snapshot: ev.Position | None = None) -> float:
         """What `cid` is worth to `side` on this board."""
@@ -1449,9 +1392,8 @@ class StrategicPlayer:
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
-        worth: the country, its region's score and its region's margin, and
-        the access every *other* country loses or gains by it, after minus
-        before.
+        worth: the country, its region's score, and the access every
+        *other* country loses or gains by it, after minus before.
 
         The potential-delta candidate was descoped off this path
         (2026-09-17): exact (verified to 1e-6) but the per-delta DP cost
@@ -1530,18 +1472,11 @@ class StrategicPlayer:
             if base is not None:
                 base[region] = net_before
         region_before = sign * net_before
-        # The margin's aggregates for the unchanged board, cached per region
-        # for this ranking exactly like `region_before` above: the trial
-        # change below then swaps this one country's contribution, so no
-        # call here walks the region or builds a per-influence cache key.
-        basis = self._margin_basis(region)
-        margin_before = sign * basis[0]
         # The region's VP is weighted by the region's own scoring urgency,
         # never by `cid`'s -- a Southeast Asian country's includes Southeast
         # Asia Scoring, which does not score Asia's tiers. One rule on every
         # path: `evaluator.region_potential` (Codex M2).
-        before = (own_before + ev.region_potential(t, w, vector, ((region, region_before),))
-                  + margin_before)
+        before = own_before + ev.region_potential(t, w, vector, ((region, region_before),))
         controller = pos.control[i]
         inf_us, inf_ussr = pos.inf
         was_us, was_ussr = inf_us[i], inf_ussr[i]
@@ -1551,19 +1486,16 @@ class StrategicPlayer:
             self._set_influence(cid, max(0, was_us + opp), max(0, was_ussr + own))
         neighbours_after = ()
         try:
-            # Partial influence and overprotection cannot change regional VP;
-            # the margin term (progress toward presence) can move on either.
+            # Partial influence and overprotection cannot change regional VP.
             # No control change in the region means no tier change and no
             # change to the overrides, which read control too.
             region_after = (region_before if pos.control[i] == controller
                             else sign * ev.region_vp(
                                 t, pos, region, *self._overrides_for(region, pos),
                                 w.europe_control_vp, w.europe_curve))
-            margin_after = sign * ev.margin_swapped(t, pos, region, basis, i,
-                                                    was_us, was_ussr, w, vector)
             change = (ev.country_value(t, pos, i, s, w, vector)
                       + ev.region_potential(t, w, vector, ((region, region_after),))
-                      + margin_after - before)
+                      - before)
             if (pos.control[i] != controller or (inf_us[i] > 0) != (was_us > 0)
                     or (inf_ussr[i] > 0) != (was_ussr > 0)):
                 # What `access` reads about `cid` moved, so the neighbours'
@@ -1928,8 +1860,6 @@ class StrategicPlayer:
         `delta`."""
         if self._base_regions is not None:
             self._base_regions = {}
-        if self._base_margins is not None:
-            self._base_margins = {}
         if self._base_country is not None:
             self._base_country = {}
         self._base_digest = self._position.digest
@@ -2194,18 +2124,16 @@ class StrategicPlayer:
             countries = {c: self.country_value(engine.board, c, obs.side, snap)
                          for c in engine.board.countries}
             regions = {r: self.region_score(engine.board, r, obs.side, snap) for r in Region}
-            margins = {r: self.region_margin(engine.board, r, obs.side, snap) for r in Region}
             before = (sum(countries.values())
                       + ev.region_potential(self._terrain, self.weights, self._urgency_vector(),
-                                            regions.items())
-                      + sum(margins.values()))
-            self._event_basis = (basis_key, countries, regions, margins, before)
-        _, countries, regions, margins, before = self._event_basis
+                                            regions.items()))
+            self._event_basis = (basis_key, countries, regions, before)
+        _, countries, regions, before = self._event_basis
         engine._fire_event(obs.side, cid)
         self._sandbox_terminal = False
-        return self._resolve_sandbox(engine, obs, cid, countries, regions, margins, before, self._event_helper())
+        return self._resolve_sandbox(engine, obs, cid, countries, regions, before, self._event_helper())
 
-    def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions, margins,
+    def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions,
                          before, policy, rolls: int = 0) -> float:
         """Drive the sandbox to rest and value the board change. A die
         (`*_ROLL` chance decision) is not sampled: every face is followed
@@ -2238,7 +2166,7 @@ class StrategicPlayer:
                         fork.log = SANDBOX_LOG
                         fork._decision_stack[-1] = replace(fork.pending_decision, options=faces)
                         fork.step(option)
-                        total += self._resolve_sandbox(fork, obs, cid, countries, regions, margins, before, policy, rolls+1)
+                        total += self._resolve_sandbox(fork, obs, cid, countries, regions, before, policy, rolls+1)
                     return total / len(faces)
                 engine.step(d.options[len(d.options) // 2])  # the middle option
             else:
@@ -2280,8 +2208,6 @@ class StrategicPlayer:
             (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags),
                                     w.europe_control_vp, w.europe_curve)
              if r in changed_regions else v) for r, v in regions.items()))
-        after += sum(sign * ev.margin_basis(t, position, r, w, vector)[0] if r in changed_regions else v
-                     for r, v in margins.items())
         result = after - before
         result += self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
         # Military Operations the event awarded, on the same VP scale as the

@@ -27,7 +27,6 @@ PATHS = {
     'evaluator delta': ('bots/strategic/', 'delta'),
     'country_value': ('bots/strategic/', 'country_value'),
     '_access': ('bots/strategic/', '_access'),
-    'region_margin': ('bots/strategic/', 'region_margin'),
     'rank_actions': ('bots/strategic/', 'rank_actions'),
     'engine step (cumulative)': ('engine/core.py', 'step'),
     'enum access (exclusive)': ('enum.py', None),
@@ -35,7 +34,7 @@ PATHS = {
 # Rows named with a function are cumulative; module rows are exclusive of
 # callees in other modules. Neither set is disjoint; do not add them.
 # The function rows match the whole `bots/strategic/` package, not one
-# module: `country_value`, `_access` and `region_margin` each exist twice,
+# module: `country_value` and `_access` each exist twice,
 # as a pure function in `evaluator.py` and as the policy method that calls
 # it, and a row naming one module would silently profile half the work.
 

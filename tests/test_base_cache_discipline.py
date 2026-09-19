@@ -1,7 +1,7 @@
 """Anything that moves the board mid-ranking must drop the base caches.
 
 `delta` prices a change against per-decision caches -- `_base_regions`,
-`_base_margins`, `_base_country` -- that are keyed on *the board as it
+`_base_country` -- that are keyed on *the board as it
 was synced*. Its own comment says so: "anyone committing a change
 mid-ranking must clear `_base_regions`."
 

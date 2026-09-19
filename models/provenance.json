@@ -40,27 +40,6 @@
       "determination": "bounded",
       "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
     },
-    "margin_presence": {
-      "value": 1.0,
-      "source": "gate",
-      "determination": "bounded",
-      "note": "3.0 everywhere lost 0.375 against its base, so the ceiling is real."
-    },
-    "margin_battleground": {
-      "value": 0.25,
-      "source": "guess",
-      "determination": "underdetermined"
-    },
-    "margin_country": {
-      "value": 0.05,
-      "source": "guess",
-      "determination": "underdetermined"
-    },
-    "margin_live": {
-      "value": 1.0,
-      "source": "gate",
-      "determination": "bounded"
-    },
     "access": {
       "value": 1.5,
       "source": "guess",
@@ -307,15 +286,15 @@
   "_summary": {
     "counts_by_source": {
       "expert": 8,
-      "guess": 17,
-      "gate": 10,
+      "guess": 15,
+      "gate": 8,
       "derived": 4,
       "measured": 8
     },
     "counts_by_determination": {
-      "underdetermined": 14,
+      "underdetermined": 12,
       "known-wrong": 2,
-      "bounded": 13,
+      "bounded": 11,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11
