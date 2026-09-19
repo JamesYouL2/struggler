@@ -582,7 +582,7 @@ observation non-mutation, deterministic paired games, and model serialization.
 `StrategicWeights.country_vp_scale` replaces the guessed `battleground` and
 `control` tiers in `evaluator.importance` with a fixed per-country, per-side
 weight fitted to the exact scoring potential
-(`data/fitted_country_weights.json`, produced by
+(`bots/strategic/fitted_country_weights.json`, produced by
 `scripts/fit_country_weights.py`). It is multiplied by the same
 turn-and-deck scoring mass (`urgency`) the tiers used. Southeast Asia's own
 payout rides its card's mass exactly. The default, 2.795, is the file's

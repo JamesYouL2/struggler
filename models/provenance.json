@@ -170,7 +170,7 @@
       "value": 2.795,
       "source": "gate",
       "determination": "bounded",
-      "note": "Scale for the fitted per-country weights (data/fitted_country_weights.json), in board units per VP of expected regional scoring; 0 keeps the guessed battleground/control tiers. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. The scale is the file's matched_scale (importance's total equal to the tiers' on the fit sample), and it is bounded on both sides: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired."
+      "note": "Scale for the fitted per-country weights (bots/strategic/fitted_country_weights.json), in board units per VP of expected regional scoring; 0 keeps the guessed battleground/control tiers. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. The scale is the file's matched_scale (importance's total equal to the tiers' on the fit sample), and it is bounded on both sides: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired."
     },
     "europe_control_vp": {
       "value": 40.0,

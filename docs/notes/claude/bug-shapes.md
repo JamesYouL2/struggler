@@ -45,7 +45,7 @@ means every legal continuation loses, which only the planner knows.
 Gated by `test_certain_defeat_in_the_key_means_certain_defeat_in_the_planner`:
 the key's certain flag and the planner's risk agree, option by option.
 
-### 3. The measurement comparing something against itself (seven times)
+### 3. The measurement comparing something against itself (eight times)
 
 `871b170` snapshotting two files instead of the package; the gate running
 against a dirty working tree; counting the opponent's nuclear losses as
@@ -95,6 +95,19 @@ present in the snapshot's `greedy.py` and absent from the candidate's --
 and fails with the rooting reverted. **The lesson is about the negative
 control above, not about paths: the fifth's gate was a real negative
 control and still missed this, because it controlled the wrong layout.**
+
+The eighth is the snapshot's other boundary. A baseline is `git archive
+<base> src/struggler/bots` and nothing else, so it is a whole bot only if
+everything the bot reads at runtime lives inside that package. PR #6
+(2026-09-18) put the fitted country weights in `src/struggler/data/`. The
+candidate, run from the full tree, found them. The PR's own gate passed,
+because its base predated the file. The first gate whose BASE was that
+revision died two minutes in with FileNotFoundError, and so would every
+anchor and drift run of it. The file moved beside the evaluator that reads
+it. Gated by `test_a_snapshot_of_the_bots_package_is_a_whole_bot`, which
+copies the package alone, loads it the way the gate does, and evaluates a
+position. **The practice: bot data lives in the bot package**, and a test
+of a snapshot must build the snapshot the way production does.
 
 ### 4. Two implementations of one rule, drifting (five times)
 

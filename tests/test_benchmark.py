@@ -428,3 +428,30 @@ def test_a_baseline_inside_a_package_still_shadows_the_bots_root(tmp_path):
     assert not hasattr(after, 'RETIRED_HELPER')
     import sys as _sys
     assert 'struggler.bots.sibling' not in _sys.modules
+
+
+def test_a_snapshot_of_the_bots_package_is_a_whole_bot(tmp_path):
+    """The gate's baseline is `git archive <base> src/struggler/bots` and
+    nothing else (scripts/lib/gate_common.sh `snapshot`), so everything the
+    bot reads at runtime must live inside that package. PR #6 put the
+    fitted country weights in `src/struggler/data/`: the first gate against
+    it died with FileNotFoundError on the baseline's first evaluation, and
+    so would every anchor and drift run of any later revision.
+
+    Reconstructed exactly: copy the bots package alone, load its policy the
+    way the gate does, and evaluate a position with the shipped defaults."""
+    import shutil
+    from pathlib import Path
+    import struggler.bots
+    from struggler.bots import benchmark
+    from struggler.engine import Engine, Side
+
+    snapshot = tmp_path / 'base'
+    shutil.copytree(Path(struggler.bots.__file__).parent, snapshot,
+                    ignore=shutil.ignore_patterns('__pycache__'))
+    policy = benchmark.load_module(str(snapshot / 'strategic' / 'policy.py'))
+    engine = Engine.new_game(seed=4000, setup_bonus=True)
+    for c in ('France', 'Iran', 'Panama'):
+        engine.board.influence[c]['US'] = 3
+    value = policy.StrategicPlayer().evaluate(engine.observe(Side.US))
+    assert isinstance(value, float)
