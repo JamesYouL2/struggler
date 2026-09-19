@@ -368,12 +368,24 @@ def test_influence_value_is_linear_and_spare_points_are_not_a_flat_reserve():
             return bot.country_value(board, cid, Side.US)
         finally:
             board.influence[cid]['US'] = 0
+    from struggler.bots.strategic import evaluator as ev
+    t, urgency = bot._terrain, ev.ones(bot._terrain)
+    def importance(cid):
+        return ev.importance(t, bot.weights, urgency, t.index[cid], ev.US)
     # Linear shape: the first point in stability-2 Iran is priced above
-    # control's own term -- the option-value stand-in.
+    # control's own term -- the option-value stand-in. Control's term is
+    # the country's importance: the battleground tier once, its fitted
+    # weight now.
     empty, one, control = (value_at('Iran', n) for n in (0, 1, 2))
-    assert one - empty > bot.weights.battleground
-    # A flat reserve per spare point.
-    assert value_at('Angola', 2) - value_at('Angola', 1) == value_at('Pakistan', 3) - value_at('Pakistan', 2) > 0
+    assert one - empty > importance('Iran')
+    # A reserve per spare point, flat in the points: each is `reserve` times
+    # the country's own importance. Under the tiers every battleground had
+    # the same importance, so Angola's spare point equalled Pakistan's; the
+    # fitted weights tell battlegrounds apart, so it is the rule, not the
+    # equality, that carries.
+    for cid, stability in (('Angola', 1), ('Pakistan', 2)):
+        spare = value_at(cid, stability + 1) - value_at(cid, stability)
+        assert spare == pytest.approx(bot.weights.reserve * importance(cid)) and spare > 0
 
 def test_country_tiers_and_coup_discount():
     engine = Engine(seed=0)
