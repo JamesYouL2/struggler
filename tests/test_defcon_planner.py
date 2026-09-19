@@ -531,3 +531,24 @@ def test_no_legal_drop_leaves_the_prior_in_charge():
     e._push_action_round_play(Side.USSR)
     bot, obs, ranked = ranked_with_risk(e)
     assert not any(bot.cornered_after_drop(obs, a) for _, a, _ in ranked)
+
+
+@pytest.mark.parametrize('guard', [0.0, 0.3, 1.0])
+def test_the_guard_charges_a_cornered_play_its_drop_probability_at_the_whole_game(guard):
+    # `last_window_guard` is P(the opponent takes the legal drop). A play
+    # that is certain loss after it carries at least that residual, priced
+    # at game_value; 0 switches the guard off entirely.
+    from struggler.bots.strategic import StrategicWeights
+    e = closing_window(['CIA_Created', 'Decolonization'])
+    bot = StrategicPlayer(StrategicWeights(last_window_guard=guard),
+                          survival_prior=SurvivalPrior(opponent_hand_attack=0))
+    obs = e.observe(Side.USSR)
+    ranked = bot.rank_actions(obs)
+    decol = next(a for _, a in ranked if a.payload['card'] == 'Decolonization')
+    key = next(k for k, a in ranked if a is decol)
+    assert bot.cornered_after_drop(obs, decol) == (guard > 0)
+    raw, total = bot.score(obs, decol), bot.action_risk(obs, decol)[1]
+    residual = max(total, guard)
+    assert key[2] == pytest.approx((1 - residual) * raw - residual * bot.game_value(obs))
+    if guard == 0:
+        assert ranked[0][1].payload['card'] == 'Decolonization'
