@@ -167,10 +167,10 @@
       "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
     },
     "country_vp_scale": {
-      "value": 2.795,
+      "value": 0.0,
       "source": "gate",
-      "determination": "bounded",
-      "note": "Scale for the fitted per-country weights (bots/strategic/fitted_country_weights.json), in board units per VP of expected regional scoring; 0 keeps the guessed battleground/control tiers. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. The scale is the file's matched_scale (importance's total equal to the tiers' on the fit sample), and it is bounded on both sides: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired."
+      "determination": "underdetermined",
+      "note": "Scale for the fitted per-country weights (bots/strategic/fitted_country_weights.json), in board units per VP of expected regional scoring; 0 keeps the guessed battleground/control tiers. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. The scale is the file's matched_scale (importance's total equal to the tiers' on the fit sample), and it is bounded on both sides: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired. REVERTED to 0 the same day: against the fixed anchor 07d553a the fit at 2.795 read 0.489 [0.472, 0.506] where the tiers read 0.520 on the same 1024 seeds (30000-31023), paired -0.031 [-0.053, -0.009], the loss in the USSR seat (0.483 -> 0.427). It beats the tiers and loses to the older bot: intransitive, and the parent gate cannot see it."
     },
     "europe_control_vp": {
       "value": 40.0,
@@ -307,9 +307,9 @@
       "measured": 7
     },
     "counts_by_determination": {
-      "underdetermined": 13,
+      "underdetermined": 14,
       "known-wrong": 2,
-      "bounded": 13,
+      "bounded": 12,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11

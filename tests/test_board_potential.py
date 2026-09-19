@@ -201,7 +201,7 @@ def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
     access to an uncontrolled Nigeria. Re-pinned twice: under the retention
     urgency at 4.132012930555556, and under the factor-2 masses at
     14.05555555555555 (5cf67af), and under the fitted country weights at
-    15.546451969888892 (2026-09-18); the property -- delta equals the board
+    15.546451969888892 (2026-09-18, while they were the default); the property -- delta equals the board
     difference exactly -- is what carries, not the number."""
     engine = _empty_engine()
     engine.board.influence['Cameroon']['US'] = 1
@@ -209,7 +209,7 @@ def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
     bot = _cameroon_then_nigeria()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Nigeria', 1, 0)
-    assert expected == pytest.approx(15.546451969888892, abs=1e-9)
+    assert expected == pytest.approx(14.05555555555555, abs=1e-9)
     assert bot.delta(obs, 'Nigeria', own=1) == pytest.approx(expected, rel=0, abs=1e-9)
 
 
@@ -239,7 +239,7 @@ def test_cameroon_and_nigeria_sum_to_the_same_board_in_either_order(first, secon
     2026-09-18). The order-invariance is the property; the level follows
     the urgency and the country weights."""
     total, board = _placements_in_order(_cameroon_then_nigeria, [(first, 1), (second, 1)])
-    assert board == pytest.approx(37.69155245288889, abs=1e-9)
+    assert board == pytest.approx(39.355555555555554, abs=1e-9)
     assert total == pytest.approx(board, rel=0, abs=1e-9)
 
 
@@ -298,7 +298,7 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     bot = _no_access()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
-    assert expected == pytest.approx(21.289943394898987, abs=1e-9)
+    assert expected == pytest.approx(22.494949494949488, abs=1e-9)
     assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
 
     t, urgency = ev.terrain(), bot._urgency

@@ -145,3 +145,28 @@ run.
 0.501]** against the tiers. That leans worse without being measurably
 worse, so it is not adopted. `europe_curve` stays in the code, off, for a
 different k or for a curve in every region.
+
+## Reverted: the fit loses to the anchor (same evening)
+
+After PR #6 merged, main with the fit read **0.489 [0.472, 0.506] against
+07d553a** (run 35408253451), on the seeds where PR #4 with the tiers read
+0.520 (run 35359674299). Paired seed by seed, the difference is **-0.031
+[-0.053, -0.009]**, and 548 of the 1024 seeds changed. The loss is in the
+USSR seat: 0.483 to 0.427.
+
+So the fit beats the tiers (+0.018 head to head) and loses to an older
+bot. That is the intransitivity the v2 plan warned about ("do not measure
+a phase against its parent alone"). PR #6 went in on a parent-only gate
+plus an arm against the tiers, and the anchored arm ran after the merge
+instead of before it. The default goes back to 0; the code, data and
+scripts stay.
+
+Open questions before the fit is tried again:
+
+- Why the USSR seat? The fitted weights are per side, and the USSR's
+  weights may be what the tier-bot opponent exploits.
+- The fit's positions were tier-bot self-play. Weights fitted on the
+  positions a different bot reaches may not transfer.
+- Any retry is judged against 07d553a (and v0.2.0/v0.2.1), paired, before
+  it merges.
+
