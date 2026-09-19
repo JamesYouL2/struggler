@@ -52,6 +52,7 @@ SHAPE_GATES: dict[int, list[str]] = {
     3: ['test_a_baseline_policy_loads_its_own_bot_modules_not_the_candidates',
         'test_a_snapshotted_package_binds_its_own_submodules',
         'test_a_baseline_inside_a_package_still_shadows_the_bots_root',
+        'test_a_snapshot_of_the_bots_package_is_a_whole_bot',
         'test_an_opponent_nuclear_defeat_is_not_a_candidate_nuclear_loss',
         'test_early_stopping_never_predicts_a_held_out_seed_from_a_tuning_seed',
         'test_acceptance_warns_when_every_game_is_a_dead_heat',

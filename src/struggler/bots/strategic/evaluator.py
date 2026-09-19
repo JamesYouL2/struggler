@@ -346,7 +346,10 @@ def importance(t: Terrain, w, urgency, i: int, s: int | None = None) -> float:
     return (w.battleground if t.battleground[i] else w.control) * urgency[i]
 
 
-FITTED_WEIGHTS_PATH = Path(__file__).resolve().parents[2] / 'data' / 'fitted_country_weights.json'
+# Beside this module, inside the bots package: a gate's baseline is that
+# package alone (`git archive <base> src/struggler/bots`), so data the bot
+# reads anywhere else is missing from every snapshot of it.
+FITTED_WEIGHTS_PATH = Path(__file__).resolve().parent / 'fitted_country_weights.json'
 
 
 def europe_curve_vp(us_value, ussr_value, k: float) -> float:
@@ -370,7 +373,7 @@ def europe_curve_vp(us_value, ussr_value, k: float) -> float:
 
 @functools.lru_cache(maxsize=None)
 def _fitted_table(ids: tuple[str, ...]) -> tuple[tuple[float, ...], tuple[float, ...]]:
-    """`a[s][i]`, from `data/fitted_country_weights.json`: VP of future
+    """`a[s][i]`, from `fitted_country_weights.json` (beside this module): VP of future
     regional scoring, per unit of scoring mass, that side `s` gains by
     controlling country `i` instead of leaving it uncontrolled. Fitted to
     the exact potential by `scripts/fit_country_weights.py`. A country the

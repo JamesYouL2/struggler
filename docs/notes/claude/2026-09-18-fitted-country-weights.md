@@ -16,7 +16,7 @@ Control is priced at a fixed 40 VP, with experiments allowed. Branch
    mass-weighted gain of controlling the country instead of leaving it
    uncontrolled. That gain is the tier change from `forecast.tier_weights`
    plus the 10.1.2 bonus. It then fits `a[c][s]` by least squares against
-   the mass. The output is `src/struggler/data/fitted_country_weights.json`,
+   the mass. The output is `src/struggler/bots/strategic/fitted_country_weights.json`,
    recording the revision, the generator's hash, the seeds and the
    in-sample R².
 2. **The wiring.** `StrategicWeights.country_vp_scale`, in board units per
