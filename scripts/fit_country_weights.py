@@ -20,9 +20,9 @@ Southeast Asia's own payout is exact and fixed (2 for Thailand, 1 otherwise)
 and rides its card's mass, as `urgency` already carries it.
 
     uv run python scripts/fit_country_weights.py fit --seeds 40000-40015 \
-        --out src/struggler/data/fitted_country_weights.json
+        --out src/struggler/bots/strategic/fitted_country_weights.json
     uv run python scripts/fit_country_weights.py check --seeds 41000-41007 \
-        --weights src/struggler/data/fitted_country_weights.json
+        --weights src/struggler/bots/strategic/fitted_country_weights.json
 
 `check` is the exact potential used as an auditor (step 4 of the
 2026-09-18 plan). On held-out games it reports how much of each country's
@@ -188,8 +188,8 @@ def main(argv=None) -> int:
     parser.add_argument('--seeds', required=True)
     parser.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) // 2),
                         help='processes; half the cores by default (the standing rule)')
-    parser.add_argument('--out', type=Path, default=Path('src/struggler/data/fitted_country_weights.json'))
-    parser.add_argument('--weights', type=Path, default=Path('src/struggler/data/fitted_country_weights.json'))
+    parser.add_argument('--out', type=Path, default=Path('src/struggler/bots/strategic/fitted_country_weights.json'))
+    parser.add_argument('--weights', type=Path, default=Path('src/struggler/bots/strategic/fitted_country_weights.json'))
     args = parser.parse_args(argv)
     seeds = seed_range(args.seeds)
     records, rows = collect(seeds, args.workers)

@@ -346,7 +346,7 @@ class StrategicWeights:
     # The fitted alternative to the two tiers above, in raw board units per
     # VP of expected regional scoring. 0 (off) keeps `control` and
     # `battleground`; set, each country's importance is its own fitted
-    # weight (data/fitted_country_weights.json: VP per unit of scoring mass,
+    # weight (strategic/fitted_country_weights.json: VP per unit of scoring mass,
     # per side, fitted to the exact potential by
     # scripts/fit_country_weights.py) times the same turn-and-deck mass
     # `urgency` already carries. The file's `matched_scale` keeps
