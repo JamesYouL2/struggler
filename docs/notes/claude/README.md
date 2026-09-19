@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Deleting the region margin, and what else the model can lose](2026-09-19-delete-the-region-margin.md) — 2026-09-19 (the one term measured inert is gone; the value function is now VP or importance throughout; the deletion queue and the one-weight VP hook)
 - [Handoff, 2026-09-18 evening](2026-09-18-handoff-evening.md) — 2026-09-18 (what landed, what is gating, what is still running, and next)
 - [Fitted fixed country weights, proportional to turn and deck](2026-09-18-fitted-country-weights.md) — 2026-09-18 (weights fitted to the exact potential; 0.518 against the tiers, bounded on both sides; on by default)
 - [The VP potential as per-position linear weights](2026-09-18-the-potential-as-per-position-linear-weights.md) — 2026-09-18 (exact per-country weights by forward-backward; a delta goes from 6-30 ms to 4 us; an estimated ~8 s a game against the verdict's 40-120 s)

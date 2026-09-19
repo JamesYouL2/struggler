@@ -134,14 +134,16 @@ action = bot.choose_action(observation, history)
   battlegrounds first is most of what a non-battleground is for, and it is
   why De-Stalinization prices so high.
 - Region margin (`margin_presence`, `margin_battleground`, `margin_country`,
-  `region_margin`): the exact region score pays nothing until a tier flips,
-  so partial credit is added on the country-importance scale: progress
-  toward a first controlled country where a side has none (presence, "the
-  whole game" in the Middle East: the USSR's Iraq), and each battleground
-  and country of margin toward or past domination, capped at two, times
-  the domination-minus-presence gap in presence units. Fitted to
-  `models/expert_valuations.json` (31 -> 26 misses; Iraq first for the
-  USSR).
+  `region_margin`): **deleted 2026-09-19.** Partial credit toward the next
+  scoring tier, on the country-importance scale: progress toward a first
+  controlled country where a side had none, and each battleground and
+  country of margin toward or past domination. Fitted to
+  `models/expert_valuations.json` (31 -> 26 misses), never measured until
+  the ablation sweep, where it read +0.001 [-0.022, +0.024] paired against
+  07d553a over 1024 seeds -- the one term measured to be doing nothing. It
+  was also the last term in `board_value` denominated in neither VP nor a
+  country's importance; every term left is one or the other.
+  `docs/notes/claude/2026-09-19-delete-the-region-margin.md`.
 - First mover (`first_mover`): **deleted 2026-09-13.** Presence in a
   battleground the opponent has none in but could reach, priced as tempo at
   `first_mover` x importance / stability. A guess, never calibrated; at 0
@@ -396,8 +398,8 @@ exists. `STRUGGLER_CHECK_SNAPSHOT=1`, or setting `strategic.CHECK_SNAPSHOT`,
 makes every `delta` inside a ranking rebuild the snapshot from the board and
 compare; two tests use it to pin the write sites, in `test_strategic.py` and
 `test_rollout.py`. Outside a ranking `delta` re-reads the board itself, so the
-diagnostic entry points (`country_value`, `region_score`, `region_margin`,
-`value`) stay correct for callers that write to the board directly.
+diagnostic entry points (`country_value`, `region_score`, `value`)
+stay correct for callers that write to the board directly.
 
 **Reusing a basis.** Every whitelisted event at one decision starts from the
 same board, so the sandbox values that board once and re-values only what the
@@ -429,8 +431,8 @@ The regional term is one rule, `evaluator.region_potential`, called by
 by that region's own scoring urgency, `evaluator.region_urgency` -- read from
 a member outside Southeast Asia, so Asia's tiers go at Asia Scoring's and
 Final Scoring's horizon while Southeast Asia Scoring, which pays per country,
-stays in those countries' own importance. The margin unit and the Shuttle
-Diplomacy tiebreak read the same helper. Until 2026-09-13 `board_value` and
+stays in those countries' own importance. The Shuttle Diplomacy tiebreak
+reads the same helper. Until 2026-09-13 `board_value` and
 the sandbox applied no urgency and `delta` applied the *changed country's*,
 so Thailand and Pakistan credited the same Asia tier change differently and
 an event was worth something other than the placement making the same change
@@ -886,8 +888,8 @@ positions, found the two largest costs outside the evaluator entirely.
   by serializing them and forks again per die face, so this ran 1278 times
   a game. `Observation` had already been fixed this way; `serialize` had
   not.
-- The event basis valued all 85 countries, then 10 regions, then 10
-  margins, through the diagnostic entry points -- each of which builds a
+- The event basis valued all 85 countries, then 10 regions, then (until
+  the margin was deleted) 10 margins, through the diagnostic entry points -- each of which builds a
   `Position` for the board it is handed. That is 105 full snapshot rebuilds
   of one unchanging board, quadratic in the map for a walk that is linear.
   Those entry points now take an optional snapshot, and the basis builds

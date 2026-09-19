@@ -246,6 +246,22 @@
       "compare_to": "guard-on-vs-07d553a",
       "title": "guard as a probability, 0.43 (measured), vs 07d553a",
       "context": "The maintainer's ruling: the guard as P(drop | legal) x the 40 VP game. 0.43 = 60/140 drops in the guard's case over 32 self-play games (scripts/measure_defcon_drop.py, seeds 42000-42031); a bot-vs-bot rate. Same seeds (30000-31023) and anchor as run 35359674299's hand-v3-fix-vs-07d553a, which guard-on should reproduce exactly (a determinism check). docs/notes/claude/2026-09-18-hand-planner-plan-v3.md."
+    },
+    {
+      "slug": "margin-base-vs-07d553a",
+      "anchor": "07d553a",
+      "bot_ref": "58095a6",
+      "seeds": "44000-45023",
+      "title": "region margin: main (margin on) vs 07d553a",
+      "context": "The paired baseline for the deletion. docs/notes/claude/2026-09-19-delete-the-region-margin.md"
+    },
+    {
+      "slug": "margin-off-vs-07d553a",
+      "anchor": "07d553a",
+      "seeds": "44000-45023",
+      "compare_to": "margin-base-vs-07d553a",
+      "title": "region margin: this branch (margin deleted) vs 07d553a",
+      "context": "The deletion, anchored BEFORE the merge (PR #6 lesson). Expect a wash: the term read +0.001 paired at 1024 seeds on 20000-21023."
     }
   ],
   "_retired": {
