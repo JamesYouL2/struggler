@@ -45,7 +45,7 @@ means every legal continuation loses, which only the planner knows.
 Gated by `test_certain_defeat_in_the_key_means_certain_defeat_in_the_planner`:
 the key's certain flag and the planner's risk agree, option by option.
 
-### 3. The measurement comparing something against itself (eight times)
+### 3. The measurement comparing something against itself (nine times)
 
 `871b170` snapshotting two files instead of the package; the gate running
 against a dirty working tree; counting the opponent's nuclear losses as
@@ -108,6 +108,23 @@ it. Gated by `test_a_snapshot_of_the_bots_package_is_a_whole_bot`, which
 copies the package alone, loads it the way the gate does, and evaluates a
 position. **The practice: bot data lives in the bot package**, and a test
 of a snapshot must build the snapshot the way production does.
+
+**2026-09-20, the ninth: an A/B harness that stashed the change it was
+measuring.** A script timed whole games on `main` against a perf branch,
+switching with `git checkout` and running `git stash` first to keep the tree
+clean. The branch's work was uncommitted, so the stash took it and both arms
+ran the same code. The reading -- 49.98s against 50.20s, "no speedup" --
+was perfectly reproducible and entirely meaningless. Committing first and
+re-running gave 91.84s against 80.08s over four seeds.
+
+**The practice already existed and I did not use it:** the arms must be
+shown to differ before the timings mean anything. The cheap tell here was
+free and ignored -- the per-seed game outcomes were identical, which for
+two arms of a *behaviour-preserving* change is expected, but the timings
+being identical to 0.4% across three seeds is the "standard error of exactly
+zero" alarm in another costume. An A/B over two revisions should print what
+it is actually running (the revision, and a hash of the source tree) beside
+each arm's number.
 
 ### 4. Two implementations of one rule, drifting (five times)
 

@@ -698,6 +698,8 @@ class StrategicPlayer:
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
         self._urgency = None
+        self._shuttle_pick = None   # a function of `_urgency`, cached with it
+        self._delta_cache = None
         # The potential's prepared state: shaped (mass, horizon) lists per
         # scoring card, each region's card, and the E[payout] cache keyed on
         # everything it reads. None before the first `prepare`; the
@@ -730,6 +732,10 @@ class StrategicPlayer:
         self._event_basis = None
         self._base_regions = {}
         self._base_country = {}
+        # Keyed on the position's digest, so it cannot go stale however far
+        # `delta` reads or however the trial loops move the board -- and it is
+        # equal again after an undo, which a generation counter would miss.
+        self._delta_cache = {}
         self._weight_table_cache = {}
         # What the board looked like when these were established. `delta`
         # prices against them, so calling it with the board moved reads a
@@ -782,6 +788,7 @@ class StrategicPlayer:
                           key=lambda pair: pair[0], reverse=True)
         finally:
             self._base_regions = self._base_country = None  # callers may move the board after ranking
+            self._delta_cache = None
             self._weight_table_cache = None
 
     def prepare(self, observation: Observation) -> None:
@@ -793,6 +800,7 @@ class StrategicPlayer:
         self._position.sync(self.board)
         self._obs = observation
         self._urgency = self._urgency_for(observation)
+        self._shuttle_pick = None
         self._scoring_flags = scoring_flags(observation.game_effects)
         self._coup_bans = coup_bans(observation.game_effects)
         # The potential's masses: deck state, fixed within a decision (a
@@ -861,9 +869,17 @@ class StrategicPlayer:
         which is the bot's best guess at which one spends it; ties go to the
         Middle East, the smaller region, where one Battleground is the larger
         share of the tier."""
-        urgency, t = self._urgency_vector(), self._terrain
-        return max((Region.MIDDLE_EAST, Region.ASIA),
-                   key=lambda r: ev.region_urgency(t, r, urgency))
+        pick = self._shuttle_pick
+        if pick is None:
+            urgency, t = self._urgency_vector(), self._terrain
+            # Per decision, not per call: it reads the urgency vector and the
+            # terrain and NOTHING about the board, so a trial placement cannot
+            # move it -- and `_overrides_for` asked it 1.57 million times over
+            # two self-play games.
+            pick = self._shuttle_pick = max(
+                (Region.MIDDLE_EAST, Region.ASIA),
+                key=lambda r: ev.region_urgency(t, r, urgency))
+        return pick
 
     def _overrides_for(self, region: Region, pos: ev.Position, flags=None):
         """The scoring adjustments `region` scores under, as the index sets
@@ -1545,6 +1561,17 @@ class StrategicPlayer:
         return self.weights.battleground if info.battleground else self.weights.control
 
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
+        """Memoised on `(position digest, cid, own, opp)`; see `_delta`."""
+        cache = self._delta_cache
+        if cache is None:
+            return self._delta(obs, cid, own, opp)
+        key = (self._position.digest, cid, own, opp)
+        hit = cache.get(key)
+        if hit is None:
+            hit = cache[key] = self._delta(obs, cid, own, opp)
+        return hit
+
+    def _delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
         worth: the country, its region's score, and the access every
         *other* country loses or gains by it, after minus before.
