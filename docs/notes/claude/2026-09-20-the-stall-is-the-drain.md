@@ -81,3 +81,29 @@ whatever the clock says.
 rank a single decision, and the sandbox planners they build never reach even
 2000 nodes. **A negative control caught that**: the measurement that mattered
 was whole games, where the budget does bite and the outcomes are identical.
+
+## The anchored check (run 35524307650, 1024 seeds 54000-55023)
+
+The corpus could not see this change, so the arm is the evidence. Both arms
+against `07d553a`, paired seed by seed; the base is main by `bot_ref`
+(`d9baa95`), because the budget lives on `SurvivalPrior` and `--bot-weights`
+only sets `StrategicWeights`.
+
+| arm | score | one-sided 95% | as US | as USSR |
+| --- | ---: | --- | ---: | ---: |
+| `sandbox-base` (full 20000) | 0.559 | [0.542, 0.576] | 0.601 | 0.518 |
+| `sandbox-2000` (shipped) | 0.558 | [0.541, 0.575] | 0.600 | 0.517 |
+
+**Paired: -0.001 [-0.002, 0.000].** The interval is a thousandth wide --
+tighter than anything else measured this week -- because the two arms play
+almost the same games: the budget only bites where a sandbox planner would
+have searched past 2000 states, and the conservative fallback there usually
+agrees with the answer the full search would have given.
+
+So the budget is free. It bounds the worst decision (530k nodes to 131k) and
+costs a thousandth of a point, which the interval says is at most two.
+
+**And the base arm records something else.** Main reads **0.559** against
+`07d553a` here, where the same anchor read 0.499 before the region-margin
+deletion and 0.522 before `vp_swing` 3.0. Those two changes, measured
+separately at +0.031 and +0.039, show up together on a fresh block.
