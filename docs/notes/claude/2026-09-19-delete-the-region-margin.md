@@ -56,23 +56,35 @@ before overwriting the baseline, not to discover it afterwards.
 
 ## What else can go, in order
 
-1. **Reply-budget models 1, 2 and 4, and `reply_ops`.** Model 3 ships. The
-   2026-09-19 arms measured a flat budget of 4 at -0.020 against v0.2.1 and
-   the best-card maximum at -0.024 against 07d553a
-   ([note](2026-09-19-reply-budget-best-card.md)). Keep `reply_model` as a
-   boolean: off costs 0.056.
-2. **`access_contested` (0.0).** A multiplier that is zero by default, so
-   the `reach_them[n]` branch it guards is dead as shipped. Delete both, or
-   measure it nonzero once; it has never been tested at its documented 0.25.
-3. **`europe_curve` (0.0).** Measured 0.486 at k=10, leaning worse; deleting
-   it removes `europe_curve_vp` and a parameter threaded through `region_vp`.
-4. **`retention_p`.** No caller outside tests since 2026-09-13.
+1. **Reply-budget model 2 (the median) and `access_contested`.** Both are
+   dead as shipped and neither can change a value: model 2 is unreferenced
+   and is model 3 with the distribution thrown away, and `access_contested`
+   is a multiplier at 0.0, so the branch it guards contributes nothing.
+   **Done, in the follow-up branch `simplify/dead-value-paths`**, and proved
+   by the parity corpus reproducing every recorded value unchanged.
+2. **NOT reply model 1 or `reply_ops`, on inspection.** The 2026-09-19 arms
+   condemned a flat budget of 4 as a *default*
+   ([note](2026-09-19-reply-budget-best-card.md)), but model 1 is how
+   `test_reply_lookahead.py` pins a deterministic budget. Deleting it would
+   cost more test machinery than it saves code.
+3. **NOT `retention_p`, on inspection.** It has no caller, but `RETENTION_P`
+   is a measured table (1103-3573 observations per stability), not a
+   guessed weight. It costs nothing at runtime and deleting it would throw
+   away a measurement. Dormant data is not model complexity.
+4. **`europe_curve` (0.0).** Measured 0.486 at k=10, leaning worse. Kept for
+   now: it is the hook for a curve in every region, which fits the small
+   regions better (Central America 0.62 -> 0.72).
 5. **The `fit_*` switches** on `exp/fitted-variance`: do not merge them.
    `fit_shrink` was measured the worst of five.
 
-Each needs the same treatment as this one: an anchored arm against
-`07d553a` **before** the merge, not after ([memory](../../../CLAUDE.md),
-and PR #6's lesson).
+The pattern in 2 and 3: **a switch with a live caller is not dead code, and
+a measurement is not a weight.** What is worth deleting is a term the bot
+evaluates on every board.
+
+A deletion that *can* move a value needs the same treatment as the margin:
+an anchored arm against `07d553a` **before** the merge, not after (PR #6's
+lesson). A deletion that cannot -- item 1 -- is proved instead by the parity
+corpus reproducing unchanged, which is cheaper and stronger.
 
 ## Hooking the VP valuation to the bot: it is one weight
 

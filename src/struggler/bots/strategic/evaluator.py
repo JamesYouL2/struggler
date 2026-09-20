@@ -597,10 +597,13 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     route_w = route_weight
     importance_fn = importance
     access_decay = w.access_decay
-    access_contested = w.access_contested
     total = 0.
     for n in first:
-        if battleground[n] and control[n] != s:
+        # A contested battleground -- one the opponent can already place in
+        # -- is worth nothing here. It was `weight *= access_contested` with
+        # the weight shipped at 0.0, deleted 2026-09-19; skipping is the same
+        # value without the dead multiply.
+        if battleground[n] and control[n] != s and not reach_them[n]:
             # COUNT THE ROUTES, then share the aggregate geometric value
             # symmetrically. With `p` the chance one route converts reach into
             # control before `n` scores, k routes have aggregate value
@@ -629,8 +632,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
             weight = route_w(stability[n], access_decay, routes)
-            if reach_them[n]:
-                weight *= access_contested
             total += weight * importance_fn(t, w, urgency, n) / stability[n]
     return total
 

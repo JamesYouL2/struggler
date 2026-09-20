@@ -45,12 +45,6 @@
       "source": "guess",
       "determination": "underdetermined"
     },
-    "access_contested": {
-      "value": 0.0,
-      "source": "gate",
-      "determination": "bounded",
-      "note": "Was 0.25, a guess. The off arm (0.0) read 0.512 +/-0.043 over 192 seeds (old model, dead heat leaning up); bundle gated ACCEPTED at 0.473 +/-0.027 over 128 seeds, upper bound 0.518 (run 34926032664)."
-    },
     "region": {
       "value": 1.3,
       "source": "guess",
@@ -287,14 +281,14 @@
     "counts_by_source": {
       "expert": 8,
       "guess": 15,
-      "gate": 8,
+      "gate": 7,
       "derived": 4,
       "measured": 8
     },
     "counts_by_determination": {
       "underdetermined": 12,
       "known-wrong": 2,
-      "bounded": 11,
+      "bounded": 10,
       "inert": 4,
       "overdetermined": 3,
       "determined": 11

@@ -838,8 +838,10 @@ def test_contested_reach():
     egypt = bot.country_value(board, 'Egypt', Side.US)
     board.influence['Egypt']['US'] = 0
     # Contested reach: USSR reach into Egypt through Israel is a race the US
-    # (already next door) can win, so it is worth access_contested of the
-    # exclusive value the same geometry would have with no US in Israel.
+    # (already next door) can win, so `access` skips it -- it is worth less
+    # than the same geometry with no US in Israel. (It was `access_contested`
+    # times the exclusive value until 2026-09-19; the weight shipped at 0.0,
+    # so the skip is the same number.)
     board.influence['Israel']['USSR'] = 1
     contested = bot._access(board, 'Israel', Side.USSR)
     board.influence['Israel']['US'] = 0
