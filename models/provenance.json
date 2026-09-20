@@ -52,10 +52,10 @@
       "note": "Multiplies region_vp into the board value, and is one of the three terms that together let a full Africa swing read as 9.1 VP where the rules pay 22."
     },
     "vp_swing": {
-      "value": 1.0,
+      "value": 3.0,
       "source": "gate",
-      "determination": "known-wrong",
-      "note": "Restored 2026-09-19 at 1.0, the identity. per_vp(turn) = vp_base * vp_swing ** ((turn-1)/9). It was 2.0 until 52bb329 flattened it on 0.491 +/-0.026 over 256 seeds and 0.497 +/-0.072 over 78, in the same commit as access_chain, and the bisect puts the step there. Same defect: the sample could not resolve the effect."
+      "determination": "bounded",
+      "note": "MEASURED on a grid, 2026-09-20. per_vp(turn) = vp_base * vp_swing ** ((turn-1)/9). It was 2.0 until 52bb329 flattened it to 1.0 on readings of 78 and 256 seeds, d941a5b deleted the code, and the 1024-seed bisect of v0.2.1..07d553a put a step of 0.050 at that commit. Restored and measured a setting at a time against 07d553a, paired: 1.5 +0.021 [+0.003, +0.038], 2.0 +0.029 [+0.009, +0.048], 3.0 +0.039 [+0.019, +0.059], 4.0 +0.024 [+0.004, +0.043], 6.0 +0.004 [-0.017, +0.024]. Monotone to 3, flat by 6 -- a peak, not an edge -- and 3.0 takes bc5ef93 from 0.483 to 0.500. Bounded on both sides; 3.0 against 4.0 is not resolved (different seed blocks)."
     },
     "military": {
       "value": 1.0,
@@ -305,8 +305,8 @@
     },
     "counts_by_determination": {
       "underdetermined": 12,
-      "known-wrong": 4,
-      "bounded": 10,
+      "known-wrong": 3,
+      "bounded": 11,
       "inert": 4,
       "overdetermined": 4,
       "determined": 11
