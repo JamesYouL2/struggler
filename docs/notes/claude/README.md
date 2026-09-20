@@ -14,6 +14,7 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Status on 2026-09-20 evening, and the four things to run](2026-09-20-status-and-what-to-run-next.md) — 2026-09-20 (the drift is closed and its run reads red; levels are not comparable across blocks; the fitted weights are off and the intransitivity is the open question; three registry defects and the test that gates them)
+- [The whole hand planner: what plans, and what only prices](2026-09-20-the-whole-hand-planner.md) — 2026-09-20 (headline, hold, space, our events, theirs, scoring timing: six slots in one assignment, five of them priced per card; only survival plans)
 - [The long tail: what a stalled shard actually is](2026-09-20-the-stall-is-the-drain.md) — 2026-09-20 (the timeout measured the drain, not a hang; a sandbox search budget cuts the worst decision 4.3s → 1.4s and costs -0.001 [-0.002, 0.000] over 1024 seeds)
 - [Profiling whole games: three exact speedups](2026-09-20-ranking-inner-loops.md) — 2026-09-20 (66M builtin clamp calls, a 1.57M-call constant, and a delta memo; 12.8% a game, and an A/B that stashed its own change)
 - [Step 4: when does a hand stop having an exit?](2026-09-19-last-exit-instrument.md) — 2026-09-19 (every cornered seat-game lost to DEFCON 1, 7 of 7, and corners are 44% of all nuclear losses)
