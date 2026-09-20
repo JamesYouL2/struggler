@@ -69,6 +69,22 @@ claim that file must keep being true of, not an assumption that ambient
 defaults happen to satisfy. The events-on equivalent of its full-game
 invariant test lives in `tests/test_events.py`.
 
+## The registries CI reads
+
+Two files in this repo are read by a runner rather than by the package, and
+so were never covered: `.github/experiments.json` (the arm registry) and
+`docs/notes/claude/bug-shapes.md` (the defect registry). Both are parsed by
+the suite now -- `tests/test_experiment_registry.py` and
+`tests/test_recurring_defects.py` -- because the alternative is finding out
+on a runner an hour into an overnight run.
+
+What the arm registry test asserts, and why each one is there, is in that
+file's docstring: the shapes it gates had all occurred. The one worth
+repeating here is that `StrategicWeights.load` **drops** weight names it
+does not know (deliberately -- an old model file must still load), so an
+ablation naming a retired field does not fail. It runs as a copy of its
+base and reports under a title that says the term was off.
+
 ## Test-writing policy
 
 Before writing a new test helper or fixture, check `tests/conftest.py`
