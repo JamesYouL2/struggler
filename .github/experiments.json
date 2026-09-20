@@ -413,6 +413,53 @@
         "last_window_guard": 1.0
       },
       "compare_to": "guard-sweep-base"
+    },
+    {
+      "slug": "vp-peak-base",
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "title": "vp_swing peak: main as it is vs 07d553a",
+      "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+    },
+    {
+      "slug": "vp-peak-4",
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "title": "vp_swing 4.0",
+      "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 4.0
+      },
+      "compare_to": "vp-peak-base"
+    },
+    {
+      "slug": "vp-peak-6",
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "title": "vp_swing 6.0",
+      "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 6.0
+      },
+      "compare_to": "vp-peak-base"
+    },
+    {
+      "slug": "vp-peak-3-bc",
+      "anchor": "bc5ef93",
+      "seeds": "52000-53023",
+      "title": "vp_swing 3.0 vs bc5ef93, the anchor that beats main",
+      "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 3.0
+      },
+      "compare_to": "vp-peak-base-bc"
+    },
+    {
+      "slug": "vp-peak-base-bc",
+      "anchor": "bc5ef93",
+      "seeds": "52000-53023",
+      "title": "vp_swing peak: main as it is vs bc5ef93",
+      "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
     }
   ],
   "_retired": {
