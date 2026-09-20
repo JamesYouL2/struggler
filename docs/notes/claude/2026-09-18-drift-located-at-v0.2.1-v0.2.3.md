@@ -207,3 +207,21 @@ measured PR #4's hand-safety code, before the fitted weights, on seeds
   against v0.2.0, v0.2.1 and 07d553a: run 35416380534. If the gap holds,
   bisect v0.2.1..07d553a with 1024-seed anchored arms.
 
+
+## Four more anchors (2026-09-19)
+
+The canary read nine tags, all of them from before this week's work, so the
+states this week produced could only be measured by hand. Three tags were
+added, and one commit that is not a tag:
+
+| anchor | what it is | measured |
+| --- | --- | --- |
+| `07d553a` | #100 of v0.2.1..v0.2.2, the plateau bot every arm is anchored against | the reference, not a reading |
+| v0.3.2 | hand safety: the planner's F1-F5 fixes and the last-window guard (PR #4) | +0.043 paired against 07d553a, 0.520 [0.503, 0.537] |
+| v0.3.3 | the guard priced at its measured 0.43; the fitted weights off (PRs #7, #9) | the guard is a wash on strength; the fit is unproven either way |
+| v0.3.4 | the region margin deleted (PR #10) | the term read +0.001 [-0.022, +0.024] |
+
+`drift.yml` now defaults to all thirteen. 13 x 8 shards is 104 jobs, which is
+why the canary is weekly and not per-merge. Adding `07d553a` means the weekly
+run covers the arms' own opponent on the canary's block, so a reading there
+can be compared with the tags either side of it without a separate dispatch.
