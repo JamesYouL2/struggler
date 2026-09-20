@@ -8,6 +8,7 @@ probabilities are valid, tiers are counted once per region, raw deltas
 telescope, and the stochastic joint model raises instead of guessing.
 """
 import itertools
+import math
 
 import pytest
 from conftest import bare_engine
@@ -15,6 +16,7 @@ from conftest import bare_engine
 from struggler.engine import Engine, Region, Side
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import forecast as fcst
+from struggler.bots.strategic import StrategicPlayer
 
 
 def _played_board(seed: int = 4000, steps: int = 160):
@@ -468,3 +470,42 @@ def test_member_weights_price_the_whole_payout_exactly(region, horizon):
         mismatched = [abs(sum(q * w for q, w in zip(fc.probs[0], weights[k], strict=True)) - total)
                       for k in range(1, len(fc.members))]
         assert max(mismatched) > 1e-9 or fc.is_degenerate()
+
+
+def test_the_memoised_row_is_the_documented_row():
+    """`_p_control_from` is memoised on a country's local state;
+    `_control_features` is the readable statement of what that state is.
+    Two copies of one rule, so they are held against each other here --
+    over the whole discrete domain, not a sample.
+
+    If this fails, the memo's key no longer covers everything the features
+    read, which is bug shape 1 with the cache looking innocent.
+    """
+    from struggler.bots.strategic import evaluator as ev
+    from struggler.bots.strategic import forecast as fcst
+    from struggler.engine import Side
+
+    player = StrategicPlayer()
+    t = player._terrain
+    pos = ev.Position(t)
+    checked = 0
+    for i in (t.index['France'], t.index['Cuba'], t.index['Iran'], t.index['Thailand']):
+        for mine in range(0, 7):
+            for theirs in range(0, 7):
+                pos.place(i, mine, theirs)
+                for side in (Side.US, Side.USSR):
+                    me = ev.SIDE_INDEX[side]
+                    row = fcst._control_features(t, pos, i, me, 1 - me)
+                    keyed = fcst._p_control_from(
+                        pos.inf[me][i], pos.inf[1 - me][i], t.stability[i],
+                        bool(pos.reach[me][i]), bool(pos.reach[1 - me][i]),
+                        pos.control[i], me, 2)
+                    beta = fcst.CONTROL_ODDS_BETA[2]
+                    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
+                    z = max(-35.0, min(35.0, z))
+                    want = 1.0 / (1.0 + math.exp(-z))
+                    assert keyed == pytest.approx(want, abs=1e-15), (
+                        f'{t.ids[i]} {side} {mine}/{theirs}: memo {keyed} vs features {want}')
+                    checked += 1
+        pos.place(i, 0, 0)
+    assert checked == 4 * 7 * 7 * 2

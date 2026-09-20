@@ -55,6 +55,7 @@ The rebuild README asks the first implementation five questions. Answers:
 """
 from __future__ import annotations
 
+import functools
 import math
 from collections import defaultdict
 from collections.abc import Callable
@@ -144,6 +145,42 @@ def _control_features(t: ev.Terrain, pos: ev.Position, i: int, me: int, foe: int
     )
 
 
+@functools.lru_cache(maxsize=None)
+def _p_control_from(mine: int, theirs: int, stability: int, reach_me: bool,
+                    reach_foe: bool, holder: int, me: int, horizon: int) -> float:
+    """`p_control_at_scoring` as a function of its inputs ALONE.
+
+    THE WHOLE POINT IS THE ARGUMENT LIST. `_control_features` reads six
+    things about a country -- both influence counts, both reach flags, the
+    controller, and the stability -- and the fit reads nothing else, not the
+    country's identity and not the rest of the board. So those six plus the
+    horizon and the side ARE the key, exactly, and the table can be shared
+    across every country whose local state matches. That is what makes the
+    memo safe here when a memo on `i` would be bug shape 1: the key is not a
+    proxy for the state, it is the state.
+
+    The domain is small and discrete -- influence rarely exceeds ten a side,
+    stability is 1-5, the rest are flags -- so this fills in during the first
+    turn and is lookups afterwards. It was 1.4 million logistic evaluations
+    in 120 decisions.
+    """
+    row = (
+        float(ops_to_control(mine, theirs, stability)),
+        float(ops_to_control(theirs, mine, stability)),
+        1.0 if reach_me else 0.0,
+        1.0 if reach_foe else 0.0,
+        float(stability == 2), float(stability == 3), float(stability == 4),
+        1.0 if holder == me else 0.0,
+        1.0 if holder == (1 - me) else 0.0,
+        float(max(0, mine - theirs - stability)),
+        float(max(0, theirs - mine - stability)),
+    )
+    beta = CONTROL_ODDS_BETA[min(2, max(1, horizon))]
+    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
+    z = max(-35.0, min(35.0, z))
+    return 1.0 / (1.0 + math.exp(-z))
+
+
 def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, horizon: int) -> float:
     """P(`side` controls country `i` at its region's given scoring, if that
     scoring happens -- the fits' conditioning, carried through here.
@@ -153,14 +190,17 @@ def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, ho
     fit stands (no further table exists); the clamp is documented, not
     silent -- every later scoring borrows the second fit as its only
     available shape.
+
+    The arithmetic is in `_p_control_from`, memoised on the country's local
+    state rather than on the country; this reads that state out of the
+    snapshot and nothing more. `_control_features` stays as the readable
+    statement of what the row is, and `tests/test_forecast.py` holds the two
+    against each other.
     """
     me = ev.SIDE_INDEX[side]
-    foe = 1 - me
-    row = _control_features(t, pos, i, me, foe)
-    beta = CONTROL_ODDS_BETA[min(2, max(1, horizon))]
-    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
-    z = max(-35.0, min(35.0, z))
-    return 1.0 / (1.0 + math.exp(-z))
+    return _p_control_from(pos.inf[me][i], pos.inf[1 - me][i], t.stability[i],
+                           bool(pos.reach[me][i]), bool(pos.reach[1 - me][i]),
+                           pos.control[i], me, horizon)
 
 
 def _triple(p_us: float, p_ussr: float) -> tuple[float, float, float]:

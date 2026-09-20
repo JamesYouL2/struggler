@@ -185,3 +185,39 @@ def test_the_tables_are_keyed_on_the_board_they_describe():
 
     pos.place(i, *was)
     assert bot._weight_tables(region) is first, 'an undone board did not get its table back'
+
+
+def test_the_trial_plans_are_what_the_inline_walk_used_to_build():
+    """`_trial_plans` precomputes what `potential_delta` rebuilt per call.
+
+    The plan is pure terrain, so it can be checked against the walk it
+    replaced without playing anything: for every country, the regions a
+    trial touches, the members of each whose triple can move, where those
+    sit in `member_weights`'s indexing, and Southeast Asia's payouts. A
+    precomputed table that disagrees with the loop it replaced is the
+    quietest possible defect -- every number stays plausible.
+    """
+    from struggler.bots.strategic.policy import SCORING_CARD_REGION
+
+    player = StrategicPlayer()
+    t = player._terrain
+    cards_by_region = {r: c for c, r in SCORING_CARD_REGION.items()}
+    plans = player._trial_plans
+    assert len(plans) == len(t.ids)
+
+    for i in range(len(t.ids)):
+        touched = {i} | set(t.neighbors[i])
+        want = {}
+        for region in {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}:
+            moved = tuple(m for m in t.members[region] if m in touched)
+            if moved:
+                want[region] = moved
+        got = {entry[0]: entry[1] for entry in plans[i]}
+        assert got == want, f'{t.ids[i]}: touched regions/members differ'
+
+        for region, moved, slots, sea, card in plans[i]:
+            where = {m: k for k, m in enumerate(t.members[region])}
+            assert slots == tuple(where[m] for m in moved)
+            assert card is cards_by_region[region]
+            assert sea == tuple((k, 2.0 if t.ids[m] == 'Thailand' else 1.0)
+                                for k, m in enumerate(moved) if m in t.southeast_asia)

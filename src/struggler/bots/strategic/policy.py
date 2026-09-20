@@ -7,6 +7,7 @@ AI, not full-game minimax or a pretrained neural network.
 """
 from __future__ import annotations
 
+import functools
 import itertools
 import json
 import logging
@@ -402,6 +403,24 @@ class StrategicWeights:
     # worth closing that gap for.
     # docs/notes/claude/2026-09-20-potential-in-the-ranking.md
     potential: float = 0.0
+
+    # How often the potential's linear weight tables are rebuilt. They are
+    # exact only for the board they were built on, and the ranking visits
+    # about 32 distinct positions per decision -- so rebuilding per position
+    # is exact and costs 172x a game, and even a perfect per-decision rebuild
+    # costs 13x. Measured in docs/notes/claude/2026-09-20-potential-in-the-ranking.md.
+    #
+    # 0.0 -- rebuild per position. Exact, unaffordable.
+    # 1.0 -- rebuild once per ACTION ROUND, and dot every position in that
+    #        round against those weights. A NAMED approximation, not a cache:
+    #        it deliberately reads a table built on another board, which is
+    #        bug shape 1 turned into a policy. It is the same first-order
+    #        error `potential_delta` already makes for a multi-member move,
+    #        extended across a round, and its size is a measurement.
+    #
+    # Inert unless `potential` is set: with the term off, nothing reads the
+    # tables at all.
+    potential_refresh: float = 0.0
     # (A region-margin term -- partial credit toward the next scoring tier:
     # progress toward presence, and battlegrounds and countries of margin
     # toward domination -- stood here until 2026-09-19. Measured paired at
@@ -708,6 +727,13 @@ class StrategicPlayer:
         self._base_regions = None
         self._base_country = None
         self._weight_table_cache = None
+        # The potential's weight tables kept ACROSS positions, under
+        # `weights.potential_refresh`: `{(region, flags): tables}` plus the
+        # action round they were built in. Not a cache -- a cache would be
+        # keyed on the board it describes, and the whole point here is that
+        # this one is not. See `_weight_tables`.
+        self._round_tables = {}
+        self._round_token = None
         self._base_digest = 0
         self._obs = None
         # Per-country scoring weight for `self._obs`, in terrain order, or
@@ -818,6 +844,12 @@ class StrategicPlayer:
         self._shuttle_pick = None
         self._scoring_flags = scoring_flags(observation.game_effects)
         self._coup_bans = coup_bans(observation.game_effects)
+        # The round-level tables live until the action round changes, or
+        # until a scoring override appears that their weights cannot see.
+        token = (observation.turn, observation.action_round, self._scoring_flags)
+        if token != self._round_token:
+            self._round_token = token
+            self._round_tables = {}
         # The potential's masses: deck state, fixed within a decision (a
         # placement does not move the deck), so they are prepared once and
         # only E[payout] is asked of the moving board. SEA's card rides with
@@ -1006,9 +1038,15 @@ class StrategicPlayer:
 
         These are the potential's exact linear weights at this position, and
         they move with every member, so a table built on a board and then
-        read after that board moved prices a position that is not there. The
-        cache is cleared by `_invalidate_base` with the rest, and anything
-        that moves the board mid-ranking owes it that call.
+        read after that board moved prices a position that is not there.
+        Nothing clears this cache: the digest IS the guard, and an entry for
+        a board the ranking has left is simply never asked for again. (An
+        earlier version of this docstring said `_invalidate_base` clears it.
+        It does not, and it does not need to -- but a region-keyed cache
+        would have needed exactly that, which is how the sentence got here.)
+
+        Under `weights.potential_refresh` the digest key is given up on
+        purpose; see below.
         """
         # KEYED ON THE DIGEST, like the `delta` memo, so a trial placement
         # that moves the board and puts it back does not throw the tables
@@ -1016,19 +1054,77 @@ class StrategicPlayer:
         # and rebuilding six regions at two horizons costs ~180 ms, which a
         # placement loop pays per candidate. Keying on the position's own
         # identity is what makes the cache survive an undo.
+        t, pos = self._terrain, self._position
+        ov = self._overrides_for(region, pos, flags)
+        # `potential_refresh` trades the digest key for the action round:
+        # the first position of the round builds the table and every later
+        # one dots against it, board moves included. Keyed on the overrides
+        # as well as the region because a Shuttle pick the weights cannot
+        # see is a different table, not a staler one.
+        if self.weights.potential_refresh:
+            round_key = (region, ov)
+            hit = self._round_tables.get(round_key)
+            if hit is None:
+                hit = self._round_tables[round_key] = self._build_tables(region, ov)
+            return hit
         cache = self._weight_table_cache
         key = (self._position.digest, region)
         hit = None if cache is None else cache.get(key)
         if hit is None:
-            t, pos = self._terrain, self._position
-            ov = self._overrides_for(region, pos, flags)
-            hit = {}
-            for horizon in (1, 2):
-                fc = fcst.forecast_controls(t, pos, region, horizon)
-                hit[horizon] = (fc, fcst.member_weights(t, fc, ov))
+            hit = self._build_tables(region, ov)
             if cache is not None:
                 cache[key] = hit
         return hit
+
+    def _build_tables(self, region: Region, ov) -> dict:
+        """`forecast.member_weights` for `region` at both horizons, on the
+        board as it stands right now. About 15 ms a region at the wide end
+        (Europe 43 ms, Africa 28 ms, the other four 2-3 ms each), which is
+        why how often this runs is the whole cost question."""
+        t, pos = self._terrain, self._position
+        built = {}
+        for horizon in (1, 2):
+            fc = fcst.forecast_controls(t, pos, region, horizon)
+            built[horizon] = (fc, fcst.member_weights(t, fc, ov))
+        return built
+
+    @functools.cached_property
+    def _trial_plans(self) -> tuple[tuple, ...]:
+        """Per country index, everything `potential_delta` needs about WHERE
+        a trial there lands -- built once, because none of it is board.
+
+        A trial at `i` moves `i`'s triple and its neighbours' (reach is
+        influence one hop out) and nobody else's, so the regions it touches,
+        which members of each move, where each of those sits in
+        `member_weights`'s indexing, and what Southeast Asia pays for it are
+        all fixed by the map. They were being rebuilt on every call: two dict
+        comprehensions over every member of every touched region, plus a
+        `t.ids[m] == 'Thailand'` string compare, 45,000 times in 120
+        decisions.
+
+        Each entry is `(region, moved_members, weight_slots, sea_values,
+        region_card)`, and regions with nothing moved are dropped here rather
+        than skipped per call.
+        """
+        t = self._terrain
+        cards_by_region = {r: c for c, r in SCORING_CARD_REGION.items()}
+        plans = []
+        for i in range(len(t.ids)):
+            touched = {i} | set(t.neighbors[i])
+            entries = []
+            for region in {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}:
+                where = {m: k for k, m in enumerate(t.members[region])}
+                moved = tuple(m for m in t.members[region] if m in touched)
+                if not moved:
+                    continue
+                slots = tuple(where[m] for m in moved)
+                # Southeast Asia Scoring is a seventh term on Asia's entry:
+                # +2 for Thailand, +1 for the rest, and nothing anywhere else.
+                sea = tuple((k, 2.0 if t.ids[m] == 'Thailand' else 1.0)
+                            for k, m in enumerate(moved) if m in t.southeast_asia)
+                entries.append((region, moved, slots, sea, cards_by_region[region]))
+            plans.append(tuple(entries))
+        return tuple(plans)
 
     def potential_delta(self, obs: Observation, cid: str, own: int = 0,
                         opp: int = 0) -> float | None:
@@ -1071,17 +1167,9 @@ class StrategicPlayer:
         # Middle Eastern and borders Africa, and pricing only the Middle East
         # was wrong by 0.074 VP on every Libya trial -- the only single-member
         # case that was not exact.
-        regions = {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}
-        # ONLY THE MEMBERS WHOSE TRIPLE CAN MOVE. `_horizon_triple` reads the
-        # country's own influence and its reach, and reach is influence one
-        # hop out, so a trial at `i` moves `i` and its neighbours and nobody
-        # else -- every other member's difference is exactly zero and its dot
-        # product contributes nothing. Walking the whole region instead cost
-        # 2.80 s a ranking, which is the 2026-09-17 descope again; this is
-        # the same numbers for a fifth of the work.
-        touched = {i} | set(t.neighbors[i])
-        members = {region: tuple(m for m in t.members[region] if m in touched)
-                   for region in regions}
+        plan = self._trial_plans[i]
+        regions = tuple(entry[0] for entry in plan)
+        members = {entry[0]: entry[1] for entry in plan}
         before, ov_before = {}, {}
         for region in regions:
             ov_before[region] = self._overrides_for(region, pos)
@@ -1105,23 +1193,16 @@ class StrategicPlayer:
             pos.place(i, *restore)
 
         total = 0.0
-        for region in regions:
-            moved = members[region]
-            if not moved:
-                continue
+        for region, moved, slots, sea_values, card in plan:
             tables = self._weight_tables(region)
-            # `member_weights` is indexed by the member's position in the
-            # region, so a restricted walk has to carry that index with it.
-            where = {m: k for k, m in enumerate(t.members[region])}
             by_horizon = {}
             for horizon in (1, 2):
                 _fc, weights = tables[horizon]
+                aft, bef = after[region][horizon], before[region][horizon]
                 by_horizon[horizon] = sum(
-                    sum((a - b) * w for a, b, w in zip(after[region][horizon][k],
-                                                       before[region][horizon][k],
-                                                       weights[where[m]], strict=True))
-                    for k, m in enumerate(moved))
-            card = self._region_cards[region]
+                    sum((a - b) * w for a, b, w in zip(aft[k], bef[k], weights[slot],
+                                                       strict=True))
+                    for k, slot in enumerate(slots))
             total += sum(mass * by_horizon[1 if horizon == 1 else 2]
                          for mass, horizon in self._masses[card])
             # Southeast Asia Scoring is a SEVENTH term, not part of Asia's:
@@ -1130,14 +1211,13 @@ class StrategicPlayer:
             # `_potential_total` leaving it out once cost 4.54 VP on a turn-5
             # probe; leaving it out here would cost the same on every
             # Southeast Asian placement.
-            if region is Region.ASIA:
+            if sea_values:
                 sea = {}
                 for horizon in (1, 2):
+                    aft, bef = after[region][horizon], before[region][horizon]
                     sea[horizon] = sum(
-                        ((after[region][horizon][k][0] - before[region][horizon][k][0])
-                         - (after[region][horizon][k][1] - before[region][horizon][k][1]))
-                        * (2.0 if t.ids[m] == 'Thailand' else 1.0)
-                        for k, m in enumerate(moved) if m in t.southeast_asia)
+                        ((aft[k][0] - bef[k][0]) - (aft[k][1] - bef[k][1])) * value
+                        for k, value in sea_values)
                 total += sum(mass * sea[1 if horizon == 1 else 2]
                              for mass, horizon in self._masses[sch.SEA_SCORING])
         return total * self._seat_sign()
