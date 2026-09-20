@@ -663,6 +663,7 @@ class StrategicPlayer:
         self._reply_budget_pool = None
         self._base_regions = None
         self._base_country = None
+        self._weight_table_cache = None
         self._base_digest = 0
         self._obs = None
         # Per-country scoring weight for `self._obs`, in terrain order, or
@@ -706,6 +707,7 @@ class StrategicPlayer:
         # `delta` reads or however the trial loops move the board -- and it is
         # equal again after an undo, which a generation counter would miss.
         self._delta_cache = {}
+        self._weight_table_cache = {}
         # What the board looked like when these were established. `delta`
         # prices against them, so calling it with the board moved reads a
         # base for a position that is not there -- which inverted the
@@ -758,6 +760,7 @@ class StrategicPlayer:
         finally:
             self._base_regions = self._base_country = None  # callers may move the board after ranking
             self._delta_cache = None
+            self._weight_table_cache = None
 
     def prepare(self, observation: Observation) -> None:
         """Point the player at `observation`: the board, the snapshot of it,
@@ -951,6 +954,126 @@ class StrategicPlayer:
         pos = self._position if pos is None else pos
         return (sum(self._region_term(region, pos, flags) for region in self._region_cards)
                 + self._sea_term(pos, flags))
+
+    def _weight_tables(self, region: Region, flags=None):
+        """`forecast.member_weights` for `region` at both horizons, for the
+        board AS SYNCED -- a per-decision cache under the same contract as
+        `_base_regions` (bug shape 1).
+
+        These are the potential's exact linear weights at this position, and
+        they move with every member, so a table built on a board and then
+        read after that board moved prices a position that is not there. The
+        cache is cleared by `_invalidate_base` with the rest, and anything
+        that moves the board mid-ranking owes it that call.
+        """
+        cache = self._weight_table_cache
+        hit = None if cache is None else cache.get(region)
+        if hit is None:
+            t, pos = self._terrain, self._position
+            ov = self._overrides_for(region, pos, flags)
+            hit = {}
+            for horizon in (1, 2):
+                fc = fcst.forecast_controls(t, pos, region, horizon)
+                hit[horizon] = (fc, fcst.member_weights(t, fc, ov))
+            if cache is not None:
+                cache[region] = hit
+        return hit
+
+    def potential_delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
+        """The scoring potential's change for a one-country trial, priced by
+        DOT PRODUCT from `_weight_tables` instead of a DP per candidate.
+
+        The v3 plan's step 5, as the maintainer chose it: linear weights. The
+        potential's expensive half was `expected_payout`, 11-23 ms recomputed
+        per candidate placement, which is what descoped it from the ranking
+        path on 2026-09-17. Here the region's weights are built once for the
+        board as synced and every trial is `(q' - q) . W` over the members
+        whose triples moved.
+
+        EXACT for a trial that moves one member's triple, because each
+        member's weights fold in every other member and `(q' - q)` sums to
+        zero, so the constant cancels. A placement that also changes reach at
+        neighbours moves several triples at once; summing their differences
+        is the first-order expansion and drops the interaction terms. The
+        error that costs is measured in
+        docs/notes/claude/2026-09-19-potential-linear-weights-wired.md, not
+        assumed away.
+
+        Returns None when the trial changes the region's scoring overrides,
+        which the weights cannot see: the caller must recompute those the
+        slow way. Reads and restores the snapshot only; the board is not
+        touched.
+        """
+        t, pos = self._terrain, self._position
+        i = t.index[cid]
+        s_idx = ev.SIDE_INDEX[obs.side]
+        inf_us, inf_ussr = pos.inf
+        was_us, was_ussr = inf_us[i], inf_ussr[i]
+        if s_idx == ev.US:
+            after_counts = (max(0, was_us + own), max(0, was_ussr + opp))
+        else:
+            after_counts = (max(0, was_us + opp), max(0, was_ussr + own))
+        # EVERY REGION THE TRIAL REACHES, not just the country's own. A
+        # placement changes reach one hop out, and a neighbour across a
+        # regional border carries that into ITS region's forecast: Libya is
+        # Middle Eastern and borders Africa, and pricing only the Middle East
+        # was wrong by 0.074 VP on every Libya trial -- the only single-member
+        # case that was not exact.
+        regions = {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}
+        before, ov_before = {}, {}
+        for region in regions:
+            ov_before[region] = self._overrides_for(region, pos)
+            before[region] = {h: tuple(fcst._horizon_triple(t, pos, m, h)
+                                       for m in t.members[region]) for h in (1, 2)}
+        restore = pos.place(i, *after_counts)
+        try:
+            after = {}
+            for region in regions:
+                # THE SCORING OVERRIDES READ CONTROL. A Formosan promotion or
+                # a Shuttle-ignored member can appear or vanish with the very
+                # flip being priced, and the tables were built under the old
+                # ones, so their weights answer a different scoring rule.
+                # Rare, and exact to detect, so this falls back instead of
+                # pricing it wrong.
+                if self._overrides_for(region, pos) != ov_before[region]:
+                    return None
+                after[region] = {h: tuple(fcst._horizon_triple(t, pos, m, h)
+                                          for m in t.members[region]) for h in (1, 2)}
+        finally:
+            pos.place(i, *restore)
+
+        total = 0.0
+        for region in regions:
+            members = t.members[region]
+            tables = self._weight_tables(region)
+            by_horizon = {}
+            for horizon in (1, 2):
+                _fc, weights = tables[horizon]
+                by_horizon[horizon] = sum(
+                    sum((a - b) * w for a, b, w in zip(after[region][horizon][k],
+                                                       before[region][horizon][k],
+                                                       weights[k], strict=True))
+                    for k in range(len(members)))
+            card = self._region_cards[region]
+            total += sum(mass * by_horizon[1 if horizon == 1 else 2]
+                         for mass, horizon in self._masses[card])
+            # Southeast Asia Scoring is a SEVENTH term, not part of Asia's:
+            # its own card, its own masses, +2 for Thailand and +1 for the
+            # rest, and linear per country like the 10.1.2 bonuses.
+            # `_potential_total` leaving it out once cost 4.54 VP on a turn-5
+            # probe; leaving it out here would cost the same on every
+            # Southeast Asian placement.
+            if region is Region.ASIA:
+                sea = {}
+                for horizon in (1, 2):
+                    sea[horizon] = sum(
+                        ((after[region][horizon][k][0] - before[region][horizon][k][0])
+                         - (after[region][horizon][k][1] - before[region][horizon][k][1]))
+                        * (2.0 if t.ids[m] == 'Thailand' else 1.0)
+                        for k, m in enumerate(members) if m in t.southeast_asia)
+                total += sum(mass * sea[1 if horizon == 1 else 2]
+                             for mass, horizon in self._masses[sch.SEA_SCORING])
+        return total * self._seat_sign()
 
     def _position_for(self, board: Board, pos: ev.Position | None = None) -> ev.Position:
         """A snapshot of `board`, brought up to date first.
@@ -1891,6 +2014,8 @@ class StrategicPlayer:
             self._base_regions = {}
         if self._base_country is not None:
             self._base_country = {}
+        if self._weight_table_cache is not None:
+            self._weight_table_cache = {}
         self._base_digest = self._position.digest
 
     def _reply_budgets(self, obs: Observation) -> tuple[tuple[int, float], ...]:
