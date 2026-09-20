@@ -5,7 +5,10 @@ its own vectors instead of asking `Board` each time, so these tests pin those
 vectors against `Board`'s own accessors, and pin the incremental updates
 against a full rebuild.
 """
+import dataclasses
 import itertools
+
+import pytest
 
 from struggler.engine import Engine, Region, Side
 from struggler.engine.rules import RULES
@@ -200,14 +203,22 @@ def test_the_terms_price_a_bare_board_without_an_observation():
     assert ev.board_value(t, pos, ev.USSR, w, urgency) == -plain.value(board, Side.US)
 
 
-def test_value_dependents_covers_every_country_a_change_can_move():
-    """`VALUE_RADIUS` is what lets the event sandbox reuse a basis instead of
+@pytest.mark.parametrize('chain', [0.0, 0.4])
+def test_value_dependents_covers_every_country_a_change_can_move(chain):
+    """`value_radius` is what lets the event sandbox reuse a basis instead of
     re-valuing the board per event, so it has to be at least as wide as the
     terms actually read. Move one country and check that nothing outside the
-    claimed set moved with it."""
+    claimed set moved with it.
+
+    Both settings of `access_chain`, because the chain loop reads one hop
+    further than the rest of `access` and the radius has to follow it. The
+    countries below do not reach three hops on this board, so
+    `test_the_chain_reads_three_hops_not_two` scans the whole map for the
+    cases that do."""
     board = _played_board()
     t = ev.terrain()
-    w, urgency = StrategicWeights(), ev.ones(t)
+    w = dataclasses.replace(StrategicWeights(), access_chain=chain)
+    urgency = ev.ones(t)
     pos = ev.Position(t).sync(board)
     everywhere = range(len(t.ids))
 
@@ -221,7 +232,61 @@ def test_value_dependents_covers_every_country_a_change_can_move():
             was = pos.place(i, us, ussr)
             moved = {j for j, (now, then) in enumerate(zip(values(), base, strict=True)) if now != then}
             pos.place(i, *was)
-            claimed = ev.dependents(t, {i})
+            claimed = ev.dependents(t, {i}, ev.value_radius(w))
             assert moved <= claimed, (cid, us, ussr, sorted(t.ids[j] for j in moved - claimed))
     # And the radius is not simply the whole board: a change stays local.
-    assert len(ev.dependents(t, {t.index['Chile']})) < len(t.ids)
+    assert len(ev.dependents(t, {t.index['Chile']}, ev.value_radius(w))) < len(t.ids)
+
+
+def test_the_chain_reads_three_hops_not_two():
+    """The negative control for `value_radius`. With `access_chain` on, a
+    change three hops away moves a country's value, so a radius of 2 serves
+    stale values -- 22 (country, placement) cases on this board, Libya ->
+    Syria and Syria -> Iraq among them. This is the defect that restoring
+    the chain reintroduces if the radius does not follow it, and it is bug
+    shape 1: a cache keyed on less state than the term reads."""
+    board = _played_board()
+    t = ev.terrain()
+    w = dataclasses.replace(StrategicWeights(), access_chain=0.4)
+    urgency = ev.ones(t)
+    pos = ev.Position(t).sync(board)
+
+    def values():
+        return [ev.country_value(t, pos, j, ev.US, w, urgency) for j in range(len(t.ids))]
+
+    stale = []
+    for i in range(len(t.ids)):
+        for us, ussr in ((3, 0), (0, 3), (1, 1), (0, 0)):
+            base = values()
+            was = pos.place(i, us, ussr)
+            moved = {j for j, (now, then) in enumerate(zip(values(), base, strict=True))
+                     if now != then}
+            pos.place(i, *was)
+            if moved - ev.dependents(t, {i}, ev.VALUE_RADIUS):
+                stale.append(t.ids[i])
+            assert moved <= ev.dependents(t, {i}, ev.value_radius(w)), t.ids[i]
+    assert stale, 'the chain no longer reads further than VALUE_RADIUS -- is it still on?'
+
+
+def test_the_restored_terms_are_identities_at_their_shipped_settings():
+    """`access_chain` 0.0 and `vp_swing` 1.0 are the shipped path exactly,
+    bit for bit -- that is what makes restoring them safe to merge before
+    anything has measured them. The chain loop does not run at 0.0, and
+    `x ** 0` is 1.0 at every turn."""
+    board = _played_board()
+    t = ev.terrain()
+    pos = ev.Position(t).sync(board)
+    urgency = ev.ones(t)
+    shipped = StrategicWeights()
+    explicit = dataclasses.replace(shipped, access_chain=0.0, vp_swing=1.0)
+    for j in range(len(t.ids)):
+        for s in (ev.US, ev.USSR):
+            assert (ev.country_value(t, pos, j, s, shipped, urgency)
+                    == ev.country_value(t, pos, j, s, explicit, urgency))
+    assert ev.value_radius(shipped) == ev.VALUE_RADIUS
+    # And the chain is not a no-op when it is on: something must move.
+    on = dataclasses.replace(shipped, access_chain=0.4)
+    assert any(ev.access(t, pos, j, ev.US, on, urgency)
+               != ev.access(t, pos, j, ev.US, shipped, urgency)
+               for j in range(len(t.ids)))
+    assert ev.value_radius(on) == ev.VALUE_RADIUS_CHAIN

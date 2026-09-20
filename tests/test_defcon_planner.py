@@ -551,4 +551,20 @@ def test_the_guard_charges_a_cornered_play_its_drop_probability_at_the_whole_gam
     residual = max(total, guard)
     assert key[2] == pytest.approx((1 - residual) * raw - residual * bot.game_value(obs))
     if guard == 0:
-        assert ranked[0][1].payload['card'] == 'Decolonization'
+        # The property is that the GUARD demotes a cornered play, so it is
+        # tested as a comparison against the guard at full strength -- not as
+        # "the cornered play is top", which was true only while the other
+        # card in hand happened to be worth less. The 2026-09-20 turn curve
+        # (`vp_swing` 3.0) re-priced CIA Created above it and broke that
+        # reading without touching the guard.
+        strict = StrategicPlayer(StrategicWeights(last_window_guard=1.0),
+                                 survival_prior=SurvivalPrior(opponent_hand_attack=0))
+        other = closing_window(['CIA_Created', 'Decolonization'])
+        strict_ranked = strict.rank_actions(other.observe(Side.USSR))
+        strict_key = next(k for k, a in strict_ranked if a.payload['card'] == 'Decolonization')
+        # The play is worth strictly more with the guard off than with it at
+        # full strength -- by the whole game, since the guard prices a certain
+        # drop at `game_value`. Rank position would not see it here: CIA
+        # Created outranks this play either way.
+        assert key[2] > strict_key[2]
+        assert strict_key[2] == pytest.approx(-bot.game_value(obs), rel=1e-6)

@@ -586,12 +586,18 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     the decay is a function of stability rather than one constant.
 
     Chains -- a battleground two steps away through a country not yet held
-    (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- used to count
-    here too, discounted by `access_chain`. Removed 2026-09-12: ablated alone
-    at 128 seeds and not measurably worse (0.491 +/-0.063 over 109 seeds,
-    215 games), while being 92% of the traversal this function can do. It was
-    also the only reason this read influence two hops out, which is what made
-    it unmemoisable on the country it prices.
+    (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- count when
+    `access_chain` is set, discounted by it. The term was removed on
+    2026-09-12 as "not measurably worse" at 109 seeds, and the 2026-09-19
+    bisect put a step of 0.050 at exactly the commit that did it
+    (docs/notes/claude/2026-09-19-bisect-v0.2.1.md). It is restored here as a
+    weight at 0.0 -- bit-identical to the shipped path, since the loop does
+    not run -- so an arm can measure it at 1024 seeds instead of 109.
+
+    The chain reads influence three hops from `i`, so a bot that sets it must
+    widen the dependents radius to match: `value_radius(w)`, not
+    `VALUE_RADIUS`. That coupling is the reason the term was expensive, and
+    it is bug shape 1 if it is ever forgotten.
     """
     other = 1 - s
     inf_s = pos.inf[s]
@@ -599,12 +605,14 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     battleground, stability, neighbors = t.battleground, t.stability, t.neighbors
     home = t.home[s]
     first = neighbors[i]
+    first_set = t.neighbor_set[i]
     # Locals, not globals/attributes, in the neighbour loop: the same floats,
     # fewer lookups per battleground. A native port takes these as precomputed
     # vectors wholesale.
     route_w = route_weight
     importance_fn = importance
     access_decay = w.access_decay
+    access_chain = w.access_chain
     total = 0.
     for n in first:
         # A contested battleground -- one the opponent can already place in
@@ -641,6 +649,23 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 routes += 1      # already standing in it, not merely reaching
             weight = route_w(stability[n], access_decay, routes)
             total += weight * importance_fn(t, w, urgency, n) / stability[n]
+        if not access_chain:
+            continue
+        # THE CHAIN, one step further: a battleground reachable only through
+        # `n`, which nobody holds yet. Skipped when it is already reachable
+        # from somewhere we stand, when the opponent can already place in it
+        # (the same rule the first loop applies), and when it is a neighbour
+        # of `i` -- the first loop priced that one exactly.
+        if inf_s[n] > 0 or control[n] == other:
+            continue  # already ours to build from, or not a step we take
+        for m in neighbors[n]:
+            if (not battleground[m] or m == i or m in first_set
+                    or control[m] == s or inf_s[m] > 0 or m in home
+                    or reach_them[m]):
+                continue
+            if any(inf_s[k] > 0 for k in neighbors[m]):
+                continue  # reachable directly from somewhere already
+            total += access_chain * importance_fn(t, w, urgency, m) / stability[m]
     return total
 
 
@@ -663,6 +688,17 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
 # and it enforces it in the dangerous direction, since a radius that is too
 # SMALL silently serves stale values while one too large is merely slow.
 VALUE_RADIUS = 2
+
+# The chain restored on 2026-09-19 walks one hop further, so a bot that sets
+# `access_chain` reads three steps out and must say so. Ask this, never the
+# constant, wherever a weights object is in hand.
+VALUE_RADIUS_CHAIN = 3
+
+
+def value_radius(w) -> int:
+    """How far `country_value` reads under these weights: three steps with
+    the `access_chain` loop on, two without it."""
+    return VALUE_RADIUS_CHAIN if w.access_chain else VALUE_RADIUS
 
 
 def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
