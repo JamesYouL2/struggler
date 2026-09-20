@@ -458,6 +458,55 @@ def tier_weights(t: ev.Terrain, forecast: ControlForecast,
     return tuple(weights)
 
 
+def member_weights(t: ev.Terrain, forecast: ControlForecast,
+                   overrides: tuple[frozenset[int], frozenset[int]] | None = None
+                   ) -> tuple[tuple[float, float, float], ...]:
+    """Per member, the exact linear weights of the region's WHOLE expected
+    payout -- tiers and 10.1.2 country bonuses -- in that member's own
+    (US, USSR, uncontrolled) triple.
+
+    `tier_weights` gives the tier half; the bonus half is already linear and
+    separable, since a country's bonus depends only on its own holder. So
+    for any single member c, with every other member left as forecast,
+
+        expected_payout(...).total == q[c] . member_weights(...)[c]
+
+    exactly, and a trial that moves one member's triple from q to q' is
+    worth `(q' - q) . W[c]` with no DP. That is the whole point: the
+    potential's expensive half becomes a dot product at the position it was
+    built for. `test_member_weights_price_the_whole_payout_exactly` pins the
+    identity against `expected_payout` in every region, both horizons, with
+    and without the overrides.
+
+    Per POSITION, never global: every entry moves when any other member
+    does, which is why the caller caches these per decision and rebuilds
+    them when the board moves (bug shape 1).
+    """
+    tier = tier_weights(t, forecast, overrides)
+    promoted = frozenset() if overrides is None else overrides[0]
+    ignored = frozenset() if overrides is None else overrides[1]
+    battleground, home = t.battleground, t.home
+    total_bonus = expected_country_bonus(t, forecast, overrides)
+    out = []
+    for k, i in enumerate(forecast.members):
+        if i in ignored:
+            bonus_us = bonus_ussr = 0.0
+        else:
+            bg = 1.0 if (battleground[i] or i in promoted) else 0.0
+            bonus_us = bg + (i in home[ev.USSR])
+            bonus_ussr = -(bg + (i in home[ev.US]))
+        # The tier half already folds in every OTHER member; the bonus half
+        # has to as well, or the weights price this member's bonus against
+        # nobody else's. `others` is the rest of the region's expected bonus,
+        # which is constant in this member's own triple -- it was the whole
+        # of a 2.9 VP error in Asia before it was added.
+        p_us, p_ussr, _p_open = forecast.probs[k]
+        others = total_bonus - (p_us * bonus_us + p_ussr * bonus_ussr)
+        w_us, w_ussr, w_open = tier[k]
+        out.append((w_us + bonus_us + others, w_ussr + bonus_ussr + others, w_open + others))
+    return tuple(out)
+
+
 def tier_e_minus(t: ev.Terrain, forecast: ControlForecast,
                  overrides: tuple[frozenset[int], frozenset[int]] | None,
                  where: int) -> tuple[Callable[..., float], dict] | None:
