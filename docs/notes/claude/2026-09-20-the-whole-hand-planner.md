@@ -171,3 +171,86 @@ goes **before** the merge.
 3. **Scoring timing: is `+2 x action_round` the whole policy?** It says
    "later is better" with no model of what later buys. The masses already
    know when each region next scores; the timing rule does not use them.
+
+## The maintainer's rulings (2026-09-20)
+
+**1. The space slot can be two, and the second one opens mid-turn.**
+`attempts_allowed` already states the rule: a second attempt when our marker
+is at box 2 or beyond **and theirs is not** (6.4.4), and the planner grants
+it the moment the search reaches box 2, exactly as the engine would.
+
+This is not a static constraint on the assignment. The second slot is
+*created* by the first attempt succeeding, and an attempt is a die roll, so
+the number of space slots in a turn is **stochastic and endogenous**: it
+depends on an action the plan itself chose and on how the roll went. A pure
+matching (shape (a) above) cannot express that -- it assumes the slots are
+known before the allocation. Two ways out, and they want measuring rather
+than arguing:
+
+- solve the matching twice, once per slot count, and weight by P(the first
+  attempt advances the box) -- cheap, and exact if nothing else in the turn
+  depends on the roll;
+- or treat the first space attempt as a chance node and let shape (b)'s
+  forks carry it, which is what the survival DP already does.
+
+The exclusivity clause matters strategically too: the slot is worth more
+when they are below box 2, because taking it denies them the same doubling.
+Nothing in the value function sees that today.
+
+**2. Build it alongside `DefconPlanner`, then try to delete `DefconPlanner`.**
+Agreed as the shape, and the note's job is to say what deletion would
+require, because the two planners are not the same search:
+
+| | survival DP (today) | the assignment planner |
+| --- | --- | --- |
+| objective | P(forced into a losing play) | VP value minus P(loss) x game |
+| runs when | **only when the hand holds a hazard** | every turn |
+| cost | median **0 nodes** a decision, p95 2,188 | every hand must be allocated |
+
+The survival DP is cheap because of one line -- `if not any(hazardous(c,
+hand) for c in hand): return 0.` -- and that early exit is why the median
+decision searches nothing at all. **A value objective has no such exit.**
+Every hand needs an allocation, so unifying the two moves the cost from the
+5% of hands that are dangerous to 100% of hands. That is the number to
+measure before committing to deletion, not after.
+
+What the unified planner must also carry, or deletion loses real behaviour:
+the opponent's DEFCON drop and hand-attack probabilities, the trap states
+(Quagmire, Bear Trap), the China card, and the escapes that are not plays --
+Space, the UN pairing, and the scoring-discard cases (Five Year Plan, Ask
+Not). Those are the survival DP's whole content, and each is a constraint or
+a slot in the assignment anyway. So subsumption is the right end state; the
+order is: build it, prove it reproduces the DP's risks on the corpus, then
+delete.
+
+**3. A hold does deserve option value.** `value_as_held` currently prices a
+held card at what it will be worth next turn and nothing for the
+flexibility. It gets a term. No measurement here says what it should be, so
+it arrives as a weight at 0 with an arm over a small grid -- the same shape
+as `vp_swing`, which is how that one was finally settled.
+
+**4. The space slot's policy stands** -- the worst opponent card the Space
+Race accepts. What is still unmeasured is the four box premiums
+(`space_ability_2/4/6/8`, every one `guess/underdetermined` in the ledger),
+and ruling 1 gives a reason to expect `space_ability_2` in particular to be
+mispriced: it is worth a second slot *and* the denial of theirs.
+
+**5. Scoring timing comes from the turn lookahead, not a constant.**
+`+2 x action_round` goes. The planner already knows how many rounds remain
+and what each card would do in each of them, so "when does this scoring card
+go" becomes an ordinary slot assignment -- with the constraint the engine
+already enforces (a scoring card cannot be held past the turn) and the
+masses that already know when each region next scores. This is the clearest
+case of a per-card nudge that a plan makes unnecessary.
+
+### The order this implies
+
+1. Hold option value as a weight, with a grid arm. Independent of the
+   planner, and it is an input the planner needs priced.
+2. The hand canonicalisation (25,122 -> 7,317 states). It pays for itself in
+   the survival DP now and again in the assignment search later.
+3. The assignment planner behind a weight, alongside the DP, scoring timing
+   included from the start (ruling 5) and the space slot count handled by
+   the two-solve approximation (ruling 1).
+4. Only then: does it reproduce the DP's risks? If yes, delete the DP and
+   measure the cost change on the 95% of hands that never searched before.
