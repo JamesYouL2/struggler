@@ -1186,10 +1186,26 @@ def main(argv=None):
             # the length of any one game -- a slow game is fine as long as
             # something is completing. On a timeout, take what we have: 511
             # games is a result, and an unbounded wait is not.
+            # THE FLOOR ADAPTS TO THE GAMES ACTUALLY BEING PLAYED. A fixed
+            # gap is measured against the wrong thing at the END of a shard:
+            # with four workers and two games left, the gap between finishes
+            # is one whole game, not a fraction of one. Six shards of the
+            # 2026-09-19 bisect and grid stalled that way -- each reported
+            # 255 of 256 games, so each lost exactly the last one -- and they
+            # were all arms against pre-2026-09-12 anchors, whose bots are
+            # several times slower than today's and were running on a shared
+            # runner. Eight times the slowest game yet seen is still a hang
+            # detector (the four-hour ablation below was unbounded) and no
+            # longer fires on a slow tail it should be waiting for.
+            floor = stall_timeout
+            if floor is not None and games:
+                floor = max(floor, 8 * max(g['seconds'] for g in games))
             try:
-                game = results.next(timeout=stall_timeout)
+                game = results.next(timeout=floor)
             except multiprocessing.TimeoutError:
-                print(f'STALLED: no game finished in {args.stall_timeout}s. '
+                print(f'STALLED: no game finished in {floor:.0f}s '
+                      f'(floor {args.stall_timeout}s, slowest game so far '
+                      f'{max((g["seconds"] for g in games), default=0):.0f}s). '
                       f'Abandoning the remaining {len(jobs) - len(games)} and '
                       f'reporting the {len(games)} that did.', file=sys.stderr, flush=True)
                 stopped = len(games)
