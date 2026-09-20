@@ -29,12 +29,23 @@ yet.
 verdict step exited 0 on 1022 of 1024 seeds. Anyone scanning run
 conclusions reads this as "drift still failing". It is the opposite.
 
-**What the panel does not cover.** The 2026-09-18 reading had *two* DRIFT
-rows, v0.2.0 (0.474) and v0.2.1 (0.470). The five-anchor panel carries
-v0.2.1 and not v0.2.0, so half of that finding is confirmed closed and half
-is untested. One dispatch with `anchors` set to the panel plus `v0.2.0`
-settles it, on the canary's own block (6000-7023) so the rows stay
-comparable.
+**What the panel did not cover, now covered.** The 2026-09-18 reading had
+*two* DRIFT rows, v0.2.0 (0.474) and v0.2.1 (0.470), and the five-anchor
+panel carries only v0.2.1. Run 35539623005 dispatched `v0.2.0` alone on the
+canary's own block, so the row is comparable with the rest:
+
+    ok    v0.2.0: score 0.501 [0.485, 0.517] over 1024 seeds
+
+Eight shards, all green, no stall, and the verdict exits 0. **Both former
+DRIFT rows are closed**, and the whole 2026-09-18 finding is answered: the
+region-margin deletion and `vp_swing` 3.0 recovered everything that was
+lost between v0.2.1 and `07d553a`.
+
+Note what "closed" means here and what it does not. v0.2.0 at 0.501 and
+`bc5ef93` at 0.502 are *level*, not beaten -- the bot has caught up with
+its own best past self rather than passed it. The only anchors HEAD leads
+measurably are v0.1.0 (0.576) and `07d553a` (0.534). A canary that passes
+says nothing was lost; it does not say anything was gained.
 
 ## 2. Levels are not comparable across blocks, and the notes compare them
 
@@ -162,17 +173,18 @@ zero if it is real.
 
 ## What to run, in order
 
-**1. Drift with `v0.2.0` in the panel.** One dispatch, the canary's own
-block, ~48 shards. It closes the half of the 2026-09-18 finding that the
-five-anchor panel does not cover, and it re-runs the two `bc5ef93` shards
-that failed. Cheapest decisive thing on this list.
+**1. Drift with `v0.2.0`. DONE** -- run 35539623005, `ok  v0.2.0: 0.501
+[0.485, 0.517]` over 1024 seeds. See section 1. What is left of this item
+is a standing one: add `v0.2.0` to `drift.yml`'s default panel, so the
+anchor that was a DRIFT row for two days is watched rather than remembered.
+The two `bc5ef93` shards that failed in run 35524331002 were not re-run;
+that anchor read 0.502 on 1022 of 1024 seeds, which is not a reading worth
+another 8 shards on its own.
 
-```
-gh workflow run drift.yml --ref main \
-  -f anchors='["v0.1.0", "v0.2.0", "v0.2.1", "bc5ef93", "07d553a", "v0.3.4"]'
-```
-
-**2. The `vp_swing` peak on one block.** 3.0 ships; 4.0 has never been
+**2. The `vp_swing` peak on one block. DONE** -- run 35539441015: nothing
+beats 3.0, 4.0 misses a measurable loss by a thousandth, and the entire
+spread is in the USSR seat. See
+[the peak note](2026-09-20-the-vp-peak-on-one-block.md). Original text: 3.0 ships; 4.0 has never been
 compared with it, because the grid was stitched from two blocks with two
 different bases (46000-47023 for 1.5/2.0/3.0, 52000-53023 for 4.0/6.0).
 Section 2 says how far apart two blocks can read. Four arms, one fresh
