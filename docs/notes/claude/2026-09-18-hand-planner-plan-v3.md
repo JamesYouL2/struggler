@@ -77,8 +77,21 @@ Where I think the audit is wrong, or under-specified:
 | 3 | Validation: paired, fixed anchor, fresh seeds | dispatched with this commit |
 | 4 | Instruments on the fixed log: the first decision that closes the last exit | next |
 | 5 | **Maintainer:** kernel or descope for the VP potential | blocks 6's production form |
-| 6 | Joint space / hold allocation | after 5 |
-| 7 | Scoring and event timing by forks | after 6 |
+| 6 | Joint space / hold allocation | after 5; scoped in [the whole-planner note](2026-09-20-the-whole-hand-planner.md) |
+| 7 | Scoring and event timing by forks | after 6; same note |
+
+**Step 5 is answered (2026-09-20): linear weights.** `forecast.member_weights`
+prices a placement's change in the potential at 2.45 ms against the DP's
+75.6 ms, exact when one member moves. So step 6 does not have to be built in
+raw units after all -- though wiring the potential into every delta still
+costs 0.40 s a ranking, which is why it ships behind a weight at 0 and has
+an arm rather than a default.
+
+**And steps 6 and 7 are one problem, not two.** The turn is an assignment:
+one headline, R action rounds, at most one space attempt, a UN pairing, and
+whatever is left is held. Space, UN and the hold are three ways of disposing
+of the same scarce thing. See the whole-planner note for the slot-by-slot
+state of play and the two tractable shapes.
 
 ### 1. Safety contracts (done)
 
