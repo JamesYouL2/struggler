@@ -2175,7 +2175,14 @@ class StrategicPlayer:
         # the result was scored by another.
         helper = self.__dict__.get('_event_policy')
         if helper is None or helper.weights is not self.weights:
-            helper = self._event_policy = StrategicPlayer(self.weights)
+            # The helper searches on `sandbox_states`, not `max_states`: it is
+            # playing a hypothetical line of a simulated event, and it was
+            # taking the full 20,000-state budget per fork. See the comment on
+            # `SurvivalPrior.sandbox_states` for the measurement.
+            helper = self._event_policy = StrategicPlayer(
+                self.weights,
+                survival_prior=replace(self.survival_prior,
+                                       max_states=self.survival_prior.sandbox_states))
         # Hand the guard down, every time: the cards this player and every
         # player above it are simulating right now. Without it each helper was
         # a fresh player with an empty guard, so Blockade's discard pricing

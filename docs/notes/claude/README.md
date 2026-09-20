@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The long tail: what a stalled shard actually is](2026-09-20-the-stall-is-the-drain.md) — 2026-09-20 (the timeout measured the drain, not a hang; a sandbox search budget cuts the worst decision 4.3s → 1.4s and costs -0.001 [-0.002, 0.000] over 1024 seeds)
 - [Profiling whole games: three exact speedups](2026-09-20-ranking-inner-loops.md) — 2026-09-20 (66M builtin clamp calls, a 1.57M-call constant, and a delta memo; 12.8% a game, and an A/B that stashed its own change)
 - [Step 4: when does a hand stop having an exit?](2026-09-19-last-exit-instrument.md) — 2026-09-19 (every cornered seat-game lost to DEFCON 1, 7 of 7, and corners are 44% of all nuclear losses)
 - [The planner hot spot: two predicates, not the search](2026-09-19-planner-hot-spot.md) — 2026-09-19 (a third of the worst ranking was enum machinery in one predicate; 3.40s → 2.22s, exactness pinned by the corpus)

@@ -85,14 +85,25 @@ class SurvivalPrior:
     unknown_chain_loss: float = .25
     replacement_hazard: float = .15
     max_states: int = 20000
+    # The same budget for a planner run INSIDE the event sandbox, where the
+    # position is hypothetical and its helper is simulating one line of one
+    # simulated event. Measured over three self-play games (2275 decisions):
+    # 60% of all planner nodes are spent inside the sandbox, and in the worst
+    # decisions it is 96% -- 510,698 nodes against the top level's 19,661,
+    # because every fork builds a planner with the FULL budget. The tail is
+    # not a slow decision, it is dozens of full-depth searches of positions
+    # that may never happen. 2000 leaves the top level untouched and bounds
+    # the tail; the fallback when it runs out is the conservative one every
+    # truncated search already uses.
+    sandbox_states: int = 2000
 
     def __post_init__(self):
         for p in (self.opponent_lowers_defcon, self.opponent_hand_attack,
                   self.unknown_chain_loss, self.replacement_hazard):
             if not math.isfinite(p) or not 0 <= p <= 1:
                 raise ValueError('survival probabilities must be finite and in [0, 1]')
-        if self.max_states < 1:
-            raise ValueError('max_states must be positive')
+        if self.max_states < 1 or self.sandbox_states < 1:
+            raise ValueError('search budgets must be positive')
 
 
 class DefconPlanner:
