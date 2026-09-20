@@ -405,6 +405,14 @@ class StrategicWeights:
     # 16 self-play games, scripts/measure_access_conversion.py). The old 0.35
     # encoded p ~ 0.65, roughly the inverse.
     access_decay: float = 1.445
+    # The chain: a battleground two steps out through a country nobody holds
+    # yet (Israel -> Egypt -> Libya). Shipped at 0.4 until 52bb329 set it to
+    # 0.0 on a 109-seed reading, and d941a5b then deleted the code. The
+    # 2026-09-19 bisect put a step of 0.050 at that commit, so the term is
+    # restored here to be measured at 1024 seeds. At 0.0 the loop does not
+    # run and every value is bit-identical to the shipped path. Setting it
+    # widens what `access` reads to three hops -- use `evaluator.value_radius`.
+    access_chain: float = 0.0
     # (`access_contested` stood here until 2026-09-19: reach into a
     # battleground the opponent can already place in -- Israel -> Egypt for
     # the USSR, with the US already next door -- priced at a fraction of
@@ -480,6 +488,13 @@ class StrategicWeights:
     # where it can be sharp; folded into a turn curve it would fire on
     # turn 9 whatever the VP.
     vp_base: float = 0.5
+    # The shape of that curve: per_vp(turn) = vp_base * vp_swing ** ((turn-1)/9).
+    # It was 2.0 until 52bb329 flattened it to 1.0 on readings of 256 and 78
+    # seeds ("inert"), and d941a5b then deleted it as arithmetically inert at
+    # 1.0 -- which it was. The 2026-09-19 bisect put a step of 0.050 at that
+    # commit, so it is restored to be measured at 1024 seeds. At 1.0 the
+    # exponent is 1 and every value is bit-identical to the shipped path.
+    vp_swing: float = 1.0
     # Military Operations, priced in VP like everything else. Rule 6.3.5 is
     # exact and there is nothing to estimate: at the end of the turn a side
     # whose Military Ops are below the DEFCON level hands the *difference*
@@ -1603,7 +1618,7 @@ class StrategicPlayer:
         (`vp_base`, flat since 2026-09-12) times what one Op buys on this
         board, so VP and Ops stay on one scale as the board's Ops value moves."""
         w = self.weights
-        per_vp = w.vp_base
+        per_vp = w.vp_base * w.vp_swing ** ((obs.turn - 1) / 9)
         fixed = self.__dict__.get('_vp_price')
         if fixed is not None:
             return per_vp * fixed
@@ -2227,7 +2242,8 @@ class StrategicPlayer:
         -65.89, the whole 1.94 being Israel, whose own influence the event
         never touched."""
         t = self._terrain
-        return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed})}
+        return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed},
+                                                ev.value_radius(self.weights))}
 
     def event_value(self, obs: Observation, cid: str) -> float:
         if cid in self._events:

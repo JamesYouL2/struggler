@@ -262,6 +262,128 @@
       "compare_to": "margin-base-vs-07d553a",
       "title": "region margin: this branch (margin deleted) vs 07d553a",
       "context": "The deletion measured against the anchor, paired with the same code at 58095a6 (margin on). Renamed from margin-off-vs-07d553a, which is the 2026-09-18 ablation arm on seeds 20000-21023 whose +0.001 is the evidence this deletion rests on -- two arms, two questions, one slug collided. docs/notes/claude/2026-09-19-delete-the-region-margin.md"
+    },
+    {
+      "slug": "restore-base",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: main as it is vs 07d553a",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+    },
+    {
+      "slug": "restore-vp2",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: vp_swing 2.0 (the curve 52bb329 flattened)",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 2.0
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-vp15",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: vp_swing 1.5, half the step back",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 1.5
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-vp3",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: vp_swing 3.0, past the old setting",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 3.0
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-chain04",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: access_chain 0.4 (the term 52bb329 dropped)",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "access_chain": 0.4
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-chain02",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: access_chain 0.2, half of it",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "access_chain": 0.2
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-chain08",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: access_chain 0.8, double it",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "access_chain": 0.8
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-both",
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "title": "restore: both, as 52bb329 found them",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 2.0,
+        "access_chain": 0.4
+      },
+      "compare_to": "restore-base"
+    },
+    {
+      "slug": "restore-base-bc",
+      "anchor": "bc5ef93",
+      "seeds": "46000-47023",
+      "title": "restore: main as it is vs bc5ef93, the strongest anchor",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+    },
+    {
+      "slug": "restore-both-bc",
+      "anchor": "bc5ef93",
+      "seeds": "46000-47023",
+      "title": "restore: both vs bc5ef93 -- does it close the 0.034?",
+      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+      "weights": {
+        "vp_swing": 2.0,
+        "access_chain": 0.4
+      },
+      "compare_to": "restore-base-bc"
+    },
+    {
+      "slug": "fit-clean-base",
+      "anchor": "07d553a",
+      "seeds": "48000-49023",
+      "title": "fitted weights, clean block: main as it is",
+      "context": "The tiebreak. The fit read -0.031 on 30000-31023 and +0.021 on 36000-37023 against the same anchor. One more block, base fixed, prior stated first: it goes on only if this reads positive. docs/notes/claude/2026-09-18-fitted-country-weights.md"
+    },
+    {
+      "slug": "fit-clean-on",
+      "anchor": "07d553a",
+      "seeds": "48000-49023",
+      "compare_to": "fit-clean-base",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "title": "fitted weights, clean block: country_vp_scale 2.795",
+      "context": "The fit on. Same seeds, same base, paired. docs/notes/claude/2026-09-18-fitted-country-weights.md"
     }
   ],
   "_retired": {
