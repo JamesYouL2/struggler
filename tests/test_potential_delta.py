@@ -170,7 +170,7 @@ def test_the_tables_are_keyed_on_the_board_they_describe():
     board gets its original entry back after an undo.
     """
     engine = _played()
-    bot, obs = _ranking_bot(engine)
+    bot, _obs = _ranking_bot(engine)
     t, pos = bot._terrain, bot._position
     region = t.region_of[t.index['Iran']]
 
