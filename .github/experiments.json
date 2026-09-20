@@ -472,7 +472,7 @@
       "anchor": "07d553a",
       "seeds": "60000-61023",
       "title": "vp_swing peak, one block: 3.0 as shipped",
-      "context": "The peak was measured across TWO blocks: 1.5/2.0/3.0 on 46000-47023 and 4.0/6.0 on 52000-53023. 3.0 and 4.0 have therefore never been resolved against each other, and they are the two candidates. Four arms, one fresh block, all paired against this base: whichever wins, it is the first reading that can order 3.0 and 4.0."
+      "context": "ANSWERED, run 35539441015: base (3.0) 0.534 [0.517, 0.551]; paired, 2.0 is -0.005, 4.0 is -0.015 [-0.031, +0.001] and 5.0 is -0.013. Nothing beats 3.0 and 4.0 misses a measurable loss by a thousandth. The whole spread is in the USSR seat (0.450-0.479) against a flat US seat (0.585-0.590). docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
     },
     {
       "slug": "peak-one-block-vp2",

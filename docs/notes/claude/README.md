@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The VP curve's peak, on one block: 3.0 stays](2026-09-20-the-vp-peak-on-one-block.md) — 2026-09-20 (4.0 is not better, missing a measurable loss by a thousandth; the whole effect is in the USSR seat, and two independent blocks agree at 0.534)
 - [Status on 2026-09-20 evening, and the four things to run](2026-09-20-status-and-what-to-run-next.md) — 2026-09-20 (the drift is closed and its run reads red; levels are not comparable across blocks; the fitted weights are off and the intransitivity is the open question; three registry defects and the test that gates them)
 - [The whole hand planner: what plans, and what only prices](2026-09-20-the-whole-hand-planner.md) — 2026-09-20 (headline, hold, space, our events, theirs, scoring timing: six slots in one assignment, five of them priced per card; only survival plans)
 - [The long tail: what a stalled shard actually is](2026-09-20-the-stall-is-the-drain.md) — 2026-09-20 (the timeout measured the drain, not a hang; a sandbox search budget cuts the worst decision 4.3s → 1.4s and costs -0.001 [-0.002, 0.000] over 1024 seeds)
