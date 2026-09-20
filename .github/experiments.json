@@ -462,6 +462,7 @@
       "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
     },
     {
+<<<<<<< HEAD
       "slug": "potential-round-base",
       "anchor": "07d553a",
       "seeds": "56000-56511",
@@ -481,6 +482,22 @@
       "compare_to": "potential-round-base",
       "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
       "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. Nothing so far says the term makes the bot stronger -- this asks. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. docs/notes/claude/2026-09-20-potential-in-the-ranking.md Sharded at 48 rather than 128 because each game is 2.75x."
+=======
+      "slug": "sandbox-base",
+      "anchor": "07d553a",
+      "bot_ref": "d9baa95",
+      "seeds": "54000-55023",
+      "title": "sandbox budget: main (full 20000 in the sandbox) vs 07d553a",
+      "context": "The sandbox search budget changes how deep the bot searches inside a simulated event, so it can change play -- and the parity corpus cannot see it (it passes even at sandbox_states=1). Four whole games came out identical, which is a sample of four. This is the anchored check BEFORE the merge. The budget lives on SurvivalPrior, which --bot-weights cannot set, so the base arm is main by bot_ref rather than a weights override. docs/notes/claude/2026-09-20-the-stall-is-the-drain.md"
+    },
+    {
+      "slug": "sandbox-2000",
+      "anchor": "07d553a",
+      "seeds": "54000-55023",
+      "compare_to": "sandbox-base",
+      "title": "sandbox budget: this branch (2000) vs 07d553a",
+      "context": "The sandbox search budget changes how deep the bot searches inside a simulated event, so it can change play -- and the parity corpus cannot see it (it passes even at sandbox_states=1). Four whole games came out identical, which is a sample of four. This is the anchored check BEFORE the merge. The budget lives on SurvivalPrior, which --bot-weights cannot set, so the base arm is main by bot_ref rather than a weights override. docs/notes/claude/2026-09-20-the-stall-is-the-drain.md"
+>>>>>>> origin/main
     }
   ],
   "_retired": {
