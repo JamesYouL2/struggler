@@ -384,6 +384,35 @@
       },
       "title": "fitted weights, clean block: country_vp_scale 2.795",
       "context": "The fit on. Same seeds, same base, paired. docs/notes/claude/2026-09-18-fitted-country-weights.md"
+    },
+    {
+      "slug": "guard-sweep-base",
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "title": "guard: shipped 0.43 vs 07d553a",
+      "context": "The last-safe-window guard prices a cornered play at P(drop) x the whole game. P was measured at 0.43 (scripts/measure_defcon_drop.py) and shipped there, but the guard has only ever been measured against its parent, where it read -0.001. This asks the anchor. docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+    },
+    {
+      "slug": "guard-sweep-off",
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "title": "guard: off -- does the guard earn its keep?",
+      "context": "The last-safe-window guard prices a cornered play at P(drop) x the whole game. P was measured at 0.43 (scripts/measure_defcon_drop.py) and shipped there, but the guard has only ever been measured against its parent, where it read -0.001. This asks the anchor. docs/notes/claude/2026-09-18-hand-planner-plan-v3.md",
+      "weights": {
+        "last_window_guard": 0.0
+      },
+      "compare_to": "guard-sweep-base"
+    },
+    {
+      "slug": "guard-sweep-certain",
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "title": "guard: 1.0, the lexicographic rule it replaced",
+      "context": "The last-safe-window guard prices a cornered play at P(drop) x the whole game. P was measured at 0.43 (scripts/measure_defcon_drop.py) and shipped there, but the guard has only ever been measured against its parent, where it read -0.001. This asks the anchor. docs/notes/claude/2026-09-18-hand-planner-plan-v3.md",
+      "weights": {
+        "last_window_guard": 1.0
+      },
+      "compare_to": "guard-sweep-base"
     }
   ],
   "_retired": {
