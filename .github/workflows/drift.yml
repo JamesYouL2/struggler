@@ -32,13 +32,25 @@ on:
       # of them, "which week did it enter" and "which merge did it enter" are
       # the same run.
       #
+      # `07d553a` is the one anchor here that is not a tag. It is #100 of
+      # v0.2.1..v0.2.2, the plateau bot every experiment arm is anchored
+      # against and the boundary the drift has been tracked to since
+      # 2026-09-18. Reading it in the canary puts the arms' opponent on the
+      # canary's block, where it can be compared with the tags either side.
+      #
+      # v0.3.2 (hand safety, +0.043 against 07d553a), v0.3.3 (the guard at
+      # its measured 0.43, the fitted weights measured and off) and v0.3.4
+      # (the region margin deleted) were tagged 2026-09-19 so this week's
+      # states are anchors and not only history. 13 anchors x 8 shards is
+      # 104 jobs, which is why this is weekly and not per-merge.
+      #
       # v0.1.0 predates the opening books and plays its own default rather
       # than the canary's italy/austria. Its reading is therefore on a
       # different board from the others and is not commensurable with them --
       # it is kept because it is the oldest state believed sound.
       anchors:
         description: 'JSON list of refs to measure against'
-        default: '["v0.1.0", "v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1"]'
+        default: '["v0.1.0", "v0.2.0", "v0.2.1", "07d553a", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.3", "v0.3.4"]'
       # The same block for every anchor, so the readings are commensurable.
       # It extends the old 128-seed canary block (6000-6127), which is its
       # first shard.
@@ -71,7 +83,7 @@ jobs:
           fetch-depth: 0
       - id: arms
         env:
-          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1"]' }}
+          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1", "07d553a", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.3", "v0.3.4"]' }}
           SEEDS: ${{ inputs.seeds || '6000-7023' }}
           DRIFT_BOOKS: ${{ inputs.books }}
         run: |
