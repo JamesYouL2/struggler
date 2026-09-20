@@ -490,8 +490,8 @@ def test_the_memoised_row_is_the_documented_row():
     pos = ev.Position(t)
     checked = 0
     for i in (t.index['France'], t.index['Cuba'], t.index['Iran'], t.index['Thailand']):
-        for mine in range(0, 7):
-            for theirs in range(0, 7):
+        for mine in range(7):
+            for theirs in range(7):
                 pos.place(i, mine, theirs)
                 for side in (Side.US, Side.USSR):
                     me = ev.SIDE_INDEX[side]
@@ -537,7 +537,7 @@ def _tier_weights_by_dict(t, forecast, overrides=None):
     for k in range(n):
         forced = {add(x, d) for x in alphas[k] for d in shifts(k)}
         if k:
-            live = [d for d, p in zip(shifts(k), rows[k][1:]) if p]
+            live = [d for d, p in zip(shifts(k), rows[k][1:], strict=True) if p]
             forced |= {add(y, d) for y in needed[k - 1] for d in live}
         needed.append(forced)
     beta = {y: tier_of(y[0], y[2], y[1], y[3]) for y in needed[n - 1]} if n else {}
@@ -547,7 +547,7 @@ def _tier_weights_by_dict(t, forecast, overrides=None):
         weights[k] = tuple(sum(p * beta[add(x, d)] for x, p in alpha.items())
                            for d in shifts(k))
         if k:
-            live = [(d, p) for d, p in zip(shifts(k), rows[k][1:]) if p]
+            live = [(d, p) for d, p in zip(shifts(k), rows[k][1:], strict=True) if p]
             beta = {y: sum(p * beta[add(y, d)] for d, p in live) for y in needed[k - 1]}
     return tuple(weights)
 

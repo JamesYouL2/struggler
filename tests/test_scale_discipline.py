@@ -70,6 +70,16 @@ KNOWN = {
     ('forecast.py', 'total += p * p_us * tier_of(us + 1, us_bg + bg, ussr, ussr_bg)'),
     ('forecast.py', 'total += p * p_ussr * tier_of(us, us_bg, ussr + 1, ussr_bg + bg)'),
     ('forecast.py', 'total += p * p_open * tier_of(us, us_bg, ussr, ussr_bg)'),
+    # tier_weights's backward pass over the flat lattice (2026-09-20): a
+    # member's outcome probability times beta, which holds `tier_of`'s signed
+    # VP for each state. Exactly the three lines above in another shape --
+    # the dict version wrote them as a comprehension, which this scanner does
+    # not flag, and the flat version writes them as `+=`, which it does. The
+    # arithmetic is identical and `test_the_flat_lattice_agrees_with_the_dict_walk`
+    # holds the two together.
+    ('forecast.py', 'v += p_us * beta[i + d_us]'),
+    ('forecast.py', 'v += p_ussr * beta[i + d_ussr]'),
+    ('forecast.py', 'v += p_open * beta[i]'),
 }
 
 

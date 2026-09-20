@@ -446,7 +446,7 @@ class _Lattice:
     `reach` and `needed` below, which say exactly which slots to touch.
     """
 
-    __slots__ = ('size', 'd_us', 'd_ussr', 'reach', 'needed', 'payout')
+    __slots__ = ('d_us', 'd_ussr', 'needed', 'payout', 'reach', 'size')
 
     def __init__(self, bgs: tuple[bool, ...], frozen: tuple[bool, ...],
                  total_bg: int, scoring_vp) -> None:
