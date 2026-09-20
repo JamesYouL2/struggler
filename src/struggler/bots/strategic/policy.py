@@ -405,6 +405,14 @@ class StrategicWeights:
     # 16 self-play games, scripts/measure_access_conversion.py). The old 0.35
     # encoded p ~ 0.65, roughly the inverse.
     access_decay: float = 1.445
+    # The chain: a battleground two steps out through a country nobody holds
+    # yet (Israel -> Egypt -> Libya). Shipped at 0.4 until 52bb329 set it to
+    # 0.0 on a 109-seed reading, and d941a5b then deleted the code. The
+    # 2026-09-19 bisect put a step of 0.050 at that commit, so the term is
+    # restored here to be measured at 1024 seeds. At 0.0 the loop does not
+    # run and every value is bit-identical to the shipped path. Setting it
+    # widens what `access` reads to three hops -- use `evaluator.value_radius`.
+    access_chain: float = 0.0
     # (`access_contested` stood here until 2026-09-19: reach into a
     # battleground the opponent can already place in -- Israel -> Egypt for
     # the USSR, with the US already next door -- priced at a fraction of
@@ -480,6 +488,27 @@ class StrategicWeights:
     # where it can be sharp; folded into a turn curve it would fire on
     # turn 9 whatever the VP.
     vp_base: float = 0.5
+    # The shape of that curve: per_vp(turn) = vp_base * vp_swing ** ((turn-1)/9).
+    #
+    # 3.0 is MEASURED, on the grid the 2026-09-19 bisect asked for. It was 2.0
+    # until 52bb329 flattened it to 1.0 on readings of 78 and 256 seeds
+    # ("inert" at a sample that could not see 0.03), d941a5b deleted the code,
+    # and the bisect put a step of 0.050 at exactly that commit. Restored and
+    # measured at 1024 seeds a setting, paired against the same base, against
+    # 07d553a:
+    #
+    #   1.5  +0.021 [+0.003, +0.038]      4.0  +0.024 [+0.004, +0.043]
+    #   2.0  +0.029 [+0.009, +0.048]      6.0  +0.004 [-0.017, +0.024]
+    #   3.0  +0.039 [+0.019, +0.059]
+    #
+    # Monotone up to 3, flat by 6: a peak, not an edge. 3.0 also closes the
+    # gap to bc5ef93, the one anchor that still beat this bot -- 0.483 to
+    # 0.500, +0.017 [-0.002, +0.037].
+    #
+    # The two halves of the grid are different seed blocks, so 3.0 and 4.0
+    # are not compared to each other directly; both beat the flat curve by
+    # more than their intervals, and 3.0 has the larger paired gain.
+    vp_swing: float = 3.0
     # Military Operations, priced in VP like everything else. Rule 6.3.5 is
     # exact and there is nothing to estimate: at the end of the turn a side
     # whose Military Ops are below the DEFCON level hands the *difference*
@@ -1726,7 +1755,7 @@ class StrategicPlayer:
         (`vp_base`, flat since 2026-09-12) times what one Op buys on this
         board, so VP and Ops stay on one scale as the board's Ops value moves."""
         w = self.weights
-        per_vp = w.vp_base
+        per_vp = w.vp_base * w.vp_swing ** ((obs.turn - 1) / 9)
         fixed = self.__dict__.get('_vp_price')
         if fixed is not None:
             return per_vp * fixed
@@ -2359,7 +2388,8 @@ class StrategicPlayer:
         -65.89, the whole 1.94 being Israel, whose own influence the event
         never touched."""
         t = self._terrain
-        return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed})}
+        return {t.ids[i] for i in ev.dependents(t, {t.index[c] for c in changed},
+                                                ev.value_radius(self.weights))}
 
     def event_value(self, obs: Observation, cid: str) -> float:
         if cid in self._events:
