@@ -162,7 +162,15 @@ def terrain() -> Terrain:
 # performance one -- it is what turns "the board has not moved" from a
 # comment above a cache into something a test can check. Set
 # STRUGGLER_CHECK_SNAPSHOT=1 to maintain it.
-DIGEST = os.environ.get('STRUGGLER_CHECK_SNAPSHOT') == '1'
+# ON by default since 2026-09-20. The reading above -- 6.4% to maintain
+# against a 2.3% memo -- priced a memo over the base-board HALF of `delta`,
+# which repeats 1.7 times. Measured over whole games, `delta` itself repeats
+# 3.4 times: 70.3% of 265k calls in one game are the same (board, country,
+# own, opp) asked again, mostly by the reply look-ahead re-pricing the same
+# answers. `StrategicPlayer._delta_cache` keys on this digest, so the term
+# it was built to enable is now worth several times what maintaining it
+# costs. `STRUGGLER_CHECK_SNAPSHOT=0` turns it off again.
+DIGEST = os.environ.get('STRUGGLER_CHECK_SNAPSHOT', '1') != '0'
 _ZOBRIST_MAX = 64  # influence per side per country; above this, values fold
 
 
@@ -700,13 +708,25 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # Progress toward control is convex: control is worth VP, a lone point is
     # not (it can only lead there), so a half-built country is worth well
     # under half of a controlled one.
-    fraction = max(-1.0, min(1.0, margin / stability))
+    # Clamped with comparisons, not `max`/`min`. Identical arithmetic: this
+    # is the hottest function in a game (8.6M calls over two self-play games)
+    # and the five builtin calls it made were 36M `max` and 30M `min` calls,
+    # about a tenth of the whole profile.
+    fraction = margin / stability
+    if fraction > 1.0:
+        fraction = 1.0
+    elif fraction < -1.0:
+        fraction = -1.0
     # Linear. This was `copysign(abs(fraction) ** progress_curve, fraction)`
     # with the exponent pinned at 1.0, which is `fraction` exactly; convex
     # (2.0) lost the gate at 0.33, and the knob was deleted 2026-09-13.
     value += w.progress * imp * fraction
     guard = w.reserve * imp
-    value += guard * (min(2, max(0, margin - stability)) - min(2, max(0, -margin - stability)))
+    over = margin - stability
+    over = 0 if over < 0 else (2 if over > 2 else over)
+    under = -margin - stability
+    under = 0 if under < 0 else (2 if under > 2 else under)
+    value += guard * (over - under)
     # (A `first_mover` tempo term stood here until 2026-09-13: presence in a
     # battleground the opponent has none in but could reach. Set to 0 over
     # 256 seeds it read 0.513 [0.475, 0.550], the highest of the ablations.)
