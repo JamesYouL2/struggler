@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The planner hot spot: two predicates, not the search](2026-09-19-planner-hot-spot.md) — 2026-09-19 (a third of the worst ranking was enum machinery in one predicate; 3.40s → 2.22s, exactness pinned by the corpus)
 - [Deleting the region margin, and what else the model can lose](2026-09-19-delete-the-region-margin.md) — 2026-09-19 (the one term measured inert is gone; the value function is now VP or importance throughout; the deletion queue and the one-weight VP hook)
 - [Handoff, 2026-09-18 evening](2026-09-18-handoff-evening.md) — 2026-09-18 (what landed, what is gating, what is still running, and next)
 - [Fitted fixed country weights, proportional to turn and deck](2026-09-18-fitted-country-weights.md) — 2026-09-18 (weights fitted to the exact potential; 0.518 against the tiers, bounded on both sides; on by default)

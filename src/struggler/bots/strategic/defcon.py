@@ -122,8 +122,23 @@ class DefconPlanner:
         self.trapped = any(obs.game_effects.get(k) and s is self.side for k, s in TRAP_KEYS.items())
         self.nodes = 0
         self.truncated = False
+        # Hoisted out of the search's inner loops. `opponent` is a property
+        # with a branch, and `opponent_event` was calling it once per card per
+        # node; both are constant for the life of a planner.
+        self.other = obs.side.opponent
+        self._opponent_events = frozenset(
+            cid for cid, info in CARDS.items() if info.side.value == self.other.value)
         self.solve = lru_cache(maxsize=None)(self._solve)
+        # The two combinators between `solve` and itself. `solve` was memoised
+        # and these were not, so the same (hand, rounds, defcon, ...) state
+        # re-did the DEFCON-drop split and the hand-attack maximum on every
+        # path that reached it: 235k `_next` and 453k `_after_hand_attack`
+        # calls in the worst corpus position, against 74k distinct solves.
+        self.next = lru_cache(maxsize=None)(self._next)
+        self.after_hand_attack = lru_cache(maxsize=None)(self._after_hand_attack)
+        self._minus = lru_cache(maxsize=None)(self._hand_minus)
         self._hazard = lru_cache(maxsize=None)(self._event_risk)
+        self.hazardous = lru_cache(maxsize=None)(self._hazardous)
         log.debug(
             "planner %s T%d AR%d %s: DEFCON %d, rounds_left=%d, hand=%s, china=%s, trapped=%s, "
             "mid_play=%s, space=%d/%d attempts",
@@ -147,10 +162,24 @@ class DefconPlanner:
         return responsible == self.side.value
 
     def opponent_event(self, cid):
-        return cid in CARDS and CARDS[cid].side.value == self.side.opponent.value
+        """Whether `cid` is the opponent's event, so playing it fires for them.
 
-    def hazardous(self, cid, hand=None):
-        """Whether being forced to play `cid` can lose the game at DEFCON 2."""
+        A set lookup, because this is the planner's hottest predicate: the
+        worst corpus position asked it 1.68 million times in one ranking, and
+        the old form -- `CARDS[cid].side.value == self.side.opponent.value` --
+        walked `Side.opponent` and two `.value`s on every one of them, which
+        was 4.2 million enum lookups and about a third of the ranking. The
+        set is a fact about the deck and our seat, so it is built once."""
+        return cid in self._opponent_events
+
+    def _hazardous(self, cid, hand=None):
+        """Whether being forced to play `cid` can lose the game at DEFCON 2.
+
+        Memoised per planner (`self.hazardous`): the search asks it for every
+        card at every node and the answer depends only on the card and the
+        hand it is held with. 1.32 million calls in the worst corpus position,
+        almost all of them repeats. `hand` must therefore be hashable -- the
+        search already passes tuples."""
         return self.opponent_event(cid) and self.event_risk(cid, 2, hand) > 0
 
     def coup_threat(self, actor, defcon, countries=None, ignore_defcon=False):
@@ -162,7 +191,7 @@ class DefconPlanner:
         """Whether the opponent has a legal battleground Coup right now that
         would lower DEFCON: a fact about the public board, not a forecast.
         Their unseen hand may lower it other ways; that stays in the prior."""
-        return self.obs.defcon > 2 and self.battleground_coup(self.side.opponent, self.obs.defcon)
+        return self.obs.defcon > 2 and self.battleground_coup(self.other, self.obs.defcon)
 
     def latent_hazards(self, hand):
         """Borrowed-Coup cards in `hand` that would be lethal at DEFCON 2 but
@@ -205,7 +234,7 @@ class DefconPlanner:
             return float(defcon <= 2)
         if cid == 'Summit' and defcon <= 2:
             a = self.engine._regions_dominated(self.side)
-            b = self.engine._regions_dominated(self.side.opponent)
+            b = self.engine._regions_dominated(self.other)
             return sum(y+b > x+a for x in range(1, 7) for y in range(1, 7))/36
         actor = BORROWED_COUPS.get(cid)
         if actor:
@@ -252,7 +281,7 @@ class DefconPlanner:
         marker is frozen with the rest of the board."""
         allowed = self.engine._space_attempts_allowed(self.side)
         root = self.obs.space_race[self.side.value]
-        if allowed < 2 and root < 2 <= pos and self.obs.space_race[self.side.opponent.value] < 2:
+        if allowed < 2 and root < 2 <= pos and self.obs.space_race[self.other.value] < 2:
             return 2
         return allowed
 
@@ -276,8 +305,13 @@ class DefconPlanner:
         if rounds <= 0:
             return 0.
         p = self.prior.opponent_lowers_defcon if defcon > 2 else 0.
-        return ((1-p)*self._after_hand_attack(hand, rounds, defcon, pos, attempts, china, trapped) +
-                p*self._after_hand_attack(hand, rounds, max(2, defcon-1), pos, attempts, china, trapped))
+        return ((1-p)*self.after_hand_attack(hand, rounds, defcon, pos, attempts, china, trapped) +
+                p*self.after_hand_attack(hand, rounds, max(2, defcon-1), pos, attempts, china, trapped))
+
+    def _hand_minus(self, hand, cid):
+        """`hand` without one copy of `cid`, cached: the hand-attack maximum
+        rebuilt these tuples 3.6 million times in one ranking."""
+        return tuple(c for c in hand if c != cid)
 
     def _after_hand_attack(self, hand, rounds, defcon, pos, attempts, china, trapped):
         base = self.solve(hand, rounds, defcon, pos, attempts, china, trapped)
@@ -290,7 +324,7 @@ class DefconPlanner:
         safe = [c for c in hand if not self.hazardous(c, hand)]
         if not safe:
             return base
-        worst = max(self.solve(tuple(c for c in hand if c != s), rounds, defcon, pos, attempts, china, trapped)
+        worst = max(self.solve(self._minus(hand, s), rounds, defcon, pos, attempts, china, trapped)
                     for s in safe)
         return (1-p)*base + p*worst
 
@@ -304,7 +338,7 @@ class DefconPlanner:
             remaining.remove(cid)
         remaining = tuple(remaining)
         def onward(h=remaining, d=defcon, p=pos, a=attempts, t=trapped):
-            return self._next(h, rounds-1, d, p, a, china, t)
+            return self.next(h, rounds-1, d, p, a, china, t)
         if mode == 'space_race':
             # Disposal is certain even when the roll fails. Advancement can change eligibility.
             probability = RULES['space_race_boxes'][str(pos+1)]['roll_max']/6
@@ -370,12 +404,12 @@ class DefconPlanner:
         if not payable:
             # No roll; scoring cards in hand resolve, the round passes.
             rest = tuple(c for c in hand if not (c in CARDS and CARDS[c].scoring))
-            return self._next(rest, rounds-1, defcon, pos, attempts, china, True)
+            return self.next(rest, rounds-1, defcon, pos, attempts, china, True)
         best = 1.
         for paid in payable:
             rest = tuple(c for c in hand if c != paid)
-            value = (4/6)*self._next(rest, rounds-1, defcon, pos, attempts, china, False) + \
-                    (2/6)*self._next(rest, rounds-1, defcon, pos, attempts, china, True)
+            value = (4/6)*self.next(rest, rounds-1, defcon, pos, attempts, china, False) + \
+                    (2/6)*self.next(rest, rounds-1, defcon, pos, attempts, china, True)
             best = min(best, value)
         return best
 
@@ -388,10 +422,10 @@ class DefconPlanner:
         state = (self.obs.defcon, self.obs.space_race[self.side.value],
                  self.obs.space_race_attempts[self.side.value], self.china)
         if escape_roll and cid:
-            value = (4/6)*self._next(hand, self.rounds, *state, False) + \
-                    (2/6)*self._next(hand, self.rounds, *state, True)
+            value = (4/6)*self.next(hand, self.rounds, *state, False) + \
+                    (2/6)*self.next(hand, self.rounds, *state, True)
         else:
-            value = self._next(hand, self.rounds, *state, self.trapped)
+            value = self.next(hand, self.rounds, *state, self.trapped)
         value = self._with_pending_headline(value, hand)
         log.debug("planner %s: discard %s -> turn-loss risk %.3f (rounds_left=%d)",
                   self.side.value, cid, value, self.rounds)
