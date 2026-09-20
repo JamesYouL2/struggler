@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Step 4: when does a hand stop having an exit?](2026-09-19-last-exit-instrument.md) — 2026-09-19 (every cornered seat-game lost to DEFCON 1, 7 of 7, and corners are 44% of all nuclear losses)
 - [The planner hot spot: two predicates, not the search](2026-09-19-planner-hot-spot.md) — 2026-09-19 (a third of the worst ranking was enum machinery in one predicate; 3.40s → 2.22s, exactness pinned by the corpus)
 - [Deleting the region margin, and what else the model can lose](2026-09-19-delete-the-region-margin.md) — 2026-09-19 (the one term measured inert is gone; the value function is now VP or importance throughout; the deletion queue and the one-weight VP hook)
 - [Handoff, 2026-09-18 evening](2026-09-18-handoff-evening.md) — 2026-09-18 (what landed, what is gating, what is still running, and next)
