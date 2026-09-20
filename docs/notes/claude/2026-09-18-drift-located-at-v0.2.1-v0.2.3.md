@@ -225,3 +225,23 @@ added, and one commit that is not a tag:
 why the canary is weekly and not per-merge. Adding `07d553a` means the weekly
 run covers the arms' own opponent on the canary's block, so a reading there
 can be compared with the tags either side of it without a separate dispatch.
+
+## The panel replaces the sweep (2026-09-19, same evening)
+
+Thirteen anchors ran once, and the run is the argument against running it
+weekly: 104 shard jobs, of which the eight tags from v0.2.2 on can only say
+"still fine" -- main beats them by about 0.05, and a regression would show
+against a nearer anchor first. The default is now five:
+
+| anchor | why it is in the panel |
+| --- | --- |
+| v0.1.0 | the oldest state believed sound, on its own opening book |
+| v0.2.1 | the strongest tag, and the one main still trails |
+| `bc5ef93` | the strongest bot there is -- the commit before 52bb329, beats main by 0.034 |
+| `07d553a` | the plateau bot every experiment arm is anchored against |
+| v0.3.4 | the previous release, so a regression since is visible |
+
+40 jobs instead of 104. **Detecting a drift and locating one are different
+jobs**: the panel detects, and the `anchors` input takes the full list (or a
+set of commits between two tags) when it flags. That second job is what the
+2026-09-19 bisect did, and it found 52bb329 in one run.

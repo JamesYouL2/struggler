@@ -28,9 +28,31 @@ name: drift
 on:
   workflow_dispatch:
     inputs:
-      # EVERY tag, one arm each, the maintainer's call (2026-09-17): with all
-      # of them, "which week did it enter" and "which merge did it enter" are
-      # the same run.
+      # A PANEL OF FIVE, not every tag (2026-09-19). Thirteen anchors is 104
+      # shard jobs a week, and most of them only ever say "still fine": main
+      # beats every tag from v0.2.2 on by about 0.05, so those readings carry
+      # no information a nearer anchor does not already carry. A regression
+      # shows against ALL of them, so detection loses nothing by asking five.
+      #
+      #   v0.1.0    the oldest state believed sound, on its own opening book
+      #   v0.2.1    the strongest tag, and the one main still trails
+      #   bc5ef93   the strongest bot there is: #99 of v0.2.1..v0.2.2, the
+      #             commit before 52bb329, which beats main by 0.034
+      #             (docs/notes/claude/2026-09-19-bisect-v0.2.1.md)
+      #   07d553a   the plateau bot every experiment arm is anchored against
+      #   v0.3.4    the previous release, so a regression since is visible
+      #
+      # LOCATING a drift is a different job from detecting one, and it is
+      # what the `anchors` input is for. Paste the full list when the panel
+      # flags:
+      #
+      #   ["v0.1.0", "v0.2.0", "v0.2.1", "07d553a", "v0.2.2", "v0.2.3",
+      #    "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.3",
+      #    "v0.3.4"]
+      #
+      # or dispatch experiments.yml with anchored arms at the commits between
+      # two tags, which is how the 2026-09-19 bisect found 52bb329. Screen
+      # cheap and broad, confirm expensive and narrow.
       #
       # `07d553a` is the one anchor here that is not a tag. It is #100 of
       # v0.2.1..v0.2.2, the plateau bot every experiment arm is anchored
@@ -50,7 +72,7 @@ on:
       # it is kept because it is the oldest state believed sound.
       anchors:
         description: 'JSON list of refs to measure against'
-        default: '["v0.1.0", "v0.2.0", "v0.2.1", "07d553a", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.3", "v0.3.4"]'
+        default: '["v0.1.0", "v0.2.1", "bc5ef93", "07d553a", "v0.3.4"]'
       # The same block for every anchor, so the readings are commensurable.
       # It extends the old 128-seed canary block (6000-6127), which is its
       # first shard.
@@ -83,7 +105,7 @@ jobs:
           fetch-depth: 0
       - id: arms
         env:
-          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.0", "v0.2.1", "07d553a", "v0.2.2", "v0.2.3", "v0.2.4", "v0.2.5", "v0.3.0", "v0.3.1", "v0.3.2", "v0.3.3", "v0.3.4"]' }}
+          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.1", "bc5ef93", "07d553a", "v0.3.4"]' }}
           SEEDS: ${{ inputs.seeds || '6000-7023' }}
           DRIFT_BOOKS: ${{ inputs.books }}
         run: |
