@@ -256,12 +256,12 @@
       "context": "The paired baseline for the deletion. docs/notes/claude/2026-09-19-delete-the-region-margin.md"
     },
     {
-      "slug": "margin-off-vs-07d553a",
+      "slug": "margin-deleted-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "44000-45023",
       "compare_to": "margin-base-vs-07d553a",
       "title": "region margin: this branch (margin deleted) vs 07d553a",
-      "context": "The deletion, anchored BEFORE the merge (PR #6 lesson). Expect a wash: the term read +0.001 paired at 1024 seeds on 20000-21023."
+      "context": "The deletion measured against the anchor, paired with the same code at 58095a6 (margin on). Renamed from margin-off-vs-07d553a, which is the 2026-09-18 ablation arm on seeds 20000-21023 whose +0.001 is the evidence this deletion rests on -- two arms, two questions, one slug collided. docs/notes/claude/2026-09-19-delete-the-region-margin.md"
     }
   ],
   "_retired": {
