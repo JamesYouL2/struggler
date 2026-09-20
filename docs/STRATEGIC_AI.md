@@ -128,9 +128,11 @@ action = bot.choose_action(observation, history)
   too until 2026-09-12, weighted `access_chain`; ablated alone over 128
   seeds it was not measurably worse (0.491 +/-0.063), while being 92% of
   the traversal `access` can do, so it was removed. Reach into a
-  battleground the opponent can
-  already place in is a race they may win first, worth `access_contested`
-  (0.25) of exclusive reach. Nothing for ground held. Getting to
+  battleground the opponent can already place in is a race they may win
+  first, and is worth nothing: `access` skips it. (It was
+  `access_contested` x exclusive reach, a guess at 0.25 that shipped at
+  0.0, so the weight was deleted on 2026-09-19 with the branch it guarded.)
+  Nothing for ground held. Getting to
   battlegrounds first is most of what a non-battleground is for, and it is
   why De-Stalinization prices so high.
 - Region margin (`margin_presence`, `margin_battleground`, `margin_country`,

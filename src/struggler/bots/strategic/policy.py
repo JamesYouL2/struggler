@@ -405,13 +405,13 @@ class StrategicWeights:
     # 16 self-play games, scripts/measure_access_conversion.py). The old 0.35
     # encoded p ~ 0.65, roughly the inverse.
     access_decay: float = 1.445
-    # Reach into a battleground the opponent can already place in is a race
-    # they may win first (Israel -> Egypt for the USSR, with the US already
-    # next door). Was 0.25 of exclusive reach, a guess; the off arm (0.0)
-    # read a dead heat with a slight upward lean (0.512 +/-0.043 over 192
-    # seeds, old model), so contested reach prices at zero pending the gate
-    # on this branch. The rebuild's access accounting decides the final form.
-    access_contested: float = 0.0
+    # (`access_contested` stood here until 2026-09-19: reach into a
+    # battleground the opponent can already place in -- Israel -> Egypt for
+    # the USSR, with the US already next door -- priced at a fraction of
+    # exclusive reach. It was 0.25, a guess; the off arm read 0.512 +/-0.043
+    # over 192 seeds and it shipped at 0.0, which left the branch it guarded
+    # dead as shipped. `access` now skips a contested neighbour outright:
+    # the same value, one fewer multiply, one fewer weight.)
     region: float = 1.3
     # A VP in Ops, by era: Ops are worth most while the board is empty and
     # VP most when few turns are left to convert Ops into anything, so the
@@ -558,8 +558,10 @@ class StrategicWeights:
     # loses the exchange 2:1, and that is invisible until one ply later.
     # `reply_model` selects how the reply budget is chosen, since weights
     # must be nonnegative and a sentinel cannot be: 0 off, 1 the
-    # `reply_ops` constant, 2 the median of the opponent's likely
-    # holdings, 3 a weighted average over budgets 0-4.
+    # `reply_ops` constant (what the reply-lookahead tests pin a budget
+    # with), 3 a weighted average over budgets 0-4. Model 2, the median of
+    # the opponent's likely holdings, was deleted on 2026-09-19: nothing
+    # called it, and it is model 3 with the distribution thrown away.
     #
     # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
     # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
@@ -1868,23 +1870,23 @@ class StrategicPlayer:
         """The Operations the opponent might answer with, as
         (budget, weight) pairs summing to 1.
 
-        Three models, selected by `weights.reply_model`:
+        Two models, selected by `weights.reply_model`:
 
         - **1** -- the `reply_ops` constant, weight 1. Simplest, and the
           thing to beat.
-        - **2, the median of their likely holdings.** Their hand is
+        - **3, a weighted average over every budget 0-4**, weighted by
+          how often the opponent holds a card of each size. Their hand is
           hidden (mandate #4), but the *distribution* is not: every card
           not in our hand, the discard or the removed pile could be in
-          theirs, and its printed Ops are public. The median of that is a
-          better single number than a guess and costs one sort.
-        - **3, a weighted average over every budget 0-4**, weighted by
-          how often the opponent holds a card of each size. Strictly more
-          information than the median for four more evaluations, and only
-          on the placements where a reply exists to make.
+          theirs, and its printed Ops are public. Four more evaluations,
+          and only on the placements where a reply exists to make.
+
+        (Model 2 took the median of that same pool. It was deleted on
+        2026-09-19, unreferenced and strictly less informed than 3.)
 
         Eventless throughout: this prices the Ops of the answer, not its
         event. Pricing hidden events would be guessing at the hand, which
-        is exactly what mandate #4 forbids and what the median avoids.
+        is exactly what mandate #4 forbids and what the pool avoids.
         """
         model = int(self.weights.reply_model)
         if model == 1:
@@ -1901,14 +1903,6 @@ class StrategicPlayer:
                 if card_state(obs, c) == 'unseen' and not CARDS[c].scoring]
         if not pool:
             return ((2, 1.0),)
-        if model == 2:
-            # `sorted`, not `pool.sort()`: the pool is cached now, and
-            # sorting it in place would hand the next caller a different
-            # list than it built. Harmless today -- model 3 counts and does
-            # not care about order -- which is exactly how that kind of
-            # aliasing survives until it is not harmless.
-            ranked = sorted(pool)
-            return ((ranked[len(ranked) // 2], 1.0),)
         counts: dict[int, int] = {}
         for ops in pool:
             counts[ops] = counts.get(ops, 0) + 1

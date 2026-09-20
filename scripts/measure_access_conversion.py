@@ -12,7 +12,8 @@ from the biased collector.
 
 `access` prices a holding by the uncontrolled battlegrounds it lets a side
 reach, weighted by three guessed constants (`access`, `access_redundant`,
-`access_contested` -- all `guess / underdetermined` in provenance.json).
+`access_contested`, deleted 2026-09-19 -- all `guess / underdetermined`
+in provenance.json when this was written).
 docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md argues
 they collapse into ONE measurable quantity:
 
