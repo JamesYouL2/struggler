@@ -426,3 +426,45 @@ def test_tier_weights_are_the_exact_linear_weights_of_every_member(region, horiz
         for s, forced in enumerate(((1., 0., 0.), (0., 1., 0.), (0., 0., 1.))):
             want = tier_e_from_minus(tier_of, state_minus, (is_bg, *forced))
             assert weights[where][s] == pytest.approx(want, abs=1e-9), (t.ids[i], s)
+
+
+@pytest.mark.parametrize('region', list(Region))
+@pytest.mark.parametrize('horizon', [1, 2])
+def test_member_weights_price_the_whole_payout_exactly(region, horizon):
+    """`member_weights` is the potential's linear form: for EVERY member,
+    its own triple dotted with its own weights reproduces the region's whole
+    expected payout -- tiers and 10.1.2 country bonuses together -- so a
+    trial that moves one member is a dot product instead of a DP.
+
+    The bonus half is what makes this more than `tier_weights`. It is
+    linear per country, but the weights must still carry the REST of the
+    region's expected bonus, which is constant in this member's triple. It
+    was missing at first and cost 2.9 VP in Asia -- the whole of that
+    region's bonus term -- which is exactly the error a per-member identity
+    catches and a spot check does not.
+    """
+    board = _played_board()
+    t, pos = _synced(board)
+    fc = fcst.forecast_controls(t, pos, region, horizon)
+    weights = fcst.member_weights(t, fc)
+    total = fcst.expected_payout(t, fc).total
+    for k, triple in enumerate(fc.probs):
+        got = sum(q * w for q, w in zip(triple, weights[k], strict=True))
+        assert got == pytest.approx(total, abs=1e-9), (t.ids[fc.members[k]], got, total)
+
+    # A trial that moves ONE member is priced exactly by the dot product.
+    for k, i in enumerate(fc.members):
+        for forced in (ev.US, ev.USSR, ev.NOBODY):
+            after = fcst.force(fc, t, i, forced)
+            exact = fcst.expected_payout(t, after).total
+            moved = tuple(1.0 if o == forced else 0.0 for o in (ev.US, ev.USSR, ev.NOBODY))
+            by_weights = sum(q * w for q, w in zip(moved, weights[k], strict=True))
+            assert by_weights == pytest.approx(exact, abs=1e-9), (t.ids[i], forced)
+
+    # Negative control: the weights are per position. Feeding one member's
+    # triple to another member's weights must NOT reproduce the payout, or
+    # the test would pass against a table of constants.
+    if len(fc.members) > 1:
+        mismatched = [abs(sum(q * w for q, w in zip(fc.probs[0], weights[k], strict=True)) - total)
+                      for k in range(1, len(fc.members))]
+        assert max(mismatched) > 1e-9 or fc.is_degenerate()
