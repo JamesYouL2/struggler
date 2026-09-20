@@ -81,9 +81,10 @@ The pattern in 2 and 3: **a switch with a live caller is not dead code, and
 a measurement is not a weight.** What is worth deleting is a term the bot
 evaluates on every board.
 
-Each needs the same treatment as this one: an anchored arm against
-`07d553a` **before** the merge, not after ([memory](../../../CLAUDE.md),
-and PR #6's lesson).
+A deletion that *can* move a value needs the same treatment as the margin:
+an anchored arm against `07d553a` **before** the merge, not after (PR #6's
+lesson). A deletion that cannot -- item 1 -- is proved instead by the parity
+corpus reproducing unchanged, which is cheaper and stronger.
 
 ## Hooking the VP valuation to the bot: it is one weight
 
