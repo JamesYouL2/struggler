@@ -157,14 +157,31 @@ def test_a_trial_that_changes_the_scoring_overrides_refuses_to_price_it():
     assert seen.get('fired'), 'the fixture never produced the override it tests'
 
 
-def test_the_tables_are_dropped_when_the_board_moves_under_them():
-    """Bug shape 1. The weights are a per-position object; a table built on
-    one board and read after that board moved prices a position that is not
-    there. `_invalidate_base` is the contract, and it must clear these with
-    the rest."""
+def test_the_tables_are_keyed_on_the_board_they_describe():
+    """Bug shape 1. The weights are a per-position object: a table built on
+    one board must never be served for another. They are keyed on
+    `Position.digest` rather than dropped on every board move, because a
+    trial placement moves the board and puts it back -- and rebuilding six
+    regions at two horizons per candidate cost 2.80 s a ranking, which is
+    the 2026-09-17 descope over again.
+
+    So the contract is not "cleared when the board moves", it is "the board
+    is part of the key": a moved board gets its own entry, and the original
+    board gets its original entry back after an undo.
+    """
     engine = _played()
     bot, obs = _ranking_bot(engine)
-    bot.potential_delta(obs, 'Iran', own=1)
-    assert bot._weight_table_cache, 'nothing was cached to invalidate'
-    bot._invalidate_base()
-    assert bot._weight_table_cache == {}, 'the weight tables outlived the board they describe'
+    t, pos = bot._terrain, bot._position
+    region = t.region_of[t.index['Iran']]
+
+    first = bot._weight_tables(region)
+    assert bot._weight_tables(region) is first, 'the same board rebuilt its table'
+
+    i = t.index['Iran']
+    was = pos.place(i, pos.inf[ev.US][i] + 3, pos.inf[ev.USSR][i])
+    moved = bot._weight_tables(region)
+    assert moved is not first, 'a moved board was served the old board\'s table'
+    assert moved[1][1] != first[1][1], 'the weights did not move with the board'
+
+    pos.place(i, *was)
+    assert bot._weight_tables(region) is first, 'an undone board did not get its table back'

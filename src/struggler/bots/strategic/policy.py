@@ -387,6 +387,21 @@ class StrategicWeights:
     # 2026-09-13; retention is now measured directly instead
     # (scripts/measure_access_conversion.py).
     reserve: float = 0.35
+    # THE VP REBUILD, behind a weight. At 0 (as shipped) nothing changes.
+    # Set, a placement's scoring half also carries the POTENTIAL -- the
+    # mass-weighted expected payout of each region at each future scoring
+    # (`potential_delta`) -- where `region` alone prices the tier the board
+    # is in now. The 2026-09-17 descope was a cost verdict, ~11-23 ms per
+    # candidate; the linear weights make a trial 2.45 ms, exact for a
+    # one-member move and median 1.15% off for several.
+    #
+    # KNOWN GAP, which is why this is an experiment and not a default: the
+    # event sandbox does not price the potential, so with this set a
+    # placement and an event making the same board change are valued on
+    # slightly different scoring halves. The arm says whether the term is
+    # worth closing that gap for.
+    # docs/notes/claude/2026-09-20-potential-in-the-ranking.md
+    potential: float = 0.0
     # (A region-margin term -- partial credit toward the next scoring tier:
     # progress toward presence, and battlegrounds and countries of margin
     # toward domination -- stood here until 2026-09-19. Measured paired at
@@ -966,8 +981,15 @@ class StrategicPlayer:
         cache is cleared by `_invalidate_base` with the rest, and anything
         that moves the board mid-ranking owes it that call.
         """
+        # KEYED ON THE DIGEST, like the `delta` memo, so a trial placement
+        # that moves the board and puts it back does not throw the tables
+        # away: `_invalidate_base` clears them for the board they describe,
+        # and rebuilding six regions at two horizons costs ~180 ms, which a
+        # placement loop pays per candidate. Keying on the position's own
+        # identity is what makes the cache survive an undo.
         cache = self._weight_table_cache
-        hit = None if cache is None else cache.get(region)
+        key = (self._position.digest, region)
+        hit = None if cache is None else cache.get(key)
         if hit is None:
             t, pos = self._terrain, self._position
             ov = self._overrides_for(region, pos, flags)
@@ -976,10 +998,11 @@ class StrategicPlayer:
                 fc = fcst.forecast_controls(t, pos, region, horizon)
                 hit[horizon] = (fc, fcst.member_weights(t, fc, ov))
             if cache is not None:
-                cache[region] = hit
+                cache[key] = hit
         return hit
 
-    def potential_delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
+    def potential_delta(self, obs: Observation, cid: str, own: int = 0,
+                        opp: int = 0) -> float | None:
         """The scoring potential's change for a one-country trial, priced by
         DOT PRODUCT from `_weight_tables` instead of a DP per candidate.
 
@@ -1020,11 +1043,21 @@ class StrategicPlayer:
         # was wrong by 0.074 VP on every Libya trial -- the only single-member
         # case that was not exact.
         regions = {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}
+        # ONLY THE MEMBERS WHOSE TRIPLE CAN MOVE. `_horizon_triple` reads the
+        # country's own influence and its reach, and reach is influence one
+        # hop out, so a trial at `i` moves `i` and its neighbours and nobody
+        # else -- every other member's difference is exactly zero and its dot
+        # product contributes nothing. Walking the whole region instead cost
+        # 2.80 s a ranking, which is the 2026-09-17 descope again; this is
+        # the same numbers for a fifth of the work.
+        touched = {i} | set(t.neighbors[i])
+        members = {region: tuple(m for m in t.members[region] if m in touched)
+                   for region in regions}
         before, ov_before = {}, {}
         for region in regions:
             ov_before[region] = self._overrides_for(region, pos)
             before[region] = {h: tuple(fcst._horizon_triple(t, pos, m, h)
-                                       for m in t.members[region]) for h in (1, 2)}
+                                       for m in members[region]) for h in (1, 2)}
         restore = pos.place(i, *after_counts)
         try:
             after = {}
@@ -1038,22 +1071,27 @@ class StrategicPlayer:
                 if self._overrides_for(region, pos) != ov_before[region]:
                     return None
                 after[region] = {h: tuple(fcst._horizon_triple(t, pos, m, h)
-                                          for m in t.members[region]) for h in (1, 2)}
+                                          for m in members[region]) for h in (1, 2)}
         finally:
             pos.place(i, *restore)
 
         total = 0.0
         for region in regions:
-            members = t.members[region]
+            moved = members[region]
+            if not moved:
+                continue
             tables = self._weight_tables(region)
+            # `member_weights` is indexed by the member's position in the
+            # region, so a restricted walk has to carry that index with it.
+            where = {m: k for k, m in enumerate(t.members[region])}
             by_horizon = {}
             for horizon in (1, 2):
                 _fc, weights = tables[horizon]
                 by_horizon[horizon] = sum(
                     sum((a - b) * w for a, b, w in zip(after[region][horizon][k],
                                                        before[region][horizon][k],
-                                                       weights[k], strict=True))
-                    for k in range(len(members)))
+                                                       weights[where[m]], strict=True))
+                    for k, m in enumerate(moved))
             card = self._region_cards[region]
             total += sum(mass * by_horizon[1 if horizon == 1 else 2]
                          for mass, horizon in self._masses[card])
@@ -1070,7 +1108,7 @@ class StrategicPlayer:
                         ((after[region][horizon][k][0] - before[region][horizon][k][0])
                          - (after[region][horizon][k][1] - before[region][horizon][k][1]))
                         * (2.0 if t.ids[m] == 'Thailand' else 1.0)
-                        for k, m in enumerate(members) if m in t.southeast_asia)
+                        for k, m in enumerate(moved) if m in t.southeast_asia)
                 total += sum(mass * sea[1 if horizon == 1 else 2]
                              for mass, horizon in self._masses[sch.SEA_SCORING])
         return total * self._seat_sign()
@@ -1449,9 +1487,16 @@ class StrategicPlayer:
         diagnostic probe until the cost is bought back
         (docs/notes/codex/2026-09-17-potential-delta-design.md)."""
         pos = self._position_for(board)
-        return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
-                              self.weights, self._urgency_vector(),
-                              self._overrides_map(pos))
+        total = ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
+                               self.weights, self._urgency_vector(),
+                               self._overrides_map(pos))
+        if self.weights.potential:
+            # `delta` carries the potential's view of a change, so the whole
+            # board must carry the potential itself -- otherwise the two stop
+            # being each other's difference, which is `delta`'s stated
+            # contract and what `test_board_potential` checks.
+            total += self.weights.potential * self.scoring_potential(board, side, pos)
+        return total
 
     def scoring_potential(self, board: Board, side: Side,
                           snapshot: ev.Position | None = None) -> float:
@@ -1535,12 +1580,31 @@ class StrategicPlayer:
         """Memoised on `(position digest, cid, own, opp)`; see `_delta`."""
         cache = self._delta_cache
         if cache is None:
-            return self._delta(obs, cid, own, opp)
+            return self._with_potential(obs, cid, own, opp, self._delta(obs, cid, own, opp))
         key = (self._position.digest, cid, own, opp)
         hit = cache.get(key)
         if hit is None:
-            hit = cache[key] = self._delta(obs, cid, own, opp)
+            hit = cache[key] = self._with_potential(
+                obs, cid, own, opp, self._delta(obs, cid, own, opp))
         return hit
+
+    def _with_potential(self, obs: Observation, cid: str, own: int, opp: int,
+                        base: float) -> float:
+        """`base` plus the potential's view of the same trial, weighted.
+
+        Off (the default) this is `base` and a branch. On, `potential_delta`
+        prices the change in every region's mass-weighted expected payout by
+        dot product. It returns None when the trial moves the region's
+        scoring overrides, which its tables cannot see: there the potential
+        adds nothing rather than a number computed under the wrong scoring
+        rule, and `base` -- which reads the overrides directly -- still
+        prices the change.
+        """
+        weight = self.weights.potential
+        if not weight:
+            return base
+        priced = self.potential_delta(obs, cid, own, opp)
+        return base if priced is None else base + weight * priced
 
     def _delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
@@ -2014,8 +2078,6 @@ class StrategicPlayer:
             self._base_regions = {}
         if self._base_country is not None:
             self._base_country = {}
-        if self._weight_table_cache is not None:
-            self._weight_table_cache = {}
         self._base_digest = self._position.digest
 
     def _reply_budgets(self, obs: Observation) -> tuple[tuple[int, float], ...]:
