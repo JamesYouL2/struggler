@@ -80,19 +80,6 @@
       "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
     },
     {
-      "slug": "margin-off-vs-07d553a",
-      "weights": {
-        "margin_presence": 0.0,
-        "margin_battleground": 0.0,
-        "margin_country": 0.0
-      },
-      "anchor": "07d553a",
-      "seeds": "20000-21023",
-      "compare_to": "base-vs-07d553a",
-      "title": "simplification: no region-margin partial credit",
-      "context": "Pre-interval term, so a simplification test rather than a drift suspect: does partial credit toward presence/domination earn its keep now that the five-bucket schedule prices the payouts? Level or better = delete candidate."
-    },
-    {
       "slug": "access-off-vs-07d553a",
       "weights": {
         "access": 0.0
@@ -462,27 +449,6 @@
       "context": "The first grid found vp_swing monotone up to the grid edge: +0.021 at 1.5, +0.029 at 2.0 (52bb329 flattened it FROM 2.0), +0.039 at 3.0, all paired against the same base over 1024 seeds. So the peak is not bounded above yet. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
     },
     {
-<<<<<<< HEAD
-      "slug": "potential-round-base",
-      "anchor": "07d553a",
-      "seeds": "56000-56511",
-      "shard": 128,
-      "title": "potential round tables: this branch with the term OFF vs 07d553a",
-      "context": "The pair for potential-round-on, on the same seeds and the same opponent. Also records what the flat-lattice DP and the memoised control forecast (both exact) leave the default bot reading against the anchor."
-    },
-    {
-      "slug": "potential-round-on",
-      "anchor": "07d553a",
-      "seeds": "56000-56511",
-      "shard": 48,
-      "weights": {
-        "potential": 1.0,
-        "potential_refresh": 1.0
-      },
-      "compare_to": "potential-round-base",
-      "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
-      "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. Nothing so far says the term makes the bot stronger -- this asks. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. docs/notes/claude/2026-09-20-potential-in-the-ranking.md Sharded at 48 rather than 128 because each game is 2.75x."
-=======
       "slug": "sandbox-base",
       "anchor": "07d553a",
       "bot_ref": "d9baa95",
@@ -497,8 +463,93 @@
       "compare_to": "sandbox-base",
       "title": "sandbox budget: this branch (2000) vs 07d553a",
       "context": "The sandbox search budget changes how deep the bot searches inside a simulated event, so it can change play -- and the parity corpus cannot see it (it passes even at sandbox_states=1). Four whole games came out identical, which is a sample of four. This is the anchored check BEFORE the merge. The budget lives on SurvivalPrior, which --bot-weights cannot set, so the base arm is main by bot_ref rather than a weights override. docs/notes/claude/2026-09-20-the-stall-is-the-drain.md"
->>>>>>> origin/main
+    },
+    {
+      "slug": "peak-one-block-base",
+      "weights": {
+        "vp_swing": 3.0
+      },
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "title": "vp_swing peak, one block: 3.0 as shipped",
+      "context": "ANSWERED, run 35539441015: base (3.0) 0.534 [0.517, 0.551]; paired, 2.0 is -0.005, 4.0 is -0.015 [-0.031, +0.001] and 5.0 is -0.013. Nothing beats 3.0 and 4.0 misses a measurable loss by a thousandth. The whole spread is in the USSR seat (0.450-0.479) against a flat US seat (0.585-0.590). docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
+    },
+    {
+      "slug": "peak-one-block-vp2",
+      "weights": {
+        "vp_swing": 2.0
+      },
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "title": "vp_swing 2.0 on the common block",
+      "context": "The low end, carried over so the curve's shape is re-read on one block rather than stitched from two."
+    },
+    {
+      "slug": "peak-one-block-vp4",
+      "weights": {
+        "vp_swing": 4.0
+      },
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "title": "vp_swing 4.0 on the common block",
+      "context": "The other candidate. On block 2 it read +0.024 against that block's base where 3.0 read +0.039 against block 1's -- different bases, so the ordering is not established."
+    },
+    {
+      "slug": "peak-one-block-vp5",
+      "weights": {
+        "vp_swing": 5.0
+      },
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "title": "vp_swing 5.0 on the common block",
+      "context": "6.0 read nothing (+0.004) and 4.0 read half the gain, so the far side of the peak is somewhere in 4-6. This says which side 5.0 falls on without another block."
+    },
+    {
+      "slug": "fit-intransitive-base",
+      "weights": {
+        "country_vp_scale": 0.0
+      },
+      "anchor": "07d553a",
+      "seeds": "62000-63023",
+      "title": "fitted country weights: off, as shipped, vs 07d553a",
+      "context": "The fit beat the tiers head to head (+0.018, 1024 seeds) and LOST to 07d553a (-0.031, paired) so the default went back to 0. Both readings were taken on the bot as it was on 2026-09-18: before the region-margin deletion and before vp_swing 3.0, which together moved main's anchored score by about 0.06. Re-asking the intransitivity on the current bot, on a block neither reading used."
+    },
+    {
+      "slug": "fit-intransitive-on",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "anchor": "07d553a",
+      "seeds": "62000-63023",
+      "compare_to": "fit-intransitive-base",
+      "title": "fitted country weights at the matched scale, vs 07d553a",
+      "context": "The question is the ANCHORED reading, not the head-to-head one: does the fit still lose to 07d553a now that the two terms it was competing against have changed? A loss confirms the revert on current code; a level reading makes the refit (the weights were fitted on 598e4d1's self-play positions, a bot two structural changes ago) the next thing to try, not the scale."
+    },
+    {
+      "slug": "potential-round-base",
+      "anchor": "07d553a",
+      "seeds": "56000-56511",
+      "shard": 128,
+      "title": "potential round tables: this branch with the term OFF vs 07d553a",
+      "context": "The pair for potential-round-on, on the same seeds and the same opponent. Also records what the flat-lattice DP and the memoised control forecast (both exact) leave the default bot reading against the anchor. RESULT (run 35531902621): 0.541 [0.518, 0.564] over 512 seeds."
+    },
+    {
+      "slug": "potential-round-on",
+      "anchor": "07d553a",
+      "seeds": "56000-56511",
+      "shard": 48,
+      "weights": {
+        "potential": 1.0,
+        "potential_refresh": 1.0
+      },
+      "compare_to": "potential-round-base",
+      "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
+      "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. ANSWERED (run 35531902621): 0.562 [0.538, 0.586], paired +0.021 [-0.009, +0.052] over 512 seeds -- the interval contains zero, so the term is not measured to help and not measured not to. It ships at 0.0. docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
     }
+
   ],
   "_retired": {
     "_what": "arms already run (results in docs/notes/codex/); kept so their seed blocks stay reserved",
