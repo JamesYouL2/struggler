@@ -118,3 +118,50 @@ def test_the_europe_curve_prices_only_europe_and_off_is_the_tiers():
     for region in (Region.CENTRAL_AMERICA, Region.MIDDLE_EAST):
         assert ev.region_vp(t, pos, region, europe_curve=10.0) == ev.region_vp(t, pos, region)
     assert StrategicWeights().europe_curve == 0.0
+
+
+def test_the_fit_owns_the_whole_country_layer_and_the_guessed_tiers_are_not_read():
+    """With `country_vp_scale` set, nothing under `country_value` may still
+    read `battleground`/`control`.
+
+    Shipped at 0.0, the fit rescales a country's importance from a guessed
+    tier to fitted VP -- and `country_value` multiplies that importance into
+    four terms: control, progress, the reserve, and `access`. `access` took
+    the tier path regardless, because it called `importance` without a side
+    and the fitted branch is guarded on `s is not None`. So Italy was worth
+    7.136 to the three terms that read the fit and 5.000 to the one that did
+    not: two scales inside one value, with `w.access` (1.5) multiplying the
+    stale half -- and `access` is the tiebreaker
+    (docs/notes/claude/2026-09-12-access-is-the-tiebreaker.md).
+
+    The property, stated so it cannot rot: with the fit on, moving the tier
+    weights must move nothing. That is also exactly what
+    `docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md` step 4 needs
+    before those two fields can be deleted.
+    """
+    engine = bare_engine()
+    # A board with reach to price: influence next to uncontrolled battlegrounds.
+    for cid, side, n in (('France', 'US', 3), ('Iran', 'USSR', 2),
+                         ('Venezuela', 'US', 2), ('Cameroon', 'USSR', 1)):
+        engine.board.influence[cid][side] = n
+    t = ev.terrain()
+    pos = ev.Position(t).sync(engine.board)
+    urgency = ev.ones(t)
+
+    fit = fitted_weights()
+    # Same fit, absurd tiers. If any term still reads them, a value moves.
+    moved = dataclasses.replace(fit, battleground=500.0, control=250.0)
+
+    for i in range(len(t.ids)):
+        for side in (ev.US, ev.USSR):
+            assert ev.country_value(t, pos, i, side, fit, urgency) == \
+                pytest.approx(ev.country_value(t, pos, i, side, moved, urgency), abs=1e-9), \
+                f'{t.ids[i]} still reads the guessed tiers with the fit on'
+
+    # And the negative control: with the fit OFF the tiers must still bite,
+    # or the assertion above would pass for the wrong reason.
+    off = StrategicWeights(country_vp_scale=0.0)
+    off_moved = dataclasses.replace(off, battleground=500.0, control=250.0)
+    france = t.index['France']
+    assert ev.country_value(t, pos, france, ev.US, off, urgency) != \
+        ev.country_value(t, pos, france, ev.US, off_moved, urgency)

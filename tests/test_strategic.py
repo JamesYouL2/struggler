@@ -403,7 +403,6 @@ def test_country_tiers_and_coup_discount():
     # (reach is priced separately, and the region score carries domination).
     assert control_value('Thailand') > max(control_value('Malaysia'), control_value('Spain_Portugal'))
     # A plain country is a quarter to a third of a battleground.
-    assert bot.importance(board.countries['Malaysia']) == bot.weights.control
     assert 0 < bot.weights.control < bot.weights.battleground / 2
     # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)

@@ -1556,10 +1556,6 @@ class StrategicPlayer:
                 total += mass
         return total
 
-    def importance(self, info) -> float:
-        """The country's tier: battleground or not."""
-        return self.weights.battleground if info.battleground else self.weights.control
-
     def delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """Memoised on `(position digest, cid, own, opp)`; see `_delta`."""
         cache = self._delta_cache

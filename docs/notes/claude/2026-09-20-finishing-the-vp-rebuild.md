@@ -46,6 +46,49 @@ deleting the un-fitted half of both.** The code is ready; it is one
 `if` in each place. Nothing else in the bot changes, because everything
 downstream multiplies `imp`.
 
+## Found while doing step 1: `access` was never on the fitted scale
+
+`country_value` has four terms that multiply a country's importance --
+control, progress, the reserve, and `access` -- and
+`_fitted_country_value`'s docstring calls them "the same four terms". Three
+of them were on the fit. `access` was not.
+
+    evaluator.access(...)  ->  importance_fn(t, w, urgency, n)     # no side
+
+`importance`'s fitted branch is guarded on `s is not None`, so a call
+without a side takes the tier path **whatever `country_vp_scale` says**.
+Measured on seed 4000's opening board, the fit at the matched 2.795:
+
+| | fit off | fit on |
+| --- | ---: | ---: |
+| `importance(Italy)` | 5.000 | **7.136** |
+| `access(Italy)` | 1.3963 | **1.3963** |
+
+`access` did not move at all. So the fitted arm was running **two scales
+inside one `country_value`**: control, progress and the reserve in fitted
+VP, and the battlegrounds `access` reaches still on the guessed tiers, with
+`w.access` (1.5) multiplying the stale half. That is bug shape 6, and
+`access` is [the tiebreaker](2026-09-12-access-is-the-tiebreaker.md) -- the
+term that decides rankings when the rest are close.
+
+**This is a candidate explanation for the intransitivity**, and it is why
+the arms should not have been dispatched as they stood: they would have
+re-measured the same mis-scaled bot and produced another -0.031 to explain.
+It is a candidate, not the answer -- a mis-scaled tiebreaker is the right
+*shape* for a diffuse loss that changed 548 of 1024 seeds, but only the
+rerun says whether it is the size.
+
+The fix threads `s` through (`access` already has it: it is the side whose
+access is being priced). **With the scale at 0 the argument changes
+nothing**, which the parity corpus confirms unchanged -- so the shipped bot
+is untouched and only the fitted arm moves. After it, `access(Italy)` reads
+2.4783 with the fit on.
+
+Gated by `test_the_fit_owns_the_whole_country_layer_and_the_guessed_tiers_are_not_read`,
+which states the property the deletion in step 4 actually needs: **with the
+fit on, moving `battleground` and `control` must move nothing.** Verified to
+fail without the fix (971.22 against an expected 43.10).
+
 ## So what is stopping it: one measurement, not any code
 
 `country_vp_scale` ships at **0.0**, and the reason is the only thing
@@ -140,9 +183,14 @@ tables are the expensive thing in the profile.
 
 1. **Delete `StrategicBot.importance` and its assertion.** Free, cannot
    move a value, proved by the corpus. Do it regardless of everything
-   below.
+   below. **DONE.**
+1b. **Thread the side through `access`** so the fit owns all four terms,
+   with the property test above. Free with the scale at 0, corpus
+   unchanged. **DONE, and it was not in this plan when the plan was
+   written** -- see the section above. It has to land *before* step 2, or
+   step 2 measures a bot with two scales in it.
 2. **Run `fit-intransitive-{base,on}`** (registered, 62000-63023, 16
-   shards). This is the gate on the whole programme.
+   shards), on the fixed bot. This is the gate on the whole programme.
 3. **If it loses: refit at current main** and re-run step 2. If it reads
    level or better: **run it against `bc5ef93`** before believing it.
 4. **Delete the un-fitted branch** -- `importance`'s fallback,
