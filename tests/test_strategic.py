@@ -908,34 +908,6 @@ def test_shuttle_diplomacy_is_credited_to_one_region_not_both():
     assert bot._overrides_for(other, pos) == ev.NO_OVERRIDES
 
 
-def test_region_margin_incremental_matches_full_recompute():
-    """delta() swaps one country's contribution into cached aggregates; it
-    must equal a full pass over the region for every trial placement."""
-    from struggler.engine import Side
-    import itertools
-    engine = _opening_board()
-    obs = engine.observe(Side.USSR)
-    bot = StrategicPlayer()
-    bot.rank_actions(obs)
-    board = bot.board
-    for cid, own, opp in itertools.product(('Iraq', 'Israel', 'Lebanon', 'Saudi_Arabia', 'Iran', 'France', 'Egypt', 'Thailand'), (0, 1, 2, 3), (0, 1)):
-        original = dict(board.influence[cid])
-        board.influence[cid]['USSR'] += own
-        board.influence[cid]['US'] += opp
-        region = board.countries[cid].region
-        try:
-            fast = bot.region_margin_after(board, region, Side.USSR, cid, original)
-            full = bot.region_margin(board, region, Side.USSR)
-            # Bitwise, not within a tolerance: a swapped aggregate that is
-            # only close reorders near-ties against a freshly computed one,
-            # and `_investment`'s strict `>` then picks a different point
-            # count. The swap re-sums the per-member battleground fractions
-            # in member order, which is exactly what the full walk does.
-            assert fast == full, (cid, own, opp, fast, full)
-        finally:
-            board.influence[cid].update(original)
-
-
 def test_sandbox_prices_a_die_event_at_its_expectation():
     """A war is worth the average over the six faces, not the middle roll."""
     from struggler.engine import Side
@@ -947,7 +919,7 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
     bot.rank_actions(obs)
     expected = bot.event_value(obs, 'Arab_Israeli_War')
     # Force each face on a fresh sandbox and value the outcome.
-    _, countries, regions, margins, before = bot._event_basis
+    _, countries, regions, before = bot._event_basis
     outcomes = []
     for face in range(1, 7):
         sandbox = bot.public_engine(obs)
@@ -958,7 +930,7 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
         faces = tuple(Action(d.kind, {key: v}) for v in range(1, 7))
         sandbox._decision_stack[-1] = replace(d, options=faces)
         sandbox.step(faces[face - 1])
-        outcomes.append(bot._resolve_sandbox(sandbox, obs, 'Arab_Israeli_War', countries, regions, margins,
+        outcomes.append(bot._resolve_sandbox(sandbox, obs, 'Arab_Israeli_War', countries, regions,
                                              before, bot._event_helper(), rolls=9))
     assert min(outcomes) < expected < max(outcomes)
     assert abs(expected - sum(outcomes) / 6) < 1e-6

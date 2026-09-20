@@ -59,7 +59,7 @@ not lost.
    The generator records positions and the current outputs: for the
    evaluator, `delta` per candidate and point count, `influence` and
    `_investment`, `ops_value` for 1-4 Ops, `country_value` for every
-   country, `region_score` and `region_margin` per region, and the full
+   country, `region_score` per region, and the full
    `rank_actions` ordering with safety keys; for the planner, the DEFCON
    risk per card and per play mode with its inputs (hand, DEFCON, turn
    effects, Space Race state, China, traps, pending headline, learned
