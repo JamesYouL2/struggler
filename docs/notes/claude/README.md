@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The slow shard is the runner, not the seeds](2026-09-21-the-slow-shard-is-the-runner.md) — 2026-09-21 (the 2h14m shard was the LIGHTEST of four by local work; CI spans 4.5x on 1.33x of work, so shard size is the only lever)
 - [`Enum.value` is a descriptor, and the engine read it 3.2 million times a game](2026-09-21-enum-attribute-reads.md) — 2026-09-21 (3,172,738 reads → 188,658 from eight sites, -1.8% a game; the profile's own-time column overstated it 3x, and one round of one seed reported the wrong sign)
 - [Wiring the VP rebuild into the ranking: 172x, and where it actually goes](2026-09-20-potential-in-the-ranking.md) — 2026-09-20 (the cost is rebuilding the linear tables per position; round-level tables plus three exact precomputed tables take it to 2.75x, and the approximation's error is measured)
 - [The fit against `bc5ef93`: +0.023 [-0.001, +0.047], and the rule says stop](2026-09-21-fit-vs-bc5ef93.md) — 2026-09-21 (one thousandth short of the pre-registered line, so `battleground` stays; the fit IS the first configuration to beat the strongest anchor on its own interval; and two dispatches reproduced each other bit for bit, which is the shard cache's warrant)
