@@ -1,5 +1,15 @@
 # The fresh block answers it: +0.054 [+0.031, +0.078], and `battleground` goes
 
+> **Overlaps `2026-09-21-the-fit-clears-on-a-fresh-block.md` (PR #36),**
+> which reads the same run and reads it better: it pools the two blocks to
+> +0.038 [+0.022, +0.055] and shows their 0.031 difference is 1.5 SE,
+> ordinary sampling error rather than one block being right. Go there for
+> the statistics. **This note is the landing record** -- what shipped, what
+> was deleted, and the proof that what shipped is the bot the arm measured.
+> If both survive review, the reading half below should be cut in favour of
+> that one; two notes claiming to be the reading is the shape this repo
+> keeps getting bitten by.
+
 2026-09-21. Run 35614516089, `fit-fresh-base` / `fit-fresh-on`, block
 68000-69023 against `bc5ef93`, paired. This is step 3 of
 [the VP rebuild plan](2026-09-20-finishing-the-vp-rebuild.md), re-run on a
@@ -104,6 +114,36 @@ re-capture since the fitted weights existed. It had to be: its records
 pin `country_vp_scale: 0.0` and two weights that no longer exist, so every
 record was a recording of a code path being deleted. See the commit for
 the before/after delta.
+
+## The deletion IS the arm, demonstrated rather than argued
+
+The arm did not play this code. It played `origin/main`'s tree
+(5de60d0, `src` 3e15825) with `--bot-weights {"country_vp_scale": 2.795}`.
+What is being merged deletes the tier branch outright and bakes the scale
+into the default. Those are the same bot only if the un-fitted branch was
+genuinely unreachable at a non-zero scale -- which is the claim the whole
+deletion rests on, and "it should be" is not a measurement.
+
+So it was measured. The parity corpus was re-captured on the pre-deletion
+tree with the arm's override applied, and compared with the corpus this
+branch ships:
+
+| | measured config (5de60d0 + override) | shipped (28adb67, tiers deleted) |
+| --- | ---: | ---: |
+| records | 355 | 355 |
+| identical position, side and kind | — | **355 / 355** |
+| identical full ranking (values, keys, order) | — | **355 / 355** |
+| identical country/region/ops/event tables | — | **355 / 355** |
+
+**Zero differences, bit for bit.** Same games reached from the same seeds,
+same decisions, same numbers. The deletion is not "equivalent up to
+floating point"; it is the same bot, so the +0.054 [+0.031, +0.078]
+transfers to the merge candidate without an argument in between.
+
+The two commits stacked on top do not move it either: the strict
+weights-load cannot change play, and the sandbox's potential term is inert
+at `potential = 0`, which the corpus passing unchanged on 15caae4 is the
+proof of.
 
 ## What this does NOT settle
 
