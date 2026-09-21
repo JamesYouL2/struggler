@@ -1,4 +1,5 @@
 """Tactical regressions and the observation-only policy contract."""
+import json
 import dataclasses
 
 import math
@@ -104,6 +105,38 @@ def test_weight_checkpoint_roundtrip_and_validation(tmp_path):
     assert StrategicWeights.load(path) == weights
     with pytest.raises(ValueError):
         StrategicWeights(progress=float('nan'))
+
+
+def test_a_weight_that_does_not_exist_is_dropped_for_a_model_and_refused_for_an_arm(tmp_path):
+    """The tolerance that lets an old model load is the trap for an arm.
+
+    A trained checkpoint outlives the weight set it was trained against, so
+    `load` drops a field this class no longer has and says so at INFO. An
+    EXPERIMENT gets the same file shape and the opposite requirement: an arm
+    naming a deleted weight plays the DEFAULT bot for every seed and reports
+    the score as if it had measured an ablation. `.github/experiments.json`
+    has four such arms already (retired ones -- `control-half` joined them
+    when `control` was deleted on 2026-09-21), and
+    `tests/test_experiment_registry.py` gates the file. It cannot gate the
+    workflow's inline `arms` input, which replaces the file entirely, so the
+    refusal has to exist at the point of use as well: `benchmark
+    --bot-weights` loads with `strict=True` and fails before the first game
+    rather than after the last one.
+    """
+    path = tmp_path/'arm.json'
+    path.write_text(json.dumps({'version': 1, 'weights': {'progress': 4.2, 'battleground': 5.0}}))
+
+    # A model file: the retired name is dropped and the rest still loads.
+    assert StrategicWeights.load(path) == StrategicWeights(progress=4.2)
+
+    # An arm: refused, and the message names the weight rather than the file.
+    with pytest.raises(ValueError, match='battleground'):
+        StrategicWeights.load(path, strict=True)
+
+    # A file naming only live weights is unaffected either way.
+    good = tmp_path/'good.json'
+    good.write_text(json.dumps({'version': 1, 'weights': {'country_vp_scale': 1.5}}))
+    assert StrategicWeights.load(good, strict=True) == StrategicWeights(country_vp_scale=1.5)
 
 
 def test_paired_full_games_finish_and_are_reproducible():
@@ -922,7 +955,11 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
     bot.rank_actions(obs)
     expected = bot.event_value(obs, 'Arab_Israeli_War')
     # Force each face on a fresh sandbox and value the outcome.
-    _, countries, regions, before = bot._event_basis
+    # `potential_before` is the fifth slot, added 2026-09-21 when
+    # `_resolve_sandbox` started pricing the potential's half too. It is
+    # None at the shipped `potential` of 0, which is this bot.
+    _, countries, regions, before, potential_before = bot._event_basis
+    assert potential_before is None
     outcomes = []
     for face in range(1, 7):
         sandbox = bot.public_engine(obs)
@@ -934,7 +971,8 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
         sandbox._decision_stack[-1] = replace(d, options=faces)
         sandbox.step(faces[face - 1])
         outcomes.append(bot._resolve_sandbox(sandbox, obs, 'Arab_Israeli_War', countries, regions,
-                                             before, bot._event_helper(), rolls=9))
+                                             before, bot._event_helper(), rolls=9,
+                                             potential_before=potential_before))
     assert min(outcomes) < expected < max(outcomes)
     assert abs(expected - sum(outcomes) / 6) < 1e-6
 

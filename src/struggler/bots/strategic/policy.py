@@ -655,13 +655,34 @@ class StrategicWeights:
             raise ValueError('weights must be finite and nonnegative')
 
     @classmethod
-    def load(cls, path: str | Path) -> StrategicWeights:
+    def load(cls, path: str | Path, *, strict: bool = False) -> StrategicWeights:
+        """Weights from a v1 model file.
+
+        A field this class no longer has is DROPPED by default, because a
+        trained model outlives the weight set it was trained against and a
+        retired term must not stop an old model loading. That tolerance is
+        exactly wrong for an experiment: an arm that names a weight which
+        does not exist plays the DEFAULT bot and reports the result as if it
+        had measured something, and the only trace is an INFO line on a
+        runner nobody reads. That is not hypothetical -- four arms in
+        `.github/experiments.json` name weights that have since been
+        deleted, and `control-half` became one of them on 2026-09-21.
+
+        So `strict=True`, which is what `benchmark --bot-weights` passes,
+        raises instead. An arm with a stale weight fails its shard loudly
+        rather than quietly measuring nothing.
+        """
         data = json.loads(Path(path).read_text())
         if data.get('version') != 1:
             raise ValueError('unsupported strategic model version')
         known = {f.name for f in fields(cls)}
         weights = {k: v for k, v in data['weights'].items() if k in known}
         retired = sorted(set(data['weights']) - known)
+        if retired and strict:
+            raise ValueError(
+                f'strategic weights {path}: no such weight(s) {retired}. '
+                f'A weight that does not exist would silently play the default '
+                f'bot; if the field was deleted, the arm is measuring nothing.')
         if retired:
             log.info('strategic weights %s: ignoring retired fields %s', path, retired)
         return cls(**weights)
@@ -2521,19 +2542,40 @@ class StrategicPlayer:
             before = (sum(countries.values())
                       + ev.region_potential(self._terrain, self.weights, self._urgency_vector(),
                                             regions.items()))
-            self._event_basis = (basis_key, countries, regions, before)
-        _, countries, regions, before = self._event_basis
+            # The potential's own before-value, on the same one snapshot.
+            # `None` when the term is off, which is not the same as 0.0: it
+            # says "do not price this half at all" rather than "it was
+            # worth nothing", and `_resolve_sandbox` skips the whole
+            # after-board computation on it.
+            potential_before = (self._potential_total(snap, self._scoring_flags)
+                                if self.weights.potential else None)
+            self._event_basis = (basis_key, countries, regions, before, potential_before)
+        _, countries, regions, before, potential_before = self._event_basis
         engine._fire_event(obs.side, cid)
         self._sandbox_terminal = False
-        return self._resolve_sandbox(engine, obs, cid, countries, regions, before, self._event_helper())
+        return self._resolve_sandbox(engine, obs, cid, countries, regions, before,
+                                     self._event_helper(), potential_before=potential_before)
 
     def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions,
-                         before, policy, rolls: int = 0) -> float:
+                         before, policy, rolls: int = 0, potential_before: float | None = None) -> float:
         """Drive the sandbox to rest and value the board change. A die
         (`*_ROLL` chance decision) is not sampled: every face is followed
         on a forked engine and the results averaged, so a war event is
         worth its expected outcome, not a certain success. Other chance
-        decisions (reveals, deals) take their middle option."""
+        decisions (reveals, deals) take their middle option.
+
+        `potential_before` closes the half of `_delta`'s contract this used
+        to break. That contract says an event making the same board change
+        as a placement is worth the same, and with `potential` on it was
+        not: the placement path runs `delta` -> `_with_potential` ->
+        `potential_delta`, and this path valued the after-board from
+        `country_value` and `region_potential` alone and never priced the
+        potential at all. Every event in the game was mispriced relative to
+        every placement, by exactly the term being added. `None` (the term
+        off, which is the shipped default) is the old behaviour exactly, so
+        this changed no shipped ranking when it landed -- but it has to be
+        in place BEFORE the potential's verdict arm, or that arm measures a
+        bot whose events and placements are on different scoring halves."""
         for _ in range(64):
             if engine.is_terminal or engine.pending_decision is None:
                 break
@@ -2560,7 +2602,8 @@ class StrategicPlayer:
                         fork.log = SANDBOX_LOG
                         fork._decision_stack[-1] = replace(fork.pending_decision, options=faces)
                         fork.step(option)
-                        total += self._resolve_sandbox(fork, obs, cid, countries, regions, before, policy, rolls+1)
+                        total += self._resolve_sandbox(fork, obs, cid, countries, regions, before,
+                                                       policy, rolls + 1, potential_before)
                     return total / len(faces)
                 engine.step(d.options[len(d.options) // 2])  # the middle option
             else:
@@ -2603,6 +2646,16 @@ class StrategicPlayer:
                                     w.europe_control_vp, w.europe_curve)
              if r in changed_regions else v) for r, v in regions.items()))
         result = after - before
+        if potential_before is not None:
+            # The same before/after pair the placement path takes, on the
+            # same after-board and the same post-event scoring flags as the
+            # region terms above. `_potential_total` signs for the PREPARED
+            # seat; `result` is signed for `obs.side`, and the potential is
+            # zero-sum between them, so the seats are reconciled here rather
+            # than assumed equal (which is the bug `scoring_potential` had).
+            prepared = Side.USSR if self._seat_sign() < 0 else Side.US
+            moved = self._potential_total(position, flags) - potential_before
+            result += self.weights.potential * (moved if obs.side is prepared else -moved)
         result += self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
         # Military Operations the event awarded, on the same VP scale as the
         # VP it awarded. The wars hand Ops to whoever the event belongs to,

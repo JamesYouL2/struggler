@@ -289,6 +289,63 @@ def test_fidel_is_worth_the_placement_that_makes_the_same_change(make_bot):
     assert bot.delta(obs, 'Cuba', own=3) == pytest.approx(event, rel=0, abs=1e-9)
 
 
+def _fidel_context(**weights):
+    engine = _empty_engine()
+    options = (Action(K.HEADLINE_PLAY, {'card': 'Fidel'}),)
+    obs = dataclasses.replace(engine.observe(Side.USSR),
+                              pending_decision=Decision(1, Side.USSR, K.HEADLINE_PLAY, options))
+    bot = _player(**weights)
+    bot.rank_actions(obs)
+    return engine, obs, bot
+
+
+def test_with_the_potential_on_the_event_prices_it_too_and_the_gap_is_the_approximation():
+    """The other half of `_delta`'s contract, which was false with
+    `potential` on until 2026-09-21.
+
+    The placement path runs `delta` -> `_with_potential` ->
+    `potential_delta`. The event path (`_resolve_sandbox`) valued the
+    after-board from `country_value` and `region_potential` alone and never
+    priced the potential at all, so **every event in the game was mispriced
+    relative to every placement, by exactly the term being added** -- here
+    2.9075 VP on a 43 VP Fidel, which is not a rounding difference. It was
+    latent rather than shipped only because `potential` defaults to 0.
+
+    What this pins is stronger than "the gap got small". The event path is
+    now EXACT -- it takes the whole-board potential of the after-board minus
+    the before-board -- and the placement path is the approximate one, since
+    `potential_delta` drops the interaction terms when a trial moves several
+    member triples. So the entire remaining disagreement must be that
+    approximation, to floating point, and that is the assertion. If someone
+    later makes the event path approximate too, or drops it again, this
+    equality breaks even if the gap stays small.
+    """
+    _engine, obs, bot = _fidel_context(potential=1.0)
+    event = bot._public_event_value(obs, 'Fidel')
+    placement = bot.delta(obs, 'Cuba', own=3)
+    approx = bot.potential_delta(obs, 'Cuba', own=3)
+
+    # The exact potential difference, on two contexts that never move a live
+    # board out from under a prepared snapshot (bug shape 1: `delta` prices
+    # against per-decision caches keyed on the board as synced).
+    _e0, _o0, cold = _fidel_context(potential=1.0)
+    before = cold.scoring_potential(cold.board, Side.USSR)
+    _e1, _o1, moved = _fidel_context(potential=1.0)
+    moved.board.influence['Cuba']['USSR'] += 3
+    exact = moved.scoring_potential(moved.board, Side.USSR) - before
+
+    # The event is not priced on the pre-2026-09-21 half: it moved by the
+    # whole potential term, which is what used to be missing.
+    off_event = _fidel_context()[2]._public_event_value(obs, 'Fidel')
+    assert event - off_event == pytest.approx(exact, abs=1e-9)
+
+    # And every bit of what is left between event and placement is
+    # `potential_delta`'s first-order error -- 0.0022 VP here, against the
+    # 2.9075 the gap used to be.
+    assert event - placement == pytest.approx(exact - approx, abs=1e-12)
+    assert abs(event - placement) < 0.01 < abs(exact)
+
+
 def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     """Variant b, re-pinned to the factor-2 masses. US +2 Iran on an
     empty turn-1 board, access off: `delta` and the board both read
