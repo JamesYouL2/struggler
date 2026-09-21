@@ -87,7 +87,17 @@ the tests.
   all eight cores -- contention recorded as fact, in the file that documents
   `sample_machine` and `contention_verdict` for exactly that reason. Time the
   suite on an idle machine or do not time it, and never quote a CI clock as
-  the suite's speed. `test_parity_corpus.py` (a bot rebuilt per
+  the suite's speed.
+
+  **The same applies to the profiler, and harder.** cProfile charges about a
+  microsecond per call, so it systematically over-rewards any change that
+  removes calls -- which is most optimisations. Two separate pieces of work
+  found this on 2026-09-21: a change reading 18% fewer `country_value` calls
+  was 0.8% of wall under the profiler and **2.1% without it**, and the enum
+  descriptor hot spot's own-time column overstated it about threefold
+  (docs/notes/claude/2026-09-21-enum-attribute-reads.md). **Profile to rank
+  the work; time N whole games with no profiler attached to say what
+  removing it was worth, and quote that number.** `test_parity_corpus.py` (a bot rebuilt per
   record) and `test_poke_rate.py` (four played games) are the largest
   single files; both earn it -- one is the exactness oracle, the other the
   only behavioural rate the suite measures -- but run a subset while
