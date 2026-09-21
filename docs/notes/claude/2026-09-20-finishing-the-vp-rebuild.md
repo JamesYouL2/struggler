@@ -226,7 +226,26 @@ tables are the expensive thing in the profile.
    longer exists.
 5. **Only then, the potential.** 1024-seed verdict first; if it earns its
    place, close the sandbox gap as part of turning it on, not after.
-   **NOT DONE. This is the whole of what is left.**
+   **IN FLIGHT, and the order was inverted deliberately.** The sandbox gap
+   is CLOSED (15caae4): `_resolve_sandbox` now prices the potential's
+   before/after pair, gated by
+   `test_with_the_potential_on_the_event_prices_it_too_and_the_gap_is_the_approximation`,
+   and it is inert at `potential = 0` -- the parity corpus is unchanged,
+   which is the proof. It had to go first after all: the 512-seed reading
+   was taken on a bot whose events and placements were on different
+   scoring halves, so turning the term on without the fix would have
+   measured that instead of the term. The verdict arms
+   `potential-verdict-{base,on}` are registered at 1024 seeds against
+   `bc5ef93` on block 72000-73023.
+
+The refit branch the plan named under step 3 is **also built and
+unmeasured**: `vp/refit-at-main` (a802539), weights fitted at 28adb67,
+`country_vp_scale` 2.793, arms `refit-{base,on}` on block 70000-71023.
+It was NOT selected by step 3 -- the fresh block cleared the fit, so the
+refit is a further question rather than a rescue -- and it is worth
+knowing that Europe's in-sample R^2 falls 0.835 -> 0.576 on it while every
+other region holds or improves. A loss there would say the linear model,
+not the sample, is what limits Europe.
 
 Steps 1-4 are the VP rebuild for the *country* layer, which is the one
 `battleground` lives in. Step 5 is the *region* layer, which is a separate

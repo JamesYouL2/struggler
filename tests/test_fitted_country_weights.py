@@ -85,9 +85,13 @@ def test_the_shipped_scale_is_the_truncation_every_arm_actually_played():
     """
     matched = json.loads(ev.FITTED_WEIGHTS_PATH.read_text())['matched_scale']
     shipped = StrategicWeights().country_vp_scale
-    assert shipped == 2.795
-    assert shipped != matched
-    assert abs(shipped - matched) < 1e-4, 'the shipped scale is no longer that file\'s scale'
+    # The rule, stated rather than approximated by a tolerance: the shipped
+    # scale is `matched_scale` rounded to three decimals. A bare tolerance
+    # was 1e-4, which only passed because 2.7949857... happens to sit almost
+    # exactly on 2.795; a three-decimal rounding may move by up to 5e-4, so
+    # the tolerance would have rejected the next refit for being ordinary.
+    assert shipped == 2.795 == round(matched, 3)
+    assert shipped != matched, 'the long form is not what any arm played'
 
 
 def test_country_value_is_linear_in_the_scale_so_it_is_a_level_knob():
