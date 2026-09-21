@@ -17,18 +17,6 @@
     "inert": "does not affect behaviour"
   },
   "StrategicWeights": {
-    "control": {
-      "value": 1.5,
-      "source": "expert",
-      "determination": "underdetermined",
-      "note": "Expert reasoning recorded: a 1-stability non-battleground sits between a battleground's 1.25-1.67 per Op. But the region model it belongs to is measured wrong overall, so this inherits that doubt."
-    },
-    "battleground": {
-      "value": 5.0,
-      "source": "guess",
-      "determination": "known-wrong",
-      "note": "A flat tier value for every battleground, and that flatness is the defect rather than the number. Re-measured 2026-09-12 at the shipped weights, two of the three recorded symptoms are GONE, both closed by the flat VP curve (52bb329) rather than by anything aimed at them: a best battleground now prices at 4.53 VP against the maintainer's floor of 4 (was ~1), and the map spans 2.88 VP max-region-to-min-region against a stated 2-3 (was 0.49). WHAT REMAINS: Europe ranks 3rd of 6 and the maintainer says it should be 1st. The mechanism is in the rules table, not the weight -- Europe and Asia share presence and domination (3/7), and Asia's control tier pays 9 and is reachable where Europe's is an auto-win standing in as EUROPE_CONTROL_VP=20 that almost never fires. So tier VP alone cannot make Europe first; what does in real play (contested every game, early cards, losing it loses the game) is not a tier value. AND the flatness, which is the live defect: importance() returns the same 9.31 for Iraq, South Korea, Saudi Arabia and Israel alike, so the term cannot tell a good battleground from a bad one and every distinction falls to access, progress and wipe. NOT the battleground-to-control ratio: 5.0 against 1.5 is deliberate (maintainer, 2026-09-12) and both countries in the worst inversion are battlegrounds, so the ratio cannot explain it. Against the maintainer's placement_rank the bot scores 5 inversions (US) and 7 of 10 possible pairs (USSR), ranking Israel first where the expert ranks it last. That inversion count is the number a fix must move."
-    },
     "progress": {
       "value": 2.8,
       "source": "guess",
@@ -125,7 +113,7 @@
       "value": 0.5,
       "source": "expert",
       "determination": "bounded",
-      "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit is `battleground`, already recorded here as known-wrong."
+      "note": "Ops per VP on turn 1, the *level* of the VP curve. Was the first of three era steps (0.5/1.0/2.0); the steps doubled a VP's price overnight at turn 4. Unchanged at 0.5, which the opening-board fixture agrees with (Olympic Games 0.3, Korean War -1). Known to be too low at the other end -- a turn-4 Battleground prices at 2.05 VP against the maintainer's ~4 -- but `vp_base` is NOT the fix: it is a constant factor, so it moves every turn equally, and the setting that puts turn 4 at 4 VP (0.256) puts turn 1 at 6.8. The shape is the problem: vp_value grows 3.4x across the game while a Battleground's delta grows 1.28x, so no (vp_base, vp_swing >= 1) pair can stop Battleground VP falling. See docs/notes/claude/2026-09-11-vp-base-cannot-fix-the-battleground-level.md; the likely culprit was `battleground`, the flat tier -- which was deleted 2026-09-21 in favour of the fitted per-country weights, so this entry's diagnosis is now history rather than a live lead."
     },
     "space_ability_2": {
       "value": 1.0,
@@ -164,10 +152,10 @@
       "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
     },
     "country_vp_scale": {
-      "value": 0.0,
+      "value": 2.795,
       "source": "gate",
-      "determination": "underdetermined",
-      "note": "Scale for the fitted per-country weights (bots/strategic/fitted_country_weights.json), in board units per VP of expected regional scoring; 0 keeps the guessed battleground/control tiers. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. The scale is the file's matched_scale (importance's total equal to the tiers' on the fit sample), and it is bounded on both sides: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired. REVERTED to 0 the same day: against the fixed anchor 07d553a the fit at 2.795 read 0.489 [0.472, 0.506] where the tiers read 0.520 on the same 1024 seeds (30000-31023), paired -0.031 [-0.053, -0.009], the loss in the USSR seat (0.483 -> 0.427). It beats the tiers and loses to the older bot: intransitive, and the parent gate cannot see it."
+      "determination": "bounded",
+      "note": "Scale for the fitted per-country weights (bots/strategic/fitted_country_weights.json), in board units per VP of expected regional scoring. Since 2026-09-21 this is the ONLY country-importance weight: it replaced a guessed battleground 5.0 / control 1.5 tier pair, which are deleted along with country_value's un-fitted half. The weights are fitted by scripts/fit_country_weights.py to the exact potential's per-position linear weights over 4002 self-play positions (seeds 40000-40015); held-out R^2 0.96-0.98 outside Europe, 0.63 in Europe. BOUNDED, not determined: over 1024 seeds (run 35367356155) the fit at 2.795 read 0.518 [0.502, 0.534] against the tiers, and half (-0.036 [-0.059, -0.013]) and double (-0.026 [-0.048, -0.004]) were both measurably worse, paired -- so the level is bracketed but not located. The value is the file's matched_scale TRUNCATED to 2.795 (full precision 2.7949857573867254): 2.795 is what every arm played, and rankings are decided by strict comparison, so shipping the long form would ship an unmeasured bot. Anchored evidence for shipping it on: +0.054 [+0.031, +0.078] paired against bc5ef93 over 1020 shared seeds of block 68000-69023, run 35614516089, where the same weights read +0.023 [-0.001, +0.047] on block 64000 and were held back. Known stale in one respect: source_revision is 598e4d1, two structural changes back, so a refit at current main is unfinished business rather than a fix. docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md"
     },
     "europe_control_vp": {
       "value": 40.0,
@@ -315,21 +303,21 @@
   },
   "_summary": {
     "counts_by_source": {
-      "expert": 8,
-      "guess": 16,
+      "expert": 7,
+      "guess": 15,
       "gate": 9,
       "measured": 10,
       "derived": 5
     },
     "counts_by_determination": {
-      "underdetermined": 12,
-      "known-wrong": 3,
-      "bounded": 12,
+      "underdetermined": 10,
+      "known-wrong": 2,
+      "bounded": 13,
       "inert": 6,
       "overdetermined": 4,
       "determined": 11
     },
-    "_reading": "24 of 44 constants are guesses -- no recorded basis, a plausible number nobody has tested -- and 16 are underdetermined: able to be wrong by a large factor without anything noticing. The two known-wrong ones are `battleground`, which carries the whole region model, and `CHINA_HOLD_RAW`. The 3 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to.",
-    "total": 48
+    "_reading": "Recounted 2026-09-21, after `battleground` and `control` were deleted: 46 entries, of which 15 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones are now `access_chain` and `CHINA_HOLD_RAW`. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to.",
+    "total": 46
   }
 }

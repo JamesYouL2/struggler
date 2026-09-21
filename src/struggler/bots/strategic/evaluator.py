@@ -370,15 +370,19 @@ def ones(t: Terrain) -> tuple[float, ...]:
     return (1.0,) * len(t.ids)
 
 
-def importance(t: Terrain, w, urgency, i: int, s: int | None = None) -> float:
-    """A country's tier times what its region will still score.
+def importance(t: Terrain, w, urgency, i: int, s: int) -> float:
+    """A country's fitted per-side weight times what its region will still
+    score, scaled into board units by `w.country_vp_scale`.
 
-    With `w.country_vp_scale` set, the tier is the fitted per-country,
-    per-side weight instead (`fitted_importance`); off, it is the guessed
-    battleground/control pair, untouched."""
-    if w.country_vp_scale and s is not None:
-        return w.country_vp_scale * fitted_importance(t, urgency, i, s)
-    return (w.battleground if t.battleground[i] else w.control) * urgency[i]
+    `s` is required. It was optional until 2026-09-21, for a guessed
+    battleground/control tier pair that this returned when no side was
+    given -- and `access` gave none, so the tiebreaker priced its
+    battlegrounds on the tiers while the rest of `country_value` was on
+    fitted VP. The tiers are deleted
+    (docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md);
+    making `s` mandatory is what stops a caller silently asking for a
+    scale that no longer exists."""
+    return w.country_vp_scale * fitted_importance(t, urgency, i, s)
 
 
 # Beside this module, inside the bots package: a gate's baseline is that
@@ -762,7 +766,23 @@ def others_moved_by(t: Terrain, i: int) -> tuple[int, ...]:
 
 
 def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
-    """What country `i` is worth to side `s` on this board."""
+    """What country `i` is worth to side `s` on this board.
+
+    Four terms multiplying the country's importance: control, progress
+    toward it, the reserve past it, and `access`.
+
+    A country is not worth the same to both sides -- the 10.1.2 adjacency
+    bonus pays only the side whose enemy superpower it borders, and the
+    fitted weights fall differently -- so our control is priced at OUR
+    weight and theirs at THEIRS. The guessed tier pair this replaced was
+    symmetric and could not say that.
+
+    This was two functions until 2026-09-21: this one on the tiers and
+    `_fitted_country_value` on the fit, the same four terms written twice.
+    The fit won its anchored arm (+0.054 [+0.031, +0.078] paired against
+    `bc5ef93`, run 35614516089) and the tier half is gone, so there is one
+    implementation again. Keep it that way: two copies of these four terms
+    is bug shape "a rule written down twice"."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
     own, opp = (us, ussr) if s == US else (ussr, us)
     margin = own - opp
@@ -770,32 +790,20 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # Control is worth what the region will still score (a battleground in an
     # unscored Early War region >> one in a region just scored, or one whose
     # scoring is turns away). That is what `urgency` carries.
-    if w.country_vp_scale:
-        return _fitted_country_value(t, pos, i, s, w, urgency, margin, stability, own, opp)
-    imp = importance(t, w, urgency, i)
-    value = imp * (1 if margin >= stability else -1 if margin <= -stability else 0)
+    mine = importance(t, w, urgency, i, s)
+    theirs = importance(t, w, urgency, i, 1 - s)
+    value = mine if margin >= stability else -theirs if margin <= -stability else 0.0
     # Progress toward control is convex: control is worth VP, a lone point is
     # not (it can only lead there), so a half-built country is worth well
     # under half of a controlled one.
-    # Clamped with comparisons, not `max`/`min`. Identical arithmetic: this
-    # is the hottest function in a game (8.6M calls over two self-play games)
-    # and the five builtin calls it made were 36M `max` and 30M `min` calls,
-    # about a tenth of the whole profile.
-    fraction = margin / stability
-    if fraction > 1.0:
-        fraction = 1.0
-    elif fraction < -1.0:
-        fraction = -1.0
+    #
     # Linear. This was `copysign(abs(fraction) ** progress_curve, fraction)`
     # with the exponent pinned at 1.0, which is `fraction` exactly; convex
     # (2.0) lost the gate at 0.33, and the knob was deleted 2026-09-13.
-    value += w.progress * imp * fraction
-    guard = w.reserve * imp
-    over = margin - stability
-    over = 0 if over < 0 else (2 if over > 2 else over)
-    under = -margin - stability
-    under = 0 if under < 0 else (2 if under > 2 else under)
-    value += guard * (over - under)
+    fraction = max(-1.0, min(1.0, margin / stability))
+    value += w.progress * (mine * fraction if fraction > 0 else theirs * fraction)
+    value += w.reserve * (mine * min(2, max(0, margin - stability))
+                          - theirs * min(2, max(0, -margin - stability)))
     # (A `first_mover` tempo term stood here until 2026-09-13: presence in a
     # battleground the opponent has none in but could reach. Set to 0 over
     # 256 seeds it read 0.513 [0.475, 0.550], the highest of the ablations.)
@@ -803,27 +811,6 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # stake is worth the uncontrolled battlegrounds it alone lets us reach.
     # Nothing for ground we already reach (a fourth point in Eastern Europe
     # opens nothing), and nothing for ground we hold.
-    access_fn = access  # local: same call, fewer lookups per country
-    access_own = access_fn(t, pos, i, s, w, urgency) if own > 0 else 0.0
-    access_opp = access_fn(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
-    value += w.access * (access_own - access_opp)
-    return value
-
-
-def _fitted_country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency,
-                          margin: int, stability: int, own: int, opp: int) -> float:
-    """`country_value` on the fitted weights. The same four terms, with one
-    difference the fit makes visible: a country is not worth the same to
-    both sides (the 10.1.2 adjacency bonus pays only the side whose enemy
-    superpower it borders, and tiers fall differently), so our control is
-    priced at OUR weight and theirs at THEIRS -- the tier pair was symmetric."""
-    mine = importance(t, w, urgency, i, s)
-    theirs = importance(t, w, urgency, i, 1 - s)
-    value = mine if margin >= stability else -theirs if margin <= -stability else 0.0
-    fraction = max(-1.0, min(1.0, margin / stability))
-    value += w.progress * (mine * fraction if fraction > 0 else theirs * fraction)
-    value += w.reserve * (mine * min(2, max(0, margin - stability))
-                          - theirs * min(2, max(0, -margin - stability)))
     access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
     access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
     return value + w.access * (access_own - access_opp)

@@ -197,12 +197,24 @@ def main(argv=None) -> int:
     print(f'{len(seeds)} games, {len(records)} positions, {len(rows)} country rows', file=sys.stderr)
     if args.mode == 'fit':
         a = fit(rows)
-        # The old tiers' scale on the same sample, so the fitted weights can
-        # be switched on without moving importance's overall level.
+        # The scale at which the new fit reproduces the SHIPPED importance
+        # level, so a refit can be switched on without moving it.
+        #
+        # This matched the guessed `battleground`/`control` tiers until
+        # 2026-09-21, when those weights were deleted (docs/notes/claude/
+        # 2026-09-21-the-fresh-block-answers-the-fit.md). The reference is
+        # now the fitted weights in force times the scale in force -- which
+        # means matched_scale CHAINS: refit twice and the second matches
+        # the first, not the tiers. That is the intended meaning (keep the
+        # level where the shipped bot has it) but it is not the old one.
+        #
+        # A country the shipped file does not cover is an error, not a
+        # zero, for the same reason `_fitted_table` says so.
         old = new = 0.0
-        w = StrategicWeights()
+        scale = StrategicWeights().country_vp_scale
+        shipped = json.loads(ev.FITTED_WEIGHTS_PATH.read_text())['weights']
         for _, _region, i, side, m, _y in rows:
-            old += (w.battleground if t.battleground[i] else w.control) * m
+            old += scale * shipped[t.ids[i]][side] * m
             new += a.get((i, side), 0.0) * m
         data = {
             'what': 'Fixed per-country control weights fitted to the exact scoring potential; '

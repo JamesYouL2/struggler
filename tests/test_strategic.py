@@ -34,7 +34,7 @@ def test_reused_evaluation_caches_match_fresh_policy_after_board_and_weight_chan
     bot.rank_actions(engine.observe(Side.US))
     engine.board.influence['Iran']['US'] = 4
     engine.board.influence['Pakistan']['USSR'] = 2
-    bot.weights = StrategicWeights(progress=3.5, battleground=7)
+    bot.weights = StrategicWeights(progress=3.5, country_vp_scale=7.0)
     obs = engine.observe(Side.US)
     assert bot.rank_actions(obs) == StrategicPlayer(bot.weights).rank_actions(obs)
 
@@ -399,11 +399,13 @@ def test_country_tiers_and_coup_discount():
             return bot.country_value(board, cid, Side.US)
         finally:
             board.influence[cid]['US'] = 0
-    # A battleground is worth its tier; a plain country nothing of its own
+    # A battleground is worth more than a plain country in the same region
     # (reach is priced separately, and the region score carries domination).
     assert control_value('Thailand') > max(control_value('Malaysia'), control_value('Spain_Portugal'))
-    # A plain country is a quarter to a third of a battleground.
-    assert 0 < bot.weights.control < bot.weights.battleground / 2
+    # And the fitted weights tell two battlegrounds apart, which the guessed
+    # tier pair deleted on 2026-09-21 could not: it returned one number for
+    # every battleground anywhere, and that flatness was the defect.
+    assert control_value('India') != control_value('Pakistan')
     # A coup is priced on the same board change as placement, then discounted.
     obs = engine.observe(Side.US)
     from struggler.bots.rules_math import sync_board
@@ -771,10 +773,10 @@ def test_the_event_helper_follows_a_weights_replacement():
     bot = StrategicPlayer()
     first = bot._event_helper()
     assert first.weights is bot.weights
-    bot.weights = StrategicWeights(battleground=9.0)
+    bot.weights = StrategicWeights(country_vp_scale=9.0)
     second = bot._event_helper()
     assert second is not first
-    assert second.weights is bot.weights and second.weights.battleground == 9.0
+    assert second.weights is bot.weights and second.weights.country_vp_scale == 9.0
 
 
 def test_un_intervention_is_kept_for_the_worst_opponent_card():

@@ -106,10 +106,16 @@ def battleground_importance(engine: Engine, side: Side) -> tuple[dict, float]:
     it, which is the quantity every valuation in this project has been
     stated in, and the one the region-margin function needs.
 
-    It is `w.battleground * urgency[i]`, so **every Battleground in a region
-    is identical by construction** -- there is no per-country term at all.
+    It is the country's fitted per-side weight times the region's scoring
+    mass, scaled by `w.country_vp_scale` (`evaluator.importance`). Until
+    2026-09-21 it was `w.battleground * urgency[i]`, so **every
+    Battleground in a region was identical by construction** -- there was
+    no per-country term at all, and that flatness was the defect the fit
+    was built to remove. It is per-country and per-side now, which is why
+    this asks for a side.
     """
     obs = engine.observe(side)
+    ev_side = ev.US if side is Side.US else ev.USSR
     bot = StrategicPlayer(StrategicWeights())
     bot.rank_actions(obs)
     vp = bot.vp_value(obs) or 1.0
@@ -119,7 +125,7 @@ def battleground_importance(engine: Engine, side: Side) -> tuple[dict, float]:
         for cid, info in engine.board.countries.items():
             if info.region is region and info.battleground:
                 imp = ev.importance(terrain, bot.weights, urgency,
-                                    terrain.index[cid]) / vp
+                                    terrain.index[cid], ev_side) / vp
                 out.setdefault(region, {})[cid] = imp
     return out, vp
 

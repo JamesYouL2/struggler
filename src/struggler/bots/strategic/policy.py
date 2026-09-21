@@ -335,30 +335,35 @@ PUBLIC_EVENTS = frozenset(c.id for c in CARDS.values()
 
 @dataclass(frozen=True)
 class StrategicWeights:
-    # Country importance: a battleground is worth `battleground` (times
-    # what its region will still score); a plain country a quarter to a
-    # third of that. Per Op, a battleground is its tier over its stability
-    # (1.25 at stability 4, 1.67 at 3); the expert puts a 1-stability
-    # non-battleground between those, so `control` 1.5. Its control also
-    # moves the domination tally, which the region score carries,
-    # and gives reach, priced by the access terms below.
-    control: float = 1.5
-    battleground: float = 5.0
-    # The fitted alternative to the two tiers above, in raw board units per
-    # VP of expected regional scoring. 0 (off) keeps `control` and
-    # `battleground`; set, each country's importance is its own fitted
-    # weight (strategic/fitted_country_weights.json: VP per unit of scoring mass,
+    # Country importance, in raw board units per VP of expected regional
+    # scoring: each country's own fitted weight
+    # (strategic/fitted_country_weights.json: VP per unit of scoring mass,
     # per side, fitted to the exact potential by
-    # scripts/fit_country_weights.py) times the same turn-and-deck mass
-    # `urgency` already carries. The file's `matched_scale` keeps
-    # importance's overall level where the tiers had it, so an arm at that
-    # value tests the shape of the weights, not their size. At 2.795 the fit
-    # beat the tiers head to head (0.518 [0.502, 0.534], run 35367356155)
-    # and passed its parent gate -- and LOST to the fixed anchor 07d553a:
-    # -0.031 [-0.053, -0.009] paired against the tiers on the same 1024
-    # seeds (runs 35408253451 vs 35359674299), all of it in the USSR seat.
-    # Intransitive, so off again until that is understood.
-    country_vp_scale: float = 0.0
+    # scripts/fit_country_weights.py) times the turn-and-deck mass
+    # `urgency` carries.
+    #
+    # This replaced a guessed `battleground` 5.0 / `control` 1.5 tier pair,
+    # deleted 2026-09-21 along with the un-fitted half of `country_value`.
+    # The history is worth keeping because the decision took four
+    # dispatches and two of them said no:
+    #   - vs the tiers head to head, it wins: 0.518 [0.502, 0.534], 1024
+    #     seeds, run 35367356155; half and double both measurably worse.
+    #   - vs the fixed anchor 07d553a it LOST, -0.031 [-0.053, -0.009]
+    #     paired -- intransitive, and the cause was a scale leak in
+    #     `access`, fixed 2026-09-21.
+    #   - vs bc5ef93 on block 64000 it read +0.023 [-0.001, +0.047], one
+    #     thousandth short of the pre-registered line, and was NOT shipped.
+    #   - vs bc5ef93 on a fresh block 68000-69023 it reads **+0.054
+    #     [+0.031, +0.078]** paired, run 35614516089. That cleared the
+    #     line, so the tiers went.
+    #
+    # 2.795, not the file's full-precision `matched_scale`
+    # (2.7949857573867254): the truncation is the number every arm played,
+    # and rankings are decided by strict comparison. `matched_scale` is
+    # provenance for where 2.795 came from -- the scale that keeps
+    # importance's overall level where the tiers had it.
+    # docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md
+    country_vp_scale: float = 2.795
     # What controlling all of Europe is worth in the region term, in VP. It
     # ends the game, so it is the whole 40 VP swing (stakes.GAME_SWING_VP);
     # a weight only so experiments can price it otherwise. The fitted

@@ -202,15 +202,20 @@ def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
     access to an uncontrolled Nigeria. Re-pinned twice: under the retention
     urgency at 4.132012930555556, and under the factor-2 masses at
     14.05555555555555 (5cf67af), and under the fitted country weights at
-    15.546451969888892 (2026-09-18, while they were the default); the property -- delta equals the board
-    difference exactly -- is what carries, not the number."""
+    15.546451969888892 (2026-09-18, while they were the default). Re-pinned
+    again 2026-09-21 to 14.957940227388889, when the fitted weights became
+    the only weights: not the same number as 2026-09-18 because `access`
+    was still calling `importance` without a side then, so the reach half
+    of this very gap was priced on the tiers while the rest was on fitted
+    VP. The property -- delta equals the board difference exactly -- is
+    what carries, not the number."""
     engine = _empty_engine()
     engine.board.influence['Cameroon']['US'] = 1
     obs = engine.observe(Side.US)
     bot = _cameroon_then_nigeria()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Nigeria', 1, 0)
-    assert expected == pytest.approx(14.05555555555555, abs=1e-9)
+    assert expected == pytest.approx(14.957940227388889, abs=1e-9)
     assert bot.delta(obs, 'Nigeria', own=1) == pytest.approx(expected, rel=0, abs=1e-9)
 
 
@@ -237,10 +242,12 @@ def test_cameroon_and_nigeria_sum_to_the_same_board_in_either_order(first, secon
     then Nigeria summed 29.1486222222, Nigeria then Cameroon 23.6419555556,
     both final boards 23.6419555556; under the retention urgency
     11.569636205555554; under the fitted country weights, 37.69155245288889,
-    2026-09-18). The order-invariance is the property; the level follows
-    the urgency and the country weights."""
+    2026-09-18; and 38.20352451788889 from 2026-09-21, when those weights
+    became the only weights and `access` had been put on the same scale as
+    the rest of the country layer). The order-invariance is the property;
+    the level follows the urgency and the country weights."""
     total, board = _placements_in_order(_cameroon_then_nigeria, [(first, 1), (second, 1)])
-    assert board == pytest.approx(39.355555555555554, abs=1e-9)
+    assert board == pytest.approx(38.20352451788889, abs=1e-9)
     assert total == pytest.approx(board, rel=0, abs=1e-9)
 
 
@@ -285,8 +292,10 @@ def test_fidel_is_worth_the_placement_that_makes_the_same_change(make_bot):
 def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     """Variant b, re-pinned to the factor-2 masses. US +2 Iran on an
     empty turn-1 board, access off: `delta` and the board both read
-    21.289943394898987 under the fitted country weights (22.494949494949488
-    under the tiers; under the retention urgency 41.10647617222223; at
+    19.57277167772727 under the fitted country weights as shipped from
+    2026-09-21 (21.289943394898987 under those weights on 2026-09-18,
+    before `access` was threaded a side; 22.494949494949488 under the
+    deleted tiers; under the retention urgency 41.10647617222223; at
     variant-b dating 52.9822222222). Iran is not in Southeast Asia, so
     its urgency is the Middle East's, and the board weights the Middle
     East's VP by it too -- that equality is the property, at any level.
@@ -301,7 +310,7 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
     # Re-pinned 2026-09-19 from 22.494949494949488 when the region-margin
     # terms were deleted: the same board difference with one fewer summand.
-    assert expected == pytest.approx(20.77777777777777, abs=1e-9)
+    assert expected == pytest.approx(19.57277167772727, abs=1e-9)
     assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
 
     t, urgency = ev.terrain(), bot._urgency
