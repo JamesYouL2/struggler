@@ -1,95 +1,22 @@
-# The fresh block answers it: +0.054 [+0.031, +0.078], and `battleground` goes
+# Deleting `battleground`: what shipped, and the proof it is the measured bot
 
-> **Overlaps `2026-09-21-the-fit-clears-on-a-fresh-block.md` (PR #36),**
-> which reads the same run and reads it better: it pools the two blocks to
-> +0.038 [+0.022, +0.055] and shows their 0.031 difference is 1.5 SE,
-> ordinary sampling error rather than one block being right. Go there for
-> the statistics. **This note is the landing record** -- what shipped, what
-> was deleted, and the proof that what shipped is the bot the arm measured.
-> If both survive review, the reading half below should be cut in favour of
-> that one; two notes claiming to be the reading is the shape this repo
-> keeps getting bitten by.
+2026-09-21. The landing record for step 4 of
+[the VP rebuild plan](2026-09-20-finishing-the-vp-rebuild.md).
 
-2026-09-21. Run 35614516089, `fit-fresh-base` / `fit-fresh-on`, block
-68000-69023 against `bc5ef93`, paired. This is step 3 of
-[the VP rebuild plan](2026-09-20-finishing-the-vp-rebuild.md), re-run on a
-block the fit was neither fitted nor tested on, because
-[the 64000 block can no longer give a 1024-seed reading](2026-09-21-fit-vs-bc5ef93.md).
+**The reading is not here.** Run 35614516089 (`fit-fresh-base` /
+`fit-fresh-on`, block 68000-69023 against `bc5ef93`, paired) is read in
+[the fresh-block note](2026-09-21-the-fit-clears-on-a-fresh-block.md),
+which pools it with the 64000 block to +0.038 [+0.022, +0.055] and shows
+their 0.031 difference is 1.5 SE -- ordinary sampling error, not one block
+being right and the other wrong. This note had its own copy of that
+reading until the two were compared; a second telling of one measurement
+is the shape this repo keeps getting bitten by, so it was cut rather than
+kept "for completeness".
 
-| arm | vs | score | one-sided 95% | seeds | US seat | USSR seat | shards |
-| --- | --- | ---: | --- | ---: | ---: | ---: | --- |
-| `fit-fresh-base` (fit off) | bc5ef93 | 0.480 | [0.463, 0.497] | 1021 | 0.539 | 0.422 | 8 ok |
-| `fit-fresh-on` (`country_vp_scale` 2.795) | bc5ef93 | **0.534** | [0.517, 0.551] | 1023 | 0.580 | 0.489 | 8 ok |
-
-**Paired: +0.054 [+0.031, +0.078] over 1020 shared seeds.**
-
-## The pre-registered rule, applied
-
-From `.github/experiments.json`, written into the arm before dispatch:
-
-> PRE-REGISTERED, before dispatch: paired lower bound above 0 on the full
-> 1024 seeds means the fit is a measurable gain and step 4 (deleting
-> battleground, control and the un-fitted half of country_value) becomes a
-> normal change with an anchored arm behind it; at or below 0 means two
-> independent blocks agree it is not measurable, and the refit at current
-> main is the next move rather than another block.
-
-The lower bound is **+0.031**. **Step 4 happens**, and the refit branch is
-not taken.
-
-Two honest deductions from the rule as written, neither of which changes
-the answer:
-
-- It said "the full 1024 seeds" and the reading is **1020**. Four shards
-  hit `--max-seconds 9000` and exited 6, which
-  [is what that exit code is for](2026-09-20-the-stall-is-the-drain.md):
-  the games still running were abandoned, the partial report was written,
-  and the pooled arms are 1021 and 1023 seeds with 1020 shared. Four seeds
-  short of the pre-registration. At a lower bound of +0.031 this is not a
-  knife edge -- it was a knife edge at 64000, which is exactly why that
-  block was abandoned -- but the line was drawn at 1024 and it is being
-  crossed at 1020, and that is worth writing down rather than rounding away.
-- The run's own conclusion is `failure`, for those four shards. The verdict
-  came from `collect`, which succeeded; every arm pooled `8 ok`.
-
-## What the two arms say separately, which is not the same thing
-
-The paired difference is the decision. The levels are the diagnosis, and
-they say something the 64000 block did not:
-
-- `fit-fresh-base` reads **0.480 [0.463, 0.497]** against `bc5ef93`. The
-  upper bound is below 0.500. **HEAD with the fit off is a measurable loss
-  to `bc5ef93` on this block** -- where on 64000 the same arm read 0.512
-  and where HEAD is generally described as level with that anchor.
-- `fit-fresh-on` reads **0.534 [0.517, 0.551]**, clearing 0.500 on its own
-  interval, as it did on 64000 (0.530).
-
-So +0.054 is not +0.054 of pure gain over `bc5ef93`. Roughly +0.020 of it
-is the fit climbing out of a hole this block digs for the base arm, and
-about **+0.034** is what the fitted bot clears `bc5ef93` by outright --
-with the wider unpaired interval, since the seats are not differenced.
-
-**This is the block-variance point the shipped anchors keep making**, and
-it is why the paired difference is the statistic the rule was written on:
-the two arms moved by 0.032 and 0.004 respectively between blocks, and the
-paired difference by 0.031. Levels travel badly between blocks; paired
-differences travel.
-
-The seat split reproduces: both seats gain (US 0.539 -> 0.580, USSR 0.422
--> 0.489) and the **USSR gains more**, the third block in a row to say so,
-and the seat the fit lost in against `07d553a`.
-
-## And the answer to the question the 64000 block could not answer
-
-That block's `+0.023 [-0.001, +0.047]` is now explained. On a fresh block
-the same weights read `+0.054 [+0.031, +0.078]`, and the two intervals
-overlap heavily: one sample fell low, the other high, and neither is
-evidence that the weights changed. **The -0.001 was the block.** Two
-independent blocks now agree on the sign; they disagree only on the size,
-by about one standard error each way.
-
-See [the shared-seed-block caution](2026-09-18-drift-located-at-v0.2.1-v0.2.3.md)
-for why that was worth two dispatches rather than one.
+What matters here in one line: **paired +0.054 [+0.031, +0.078] over 1020
+shared seeds, lower bound above the zero pre-registered in the arm's own
+`context` before dispatch.** Step 4 goes ahead; the refit branch the plan
+named as the alternative is not taken.
 
 ## What ships
 
