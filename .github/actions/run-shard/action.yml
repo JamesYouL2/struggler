@@ -90,9 +90,31 @@ runs:
         SLUG: ${{ fromJSON(inputs.shard).slug }}
         SEEDS: ${{ fromJSON(inputs.shard).seeds }}
 
-    - name: play ${{ fromJSON(inputs.shard).slug }} seeds ${{ fromJSON(inputs.shard).seeds }}
+    # `--max-seconds 9000` is 150 minutes against the job's `timeout-minutes:
+    # 180`, and the 30-minute margin covers checkout, `uv sync`, snapshotting
+    # up to two revisions, writing the report and uploading it.
+    #
+    # THE TWO TIMEOUTS DO DIFFERENT THINGS AND THE ORDER MATTERS. A JOB
+    # timeout kills the process, so nothing is written and the shard yields
+    # NOTHING -- which is what happened to `fit-bc-base [5/8]` (seeds
+    # 64640-64767) on 2026-09-21 after it had already run 1h51m on the
+    # previous dispatch. `--max-seconds` fires first, abandons what is still
+    # running, writes the partial report, names the abandoned seeds on stderr
+    # and exits 6. Losing the games and keeping the report is the whole
+    # point; `tests/test_experiment_workflow.py` pins the margin so the two
+    # numbers cannot drift into the wrong order.
+    #
+    # `PYTHONUNBUFFERED` and `tee`: the per-game progress lines go to stderr
+    # and are flushed, but `| tail -15` alone shows nothing at all if the step
+    # is killed, and Python block-buffers stdout into a pipe. The full output
+    # goes to `benchmark.log`, which is uploaded and printed below, so a
+    # cancelled or crashed shard still says what it was doing.
+    - id: bench
+      name: play ${{ fromJSON(inputs.shard).slug }} seeds ${{ fromJSON(inputs.shard).seeds }}
       if: ${{ steps.restore.outputs.cache-hit != 'true' }}
       shell: bash
+      env:
+        PYTHONUNBUFFERED: '1'
       run: |
         set -o pipefail
         . scripts/lib/gate_common.sh
@@ -119,8 +141,8 @@ runs:
         # says so. Anything else nonzero is a crash.
         uv run python -m struggler.bots.benchmark \
           --bot "$BOT" --opponent "$OPP" \
-          --seeds "$SEEDS" --stall-timeout 1200 --workers 4 "${ARGS[@]}" \
-          --report "$SLUG.json" 2>&1 | tail -15
+          --seeds "$SEEDS" --stall-timeout 1200 --max-seconds 9000 --workers 4 "${ARGS[@]}" \
+          --report "$SLUG.json" 2>&1 | tee benchmark.log | tail -15
       env:
         SHARD: ${{ inputs.shard }}
         SLUG: ${{ fromJSON(inputs.shard).slug }}
@@ -129,6 +151,30 @@ runs:
         BOT_REF: ${{ fromJSON(inputs.shard).bot_ref }}
         OPENINGS: ${{ fromJSON(inputs.shard).openings }}
         LOGS: ${{ fromJSON(inputs.shard).logs }}
+
+    # WHATEVER HAPPENED, SAY WHAT IT WAS DOING. `if: always()` runs on a
+    # cancel and on a job timeout as well as on a crash, and the last lines of
+    # `benchmark.log` are where the STALLED/EXPIRED line and the abandoned
+    # seeds are. Without this a killed shard is a blank step: the `tail -15`
+    # at the end of the pipeline never gets to run, and the artifact holding
+    # the log cannot be downloaded from every environment.
+    - if: ${{ always() && steps.bench.outcome != 'success' && steps.bench.outcome != 'skipped' }}
+      shell: bash
+      run: |
+        if [ -s benchmark.log ]; then
+          {
+            echo "### $SLUG shard $SHARD_INDEX did not finish cleanly (${{ steps.bench.outcome }})"
+            echo '```'
+            tail -40 benchmark.log
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+        else
+          echo "no benchmark.log: the step produced no output before it stopped" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+        fi
+      env:
+        SLUG: ${{ fromJSON(inputs.shard).slug }}
+        SHARD_INDEX: ${{ fromJSON(inputs.shard).shard }}
 
     # Only on success, and only on a miss. A stall is exit 6, which still
     # writes a report -- a PARTIAL one, over the seeds that finished. That is

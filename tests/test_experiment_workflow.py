@@ -12,6 +12,7 @@ can go quietly wrong.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml   # a hard test dependency: a gate that can skip is not a gate
@@ -84,6 +85,59 @@ def test_the_cache_never_falls_back_to_a_prefix():
         if (step.get('uses') or '').startswith('actions/cache'):
             assert 'restore-keys' not in (step.get('with') or {}), (
                 'an experiment shard must match its key exactly or replay')
+
+
+def test_the_benchmarks_own_ceiling_fires_before_the_runners():
+    """The two timeouts do different things and the ORDER is the whole point.
+
+    A job timeout kills the process, so nothing is written and the shard
+    yields nothing -- `fit-bc-base [5/8]` twice. `--max-seconds` fires first,
+    abandons what is running, writes the partial report and names the
+    abandoned seeds. If someone raises `--max-seconds` or lowers
+    `timeout-minutes` past each other the flag becomes decoration, silently,
+    and the next unmeasurable slice looks like the last one.
+    """
+    body = ACTION.read_text()
+    match = re.search(r'--max-seconds (\d+)', body)
+    assert match, 'the shard action no longer passes --max-seconds'
+    cap = int(match.group(1))
+    jobs = _load(WORKFLOW)['jobs']
+    for name in ('run', 'run2'):
+        job_timeout = jobs[name]['timeout-minutes'] * 60
+        assert cap < job_timeout, (
+            f'{name}: --max-seconds {cap}s is not below timeout-minutes '
+            f'{job_timeout}s, so the runner kills the benchmark before it can '
+            f'write a partial report')
+        assert job_timeout - cap >= 600, (
+            f'{name}: only {job_timeout - cap}s between the benchmark ceiling '
+            f'and the job timeout -- not enough for the report, the log and '
+            f'the artifact upload')
+
+
+def test_a_shard_that_did_not_finish_still_prints_what_it_was_doing():
+    """A killed step is otherwise a blank one: the `tail -15` closing the
+    benchmark pipeline never runs, and the artifact holding the log is not
+    downloadable from every environment. So the log is teed to a file and the
+    tail printed by a step that runs on a cancel."""
+    steps = _steps(ACTION)
+    bench = [s for s in steps if 'struggler.bots.benchmark' in (s.get('run') or '')]
+    assert len(bench) == 1 and 'tee benchmark.log' in bench[0]['run'], (
+        'the benchmark output must be teed to a file, not only piped to tail')
+    printers = [s for s in steps
+                if 'benchmark.log' in (s.get('run') or '')
+                and 'struggler.bots.benchmark' not in (s.get('run') or '')]
+    assert printers, 'nothing prints benchmark.log when the shard fails'
+    assert any('always()' in (s.get('if') or '') for s in printers), (
+        'the step printing the log must run on a cancel, so it needs always()')
+
+
+def test_the_log_is_uploaded_with_the_report():
+    for job in ('run', 'run2'):
+        steps = _load(WORKFLOW)['jobs'][job]['steps']
+        uploads = [s for s in steps if (s.get('uses') or '').startswith('actions/upload-artifact')]
+        assert uploads, f'{job} uploads nothing'
+        assert all('benchmark.log' in (s.get('with') or {}).get('path', '') for s in uploads), (
+            f'{job}: benchmark.log is not in the uploaded paths')
 
 
 def test_the_drift_canary_does_not_take_waves():

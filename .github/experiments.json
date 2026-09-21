@@ -588,6 +588,27 @@
       "compare_to": "leak-iso-fixed",
       "title": "access leak isolated: the fit ON with access still on the guessed tiers",
       "context": "ANSWERED (run 35550341433): the leak is worth +0.011 [-0.007, +0.029] over 1024 seeds -- nothing measurable, and the buggy arm reads a hair BETTER. The prediction on record was that near -0.069 would mean the leak explained the -0.031 -> +0.038 sign flip; it came back near zero, so the flip was the block or the bot. docs/notes/claude/2026-09-21-the-leak-cost-nothing.md retracts the claim. The arm was exp/access-leak-isolation, a deliberately buggy branch (main with the access fix reverted and country_vp_scale defaulted to 2.795, because bot_ref forbids weights)."
+    },
+    {
+      "slug": "fit-fresh-base",
+      "weights": {
+        "country_vp_scale": 0.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "68000-69023",
+      "title": "fitted weights vs bc5ef93, fresh block: off, as shipped",
+      "context": "An INDEPENDENT reading, because 64000-65023 can no longer give one. That block's fit-bc-base has a 128-seed slice (64640-64767, shard 5 of 8) that ran 1h51m on one dispatch and hit the runner's 180-minute job ceiling on the next, so the paired reading there is stuck at 896 seeds -- and a third dispatch returns +0.023 [-0.001, +0.047] again, exactly, which two dispatches have now measured rather than predicted. docs/notes/claude/2026-09-21-fit-vs-bc5ef93.md"
+    },
+    {
+      "slug": "fit-fresh-on",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "anchor": "bc5ef93",
+      "seeds": "68000-69023",
+      "compare_to": "fit-fresh-base",
+      "title": "fitted weights vs bc5ef93, fresh block: on at the matched scale",
+      "context": "The question is whether -0.001 was the block or the weights, and the old block cannot answer it however many times it is run. PRE-REGISTERED, before dispatch: paired lower bound above 0 on the full 1024 seeds means the fit is a measurable gain and step 4 (deleting battleground, control and the un-fitted half of country_value) becomes a normal change with an anchored arm behind it; at or below 0 means two independent blocks agree it is not measurable, and the refit at current main (fitted_country_weights.json is fitted on 598e4d1, two structural changes stale) is the next move rather than another block. docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md"
     }
 
   ],

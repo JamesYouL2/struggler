@@ -278,6 +278,7 @@ jobs:
             ${{ matrix.s.slug }}.json
             arm.json
             arm.weights.json
+            benchmark.log
             game-logs/
           retention-days: 30
 
@@ -367,6 +368,7 @@ jobs:
             ${{ matrix.s.slug }}.json
             arm.json
             arm.weights.json
+            benchmark.log
             game-logs/
           retention-days: 30
 

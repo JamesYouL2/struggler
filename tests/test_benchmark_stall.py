@@ -137,3 +137,122 @@ def test_acceptance_rejects_a_stalled_sample_and_not_an_early_stopped_one():
     decided['summary']['stop_reason'] = 'decided'
     ok, lines = benchmark.acceptance([('gate', _report(wide, 0.5)), ('held-out', decided)])
     assert ok, lines
+
+
+# --- the wall-clock ceiling ---------------------------------------------
+#
+# `--stall-timeout` measures the GAP BETWEEN FINISHES, and its floor adapts to
+# `8 * slowest game so far`, so it puts no ceiling on the run at all: one
+# ten-minute game lifts the floor to eighty minutes. `fit-bc-base [5/8]`
+# (seeds 64640-64767) ran 1h51m on one dispatch and hit the runner's own
+# 180-minute JOB timeout on the next -- and a job timeout kills the process
+# before any report is written, so the shard yielded NOTHING both times where
+# a stall would have yielded a partial report that still pools.
+#
+# `--max-seconds` is that ceiling. The tests below are about the difference
+# between the two, because conflating them is what made the slice unmeasurable.
+
+def test_the_ceiling_clamps_the_adaptive_stall_floor(tmp_path, monkeypatch):
+    """THE ONE THAT MATTERS. A deadline checked only between finishes would be
+    useless in the case it exists for: the run is stuck *inside* `next`,
+    waiting out a floor the slowest game has already stretched past the
+    deadline. A 1000-second game lifts the floor to 8000s; with 60 seconds of
+    budget left the wait must be about 60, not 8000."""
+    results = _Results([_game(4000, 'US')])
+    results.games[0]['seconds'] = 1000.0
+    _run(tmp_path, monkeypatch, results, '--stall-timeout', '1200', '--max-seconds', '60')
+    assert results.timeouts[-1] is not None
+    assert results.timeouts[-1] <= 60, (
+        f'the wait was {results.timeouts[-1]}s with 60s of budget: the adaptive '
+        f'floor (8 x 1000s) escaped the ceiling, which is the whole defect')
+
+
+def test_an_expired_budget_exits_6_and_writes_the_partial_report(tmp_path, monkeypatch):
+    """The point of the flag: lose the games, keep the report. A job timeout
+    keeps neither."""
+    status, report, held = _run(tmp_path, monkeypatch, _Results([_game(4000, 'US')]),
+                                '--stall-timeout', '1200', '--max-seconds', '1')
+    assert status == 6, 'an abandoned run is neither a verdict nor a crash'
+    summary = report['summary']
+    assert summary['stop_reason'] == 'expired'
+    assert (summary['planned_games'], summary['finished_games']) == (4, 1)
+    assert sorted(map(tuple, summary['unfinished'])) == [(4000, 'USSR'), (4001, 'US'), (4001, 'USSR')]
+    assert held['summary']['stop_reason'] == 'expired'
+
+
+def test_the_reason_distinguishes_the_ceiling_from_a_stall(tmp_path, monkeypatch):
+    """Both abandon the run; they diagnose different things. A stall says one
+    game hangs, an expiry says the whole slice is slow, and reading the second
+    as the first is how the floor got raised instead of capped."""
+    _, slow_game, _ = _run(tmp_path, monkeypatch, _Results([_game(4000, 'US')]),
+                           '--stall-timeout', '5', '--max-seconds', '600')
+    assert slow_game['summary']['stop_reason'] == 'stalled', (
+        'budget to spare and nothing finishing is a stall')
+    _, out_of_time, _ = _run(tmp_path, monkeypatch, _Results([_game(4000, 'US')]),
+                             '--stall-timeout', '600', '--max-seconds', '1')
+    assert out_of_time['summary']['stop_reason'] == 'expired', (
+        'the wait was cut short by the ceiling, so nothing was shown about the floor')
+
+
+def test_no_ceiling_by_default_so_nothing_that_does_not_ask_changes(tmp_path, monkeypatch):
+    results = _Results([_game(s, side) for s in (4000, 4001, 5000, 5001)
+                        for side in ('US', 'USSR')], stall=False)
+    status, report, _ = _run(tmp_path, monkeypatch, results, '--stall-timeout', '1200')
+    assert status is None
+    assert report['summary']['stop_reason'] is None
+    assert all(t == 1200 for t in results.timeouts), (
+        'an unset --max-seconds must leave the stall floor exactly as it was')
+
+
+def test_a_run_inside_its_budget_is_judged_by_the_stall_floor(tmp_path, monkeypatch):
+    results = _Results([_game(s, side) for s in (4000, 4001, 5000, 5001)
+                        for side in ('US', 'USSR')], stall=False)
+    status, report, _ = _run(tmp_path, monkeypatch, results, '--stall-timeout', '30',
+                             '--max-seconds', '100000')
+    assert status is None and report['summary']['stop_reason'] is None
+    assert all(t == 30 for t in results.timeouts), (
+        'a budget far from expiry must not shorten the stall floor')
+
+
+def test_acceptance_rejects_an_expired_sample_exactly_as_a_stalled_one():
+    """`INCOMPLETE` is one tuple for one reason: an expired budget censors the
+    sample the same way a stall does -- how long a game runs depends on the
+    candidate and the position, so the abandoned games are the ones most
+    likely to have differed."""
+    wide, held = range(4000, 4048), range(5000, 5048)
+    expired = _report(held, 0.5)
+    expired['summary'].update(stop_reason='expired', planned_games=98, finished_games=96,
+                              unfinished=[[5047, 'US'], [5047, 'USSR']])
+    ok, lines = benchmark.acceptance([('gate', _report(wide, 0.5)), ('held-out', expired)])
+    assert not ok
+    assert any('FAIL completeness' in line and 'expired' in line for line in lines), lines
+
+
+def test_an_expired_report_that_lost_nothing_is_not_stamped(tmp_path, monkeypatch):
+    """The per-sample rule from the stall case applies here too: a sample whose
+    games all finished is complete, whatever the other arm did."""
+    games = [_game(s, side) for s in (4000, 4001) for side in ('US', 'USSR')]
+    status, report, held = _run(tmp_path, monkeypatch, _Results(games),
+                                '--stall-timeout', '600', '--max-seconds', '1')
+    assert status == 6
+    assert report['summary']['stop_reason'] is None and report['summary']['unfinished'] == []
+    assert held['summary']['stop_reason'] == 'expired'
+
+
+def test_the_abandoned_seeds_are_named_on_stderr_not_only_in_the_report(tmp_path, monkeypatch, capsys):
+    """A report has to be downloaded and an artifact is not always reachable;
+    the log is. Which seeds a slice hangs on is the whole diagnosis -- finding
+    the game inside `fit-bc-base [5/8]` would otherwise mean dispatching a
+    bisect."""
+    _run(tmp_path, monkeypatch, _Results([_game(4000, 'US')]),
+         '--stall-timeout', '600', '--max-seconds', '1')
+    err = capsys.readouterr().err
+    assert 'EXPIRED: 7 game(s) never finished' in err, err
+    for named in ('4000/USSR', '4001/US', '5000/US', '5001/USSR'):
+        assert named in err, f'{named} was abandoned and not named:\n{err}'
+
+
+def test_a_negative_ceiling_is_refused(tmp_path, monkeypatch):
+    import pytest
+    with pytest.raises(SystemExit):
+        _run(tmp_path, monkeypatch, _Results([]), '--max-seconds', '-1')
