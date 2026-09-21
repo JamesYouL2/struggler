@@ -610,6 +610,12 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     # fewer lookups per battleground. A native port takes these as precomputed
     # vectors wholesale.
     route_w = route_weight
+    # `s` is threaded into `importance` on purpose. Without it the call
+    # takes the tier path whatever `country_vp_scale` says, and `access`
+    # -- the tiebreaker -- keeps pricing the battlegrounds it reaches on
+    # the guessed tiers while control, progress and the reserve are on
+    # fitted VP. That is two scales inside one `country_value`, which is
+    # bug shape 6. With the scale at 0 the argument changes nothing.
     importance_fn = importance
     access_decay = w.access_decay
     access_chain = w.access_chain
@@ -648,7 +654,7 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
             weight = route_w(stability[n], access_decay, routes)
-            total += weight * importance_fn(t, w, urgency, n) / stability[n]
+            total += weight * importance_fn(t, w, urgency, n, s) / stability[n]
         if not access_chain:
             continue
         # THE CHAIN, one step further: a battleground reachable only through
@@ -665,7 +671,7 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 continue
             if any(inf_s[k] > 0 for k in neighbors[m]):
                 continue  # reachable directly from somewhere already
-            total += access_chain * importance_fn(t, w, urgency, m) / stability[m]
+            total += access_chain * importance_fn(t, w, urgency, m, s) / stability[m]
     return total
 
 
