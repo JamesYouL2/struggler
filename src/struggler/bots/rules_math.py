@@ -138,9 +138,10 @@ def realignment_bonus(board: Board, side: Side, country: str) -> float:
     Ops-type-choice attempts as still in-region" bookkeeping to a bot that
     already has no lookahead and only proxy (not exact) legality elsewhere
     -- disproportionate complexity for its value."""
-    bonus = 1.0 if board.is_adjacent(side.value, country) else 0.0
+    key = side.key
+    bonus = 1.0 if board.is_adjacent(key, country) else 0.0
     bonus += sum(1 for n in board.neighbors(country) if board.control(n) is side)
-    if board.influence[country][side.value] > board.influence[country][side.opponent.value]:
+    if board.influence[country][key] > board.influence[country][side.opp_key]:
         bonus += 1.0
     return bonus
 
@@ -158,7 +159,7 @@ def phasing_side(observation: Observation) -> Side:
     """Return the side whose card play owns the current decision."""
     decision = observation.pending_decision
     context = decision.context if decision is not None else {}
-    return Side(context.get("phasing_player", observation.side.value))
+    return Side(context.get("phasing_player", observation.side.key))
 
 
 def next_move(observation: Observation, side: Side) -> int | None:

@@ -2180,12 +2180,12 @@ class StrategicPlayer:
         by then every turn effect has lapsed."""
         board = self.board
         info = board.countries[cid]
-        if board.influence[cid][attacker.opponent.value] <= 0:
+        if board.influence[cid][attacker.opp_key] <= 0:
             return False
         defcon, effects = reply_context(obs, when)
         if not defcon_allows_coup(info.region, defcon):
             return False
-        if effects.get('cuban_missile_crisis') == attacker.value:
+        if effects.get('cuban_missile_crisis') == attacker.key:
             return False
         if coup_risks_defcon_under(effects, attacker, info) and defcon <= 2:
             return False
@@ -2224,7 +2224,7 @@ class StrategicPlayer:
         would only repeat the same `delta`."""
         board = self.board
         info = board.countries[cid]
-        defender = board.influence[cid][attacker.opponent.value]
+        defender = board.influence[cid][attacker.opp_key]
         _defcon, effects = reply_context(obs, when)
         mod = coup_roll_modifier(effects, attacker, info)
         total = 0.
@@ -2301,7 +2301,7 @@ class StrategicPlayer:
         """Influence points `side` needs here to control it, from the board
         as it stands. Zero if they already do."""
         inf = self.board.influence[cid]
-        mine, theirs = inf[side.value], inf[side.opponent.value]
+        mine, theirs = inf[side.key], inf[side.opp_key]
         return max(0, self.board.countries[cid].stability + theirs - mine)
 
     def _placement_ops_value(self, obs: Observation, ops: int) -> float:
@@ -2457,18 +2457,18 @@ class StrategicPlayer:
         requirement, while still degrading DEFCON on a Battleground like any
         other Coup. See `Engine.resolve_free_op_choice`."""
         info = self.board.countries[cid]
-        if obs.turn_effects.get('cuban_missile_crisis') == obs.side.value:
+        if obs.turn_effects.get('cuban_missile_crisis') == obs.side.key:
             return LOSS
         if obs.defcon <= 2 and coup_risks_defcon(obs, obs.side, info):
             return LOSS if self._is_phasing(obs) else -LOSS
-        enemy = self.board.influence[cid][obs.side.opponent.value]
+        enemy = self.board.influence[cid][obs.side.opp_key]
         mod = coup_roll_modifier_estimate(obs, obs.side, info)
         gain = 0.0
         for removed, gained in coup_outcomes(ops, info.stability, enemy, mod):
             gain += self.delta(obs, cid, own=gained, opp=-removed) / 6
         gain *= self.weights.coup_discount
         if military:
-            gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.value, 0), obs.defcon)
+            gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.key, 0), obs.defcon)
         # Yuri and Samantha pays the USSR 1 VP per US Coup attempt for the
         # remainder of the TURN: a turn effect (`engine.turn_effects`), not
         # a game-long one. Read from `game_effects` this cost never applied,
@@ -3554,7 +3554,7 @@ class StrategicPlayer:
         penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
         penalty += int(ctx.get('count_target_control', True) and self.board.control(cid) is obs.side.opponent)
         probability = max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
-        enemy = self.board.influence[cid][obs.side.opponent.value]
+        enemy = self.board.influence[cid][obs.side.opp_key]
         return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
 
     def _score_discard(self, obs: Observation, action: Action, kind, p, ctx):
