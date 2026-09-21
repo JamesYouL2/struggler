@@ -1,4 +1,30 @@
-# The intransitivity was the access scale leak, and it flips sign
+# RETRACTED: the intransitivity was NOT the access scale leak
+
+> **Correction, 2026-09-21, run 35550341433.** This note's title claim is
+> **wrong**. The isolation arm it proposed has now run, and the access scale
+> leak costs **nothing measurable**:
+>
+> | arm | vs `07d553a` | US | USSR |
+> | --- | ---: | ---: | ---: |
+> | `leak-iso-buggy` (leak present) | 0.569 [0.552, 0.586] | 0.632 | 0.505 |
+> | `leak-iso-fixed` (leak fixed) | 0.558 [0.541, 0.575] | 0.603 | 0.513 |
+>
+> **Paired: +0.011 [-0.007, +0.029] over 1024 seeds** -- the *buggy* bot
+> reads a hair better, and the interval contains zero. The prediction
+> written down before the run was "near -0.069 and the leak explains the
+> whole flip; near zero and the flip was the block or the bot". It came back
+> near zero. **The flip was the block or the bot, not the leak.**
+>
+> What survives: the `+0.038` reading below is a clean paired measurement
+> and still stands. The access fix is still a correct fix -- two scales
+> inside one `country_value` is a defect whatever it costs -- and it is free
+> (its gate was a dead heat). What does **not** survive is this note's
+> causal story, and the sentence below claiming the 2026-09-18 `-0.031`
+> "was an artifact" of the leak.
+>
+> See [the correction note](2026-09-21-the-leak-cost-nothing.md).
+> The filename is left alone because
+> `.github/experiments.json` cites it by path.
 
 2026-09-21. Run 35545821069, `fit-intransitive-base` / `fit-intransitive-on`,
 1024 seeds each (62000-63023) against `07d553a`, paired, 16 shards, none
@@ -26,11 +52,17 @@ The same switch, against the same anchor, measured twice:
 Both intervals exclude zero, in opposite directions. The swing is 0.069 --
 larger than any single change measured this week.
 
-**So the `access` scale leak was not merely a candidate explanation for the
-intransitivity. Fixing it turned the fitted weights from a measurable loss
-into a measurable gain**, and the loss that reverted them on 2026-09-18 was
-an artifact of three of `country_value`'s four terms being on fitted VP
-while the fourth -- the tiebreaker -- stayed on the guessed tiers.
+~~**So the `access` scale leak was not merely a candidate explanation for
+the intransitivity. Fixing it turned the fitted weights from a measurable
+loss into a measurable gain**, and the loss that reverted them on
+2026-09-18 was an artifact of three of `country_value`'s four terms being
+on fitted VP while the fourth -- the tiebreaker -- stayed on the guessed
+tiers.~~
+
+**RETRACTED.** The isolation arm says the leak is worth +0.011 [-0.007,
++0.029], i.e. nothing. The paragraph above was the inference this note
+itself flagged as confounded, stated as if it were settled. It was not, and
+it was wrong.
 
 ## What this reading cannot say
 
@@ -108,19 +140,25 @@ anchored arm behind it. The property test
 `test_the_fit_owns_the_whole_country_layer_and_the_guessed_tiers_are_not_read`
 is already in place and is what makes that deletion checkable.
 
-## The lesson worth keeping
+## The lesson worth keeping (which also did not survive)
 
 A term was added to the value function, measured, found wanting, and
 reverted -- and the measurement was right about the numbers and wrong about
 the cause. What it actually measured was **a bug in the wiring of the thing
 being tested**, not the thing being tested.
 
-The 2026-09-18 note called the -0.031 "the clearest statement this repo has
-that beating the current bot is not the objective function". That reading
-now has a simpler explanation available, and the general claim it was used
-to support needs different evidence. **Intransitivity is still the thing to
-watch for; this particular instance of it was a defect.**
+~~The 2026-09-18 note called the -0.031 "the clearest statement this repo
+has that beating the current bot is not the objective function". That
+reading now has a simpler explanation available.~~
 
-Before concluding that a change is *strategically* wrong, check that every
-term it touches moved with it. Here the check is one line --
-`importance(..., s)` with the side threaded -- and it was worth 0.069.
+**RETRACTED.** The simpler explanation was tested and is false. The
+2026-09-18 `-0.031` does **not** have a known cause, so the claim it was
+used to support is neither confirmed nor refuted -- it is back to being an
+open question, on weaker evidence than either this note or the 2026-09-18
+one asserted.
+
+The lesson that does survive is smaller and about method, not about
+`access`: **this note stated an inference it had itself labelled
+confounded, in its own title.** The isolation arm was already registered
+and dispatched when the title was written. Waiting one run would have cost
+nothing.
