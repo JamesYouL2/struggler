@@ -40,10 +40,29 @@ about 0.10 of bot strength gained in between (the region-margin deletion,
 clean measurement of what the leak cost.** It is confounded, and honestly
 so.
 
-Isolating the leak would take a third arm: the fit on *with* the leak
-reintroduced, on this same block and this same bot, paired against these
-two. That is one arm, and it would turn "the leak explains the sign" from
-an inference into a measurement. It has not been run.
+Isolating the leak takes a third arm: the fit on *with* the leak
+reintroduced, on one block and one bot, paired. **Registered and dispatched**
+as `leak-iso-fixed` / `leak-iso-buggy` (66000-67023 against `07d553a`), the
+buggy arm being `exp/access-leak-isolation` by `bot_ref` -- current main
+with exactly two changes, the fix reverted and `country_vp_scale` defaulted
+to 2.795, because `experiments.yml` forbids `bot_ref` with `weights`.
+
+**A local probe first**, over the 401-record parity corpus ranked with the
+fit on under both revisions:
+
+| | |
+| --- | ---: |
+| rankings the leak changes | **52 (13.0%)** |
+| top actions it changes | **6 (1.5%)** |
+
+So the leak bites on a minority of decisions. That is enough to be worth
+measuring in games and not enough to call 0.069 attributed without doing
+so -- the corpus ranks one decision per record and cannot see compounding,
+which is exactly the limit the
+[sandbox note](2026-09-20-the-stall-is-the-drain.md) records. If the paired
+arm comes back near -0.069 the leak explains the whole flip; near zero and
+the flip was the block or the bot, and the intransitivity claim needs
+different evidence again.
 
 What *is* clean is the reading itself: +0.038 [+0.015, +0.061], one block,
 one bot, paired seed by seed, with the fix in both arms' base.
