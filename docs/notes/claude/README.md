@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [The slow shard is the runner, not the seeds](2026-09-21-the-slow-shard-is-the-runner.md) — 2026-09-21 (the 2h14m shard was the LIGHTEST of four by local work; CI spans 4.5x on 1.33x of work, so shard size is the only lever)
 - [`Enum.value` is a descriptor, and the engine read it 3.2 million times a game](2026-09-21-enum-attribute-reads.md) — 2026-09-21 (3,172,738 reads → 188,658 from eight sites, -1.8% a game; the profile's own-time column overstated it 3x, and one round of one seed reported the wrong sign)
 - [Wiring the VP rebuild into the ranking: 172x, and where it actually goes](2026-09-20-potential-in-the-ranking.md) — 2026-09-20 (the cost is rebuilding the linear tables per position; round-level tables plus three exact precomputed tables take it to 2.75x, and the approximation's error is measured)
 - [Handoff, 2026-09-21: what landed, what is in flight, and what to tell the next model](2026-09-21-handoff-and-what-to-hand-a-weaker-model.md) — 2026-09-21 (the session's own mistakes, ordered by damage: profile to find and time unprofiled to price, float regrouping made twice, a guard in a path that never ran, and a pre-registered rule that read -0.001 and was not moved)
