@@ -1,4 +1,4 @@
-# Cheaper readings: a shard cache, sequential waves, and 6% off the bot
+# Cheaper readings: a shard cache, sequential waves, and 8% off the bot
 
 2026-09-21. Three ways to get the same answers for less, asked for
 together and worth reading together because they buy different things:
@@ -10,7 +10,8 @@ large.
 | --- | --- | ---: | --- |
 | shard cache | replaying a shard already played | **up to 100%** of a re-dispatch | a stale reading if the key is wrong |
 | sequential waves | the second half of a decided arm | **~50%** of arms that were never close | final interval 1.645 -> 1.678 (+2.0%) |
-| the three exact speedups | Python call overhead in the hot loop | **5.9%** of a game | nothing; bit-identical |
+| the three exact speedups | Python call overhead in the hot loop | **6.1%** of a game | nothing; bit-identical |
+| the neighbour-diff cache | the four-point repeat inside `_delta` | **2.1%** of a game | a ninth cache in the riskiest function |
 
 ## 1. The shard cache
 
@@ -136,16 +137,23 @@ should have. **The saving is concentrated exactly where the question was
 easy**, which is the right place for it and also the reason it will not
 feel dramatic.
 
-## 3. `delta` and `country_value`: 5.9%, and where the rest is
+## 3. `delta` and `country_value`: 8.0%, and where the rest is
 
-Profiled, one strategic self-play game (seed 4000, italy/austria), on an
-otherwise idle box. Absolute times are this machine; the proportions are
-the point.
+Timed on an otherwise idle 4-core box, **unprofiled**, best of two over
+three self-play games (seeds 4000-4002, italy/austria). Absolute times are
+this machine; the proportions are the point.
 
-| | before | after |
+| | wall | vs baseline |
 | --- | ---: | ---: |
-| wall | 54.0 s | **50.8 s** |
-| function calls | 85.4 M | **79.8 M** |
+| `7929eb5`, before any of this | 64.40 s | -- |
+| + the three exact speedups below | 60.50 s | **-6.1%** |
+| + the neighbour-diff cache | **59.22 s** | **-8.0%** |
+
+**Unprofiled on purpose.** cProfile charges about a microsecond per call,
+so it over-rewards every change here -- all of them remove calls. Under it
+the same three speedups read 54.0 s -> 50.8 s and 85.4 M -> 79.8 M calls,
+which is the right shape and the wrong size. Profile to find the work;
+time without the profiler to say what removing it was worth.
 
 **Three exact changes**, all of them the same shape the repo already took
 in `country_value` ("Clamped with comparisons, not `max`/`min`. Identical
@@ -187,31 +195,87 @@ and the reason is now a comment at the site.
 | `access` | 1.8 s, 3.3 M calls | already cheap per call; the early exits work |
 | `route_weight` / `route_decay` | -- | **already `lru_cache`d**; this was checked, not assumed |
 
-4. **The one structural saving left is the four-point repeat.**
-   `_placement_ops_value` asks `delta` for one country at one, two, three
-   and four points, and `_delta`'s own docstring says so: "this half is
-   computed four times for one answer". The base half is already cached
-   (`_base_country`, `_base_regions`); what is **not** shared across the
-   four is the `place`/restore pair and the whole neighbour sweep. The
-   `delta` memo hits only 27% (792,908 calls, 581,687 misses) because
-   `(digest, cid, own, opp)` makes those four legitimately distinct keys.
+### The four-point repeat, measured and taken: 2.1%
 
-   Doing all four points in one pass -- one `place` per point but one
-   neighbour set, one urgency vector, one region lookup -- is worth
-   attempting and is **not** a micro-optimisation: it changes an interface.
-   It is also exactly the kind of change that has inverted a sign in this
-   codebase before (`tests/test_base_cache_discipline.py` exists because
-   moving the board mid-ranking made breaks *more* attractive). It should
-   be done against the parity corpus, on its own, and not bundled.
+Asked again directly, so measured rather than estimated.
+`_investment` asks `delta` for one country at one, two, three and four
+points. Every neighbour's value reads `cid` through `access` alone, and
+`access` reads exactly three things about it -- who controls it, and
+whether each side holds ANY influence there. `_delta`'s docstring already
+says so, and the skip above the sweep already turns on those three. So two
+trials that agree on the triple leave every neighbour on the same float.
+
+Instrumented over one self-play game:
+
+| | |
+| --- | ---: |
+| `_delta` calls | 531,901 |
+| neighbour sweeps run | 402,097 |
+| sweeps repeating a triple already computed | **179,754 (44.7%)** |
+| `country_value` calls inside sweeps | 1,476,826 |
+| **saveable** | **621,346 (42.1%)** |
+
+Cached, per decision, beside `_base_country` and dropped by the same
+`_invalidate_base`. What it buys:
+
+| | before | after |
+| --- | ---: | ---: |
+| `country_value` calls | 2,916,018 | **2,382,145** (-18%) |
+| `access` calls | 3,268,642 | **2,639,747** (-19%) |
+| **wall, unprofiled, 3 games** | **60.50 s** | **59.22 s (-2.1%)** |
+
+**Report the 2.1%, not the 18%.** Under cProfile the same change reads
+50.8 -> 50.4 s. The honest number is the unprofiled one, best-of-two:
+**2.1%**. The bookkeeping -- a
+five-tuple key built on every sweep, a dict lookup, a diffs tuple -- eats
+most of what the removed calls give back.
+
+**Two things went in the way they did for exactness, not neatness.**
+
+- The cache holds the per-neighbour DIFFS, not their sum. `change` is
+  accumulated one neighbour at a time and float addition is not
+  associative, so a cached total added in one step is a different float.
+  The first draft cached the sum; it would have changed rankings. This is
+  the same mistake as the `coup_outcomes` regrouping above, made twice in
+  one sitting, which is why both now carry the reason at the site.
+- `CHECK_SNAPSHOT` recomputes every hit and asserts it matches, so any run
+  with the checker on is itself a proof that the key is big enough.
+  `tests/test_neighbour_cache_discipline.py` checks the property directly
+  (sweep every influence pair at a country; two that agree on the triple
+  must leave every neighbour identical), checks a negative control (they
+  do move when the triple moves), and shrinks the key in a subprocess to
+  confirm the recompute catches it.
+
+**Is 2.1% worth a ninth cache in the most defect-prone function here?**
+Marginal, honestly. It is exact, corpus-verified and gated, and it
+compounds with the 12.8% and 5.9% before it -- but in the currency that
+matters for experiments it is ten minutes off an eight-hour arm, against a
+shard cache that removes whole re-dispatches. Kept on those terms; one
+revert undoes it.
+
+### What is left after that
+
+4. **Batching the four point-counts at the call site.**
+   The neighbour sweep is now shared; the `place`/restore pair is not.
+   `_investment` does four places per point -- restore, trial, untrial,
+   commit -- so sixteen for a four-Op spend where a single pass that walks
+   1 -> 2 -> 3 -> 4 and restores once would do five. `place` is still 2.32M
+   calls and 4.2 s of the profile, so this is the largest single item left.
+
+   It changes an interface rather than an expression, and it is exactly the
+   kind of change that has inverted a sign here before
+   (`tests/test_base_cache_discipline.py` exists because moving the board
+   mid-ranking made breaks *more* attractive). Against the parity corpus,
+   on its own, not bundled.
 
 5. **Not taken: inlining `importance` into `access`'s loop.** It would save
    3.1 M calls, and it would put the battleground/control rule in a second
    place. That is the bug shape that has cost this repo the most, and step 4
    of the VP rebuild is about to delete that branch anyway.
 
-**The honest summary of part 3: 5.9% is real and free, and it is not the
-answer to "make experiments cheaper."** A 6% faster bot turns a 40-minute
-shard into a 38-minute one. The cache turns a re-dispatched shard into
+**The honest summary of part 3: 8% is real, and it is not the answer to
+"make experiments cheaper."** An 8% faster bot turns a 40-minute shard
+into a 37-minute one. The cache turns a re-dispatched shard into
 zero, and the waves turn half of a settled arm into zero. Spend attention
 there.
 

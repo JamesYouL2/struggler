@@ -153,6 +153,20 @@ by remembering harder.
   for headlines. Match the *values* against the card ids. Gated by
   `tests/test_history_privacy.py`, which checks the rules' question: every
   card the shared history names must already have been revealed in it.
+- **Don't regroup a float expression while optimising it, and don't cache a
+  sum when the caller accumulates it.** Made twice in one sitting on
+  2026-09-21, both times while removing builtin calls from a hot loop.
+  `coup_outcomes` nearly had `ops - 2 * stability + modifier` hoisted out of
+  the six-roll loop -- `(1 + 3 - 4) + 0.1` is `0.1` and
+  `1 + ((3 - 4) + 0.1)` is `0.09999999999999998`, with an `int()`
+  truncation immediately downstream -- and `_delta`'s neighbour cache
+  nearly stored `sum(after - then)` where the caller adds each difference
+  into a running total. Neither is "close enough": rankings are decided by
+  strict comparison, so one ulp is a changed move.
+  `evaluator.py`'s header says this about multiplication; it is just as
+  true of addition, and a profile is exactly the context that invites it.
+  **The gate is `tests/test_parity_corpus.py`** -- run it before believing
+  any optimisation, and cache the addends rather than the sum.
 - **Don't memoise an evaluation term on less state than it reads.** This has
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored
