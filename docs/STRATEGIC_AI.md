@@ -701,7 +701,10 @@ that ended in nuclear war now end on VP or final scoring.
 ### Where the frozen board is not enough
 
 The search freezes the board, so a borrowed-Coup card that is safe only for
-want of a target (`latent_hazards`) is re-planned on the board a play leaves:
+want of a target in its own geography (`latent_hazards`, asked through the
+one shared query `borrowed_coup_threat`: Tear Down This Wall in Europe,
+Ortega adjacent to Nicaragua, each ignoring the DEFCON coup prohibition per
+the FAQ) is re-planned on the board a play leaves:
 an event that fires is resolved on a public sandbox (`_after_event`: the
 event helper's choices, chance at its middle option, no dice forks), and a
 placement of our Influence into a battleground we are absent from is

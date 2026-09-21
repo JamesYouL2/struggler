@@ -215,6 +215,25 @@ class DefconPlanner:
             return False
         return self.battleground_coup(actor, defcon, countries, ignore_defcon)
 
+    def borrowed_coup_threat(self, cid, defcon):
+        """Whether the free Coup `cid`'s event hands the opponent reaches a
+        legal battleground target at `defcon`. The one rules question both
+        `event_risk` and `latent_hazards` ask, so the card's geography is
+        written down here once: Tear Down This Wall Coups in Europe and
+        Ortega adjacent to Nicaragua, and both free Coups ignore the DEFCON
+        coup prohibition per the FAQ (`ignore_defcon=True`); every other
+        borrowed Coup is asked as a normal one. The Nuclear Subs and Cuban
+        Missile Crisis checks stay in `battleground_coup`, shared."""
+        actor = BORROWED_COUPS.get(cid)
+        if actor is None:
+            return False
+        countries = None
+        if cid == 'Tear_Down_This_Wall':
+            countries = [c for c, i in self.engine.board.countries.items() if i.region is Region.EUROPE]
+        elif cid == 'Ortega_Elected_in_Nicaragua':
+            countries = self.engine.board.neighbors('Nicaragua')
+        return self.coup_threat(actor, defcon, countries, countries is not None)
+
     def opponent_can_lower_defcon(self):
         """Whether the opponent has a legal battleground Coup right now that
         would lower DEFCON: a fact about the public board, not a forecast.
@@ -223,9 +242,10 @@ class DefconPlanner:
 
     def latent_hazards(self, hand):
         """Borrowed-Coup cards in `hand` that would be lethal at DEFCON 2 but
-        for want of a target: safe on this board, not on one we move to."""
+        for want of a target in their own geography: safe on this board, not
+        on one we move to."""
         return [c for c in hand if c in BORROWED_COUPS and self.opponent_event(c)
-                and not self.coup_threat(BORROWED_COUPS[c], 2)]
+                and not self.borrowed_coup_threat(c, 2)]
 
     def battleground_coup(self, actor, defcon, countries=None, ignore_defcon=False):
         """Whether `actor` can Coup a battleground at `defcon` and lower it."""
@@ -266,12 +286,7 @@ class DefconPlanner:
             return sum(y+b > x+a for x in range(1, 7) for y in range(1, 7))/36
         actor = BORROWED_COUPS.get(cid)
         if actor:
-            countries = None
-            if cid == 'Tear_Down_This_Wall':
-                countries = [c for c, i in self.engine.board.countries.items() if i.region is Region.EUROPE]
-            if cid == 'Ortega_Elected_in_Nicaragua':
-                countries = self.engine.board.neighbors('Nicaragua')
-            risk = float(self.coup_threat(actor, defcon, countries, countries is not None))
+            risk = float(self.borrowed_coup_threat(cid, defcon))
             if cid == 'Grain_Sales_to_Soviets' and self.side is Side.USSR and hand:
                 # US can choose a neutral DEFCON setter on USSR's action.
                 nested = [1.0 if c == 'How_I_Learned_to_Stop_Worrying' else

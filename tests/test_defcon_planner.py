@@ -446,6 +446,84 @@ def test_a_placement_that_creates_the_first_coup_target_is_priced():
     assert ranked[0][1].payload['country'] == 'Afghanistan'
 
 
+# -- the 2026-09-20 technical-correctness audit (docs/notes/codex/2026-09-20-technical-correctness.md) --
+
+
+def cleared_board_setup(cards, side, rounds=1, defcon=2, space_used=1):
+    """`setup_hand` with every country emptied first, so a test states all
+    the influence it means to price: `setup_hand`'s own Cuba point is the
+    unrestricted borrowed-Coup target the F1 defect hid behind."""
+    e = setup_hand(cards, side=side, rounds=rounds, defcon=defcon, space_used=space_used)
+    for country in e.board.influence:
+        e.board.influence[country] = {'US': 0, 'USSR': 0}
+    return e
+
+
+@pytest.mark.parametrize('card,side,target,access', [
+    ('Ortega_Elected_in_Nicaragua', Side.US, 'Cuba', 'Nicaragua'),
+    ('Tear_Down_This_Wall', Side.USSR, 'Italy', 'Austria'),
+])
+def test_a_restricted_borrowed_coup_is_latent_where_only_geography_withholds_it(card, side, target, access):
+    # F1: `latent_hazards` asked the unrestricted Coup question, so a card
+    # held safe by its own geography read as not latent whenever the
+    # opponent had any legal unrestricted battleground Coup elsewhere -- and
+    # the placement planner switched itself off exactly when the next
+    # placement could create the restricted target.
+    e = cleared_board_setup([card], side)
+    e.board.influence['Angola'][side.value] = 1  # a legal UNRESTRICTED battleground Coup at DEFCON 2
+    assert target in e.board.neighbors(access)
+    p = planner(e, side)
+    assert p.event_risk(card) == 0  # safe now: the free Coup cannot reach its own geography
+    assert p.latent_hazards(p.hand) == [card]
+    e.board.influence[target][side.value] = 1  # the first eligible battleground appears in it
+    assert planner(e, side).event_risk(card) == 1
+
+
+@pytest.mark.parametrize('card,side,target,access,ops_card', [
+    ('Ortega_Elected_in_Nicaragua', Side.US, 'Cuba', 'Nicaragua', 'NATO'),
+    ('Tear_Down_This_Wall', Side.USSR, 'Italy', 'Austria', 'Nasser'),
+])
+def test_a_placement_that_creates_a_restricted_borrowed_coups_first_target_is_priced(card, side, target, access, ops_card):
+    # F1 through the real decisions: the ranking keeps its placement
+    # planner (the defect switched it off), the placement inside the card's
+    # geography is priced as the loss it creates, and the control outside
+    # the geography is not -- the unrestricted Angola target makes both
+    # placements legal Coup targets for a NORMAL coup, but only the
+    # in-geography one for the card's free Coup.
+    e = cleared_board_setup([card, ops_card], side, rounds=2)
+    e.board.influence['Angola'][side.value] = 1  # the unrelated unrestricted target
+    e.board.influence[access][side.value] = 1    # our access for the placement
+    assert target in e.board.neighbors(access)
+    e.board.influence['Zaire'][side.value] = 0
+    e.hands[side.value].remove(ops_card)  # the Ops card is being played
+    e._push(side, K.PLACE_INFLUENCE,
+            tuple(Action(K.PLACE_INFLUENCE, {'country': c}) for c in (target, 'Zaire')),
+            {'ops_remaining': 1, 'phasing_player': side.value})
+    bot, _, ranked = ranked_with_risk(e, side)
+    assert bot._planner is not None  # the restricted card is latent, so the planner stays
+    risks = {a.payload['country']: r for _, a, (_, r) in ranked}
+    assert risks == {target: 1, 'Zaire': 0}
+    assert ranked[0][1].payload['country'] == 'Zaire'
+
+
+def test_an_event_that_fills_a_restricted_coups_geography_is_priced_on_the_board_it_leaves():
+    # F1 through `_mode_risk`'s resimulation guard: Tear Down This Wall sits
+    # latent in the remaining hand (its Europe is empty), and John Paul II's
+    # event puts the first US point in a European battleground. The frozen
+    # board prices the play at zero; the board it leaves is the loss.
+    e = cleared_board_setup(['Tear_Down_This_Wall', 'John_Paul_II_Elected_Pope'], Side.USSR,
+                            rounds=2, defcon=2)
+    e.board.influence['Angola']['USSR'] = 1  # a legal unrestricted target, the F1 trap
+    # John Paul II removes 2 USSR from Poland and adds 1 US: leave 3, so one
+    # USSR point survives to be the free Coup's removable target.
+    e.board.influence['Poland']['USSR'] = 3
+    e._push_action_round_play(Side.USSR)
+    e.step(Action(K.ACTION_ROUND_PLAY, {'card': 'John_Paul_II_Elected_Pope'}))
+    _, _, ranked = ranked_with_risk(e)
+    risks = {a.payload['mode']: r for _, a, (_, r) in ranked}
+    assert risks == {'ops': 1, 'event': 1}
+
+
 @pytest.mark.parametrize('opponent_box,expected', [(0, 1/3), (2, 1.)])
 def test_reaching_box_two_in_the_search_grants_the_second_attempt(opponent_box, expected):
     # F4: success (4 in 6) reaches box 2 first and allows spacing KAL too;
