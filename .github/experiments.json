@@ -548,6 +548,46 @@
       "compare_to": "potential-round-base",
       "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
       "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. ANSWERED (run 35531902621): 0.562 [0.538, 0.586], paired +0.021 [-0.009, +0.052] over 512 seeds -- the interval contains zero, so the term is not measured to help and not measured not to. It ships at 0.0. docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
+    },
+    {
+      "slug": "fit-bc-base",
+      "weights": {
+        "country_vp_scale": 0.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "64000-65023",
+      "title": "fitted weights vs bc5ef93: off, as shipped",
+      "context": "The confirmation arm. Against 07d553a the fit reads +0.038 [+0.015, +0.061] once the access scale leak is fixed (run 35545821069) -- but 07d553a sits INSIDE the regression the 2026-09-19 bisect found, so beating it is the weaker test. bc5ef93 is the strongest anchor there is and the one HEAD is only level with (0.502). A gain that does not survive this arm is a gain against a weakened opponent. docs/notes/claude/2026-09-21-the-intransitivity-was-the-access-scale.md"
+    },
+    {
+      "slug": "fit-bc-on",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "anchor": "bc5ef93",
+      "seeds": "64000-65023",
+      "compare_to": "fit-bc-base",
+      "title": "fitted weights vs bc5ef93: on at the matched scale",
+      "context": "Step 3b of docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md. If this holds the sign it read against 07d553a, step 4 (deleting battleground, control and the un-fitted half of country_value) becomes a normal change with an anchored arm behind it. If it does not, the +0.038 was opponent-specific and the deletion waits."
+    },
+    {
+      "slug": "leak-iso-fixed",
+      "weights": {
+        "country_vp_scale": 2.795
+      },
+      "anchor": "07d553a",
+      "seeds": "66000-67023",
+      "title": "access leak isolated: the fit ON with access on the fitted scale",
+      "context": "The control arm. Same bot as leak-iso-buggy except that access follows country_vp_scale. Pairs with it seed by seed, so the difference is the leak and nothing else -- unlike the -0.031 (2026-09-18) vs +0.038 (2026-09-21) comparison, which mixes the fix, the block and ~0.10 of bot strength. docs/notes/claude/2026-09-21-the-intransitivity-was-the-access-scale.md"
+    },
+    {
+      "slug": "leak-iso-buggy",
+      "bot_ref": "580a750f24f442be6d174b769263eed6c0529b08",
+      "anchor": "07d553a",
+      "seeds": "66000-67023",
+      "compare_to": "leak-iso-fixed",
+      "title": "access leak isolated: the fit ON with access still on the guessed tiers",
+      "context": "exp/access-leak-isolation, a deliberately buggy branch: main with the access scale fix reverted and country_vp_scale defaulted to 2.795 (bot_ref forbids weights, so the challenger carries its own default). A local probe over the 401-record parity corpus says the leak changes 52 rankings (13.0%) and 6 top actions (1.5%); this asks what that is worth in games. If the paired difference is about -0.069 the leak explains the whole sign flip; if it is near zero the flip was the block or the bot and the intransitivity claim needs different evidence."
     }
 
   ],
