@@ -312,15 +312,27 @@ jobs:
           path: shards
       - id: look
         run: |
-          set -euo pipefail
+          # `set -u`, NOT `set -e`. THE LOOK MUST NEVER ABORT THE STEP.
+          # `wave_verdict.py` fails open on every unreadable path, and on
+          # 2026-09-21 that guard was bypassed entirely: every wave-1 shard
+          # failed, `pool_reports.py` exited 2 with "no shard reports found",
+          # `set -e` killed the step before the script ran, and `run2` was
+          # skipped for want of a successful `interim`. A total wave-1
+          # failure silently cancelled wave 2 -- the one outcome the whole
+          # design says must not happen. Each stage below degrades instead.
+          set -uo pipefail
           echo "$WAVE2" > wave2.json
-          uv run python scripts/pool_reports.py shards --json interim.json > interim.md
-          { echo '## Interim (wave 1)'; cat interim.md; } >> "$GITHUB_STEP_SUMMARY"
-          uv run python scripts/wave_verdict.py interim.json \
-            --wave2 wave2.json --out next.json | tee verdict.md
-          cat verdict.md >> "$GITHUB_STEP_SUMMARY"
+          uv run python scripts/pool_reports.py shards --json interim.json > interim.md \
+            || echo 'POOLING WAVE 1 FAILED; the look will fail open.' | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo '## Interim (wave 1)'; cat interim.md 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
+          if ! uv run python scripts/wave_verdict.py interim.json \
+               --wave2 wave2.json --out next.json > verdict.md; then
+            echo 'THE LOOK ITSELF FAILED; playing every wave-2 shard.' | tee -a "$GITHUB_STEP_SUMMARY"
+            cp wave2.json next.json
+          fi
+          cat verdict.md 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
           echo "shards=$(cat next.json)" >> "$GITHUB_OUTPUT"
-          echo "count=$(uv run python -c 'import json;print(len(json.load(open("next.json"))))')" >> "$GITHUB_OUTPUT"
+          echo "count=$(python3 -c 'import json;print(len(json.load(open("next.json"))))')" >> "$GITHUB_OUTPUT"
         env:
           WAVE2: ${{ needs.plan.outputs.wave2 }}
       - uses: actions/upload-artifact@v4
@@ -335,18 +347,27 @@ jobs:
 
   run2:
     needs: [plan, interim]
-    if: always() && needs.interim.result == 'success' && needs.interim.outputs.count != '0'
+    # FAIL OPEN AT THE JOB LEVEL TOO. The step above degrades rather than
+    # failing, but a lost runner or a cancelled `interim` would still leave
+    # this job with nothing to read -- and skipping it would report half an
+    # arm's seeds as a whole arm. So an `interim` that did not succeed falls
+    # back to plan's full wave 2, and only a successful look is allowed to
+    # shorten it.
+    if: >-
+      always() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
+      && (needs.interim.result != 'success' || needs.interim.outputs.count != '0')
     name: ${{ matrix.s.slug }} [${{ matrix.s.shard }}/${{ matrix.s.of }}] w2
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        # `|| '[]'` is not a default anyone should hit: the job's `if` skips
-        # it whenever `interim` did not run or selected nothing. It is here
-        # because a matrix that fails to PARSE is a workflow error, and a
-        # workflow error on wave 2 would be reported as a failed experiment.
-        s: ${{ fromJSON(needs.interim.outputs.shards || '[]') }}
+        # The look's selection when there is one, plan's full wave 2 when
+        # there is not -- the same fail-open rule as the job's `if`, and the
+        # reason the fallback is `plan`'s list rather than `'[]'`: an empty
+        # matrix is a workflow error, and a workflow error on wave 2 would be
+        # reported as a failed experiment rather than a shortened one.
+        s: ${{ fromJSON(needs.interim.outputs.shards || needs.plan.outputs.wave2) }}
     steps:
       - uses: actions/checkout@v4
         with:

@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 import yaml   # a hard test dependency: a gate that can skip is not a gate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,8 +23,39 @@ WORKFLOW = ROOT / '.github' / 'workflows' / 'experiments.yml'
 ACTION = ROOT / '.github' / 'actions' / 'run-shard' / 'action.yml'
 
 
+class _NoDuplicates(yaml.SafeLoader):
+    """A loader that refuses a repeated mapping key.
+
+    PyYAML's default keeps the LAST of a duplicate pair and says nothing.
+    GitHub does not: it refuses the whole file with "'env' is already
+    defined" and the job never runs. So a workflow can parse perfectly here,
+    pass every assertion in this file, and be rejected on the runner -- which
+    is exactly what happened on 2026-09-21, when a second `env:` was added to
+    the benchmark step and the smoke dispatch died with "Failed to load
+    action.yml". These tests read the files; they have to read them the way
+    the runner does.
+    """
+
+
+def _no_duplicate_keys(loader, node, deep=False):
+    seen = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise AssertionError(
+                f'{key!r} is defined twice in the same mapping at '
+                f'line {key_node.start_mark.line + 1}: PyYAML would keep the '
+                f'last silently and GitHub refuses the file outright')
+        seen.add(key)
+    return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+
+_NoDuplicates.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
+
+
 def _load(path: Path) -> dict:
-    return yaml.safe_load(path.read_text())
+    return yaml.load(path.read_text(), Loader=_NoDuplicates)
 
 
 def _steps(path: Path) -> list[dict]:
@@ -138,6 +170,54 @@ def test_the_log_is_uploaded_with_the_report():
         assert uploads, f'{job} uploads nothing'
         assert all('benchmark.log' in (s.get('with') or {}).get('path', '') for s in uploads), (
             f'{job}: benchmark.log is not in the uploaded paths')
+
+
+def test_the_interim_look_cannot_abort_its_own_step():
+    """A total wave-1 failure must not cancel wave 2.
+
+    On 2026-09-21 it did: every wave-1 shard failed, `pool_reports.py` exited
+    2 with "no shard reports found", `set -e` killed the step before
+    `wave_verdict.py` could apply its fail-open rule, and `run2` was skipped
+    for want of a successful `interim`. The guard was in the script and the
+    script never ran, which is the worst place for a guard to be."""
+    look = [s for s in _load(WORKFLOW)['jobs']['interim']['steps']
+            if s.get('id') == 'look']
+    assert look, 'the interim job no longer has a `look` step'
+    run = look[0]['run']
+    # The `set` COMMANDS, not the word in a comment -- the comment above the
+    # step says "set -e killed the step", and matching that would make this
+    # test pass or fail on prose.
+    flags = [line.split()[1] for line in run.splitlines()
+             if line.strip().startswith('set -')]
+    assert flags, 'the look sets no shell flags at all'
+    assert not any('e' in f for f in flags), (
+        f'the look must not abort on a failing command: every stage degrades, '
+        f'and these flags include -e: {flags}')
+    assert 'cp wave2.json next.json' in run, (
+        'nothing falls back to the full wave 2 when the verdict script fails')
+
+
+def test_wave_two_falls_back_to_the_full_plan_when_the_look_did_not_succeed():
+    """Fail-open at the job level. The step degrades rather than failing, but
+    a lost runner would still leave `run2` with nothing to read -- and
+    skipping it reports half an arm's seeds as a whole arm."""
+    run2 = _load(WORKFLOW)['jobs']['run2']
+    condition = ' '.join(run2['if'].split())
+    assert "needs.interim.result != 'success'" in condition, (
+        'an interim that did not succeed must still play wave 2')
+    matrix = run2['strategy']['matrix']['s']
+    assert 'needs.plan.outputs.wave2' in matrix, (
+        "the matrix must fall back to plan's full wave 2, not to an empty list")
+
+
+@pytest.mark.parametrize('path', [
+    *sorted((ROOT / '.github' / 'workflows').glob('*.yml')), ACTION])
+def test_no_workflow_repeats_a_mapping_key(path):
+    """Every workflow and the composite action, read the strict way.
+
+    Parametrised over the directory rather than a list, so a workflow added
+    later is covered without anyone remembering to add it here."""
+    _load(path)
 
 
 def test_the_drift_canary_does_not_take_waves():

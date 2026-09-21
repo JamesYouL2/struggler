@@ -113,8 +113,6 @@ runs:
       name: play ${{ fromJSON(inputs.shard).slug }} seeds ${{ fromJSON(inputs.shard).seeds }}
       if: ${{ steps.restore.outputs.cache-hit != 'true' }}
       shell: bash
-      env:
-        PYTHONUNBUFFERED: '1'
       run: |
         set -o pipefail
         . scripts/lib/gate_common.sh
@@ -144,6 +142,11 @@ runs:
           --seeds "$SEEDS" --stall-timeout 1200 --max-seconds 9000 --workers 4 "${ARGS[@]}" \
           --report "$SLUG.json" 2>&1 | tee benchmark.log | tail -15
       env:
+        # One `env:` per step. A second one is a duplicate mapping key: PyYAML
+        # keeps the last silently, and GitHub refuses the whole file with
+        # "'env' is already defined" -- which is a shard job that never runs.
+        # `tests/test_experiment_workflow.py` now rejects duplicate keys.
+        PYTHONUNBUFFERED: '1'
         SHARD: ${{ inputs.shard }}
         SLUG: ${{ fromJSON(inputs.shard).slug }}
         SEEDS: ${{ fromJSON(inputs.shard).seeds }}
