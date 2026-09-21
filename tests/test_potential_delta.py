@@ -157,14 +157,67 @@ def test_a_trial_that_changes_the_scoring_overrides_refuses_to_price_it():
     assert seen.get('fired'), 'the fixture never produced the override it tests'
 
 
-def test_the_tables_are_dropped_when_the_board_moves_under_them():
-    """Bug shape 1. The weights are a per-position object; a table built on
-    one board and read after that board moved prices a position that is not
-    there. `_invalidate_base` is the contract, and it must clear these with
-    the rest."""
+def test_the_tables_are_keyed_on_the_board_they_describe():
+    """Bug shape 1. The weights are a per-position object: a table built on
+    one board must never be served for another. They are keyed on
+    `Position.digest` rather than dropped on every board move, because a
+    trial placement moves the board and puts it back -- and rebuilding six
+    regions at two horizons per candidate cost 2.80 s a ranking, which is
+    the 2026-09-17 descope over again.
+
+    So the contract is not "cleared when the board moves", it is "the board
+    is part of the key": a moved board gets its own entry, and the original
+    board gets its original entry back after an undo.
+    """
     engine = _played()
-    bot, obs = _ranking_bot(engine)
-    bot.potential_delta(obs, 'Iran', own=1)
-    assert bot._weight_table_cache, 'nothing was cached to invalidate'
-    bot._invalidate_base()
-    assert bot._weight_table_cache == {}, 'the weight tables outlived the board they describe'
+    bot, _obs = _ranking_bot(engine)
+    t, pos = bot._terrain, bot._position
+    region = t.region_of[t.index['Iran']]
+
+    first = bot._weight_tables(region)
+    assert bot._weight_tables(region) is first, 'the same board rebuilt its table'
+
+    i = t.index['Iran']
+    was = pos.place(i, pos.inf[ev.US][i] + 3, pos.inf[ev.USSR][i])
+    moved = bot._weight_tables(region)
+    assert moved is not first, 'a moved board was served the old board\'s table'
+    assert moved[1][1] != first[1][1], 'the weights did not move with the board'
+
+    pos.place(i, *was)
+    assert bot._weight_tables(region) is first, 'an undone board did not get its table back'
+
+
+def test_the_trial_plans_are_what_the_inline_walk_used_to_build():
+    """`_trial_plans` precomputes what `potential_delta` rebuilt per call.
+
+    The plan is pure terrain, so it can be checked against the walk it
+    replaced without playing anything: for every country, the regions a
+    trial touches, the members of each whose triple can move, where those
+    sit in `member_weights`'s indexing, and Southeast Asia's payouts. A
+    precomputed table that disagrees with the loop it replaced is the
+    quietest possible defect -- every number stays plausible.
+    """
+    from struggler.bots.strategic.policy import SCORING_CARD_REGION
+
+    player = StrategicPlayer()
+    t = player._terrain
+    cards_by_region = {r: c for c, r in SCORING_CARD_REGION.items()}
+    plans = player._trial_plans
+    assert len(plans) == len(t.ids)
+
+    for i in range(len(t.ids)):
+        touched = {i} | set(t.neighbors[i])
+        want = {}
+        for region in {t.region_of[i]} | {t.region_of[n] for n in t.neighbors[i]}:
+            moved = tuple(m for m in t.members[region] if m in touched)
+            if moved:
+                want[region] = moved
+        got = {entry[0]: entry[1] for entry in plans[i]}
+        assert got == want, f'{t.ids[i]}: touched regions/members differ'
+
+        for region, moved, slots, sea, card in plans[i]:
+            where = {m: k for k, m in enumerate(t.members[region])}
+            assert slots == tuple(where[m] for m in moved)
+            assert card is cards_by_region[region]
+            assert sea == tuple((k, 2.0 if t.ids[m] == 'Thailand' else 1.0)
+                                for k, m in enumerate(moved) if m in t.southeast_asia)

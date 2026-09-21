@@ -55,6 +55,7 @@ The rebuild README asks the first implementation five questions. Answers:
 """
 from __future__ import annotations
 
+import functools
 import math
 from collections import defaultdict
 from collections.abc import Callable
@@ -144,6 +145,42 @@ def _control_features(t: ev.Terrain, pos: ev.Position, i: int, me: int, foe: int
     )
 
 
+@functools.lru_cache(maxsize=None)
+def _p_control_from(mine: int, theirs: int, stability: int, reach_me: bool,
+                    reach_foe: bool, holder: int, me: int, horizon: int) -> float:
+    """`p_control_at_scoring` as a function of its inputs ALONE.
+
+    THE WHOLE POINT IS THE ARGUMENT LIST. `_control_features` reads six
+    things about a country -- both influence counts, both reach flags, the
+    controller, and the stability -- and the fit reads nothing else, not the
+    country's identity and not the rest of the board. So those six plus the
+    horizon and the side ARE the key, exactly, and the table can be shared
+    across every country whose local state matches. That is what makes the
+    memo safe here when a memo on `i` would be bug shape 1: the key is not a
+    proxy for the state, it is the state.
+
+    The domain is small and discrete -- influence rarely exceeds ten a side,
+    stability is 1-5, the rest are flags -- so this fills in during the first
+    turn and is lookups afterwards. It was 1.4 million logistic evaluations
+    in 120 decisions.
+    """
+    row = (
+        float(ops_to_control(mine, theirs, stability)),
+        float(ops_to_control(theirs, mine, stability)),
+        1.0 if reach_me else 0.0,
+        1.0 if reach_foe else 0.0,
+        float(stability == 2), float(stability == 3), float(stability == 4),
+        1.0 if holder == me else 0.0,
+        1.0 if holder == (1 - me) else 0.0,
+        float(max(0, mine - theirs - stability)),
+        float(max(0, theirs - mine - stability)),
+    )
+    beta = CONTROL_ODDS_BETA[min(2, max(1, horizon))]
+    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
+    z = max(-35.0, min(35.0, z))
+    return 1.0 / (1.0 + math.exp(-z))
+
+
 def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, horizon: int) -> float:
     """P(`side` controls country `i` at its region's given scoring, if that
     scoring happens -- the fits' conditioning, carried through here.
@@ -153,14 +190,17 @@ def p_control_at_scoring(t: ev.Terrain, pos: ev.Position, i: int, side: Side, ho
     fit stands (no further table exists); the clamp is documented, not
     silent -- every later scoring borrows the second fit as its only
     available shape.
+
+    The arithmetic is in `_p_control_from`, memoised on the country's local
+    state rather than on the country; this reads that state out of the
+    snapshot and nothing more. `_control_features` stays as the readable
+    statement of what the row is, and `tests/test_forecast.py` holds the two
+    against each other.
     """
     me = ev.SIDE_INDEX[side]
-    foe = 1 - me
-    row = _control_features(t, pos, i, me, foe)
-    beta = CONTROL_ODDS_BETA[min(2, max(1, horizon))]
-    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
-    z = max(-35.0, min(35.0, z))
-    return 1.0 / (1.0 + math.exp(-z))
+    return _p_control_from(pos.inf[me][i], pos.inf[1 - me][i], t.stability[i],
+                           bool(pos.reach[me][i]), bool(pos.reach[1 - me][i]),
+                           pos.control[i], me, horizon)
 
 
 def _triple(p_us: float, p_ussr: float) -> tuple[float, float, float]:
@@ -386,6 +426,85 @@ def _convolve_step(state: dict, row) -> dict:
     return nxt
 
 
+class _Lattice:
+    """A region's tier DP structure, precomputed: index arithmetic, the
+    states each step can reach, and what every state pays out.
+
+    NONE OF THIS IS BOARD. Which states exist, what one member's three
+    outcomes do to a state, and the payout of a state all follow from the
+    region's size, which of its members are battlegrounds, which the Shuttle
+    has frozen, and the region's scoring VP. Only the probabilities move, so
+    this is built once per (region, override pattern) and reused for every
+    position afterwards -- and in a normal game there is one pattern per
+    region for the whole game.
+
+    The state `(us, ussr, us_bg, ussr_bg)` is packed into one integer by
+    mixed radix, which turns the DP's inner loop from hashing 4-tuples into
+    adding two integers. That alone LOST (0.65x): the packed lattice is five
+    times bigger than the set of states a dict actually holds, so walking it
+    densely wasted more than the hashing cost. It wins at 7.45x only with
+    `reach` and `needed` below, which say exactly which slots to touch.
+    """
+
+    __slots__ = ('d_us', 'd_ussr', 'needed', 'payout', 'reach', 'size')
+
+    def __init__(self, bgs: tuple[bool, ...], frozen: tuple[bool, ...],
+                 total_bg: int, scoring_vp) -> None:
+        n = len(bgs)
+        b1 = total_bg + 1
+        s_us = (n + 1) * b1 * b1
+        s_ussr = b1 * b1
+        self.size = (n + 1) * s_us
+        # A frozen member reads uncontrolled whatever it is forced to
+        # (`_tier_rows` scores it that way), so all three of its outcomes are
+        # the same move: nowhere.
+        self.d_us = tuple(0 if frozen[k] else s_us + (b1 if bgs[k] else 0)
+                          for k in range(n))
+        self.d_ussr = tuple(0 if frozen[k] else s_ussr + (1 if bgs[k] else 0)
+                            for k in range(n))
+        # reach[k]: the slots alpha_k can have mass in, ignoring which
+        # outcomes this particular board makes impossible -- a superset of
+        # the support, which is what makes it board-independent.
+        reach = [[0]]
+        for k in range(n):
+            nxt = set()
+            for i in reach[-1]:
+                nxt.add(i + self.d_us[k])
+                nxt.add(i + self.d_ussr[k])
+                nxt.add(i)
+            reach.append(sorted(nxt))
+        self.reach = tuple(reach)
+        # needed[k]: where beta must be DEFINED once members k+1.. are folded
+        # away. NOT reach[k] -- the weights at step k read beta at a FORCED
+        # outcome of member k, which leaves reach[k]. Reading those as 0.0
+        # looked 5.66x faster and was 3.0 VP wrong.
+        needed: list[list[int]] = []
+        for k in range(n):
+            moves = (self.d_us[k], self.d_ussr[k], 0)
+            forced = {i + d for i in reach[k] for d in moves}
+            if k:
+                forced |= {i + d for i in needed[k - 1] for d in moves}
+            needed.append(sorted(i for i in forced if i < self.size))
+        self.needed = tuple(needed)
+        tier_of = _tier_fn(total_bg, scoring_vp)
+        payout = [0.0] * self.size
+        for i in {i for row in (*reach, *needed) for i in row}:
+            us, r = divmod(i, s_us)
+            ussr, r = divmod(r, s_ussr)
+            us_bg, ussr_bg = divmod(r, b1)
+            payout[i] = tier_of(us, us_bg, ussr, ussr_bg)
+        self.payout = payout
+
+
+@functools.lru_cache(maxsize=None)
+def _lattice(bgs: tuple[bool, ...], frozen: tuple[bool, ...], total_bg: int,
+             scoring_vp) -> _Lattice:
+    """`_Lattice` for one shape, built once. Keyed on everything the shape
+    reads and nothing else; in a game with no Formosan Resolution and no
+    Shuttle Diplomacy that is six entries for the whole game."""
+    return _Lattice(bgs, frozen, total_bg, scoring_vp)
+
+
 def tier_weights(t: ev.Terrain, forecast: ControlForecast,
                  overrides: tuple[frozenset[int], frozenset[int]] | None = None
                  ) -> tuple[tuple[float, float, float], ...]:
@@ -419,42 +538,57 @@ def tier_weights(t: ev.Terrain, forecast: ControlForecast,
     A Shuttle-ignored member reads uncontrolled whatever it is forced to,
     as `_tier_rows` scores it, so its three weights are equal."""
     total_bg, scoring_vp, rows = _tier_rows(t, forecast, overrides)
-    tier_of = _tier_fn(total_bg, scoring_vp)
     ignored = frozenset() if overrides is None else overrides[1]
-    frozen = [i in ignored for i in forecast.members]
-
-    def shifts(k):
-        bg = 1 if rows[k][0] else 0
-        if frozen[k]:
-            return ((0, 0, 0, 0),) * 3
-        return ((1, 0, bg, 0), (0, 1, 0, bg), (0, 0, 0, 0))
-
-    def add(x, d):
-        return (x[0] + d[0], x[1] + d[1], x[2] + d[2], x[3] + d[3])
+    frozen = tuple(i in ignored for i in forecast.members)
+    lat = _lattice(tuple(row[0] for row in rows), frozen, total_bg, scoring_vp)
+    size, reach, needed = lat.size, lat.reach, lat.needed
+    d_us_all, d_ussr_all = lat.d_us, lat.d_ussr
 
     n = len(rows)
-    alphas = [{(0, 0, 0, 0): 1.0}]
-    for row in rows:
-        alphas.append(_convolve_step(alphas[-1], row))
-    # needed[k]: the states beta_{k+1} (counts after members 0..k) must be
-    # defined on -- every forced outcome from alpha_k, plus what the later
-    # members' live outcomes carry those to.
-    needed: list[set] = []
+    alphas = [[0.0] * size]
+    alphas[0][0] = 1.0
     for k in range(n):
-        forced = {add(x, d) for x in alphas[k] for d in shifts(k)}
-        if k:
-            live = [d for d, p in zip(shifts(k), rows[k][1:]) if p]
-            forced |= {add(y, d) for y in needed[k - 1] for d in live}
-        needed.append(forced)
-    beta = {y: tier_of(y[0], y[2], y[1], y[3]) for y in needed[n - 1]} if n else {}
+        _is_bg, p_us, p_ussr, p_open = rows[k]
+        d_us, d_ussr = d_us_all[k], d_ussr_all[k]
+        prev = alphas[-1]
+        nxt = [0.0] * size
+        for i in reach[k]:
+            p = prev[i]
+            if p:
+                if p_us:
+                    nxt[i + d_us] += p * p_us
+                if p_ussr:
+                    nxt[i + d_ussr] += p * p_ussr
+                if p_open:
+                    nxt[i] += p * p_open
+        alphas.append(nxt)
+
+    beta = lat.payout
     weights: list[tuple[float, float, float]] = [None] * n  # type: ignore[list-item]
     for k in range(n - 1, -1, -1):
         alpha = alphas[k]
-        weights[k] = tuple(sum(p * beta[add(x, d)] for x, p in alpha.items())
-                           for d in shifts(k))
+        d_us, d_ussr = d_us_all[k], d_ussr_all[k]
+        w_us = w_ussr = w_open = 0.0
+        for i in reach[k]:
+            p = alpha[i]
+            if p:
+                w_us += p * beta[i + d_us]
+                w_ussr += p * beta[i + d_ussr]
+                w_open += p * beta[i]
+        weights[k] = (w_us, w_ussr, w_open)
         if k:
-            live = [(d, p) for d, p in zip(shifts(k), rows[k][1:]) if p]
-            beta = {y: sum(p * beta[add(y, d)] for d, p in live) for y in needed[k - 1]}
+            _is_bg, p_us, p_ussr, p_open = rows[k]
+            nb = [0.0] * size
+            for i in needed[k - 1]:
+                v = 0.0
+                if p_us:
+                    v += p_us * beta[i + d_us]
+                if p_ussr:
+                    v += p_ussr * beta[i + d_ussr]
+                if p_open:
+                    v += p_open * beta[i]
+                nb[i] = v
+            beta = nb
     return tuple(weights)
 
 
