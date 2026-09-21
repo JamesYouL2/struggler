@@ -94,10 +94,20 @@ def coup_outcomes(ops: int, stability: int, defender: int,
     modifiers (6.3.2), and it removes the defender's Influence before adding
     the attacker's. One copy, for our Coups and for the opponent's Coup
     answering us, so the two cannot price a roll differently."""
+    # Clamped with comparisons, not `max`/`min`: identical arithmetic, and
+    # the pair measured 1.1M builtin calls in one self-play game -- the DEFCON
+    # planner prices every roll of every coup either side could make. Same
+    # reason `evaluator.country_value` does it.
     out = []
     for roll in range(1, 7):
-        margin = max(0, int(roll + ops - 2 * stability + modifier))
-        removed = min(defender, margin)
+        # The grouping is left alone: `modifier` is a float, float addition
+        # is not associative, and hoisting `ops - 2 * stability + modifier`
+        # out of the loop regroups it. The builtin calls are what is being
+        # removed here, not the arithmetic.
+        margin = int(roll + ops - 2 * stability + modifier)
+        if margin < 0:
+            margin = 0
+        removed = defender if defender < margin else margin
         out.append((removed, margin - removed))
     return tuple(out)
 

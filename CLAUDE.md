@@ -44,7 +44,16 @@ the tests.
   the pooled readings) and
   `experiments.yml` (arms from `.github/experiments.json`, cut into
   128-seed shards so an arm can be 1024+ seeds, played against HEAD's
-  defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`). Push and dispatch instead of occupying the
+  defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`).
+  Two things make a dispatch cheaper than it looks and both change what a
+  reading means, so read them before quoting one: shards are **cached** on
+  their identity (`scripts/arm_identity.py`), so re-dispatching an unchanged
+  arm replays nothing; and arms run in **two waves**, with the second played
+  only where the first did not settle the question
+  (`scripts/wave_verdict.py` -- an arm that stopped early reports on half
+  its seeds, deliberately, and the run summary says which). `no_cache: true`
+  replays anyway and `waves: false` plays everything, which is what a LEVEL
+  reading wants; `drift.yml` passes it. Push and dispatch instead of occupying the
   maintainer's cores for an hour. The exception is anything whose RESULT is a
   wall-clock number: `gate.yml`'s own header says the verdict survives the
   move and the timings do not, because a shared 4 vCPU runner's clock means

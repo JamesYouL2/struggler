@@ -60,18 +60,33 @@ readings differ in three ways; one has now been eliminated:
 | the seed block (30000-31023 vs 62000-63023) | open |
 | ~0.10 of bot strength gained in between | open |
 
-The block is the more suspicious of the two survivors, and this repo has
-already measured that it can be: two blocks read 0.534 and 0.559 for
-*identical code* three hours apart
-([the status note's section 2](2026-09-20-status-and-what-to-run-next.md)).
-This run adds a third instance -- `leak-iso-fixed` is the same
-configuration as `fit-intransitive-on` on a different block, and reads
-**0.558 against 0.575**, 0.017 apart.
+The block is the more suspicious of the two survivors, but the evidence
+for it is weaker than this note first said, and the correction matters
+because it was the load-bearing claim.
 
-That is now three independent demonstrations that a level against a fixed
-anchor moves by 0.02-0.03 between blocks. **A -0.031 and a +0.038 measured
-on different blocks are within two block-swings of each other.** No third
-mechanism is required to explain the flip, and none has been found.
+**What was claimed:** three independent demonstrations that a level against
+a fixed anchor moves 0.02-0.03 between blocks -- 0.534 against 0.559 from
+[the status note's section 2](2026-09-20-status-and-what-to-run-next.md),
+and `leak-iso-fixed` at 0.558 against `fit-intransitive-on`'s 0.575.
+
+**What the arithmetic says.** Read the SE off the published halfwidths
+rather than assuming one: these arms print +/-0.017 at the one-sided 95%,
+and 0.017 / 1.645 is **SE 0.0103** per level. (A coin-flip model would say
+0.0156; the benchmark's score counts a draw as a half and is tighter than
+that.) The difference of two independent levels then has SE about 0.0146.
+The two gaps are 0.025 and 0.017: **1.7 and 1.2 standard errors.** Those
+are ordinary sampling error. They are consistent with blocks mattering and
+equally consistent with blocks not mattering at all, and calling them
+demonstrations was reading a pattern into noise -- in a note whose subject
+is exactly that failure.
+
+What survives is narrower and still enough for the conclusion here: a
+-0.031 and a +0.038 measured on different blocks against different bots
+**have not been shown to require a third mechanism**, because nothing has
+been shown about blocks either way. That is weaker than "no third mechanism
+is required" and it is what the data supports. Settling it needs a design
+built for it: the same bot, the same anchor, two blocks, enough seeds that
+0.02 would be visible -- which is not any arm that has run.
 
 ## What this costs the wider claim
 

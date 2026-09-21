@@ -143,6 +143,14 @@ jobs:
     uses: ./.github/workflows/experiments.yml
     with:
       arms: ${{ needs.anchors.outputs.arms }}
+      # NO WAVES HERE. An experiment arm is a COMPARISON and stops early when
+      # the comparison is decided; a drift arm is a LEVEL, and its number is
+      # quoted -- "0.505 [0.489, 0.521], 1024 seeds" -- not merely tested
+      # against a threshold. Halving the seeds doubles the interval that gets
+      # quoted, and an anchor the canary passes comfortably is exactly the
+      # one whose level is worth recording precisely. The seeds are the
+      # point of the canary; this is the one caller that wants all of them.
+      waves: false
 
   verdict:
     needs: [anchors, measure]

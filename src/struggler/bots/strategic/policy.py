@@ -1801,10 +1801,18 @@ class StrategicPlayer:
         controller = pos.control[i]
         inf_us, inf_ussr = pos.inf
         was_us, was_ussr = inf_us[i], inf_ussr[i]
+        # Clamped with comparisons, not `max`. Identical arithmetic, and the
+        # same reason `country_value` does it: these two ran 1.06M times in
+        # one self-play game, and a builtin call costs more than the compare
+        # it wraps. The `if` on the side is kept because the two branches
+        # bind the same names to different arguments, which a tuple would
+        # allocate to say.
         if s == ev.US:
-            self._set_influence(cid, max(0, was_us + own), max(0, was_ussr + opp))
+            new_us, new_ussr = was_us + own, was_ussr + opp
         else:
-            self._set_influence(cid, max(0, was_us + opp), max(0, was_ussr + own))
+            new_us, new_ussr = was_us + opp, was_ussr + own
+        self._set_influence(cid, new_us if new_us > 0 else 0,
+                            new_ussr if new_ussr > 0 else 0)
         neighbours_after = ()
         try:
             # Partial influence and overprotection cannot change regional VP.

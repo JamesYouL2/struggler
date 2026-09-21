@@ -298,36 +298,63 @@ class Position:
         Control can only move for `i` itself. Reachability can only move for
         `i` and its neighbours, and only when this crosses the boundary
         between holding influence here and holding none.
+
+        WRITTEN OUT RATHER THAN LOOPED, for the same reason `country_value`
+        clamps with comparisons instead of `max`/`min`: `_delta` calls this
+        twice per trial placement -- once to move the board and once to put
+        it back -- so it runs about four times per `delta` and measured 2.3M
+        calls in one self-play game, a tenth of the profile between it and
+        `_rehash`. The two-element loop it replaces built a tuple of tuples
+        on every one of those calls, and `_rehash` was a second Python call
+        per placement. The arithmetic and the write order are unchanged, so
+        the digest and every value are bit-identical; `test_parity_corpus`
+        and `test_evaluator_digest` are what hold that.
         """
         t = self.terrain
-        inf = self.inf
-        was = (inf[US][i], inf[USSR][i])
+        inf_us, inf_ussr = self.inf
+        was_us, was_ussr = inf_us[i], inf_ussr[i]
         # Digest first, while the old values are still readable: XOR the
         # country's old contribution out and its new one in. O(1), and
         # exactly reversible, so undoing a trial placement restores the
         # digest bit for bit.
         # Almost every placement moves one side only, so each is tested
         # separately rather than XORing four table lookups unconditionally.
+        # `_rehash` is inlined here (and kept, for callers that are not this
+        # one); the XORs below are its body verbatim.
         if DIGEST:
-            self._rehash(i, was, us, ussr)
+            keys = self._zobrist
+            if was_us != us:
+                k = keys[US][i]
+                self.digest ^= k[_fold(was_us)] ^ k[_fold(us)]
+            if was_ussr != ussr:
+                k = keys[USSR][i]
+                self.digest ^= k[_fold(was_ussr)] ^ k[_fold(ussr)]
 
-        inf[US][i] = us
-        inf[USSR][i] = ussr
+        inf_us[i] = us
+        inf_ussr[i] = ussr
         margin = us - ussr
         stability = t.stability[i]
         self.control[i] = US if margin >= stability else USSR if -margin >= stability else NOBODY
         adjacent = t.neighbors[i]
-        for s, before, after in ((US, was[US], us), (USSR, was[USSR], ussr)):
-            inf_s, home, reach, near = inf[s], t.home[s], self.reach[s], self.near[s]
-            reach[i] = i in home or after > 0 or near[i] > 0
-            if (before > 0) == (after > 0):
-                continue
-            step = 1 if after > 0 else -1
+
+        home, reach, near = t.home[US], self.reach[US], self.near[US]
+        reach[i] = i in home or us > 0 or near[i] > 0
+        if (was_us > 0) != (us > 0):
+            step = 1 if us > 0 else -1
             for j in adjacent:
                 count = near[j] + step
                 near[j] = count
-                reach[j] = j in home or inf_s[j] > 0 or count > 0
-        return was
+                reach[j] = j in home or inf_us[j] > 0 or count > 0
+
+        home, reach, near = t.home[USSR], self.reach[USSR], self.near[USSR]
+        reach[i] = i in home or ussr > 0 or near[i] > 0
+        if (was_ussr > 0) != (ussr > 0):
+            step = 1 if ussr > 0 else -1
+            for j in adjacent:
+                count = near[j] + step
+                near[j] = count
+                reach[j] = j in home or inf_ussr[j] > 0 or count > 0
+        return (was_us, was_ussr)
 
     def matches(self, board: Board) -> bool:
         """Whether this snapshot still describes `board`, derived vectors
