@@ -8,6 +8,7 @@ probabilities are valid, tiers are counted once per region, raw deltas
 telescope, and the stochastic joint model raises instead of guessing.
 """
 import itertools
+import math
 
 import pytest
 from conftest import bare_engine
@@ -15,6 +16,7 @@ from conftest import bare_engine
 from struggler.engine import Engine, Region, Side
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import forecast as fcst
+from struggler.bots.strategic import StrategicPlayer
 
 
 def _played_board(seed: int = 4000, steps: int = 160):
@@ -468,3 +470,113 @@ def test_member_weights_price_the_whole_payout_exactly(region, horizon):
         mismatched = [abs(sum(q * w for q, w in zip(fc.probs[0], weights[k], strict=True)) - total)
                       for k in range(1, len(fc.members))]
         assert max(mismatched) > 1e-9 or fc.is_degenerate()
+
+
+def test_the_memoised_row_is_the_documented_row():
+    """`_p_control_from` is memoised on a country's local state;
+    `_control_features` is the readable statement of what that state is.
+    Two copies of one rule, so they are held against each other here --
+    over the whole discrete domain, not a sample.
+
+    If this fails, the memo's key no longer covers everything the features
+    read, which is bug shape 1 with the cache looking innocent.
+    """
+    from struggler.bots.strategic import evaluator as ev
+    from struggler.bots.strategic import forecast as fcst
+    from struggler.engine import Side
+
+    player = StrategicPlayer()
+    t = player._terrain
+    pos = ev.Position(t)
+    checked = 0
+    for i in (t.index['France'], t.index['Cuba'], t.index['Iran'], t.index['Thailand']):
+        for mine in range(7):
+            for theirs in range(7):
+                pos.place(i, mine, theirs)
+                for side in (Side.US, Side.USSR):
+                    me = ev.SIDE_INDEX[side]
+                    row = fcst._control_features(t, pos, i, me, 1 - me)
+                    keyed = fcst._p_control_from(
+                        pos.inf[me][i], pos.inf[1 - me][i], t.stability[i],
+                        bool(pos.reach[me][i]), bool(pos.reach[1 - me][i]),
+                        pos.control[i], me, 2)
+                    beta = fcst.CONTROL_ODDS_BETA[2]
+                    z = beta[0] + sum(b * x for b, x in zip(beta[1:], row, strict=True))
+                    z = max(-35.0, min(35.0, z))
+                    want = 1.0 / (1.0 + math.exp(-z))
+                    assert keyed == pytest.approx(want, abs=1e-15), (
+                        f'{t.ids[i]} {side} {mine}/{theirs}: memo {keyed} vs features {want}')
+                    checked += 1
+        pos.place(i, 0, 0)
+    assert checked == 4 * 7 * 7 * 2
+
+
+def _tier_weights_by_dict(t, forecast, overrides=None):
+    """The forward-backward walk `tier_weights` used to be, over dicts keyed
+    on 4-tuples. Kept here as the reference the flat lattice is checked
+    against -- deliberately the slow, obvious version."""
+    total_bg, scoring_vp, rows = fcst._tier_rows(t, forecast, overrides)
+    tier_of = fcst._tier_fn(total_bg, scoring_vp)
+    ignored = frozenset() if overrides is None else overrides[1]
+    frozen = [i in ignored for i in forecast.members]
+
+    def shifts(k):
+        bg = 1 if rows[k][0] else 0
+        if frozen[k]:
+            return ((0, 0, 0, 0),) * 3
+        return ((1, 0, bg, 0), (0, 1, 0, bg), (0, 0, 0, 0))
+
+    def add(x, d):
+        return (x[0] + d[0], x[1] + d[1], x[2] + d[2], x[3] + d[3])
+
+    n = len(rows)
+    alphas = [{(0, 0, 0, 0): 1.0}]
+    for row in rows:
+        alphas.append(fcst._convolve_step(alphas[-1], row))
+    needed = []
+    for k in range(n):
+        forced = {add(x, d) for x in alphas[k] for d in shifts(k)}
+        if k:
+            live = [d for d, p in zip(shifts(k), rows[k][1:], strict=True) if p]
+            forced |= {add(y, d) for y in needed[k - 1] for d in live}
+        needed.append(forced)
+    beta = {y: tier_of(y[0], y[2], y[1], y[3]) for y in needed[n - 1]} if n else {}
+    weights = [None] * n
+    for k in range(n - 1, -1, -1):
+        alpha = alphas[k]
+        weights[k] = tuple(sum(p * beta[add(x, d)] for x, p in alpha.items())
+                           for d in shifts(k))
+        if k:
+            live = [(d, p) for d, p in zip(shifts(k), rows[k][1:], strict=True) if p]
+            beta = {y: sum(p * beta[add(y, d)] for d, p in live) for y in needed[k - 1]}
+    return tuple(weights)
+
+
+def test_the_flat_lattice_agrees_with_the_dict_walk():
+    """`tier_weights` runs over a precomputed flat lattice; this is the dict
+    walk it replaced, held against it on a played board.
+
+    Two versions of the rewrite passed every other test in this file and were
+    wrong: one read beta outside the set a FORCED outcome reaches and was
+    3.0 VP off, the other was merely slower. Neither the exactness contract
+    in `test_potential_delta.py` nor the identities here caught the 3.0 VP
+    one, because both sides of those checks go through the same walk. This
+    is the only test that compares the two implementations.
+    """
+    t, pos = _synced(_played_board())
+    seen = 0
+    for region in Region:
+        for horizon in (1, 2):
+            fc = fcst.forecast_controls(t, pos, region, horizon)
+            for overrides in (None,
+                              (frozenset(), frozenset(t.members[region][:1])),
+                              (frozenset(t.members[region][:2]), frozenset())):
+                got = fcst.tier_weights(t, fc, overrides)
+                want = _tier_weights_by_dict(t, fc, overrides)
+                assert len(got) == len(want)
+                for k, (a, b) in enumerate(zip(got, want, strict=True)):
+                    for x, y in zip(a, b, strict=True):
+                        assert x == pytest.approx(y, abs=1e-9), (
+                            f'{region.name} h{horizon} overrides={overrides} member {k}')
+                seen += 1
+    assert seen == 6 * 2 * 3

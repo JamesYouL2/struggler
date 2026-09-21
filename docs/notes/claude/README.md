@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Wiring the VP rebuild into the ranking: 172x, and where it actually goes](2026-09-20-potential-in-the-ranking.md) — 2026-09-20 (the cost is rebuilding the linear tables per position; round-level tables plus three exact precomputed tables take it to 2.75x, and the approximation's error is measured)
 - [Finishing the VP rebuild, and deleting `battleground`](2026-09-20-finishing-the-vp-rebuild.md) — 2026-09-20 (the weight has two readers and one is dead; the blocker is the intransitivity, not the code; and the event sandbox does not price the potential, which breaks `_delta`'s stated contract)
 - [Since v0.2.1: 109 commits, and the bot is level with where it started](2026-09-20-since-v0.2.1.md) — 2026-09-20 (the bot gained 0.10 against every anchor and passed none of them: one genuine advance, two undos; why individually-positive features do not sum; and the seat baseline that inverts the seat reading)
 - [The VP curve's peak, on one block: 3.0 stays](2026-09-20-the-vp-peak-on-one-block.md) — 2026-09-20 (4.0 is not better, missing a measurable loss by a thousandth; the whole effect is in the USSR seat, and two independent blocks agree at 0.534)
