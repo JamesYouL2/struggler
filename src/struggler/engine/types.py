@@ -37,6 +37,35 @@ class Region(Enum):
     SOUTH_AMERICA = "SOUTH_AMERICA"
 
 
+# `Enum.value` and `Enum.name` are `DynamicClassAttribute` descriptors, not
+# ordinary attributes: reading one costs 82 ns against 9 ns for a plain
+# attribute, and the engine and the bot between them read 3.2 million a game
+# -- 0.24 s of a 16.5 s self-play game, from 112 sites. `key` is the member's
+# string and `opp_key` the opponent's, as plain attributes, for the handful of
+# sites hot enough to care. Same spirit as the `__hash__` lines above, and the
+# same bargain: a little vocabulary for a cost the profile keeps surfacing.
+#
+# `key` IS `value`, never a second spelling of it --
+# `tests/test_types.py::test_the_fast_attributes_are_the_slow_ones` holds every
+# member's pair together so they cannot drift. Cold paths keep using `.value`;
+# there is no campaign to convert them.
+#
+# CHANCE deliberately gets no `opp_key`, so asking for one raises
+# AttributeError the way `Side.opponent` raises ValueError. It has no opponent
+# either way; what it must not do is quietly answer.
+def _install_fast_attributes() -> None:
+    """Set `key` on every Side and Region and `opp_key` on the two real
+    Sides. A function rather than a bare loop so the loop variable does not
+    outlive it at module scope."""
+    for member in (*Side, *Region):
+        member.key = member._value_
+    Side.US.opp_key = Side.USSR._value_
+    Side.USSR.opp_key = Side.US._value_
+
+
+_install_fast_attributes()
+
+
 class Subregion(Enum):
     __hash__ = object.__hash__  # members are singletons; skip Enum's Python-level hash
     WESTERN_EUROPE = "WESTERN_EUROPE"

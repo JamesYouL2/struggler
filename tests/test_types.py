@@ -34,6 +34,8 @@ from pathlib import Path
 
 import pytest
 
+from struggler.engine import Region, Side
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / 'ty-strict.toml'
 GATED = ('redundant-condition-strict', 'unsupported-operator',
@@ -88,3 +90,30 @@ def test_the_gate_would_catch_the_bug_it_was_adopted_for():
         assert 'redundant-condition-strict' in done.stdout, done.stdout
     finally:
         probe.unlink()
+
+
+def test_the_fast_attributes_are_the_slow_ones():
+    """`Side.key`/`Region.key` and `Side.opp_key` are plain attributes that
+    exist only because `Enum.value` is a descriptor costing 82 ns a read.
+    They are the SAME facts, so they are held against the descriptors here
+    for every member.
+
+    Two copies of one fact is the shape that has bitten this codebase
+    repeatedly (docs/notes/claude/bug-shapes.md). The copy is deliberate and
+    measured; this is the test that keeps it honest. A member added to either
+    enum without a `key` fails here rather than at the first hot-path read.
+    """
+    for member in (*Side, *Region):
+        assert member.key == member.value, f'{member!r}: key {member.key!r} != value'
+        assert member.key is member.value, f'{member!r}: key is not the same object'
+        assert member.key == member.name, f'{member!r}: these enums name themselves'
+
+    for side in (Side.US, Side.USSR):
+        assert side.opp_key == side.opponent.value, f'{side!r}: opp_key disagrees'
+        assert side.opp_key is side.opponent.value
+
+    # CHANCE has no opponent, and must not quietly answer as if it had one.
+    with pytest.raises(AttributeError):
+        Side.CHANCE.opp_key
+    with pytest.raises(ValueError):
+        Side.CHANCE.opponent

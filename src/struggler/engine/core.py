@@ -63,15 +63,22 @@ def side_for_play_index(idx: int, turn: int, extras: tuple[Side, ...]) -> Side:
     return extras[idx - base]
 
 
+# 8.1.5's geography restriction as a table on the Region member, built once.
+# Read 273,000 times a game through `region.name` and a two-level dict walk;
+# the rule is six fixed numbers, so it is six fixed numbers.
+_COUP_MIN_DEFCON = {region: RULES["coup_min_defcon"].get(region.name, _DEFAULT_MIN_DEFCON)
+                    for region in Region}
+
+
 def defcon_allows_coup(region: Region, defcon: int) -> bool:
     """Whether DEFCON `defcon` permits Coups and Realignments in `region`
     (8.1.5): none in Europe below 5, Asia below 4, the Middle East below 3."""
-    return defcon >= RULES["coup_min_defcon"].get(region.name, _DEFAULT_MIN_DEFCON)
+    return defcon >= _COUP_MIN_DEFCON[region]
 
 
 def chernobyl_blocks(side: Side, region: Region, turn_effects) -> bool:
     """Whether Chernobyl bans this side's Ops placement in `region`."""
-    return side is Side.USSR and turn_effects.get("chernobyl") == region.value
+    return side is Side.USSR and turn_effects.get("chernobyl") == region.key
 
 # Physical-mode placeholder: a hand/draw-pile slot whose real card identity is
 # not yet known to the engine (see Engine.physical_mode). No real card id in
@@ -118,7 +125,7 @@ def effective_ops(ops: int, turn_effects, side: Side) -> int:
         ops += 1
     if turn_effects.get("brezhnev") and side is Side.USSR:
         ops += 1
-    if turn_effects.get("red_scare") == side.value:
+    if turn_effects.get("red_scare") == side.key:
         ops -= 1
     return max(OPS_FLOOR, min(OPS_CEILING, ops))
 
@@ -1627,7 +1634,7 @@ class Engine:
     # -- space race ---------------------------------------------------------
 
     def _space_attempts_allowed(self, side: Side) -> int:
-        if self.game_effects.get("space_race_double_attempt_holder") == side.value:
+        if self.game_effects.get("space_race_double_attempt_holder") == side.key:
             return 2
         return 1
 
@@ -1740,7 +1747,7 @@ class Engine:
         lock is lifted per-country by De Gaulle (France) and Willy Brandt
         (West Germany)."""
         info = self.board.countries[cid]
-        if self.board.influence[cid][attacker.opponent.value] <= 0:
+        if self.board.influence[cid][attacker.opp_key] <= 0:
             return False
         if not ignore_defcon and not defcon_allows_coup(info.region, self.defcon):
             return False

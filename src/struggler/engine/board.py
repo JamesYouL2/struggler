@@ -120,7 +120,7 @@ class Board:
         6.1.1's own exception exempts).
         """
         inf = influence if influence is not None else self.influence
-        key = side.value
+        key = side.key
         if country_id in self._adjacency[key]:
             return True
         if inf[country_id][key] > 0:

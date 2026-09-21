@@ -32,6 +32,14 @@ log = logging.getLogger('struggler.bots.strategic.defcon')
 
 CARDS = load_cards()
 CHINA = 'The_China_Card'
+
+# Which side's event each card carries, partitioned once at import. A planner
+# used to rebuild its half by walking every card and reading `CardSide.value`
+# -- constant data, re-derived 5,984 times a game.
+_EVENTS_BY_SIDE = {
+    'US': frozenset(cid for cid, info in CARDS.items() if info.side.value == 'US'),
+    'USSR': frozenset(cid for cid, info in CARDS.items() if info.side.value == 'USSR'),
+}
 ASK = 'Ask_Not_What_Your_Country_Can_Do_For_You'
 RAISERS = {'How_I_Learned_to_Stop_Worrying': 5, 'Salt_Negotiations': 2,
            'Nuclear_Test_Ban': 2, 'ABM_Treaty': 1}
@@ -137,8 +145,17 @@ class DefconPlanner:
         # with a branch, and `opponent_event` was calling it once per card per
         # node; both are constant for the life of a planner.
         self.other = obs.side.opponent
-        self._opponent_events = frozenset(
-            cid for cid, info in CARDS.items() if info.side.value == self.other.value)
+        self._side_key = obs.side.key
+        self._other_key = self.other.key
+        # Which cards carry whose event does not change during a game, let
+        # alone during a planner, and this walked all of CARDS asking each one
+        # -- 329,000 `CardSide.value` reads a game for a partition of a
+        # constant. `_EVENTS_BY_SIDE` is that partition, built at import.
+        self._opponent_events = _EVENTS_BY_SIDE[self._other_key]
+        # The Space Race boxes as of the root observation, which the search
+        # never moves; `attempts_allowed` asked for these on every node.
+        self._root_space = obs.space_race[self._side_key]
+        self._other_space = obs.space_race[self._other_key]
         self.solve = lru_cache(maxsize=None)(self._solve)
         # The two combinators between `solve` and itself. `solve` was memoised
         # and these were not, so the same (hand, rounds, defcon, ...) state
@@ -291,8 +308,11 @@ class DefconPlanner:
         exactly as `Engine.advance_space_race_box` would. The opponent's
         marker is frozen with the rest of the board."""
         allowed = self.engine._space_attempts_allowed(self.side)
-        root = self.obs.space_race[self.side.value]
-        if allowed < 2 and root < 2 <= pos and self.obs.space_race[self.other.value] < 2:
+        # Both boxes are read off the observation, which is frozen for the
+        # planner's life, so they are read once in `__init__` rather than
+        # 342,000 times here. `allowed` still asks the engine: it reads
+        # `game_effects`, and this is not the place to assume that cannot move.
+        if allowed < 2 and self._root_space < 2 <= pos and self._other_space < 2:
             return 2
         return allowed
 
