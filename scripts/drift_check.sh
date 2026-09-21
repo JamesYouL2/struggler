@@ -83,9 +83,10 @@ $PY -m struggler.bots.benchmark --bot strategic \
     --opponent "strategic@$OUT/old/strategic/policy.py" \
     --seeds "$SEEDS" --workers "$WORKERS" --report "$OUT/report.json" $OPENINGS_FLAG \
     2>"$OUT/drift.err" >/dev/null || BENCH=$?
-# 6 is a stall: the partial report is written and the reading below still
-# prints, but the exit status says the sample is incomplete (audit F4). Any
-# other nonzero is a crash.
+# 6 is an INCOMPLETE SAMPLE -- a stall, or `--max-seconds` expiring where a
+# caller sets it: the partial report is written and the reading below still
+# prints, but the exit status says games were planned and not played (audit
+# F4). `stop_reason` in the report says which. Any other nonzero is a crash.
 if [ "$BENCH" != "0" ] && [ "$BENCH" != "6" ]; then
   echo "DRIFT CHECK FAILED: the benchmark crashed. stderr:" >&2
   tail -n 20 "$OUT/drift.err" >&2

@@ -108,9 +108,13 @@ def paired(arms: dict[str, dict], result: dict[str, dict]) -> list[dict]:
         se = statistics.stdev(diffs) / len(diffs) ** 0.5
         half = ACCEPTANCE['confidence'] * se
         mean = statistics.fmean(diffs)
+        # `diff` and the bounds are rounded because they are read; `se` and
+        # `diff_exact` are not, because they are COMPUTED ON -- an interim
+        # wave verdict divides one by the other, and three decimals of a
+        # halfwidth is not enough to recover a z to two.
         out.append({'arm': slug, 'minus': other, 'seeds': len(shared), 'diff': round(mean, 3),
                     'halfwidth': round(half, 3), 'lower': round(mean - half, 3),
-                    'upper': round(mean + half, 3)})
+                    'upper': round(mean + half, 3), 'diff_exact': mean, 'se': se})
     return out
 
 

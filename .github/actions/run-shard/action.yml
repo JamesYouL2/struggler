@@ -1,0 +1,199 @@
+# One shard of one arm: resolve its identity, restore it from cache if that
+# exact shard has already been played, otherwise play it and cache it.
+#
+# THIS IS A COMPOSITE ACTION AND NOT A SECOND COPY OF THE STEPS, because
+# `experiments.yml` now runs shards in two waves and both waves have to play
+# them the same way. A copy would be the bug shape this repo has been bitten
+# by most: a rule written down twice, where the two spellings drift and the
+# second one is only ever exercised on a dispatched runner an hour later.
+name: run one experiment shard
+description: Play (or restore) one shard of one arm and leave its report in <slug>.json
+
+inputs:
+  shard:
+    description: The matrix shard object, as JSON, exactly as `plan` emitted it
+    required: true
+  no_cache:
+    description: 'true to replay even when a cached shard exists (it is still saved)'
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    # `arm.json` is not bookkeeping: `pool_reports.py` reads it for the arm's
+    # `compare_to` and its anchor, so a shard that skips the benchmark still
+    # has to write it or `collect` loses the PAIRED reading -- the thing most
+    # of these arms exist for. Written here, before the cache, never inside
+    # the benchmark step.
+    - name: arm metadata
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "$SHARD" > arm.json
+        python3 -c 'import json,sys; print(json.dumps({"version":1,"weights":json.loads(sys.argv[1])["weights"]}))' "$SHARD" \
+          > arm.weights.json
+        cat arm.json
+      env:
+        SHARD: ${{ inputs.shard }}
+
+    # The cache key, and the refs it needs resolved. A branch name is not an
+    # identity -- `main` is a different bot tomorrow -- so `anchor` and
+    # `bot_ref` are resolved to commit SHAs here, where the full history is
+    # checked out, and the key is computed from those.
+    - id: key
+      shell: bash
+      run: |
+        set -euo pipefail
+        resolve() {
+          if [ -z "$1" ]; then echo ""; else git rev-parse --verify "$1^{commit}"; fi
+        }
+        ANCHOR_SHA=$(resolve "$(python3 -c 'import json,sys;print(json.loads(sys.argv[1])["anchor"])' "$SHARD")")
+        BOT_REF_SHA=$(resolve "$(python3 -c 'import json,sys;print(json.loads(sys.argv[1])["bot_ref"])' "$SHARD")")
+        # The whole of `src/`: the engine decides what a play does and
+        # `data/` holds the cards, so a bots-only tree would let a rules
+        # change reuse a reading from a different game.
+        SRC_TREE=$(git rev-parse "HEAD:src")
+        RUNTIME=$(uv run python -c 'import sys; print(sys.version.split()[0])')
+        KEY=$(uv run python scripts/arm_identity.py \
+          --shard "$SHARD" --src-tree "$SRC_TREE" \
+          --anchor-sha "$ANCHOR_SHA" --bot-ref-sha "$BOT_REF_SHA" \
+          --runtime "$RUNTIME")
+        echo "value=$KEY" >> "$GITHUB_OUTPUT"
+        echo "$KEY  src=$SRC_TREE anchor=${ANCHOR_SHA:-none} bot_ref=${BOT_REF_SHA:-none} py=$RUNTIME"
+      env:
+        SHARD: ${{ inputs.shard }}
+
+    # Exact key only: no `restore-keys`. A prefix match here would serve a
+    # DIFFERENT shard's report under this shard's name, which is the one
+    # failure mode worse than no cache at all.
+    #
+    # The report is cached under a fixed name and copied to `<slug>.json`
+    # afterwards, so an arm can reuse a shard another arm already played:
+    # `slug` is not in the key, because two arms that differ only in name
+    # play the same games.
+    - id: restore
+      if: ${{ !fromJSON(inputs.shard).logs && inputs.no_cache != 'true' }}
+      uses: actions/cache/restore@v4
+      with:
+        path: cached/report.json
+        key: ${{ steps.key.outputs.value }}
+
+    - if: ${{ steps.restore.outputs.cache-hit == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cp cached/report.json "$SLUG.json"
+        echo "CACHE HIT ${{ steps.key.outputs.value }} -- $SLUG seeds $SEEDS not replayed" \
+          | tee -a "$GITHUB_STEP_SUMMARY"
+      env:
+        SLUG: ${{ fromJSON(inputs.shard).slug }}
+        SEEDS: ${{ fromJSON(inputs.shard).seeds }}
+
+    # `--max-seconds 9000` is 150 minutes against the job's `timeout-minutes:
+    # 180`, and the 30-minute margin covers checkout, `uv sync`, snapshotting
+    # up to two revisions, writing the report and uploading it.
+    #
+    # THE TWO TIMEOUTS DO DIFFERENT THINGS AND THE ORDER MATTERS. A JOB
+    # timeout kills the process, so nothing is written and the shard yields
+    # NOTHING -- which is what happened to `fit-bc-base [5/8]` (seeds
+    # 64640-64767) on 2026-09-21 after it had already run 1h51m on the
+    # previous dispatch. `--max-seconds` fires first, abandons what is still
+    # running, writes the partial report, names the abandoned seeds on stderr
+    # and exits 6. Losing the games and keeping the report is the whole
+    # point; `tests/test_experiment_workflow.py` pins the margin so the two
+    # numbers cannot drift into the wrong order.
+    #
+    # `PYTHONUNBUFFERED` and `tee`: the per-game progress lines go to stderr
+    # and are flushed, but `| tail -15` alone shows nothing at all if the step
+    # is killed, and Python block-buffers stdout into a pipe. The full output
+    # goes to `benchmark.log`, which is uploaded and printed below, so a
+    # cancelled or crashed shard still says what it was doing.
+    - id: bench
+      name: play ${{ fromJSON(inputs.shard).slug }} seeds ${{ fromJSON(inputs.shard).seeds }}
+      if: ${{ steps.restore.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        set -o pipefail
+        . scripts/lib/gate_common.sh
+        BOT=strategic OPP=strategic ARGS=()
+        # Only when the arm sets weights: see the bot_ref assertion in plan.
+        if [ "$(python3 -c 'import json,sys; print(bool(json.loads(sys.argv[1])["weights"]))' "$SHARD")" = True ]; then
+          ARGS+=(--bot-weights arm.weights.json)
+        fi
+        if [ -n "$BOT_REF" ]; then
+          snapshot "$BOT_REF" snap-bot
+          BOT="strategic@$PWD/snap-bot/strategic/policy.py"
+        fi
+        if [ -n "$ANCHOR" ]; then
+          snapshot "$ANCHOR" snap-opp
+          OPP="strategic@$PWD/snap-opp/strategic/policy.py"
+        fi
+        if [ -n "$OPENINGS" ]; then ARGS+=(--openings "$OPENINGS"); fi
+        # `"logs": true` keeps every game's INFO log, for diagnosing HOW a
+        # result happened (which play took DEFCON to 1) rather than only
+        # what it scored. Tens of MB a shard; leave it off for A/Bs.
+        if [ "$LOGS" = true ]; then ARGS+=(--log-dir game-logs); fi
+        # Exit 6 is a stall: the report is still written and the shard's
+        # games still count, but the shard is marked failed so the run
+        # says so. Anything else nonzero is a crash.
+        uv run python -m struggler.bots.benchmark \
+          --bot "$BOT" --opponent "$OPP" \
+          --seeds "$SEEDS" --stall-timeout 1200 --max-seconds 9000 --workers 4 "${ARGS[@]}" \
+          --report "$SLUG.json" 2>&1 | tee benchmark.log | tail -15
+      env:
+        # One `env:` per step. A second one is a duplicate mapping key: PyYAML
+        # keeps the last silently, and GitHub refuses the whole file with
+        # "'env' is already defined" -- which is a shard job that never runs.
+        # `tests/test_experiment_workflow.py` now rejects duplicate keys.
+        PYTHONUNBUFFERED: '1'
+        SHARD: ${{ inputs.shard }}
+        SLUG: ${{ fromJSON(inputs.shard).slug }}
+        SEEDS: ${{ fromJSON(inputs.shard).seeds }}
+        ANCHOR: ${{ fromJSON(inputs.shard).anchor }}
+        BOT_REF: ${{ fromJSON(inputs.shard).bot_ref }}
+        OPENINGS: ${{ fromJSON(inputs.shard).openings }}
+        LOGS: ${{ fromJSON(inputs.shard).logs }}
+
+    # WHATEVER HAPPENED, SAY WHAT IT WAS DOING. `if: always()` runs on a
+    # cancel and on a job timeout as well as on a crash, and the last lines of
+    # `benchmark.log` are where the STALLED/EXPIRED line and the abandoned
+    # seeds are. Without this a killed shard is a blank step: the `tail -15`
+    # at the end of the pipeline never gets to run, and the artifact holding
+    # the log cannot be downloaded from every environment.
+    - if: ${{ always() && steps.bench.outcome != 'success' && steps.bench.outcome != 'skipped' }}
+      shell: bash
+      run: |
+        if [ -s benchmark.log ]; then
+          {
+            echo "### $SLUG shard $SHARD_INDEX did not finish cleanly (${{ steps.bench.outcome }})"
+            echo '```'
+            tail -40 benchmark.log
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+        else
+          echo "no benchmark.log: the step produced no output before it stopped" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+        fi
+      env:
+        SLUG: ${{ fromJSON(inputs.shard).slug }}
+        SHARD_INDEX: ${{ fromJSON(inputs.shard).shard }}
+
+    # Only on success, and only on a miss. A stall is exit 6, which still
+    # writes a report -- a PARTIAL one, over the seeds that finished. That is
+    # exactly the reading that must never be cached: it would be served for
+    # this shard forever, and the pooled table would print it as a complete
+    # one. `if: success()` is what excludes it, so do not relax these two
+    # steps to `always()`.
+    - if: ${{ success() && steps.restore.outputs.cache-hit != 'true' && !fromJSON(inputs.shard).logs }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p cached && cp "$SLUG.json" cached/report.json
+      env:
+        SLUG: ${{ fromJSON(inputs.shard).slug }}
+    - if: ${{ success() && steps.restore.outputs.cache-hit != 'true' && !fromJSON(inputs.shard).logs }}
+      uses: actions/cache/save@v4
+      with:
+        path: cached/report.json
+        key: ${{ steps.key.outputs.value }}

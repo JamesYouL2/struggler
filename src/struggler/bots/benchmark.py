@@ -392,6 +392,17 @@ def play(job: tuple) -> dict:
                 result=None if not engine.is_terminal else 0.5 if winner is None else float(winner is side))
 
 
+# STOP REASONS THAT MEAN GAMES WERE PLANNED AND NOT PLAYED, so the sample
+# is censored rather than merely small. Both of these abandon whatever is
+# still running: a stall is "nothing finished for a long time", an expired
+# budget is "the whole run ran out of wall clock". `decided` is deliberately
+# absent -- there the unplayed games provably cannot change the verdict.
+#
+# One tuple, because the completeness veto in `acceptance` and the per-report
+# stamp in `main` both ask the same question, and a literal in each is how the
+# two spellings drift apart.
+INCOMPLETE = ('stalled', 'expired')
+
 # What a candidate has to clear before it lands. The gate used to print
 # numbers and exit 0, so "the gate passed" meant "the gate ran"; these are the
 # rules that make it mean something. They are deliberately permissive about
@@ -747,7 +758,7 @@ def acceptance(samples) -> tuple[bool, list[str]]:
     core = verdict([seed_scores(report.get('games', [])) for _, report in samples],
                    nuclear, total)  # seed_scores keeps complete pairs only, as `total` does
     assert core == ok, ('acceptance and verdict disagree: %s vs %s' % (ok, core), lines)
-    # 4. **A stalled sample is not a sample.** A game that hangs is not a
+    # 4. **An incomplete sample is not a sample.** A game that hangs is not a
     #    neutral result: how long a game runs depends on the candidate and the
     #    position, so dropping it censors exactly the games most likely to
     #    differ. Curtailment by --decide is different -- the rest provably
@@ -757,9 +768,13 @@ def acceptance(samples) -> tuple[bool, list[str]]:
         summary = report.get('summary', {})
         # Reports written before the stamp was per sample carry the run's
         # stall on every report; one that lost no game is complete anyway.
-        if summary.get('stop_reason') == 'stalled' and summary.get('unfinished', True):
+        # `INCOMPLETE`, not a literal: an expired wall-clock budget censors
+        # the sample exactly as a stall does, and writing the condition out
+        # twice is how the two spellings drift.
+        if summary.get('stop_reason') in INCOMPLETE and summary.get('unfinished', True):
             ok = False
-            lines.append(f"  FAIL completeness: {label} stalled after {summary.get('finished_games')} "
+            lines.append(f"  FAIL completeness: {label} {summary.get('stop_reason')} after "
+                         f"{summary.get('finished_games')} "
                          f"of {summary.get('planned_games')} games; unfinished "
                          f"{summary.get('unfinished')}. Replay those games before trusting a verdict.")
     lines.append('ACCEPTED' if ok else 'REJECTED')
@@ -1084,6 +1099,24 @@ def main(argv=None):
     parser.add_argument('--workers', type=int, default=os.cpu_count() or 1)
     parser.add_argument('--simulations', type=int, default=24)
     parser.add_argument('--stop-turn', type=int, default=0, help='0 plays the whole game')
+    # A WALL-CLOCK CEILING, distinct from --stall-timeout, which measures the
+    # GAP BETWEEN FINISHES and therefore has no upper bound on the run: its
+    # floor adapts to `8 * slowest game so far`, so one ten-minute game lifts
+    # it to eighty minutes and a shard can run for hours while "not stalled".
+    #
+    # That is what happened to `fit-bc-base [5/8]` (seeds 64640-64767) on
+    # 2026-09-21: 1h51m on one dispatch, then the runner's own 180-minute job
+    # timeout on the next. A JOB timeout kills the process before this file
+    # writes anything, so the shard yielded NOTHING both times -- where a
+    # stall writes a partial report that still pools. The whole point of this
+    # flag is to lose the games and keep the report.
+    #
+    # Default 0 (unbounded), so nothing that does not ask for it changes.
+    # A caller that sets it should leave room under whatever kills it from
+    # outside; `.github/workflows/experiments.yml` explains its own margin.
+    parser.add_argument('--max-seconds', type=int, default=0,
+                        help='abandon the run after this much wall clock and report what finished '
+                             '(0: no ceiling). Leave margin under any external timeout.')
     parser.add_argument('--stall-timeout', type=int, default=1200,
                         help='seconds with no game finishing before abandoning the rest, '
                              'reporting what completed and exiting 6 (0 waits for ever)')
@@ -1152,6 +1185,8 @@ def main(argv=None):
         parser.error('--openings pins the books and --vary-openings moves them; pick one')
     if args.stall_timeout < 0:
         parser.error('--stall-timeout is seconds, and 0 means wait for ever')
+    if args.max_seconds < 0:
+        parser.error('--max-seconds is seconds, and 0 means no ceiling')
     # `results.next(timeout=0)` polls and returns at once, so the documented
     # "0 waits for ever" used to report a stall on the first poll (audit F4).
     stall_timeout = args.stall_timeout or None
@@ -1162,9 +1197,16 @@ def main(argv=None):
     sample_of = {seed: index for index, seed in order}
     planned = collections.Counter(index for index, _ in order)
     start = time.time()
+    # `monotonic`, not `time()`, for the ceiling: a wall-clock jump backwards
+    # (ntp, a suspended container) must not hand the run extra hours or cut
+    # it short. `start` stays on `time()` because it only feeds a reported
+    # duration.
+    deadline = time.monotonic() + args.max_seconds if args.max_seconds else None
     games = []
     stopped = None
-    stop_reason = None   # None: every game played; 'decided': --decide; 'stalled'
+    # None: every game played. 'decided': --decide, and the rest provably
+    # cannot change the verdict. 'stalled' / 'expired': see INCOMPLETE.
+    stop_reason = None
     with Pool(args.workers) as pool:
         results = pool.imap_unordered(play, jobs, chunksize=1)
         while True:
@@ -1200,16 +1242,38 @@ def main(argv=None):
             floor = stall_timeout
             if floor is not None and games:
                 floor = max(floor, 8 * max(g['seconds'] for g in games))
+            # THE CEILING CLAMPS THE FLOOR. Checking the deadline only
+            # between finishes would be useless in the case it exists for:
+            # the run is stuck *inside* `results.next`, waiting out a floor
+            # that the slowest game has already stretched past the deadline.
+            # So the wait is cut to whatever time is left, and a timeout
+            # raised at that point is the ceiling, not a stall.
+            expired = False
+            if deadline is not None:
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    left = 0.
+                if floor is None or floor > left:
+                    floor, expired = left, True
             try:
                 game = results.next(timeout=floor)
             except multiprocessing.TimeoutError:
-                print(f'STALLED: no game finished in {floor:.0f}s '
-                      f'(floor {args.stall_timeout}s, slowest game so far '
-                      f'{max((g["seconds"] for g in games), default=0):.0f}s). '
-                      f'Abandoning the remaining {len(jobs) - len(games)} and '
-                      f'reporting the {len(games)} that did.', file=sys.stderr, flush=True)
+                slowest = max((g['seconds'] for g in games), default=0)
+                outstanding = len(jobs) - len(games)
+                if expired:
+                    stop_reason = 'expired'
+                    print(f'EXPIRED: --max-seconds {args.max_seconds}s of wall clock is '
+                          f'up (slowest game {slowest:.0f}s). Abandoning the remaining '
+                          f'{outstanding} and reporting the {len(games)} that finished.',
+                          file=sys.stderr, flush=True)
+                else:
+                    stop_reason = 'stalled'
+                    print(f'STALLED: no game finished in {floor:.0f}s '
+                          f'(floor {args.stall_timeout}s, slowest game so far '
+                          f'{slowest:.0f}s). '
+                          f'Abandoning the remaining {outstanding} and '
+                          f'reporting the {len(games)} that did.', file=sys.stderr, flush=True)
                 stopped = len(games)
-                stop_reason = 'stalled'
                 pool.terminate()
                 break
             except StopIteration:
@@ -1232,6 +1296,18 @@ def main(argv=None):
         print('no games completed; nothing to report', file=sys.stderr, flush=True)
         return 4
     games.sort(key=lambda g: (g['seed'], g['bot_side']))
+    done = {(g['seed'], g['bot_side']) for g in games}
+    if stop_reason in INCOMPLETE:
+        # NAME THEM IN THE LOG. The reports already carry `unfinished`, but a
+        # report has to be downloaded and an artifact is not always reachable;
+        # the log is. And which seeds a slice hangs on is the whole diagnosis:
+        # `fit-bc-base [5/8]` was the same 128-seed slice twice, and finding
+        # the game inside it would have meant dispatching a bisect. Printed
+        # here rather than at the stop so it covers every incomplete reason.
+        missing = [f'{seed}/{side}' for _, _, seed, side, *_ in jobs
+                   if (seed, side) not in done]
+        print(f'{stop_reason.upper()}: {len(missing)} game(s) never finished: '
+              f'{", ".join(missing)}', file=sys.stderr, flush=True)
     reports = [(args.report, [g for g in games if sample_of.get(g['seed']) == 0])]
     if held:
         reports.append((args.held_report, [g for g in games if sample_of.get(g['seed']) == 1]))
@@ -1249,7 +1325,6 @@ def main(argv=None):
     # a run that stalled wrote a report indistinguishable from a complete one,
     # and acceptance judged it as if it were (audit F4 -- it happened on two
     # gate-ladder rungs on 2026-09-12, 255 of 256 games, silently).
-    done = {(g['seed'], g['bot_side']) for g in games}
     for index, (path, subset) in enumerate(reports):
         if not path:
             continue
@@ -1259,7 +1334,7 @@ def main(argv=None):
         # A stall belongs to the sample that lost games, not to every report
         # the run wrote: a verdict sample that finished before the held-out
         # arm hung is complete. `decided` does curtail both, so it stays shared.
-        report_stop = None if stop_reason == 'stalled' and not unfinished else stop_reason
+        report_stop = None if stop_reason in INCOMPLETE and not unfinished else stop_reason
         report_summary.update(
             stop_reason=report_stop, planned_games=len(mine), finished_games=len(subset),
             unfinished=unfinished,
@@ -1267,10 +1342,14 @@ def main(argv=None):
             openings=args.openings, vary_openings=args.vary_openings)
         with open(path, 'w') as f:
             json.dump({'summary': report_summary, 'games': subset}, f, indent=1)
-    if stop_reason == 'stalled':
+    if stop_reason in INCOMPLETE:
         # A distinct status, after the partial reports are safely written:
-        # a stall is neither a verdict nor a crash, and a caller that treats
-        # every nonzero as "crashed" would hide which one it was.
+        # an abandoned run is neither a verdict nor a crash, and a caller that
+        # treats every nonzero as "crashed" would hide which one it was.
+        # An expired budget shares the code with a stall on purpose --
+        # `drift_check.sh` and `legacy_anchor.py` already read 6 as "partial
+        # report written, reading still usable", which is exactly true of
+        # both -- and `stop_reason` in the report says which it was.
         return 6
     return None
 

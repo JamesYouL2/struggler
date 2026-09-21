@@ -44,6 +44,48 @@
 #
 # Matrix jobs run ~20 at a time on a public repo, so 8 arms of 1024 seeds is
 # 64 jobs in about four waves: an overnight run, not an hour.
+#
+# SHARDS ARE CACHED, because a shard's report is reproducible. A benchmark
+# game is `Engine.new_game(seed=...)` driven by two deterministic players
+# with chance as a logged CHANCE decision (mandate #3), so the same code,
+# weights, opponent, openings and seeds give the same report every time.
+# `scripts/arm_identity.py` hashes exactly those, and it hashes the tree of
+# `src/` -- not of `src/struggler/bots` -- because the engine decides what a
+# play does and `src/struggler/data` holds the cards.
+#
+# What this buys is not speed for its own sake. On 2026-09-21 one hung shard
+# forced a 16-shard re-dispatch to recover a single 128-seed slice, and the
+# other 15 replayed answers already known to the thousandth. It also makes a
+# re-dispatch of an unchanged arm nearly free, so re-running one is no longer
+# a reason to hesitate.
+#
+# Three things the cache deliberately does NOT do:
+#   - restore for an arm with `"logs": true` (the key covers the report, and
+#     a hit has no INFO logs to upload);
+#   - save a shard whose benchmark exited nonzero, stall (exit 6) included --
+#     a stalled shard's report is a PARTIAL reading and caching it would
+#     serve that partial forever;
+#   - fall back to a prefix (`restore-keys`), which would serve a different
+#     shard.
+# `no_cache: true` on dispatch bypasses the restore while still saving, which
+# is how you check that a replay reproduces a cached reading.
+#
+# Cache scope is GitHub's, not ours: a branch reads its own entries and the
+# default branch's, and writes only to its own. So dispatching from `main`
+# builds the shared pool and dispatching from a branch draws on it without
+# polluting it -- which is the behaviour you want, but it does mean two
+# dispatches from two different branches do not share what they played.
+#
+# ARMS RUN IN TWO WAVES. Half of each arm's shards, then a look
+# (`scripts/wave_verdict.py`), then the rest only for the arms the look did
+# not settle. The boundary is pre-declared O'Brien-Fleming: |z| >= 2.373 at
+# the interim, which raises the final bar from 1.645 to 1.678 -- a 2% wider
+# final interval, for half the seeds on every arm that was never close. It
+# fails open: anything unreadable plays the second wave. AN ARM THAT STOPPED
+# EARLY REPORTS ON HALF ITS SEEDS, deliberately; `interim`'s verdict is
+# uploaded and printed to the run summary so that is visible rather than
+# looking like missing shards. `waves: false` plays everything at once,
+# which is what a LEVEL reading wants (drift.yml passes it).
 name: experiments
 
 on:
@@ -55,6 +97,14 @@ on:
       inline:
         description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9611","anchor":"v0.2.1","title":"t","context":"c"}'
         default: ''
+      no_cache:
+        description: 'Replay every shard instead of restoring cached ones (results are still saved)'
+        type: boolean
+        default: false
+      waves:
+        description: 'Play half the seeds, look, and play the rest only for arms the look did not settle'
+        type: boolean
+        default: true
   # Callable, so another workflow can hand it a list of arms and get the
   # sharding, pooling and paired readings without a second copy of them.
   # drift.yml is the caller: each anchor becomes an anchored arm.
@@ -70,6 +120,12 @@ on:
       inline:
         type: string
         default: ''
+      no_cache:
+        type: boolean
+        default: false
+      waves:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -80,12 +136,15 @@ jobs:
     outputs:
       shards: ${{ steps.pick.outputs.shards }}
       count: ${{ steps.pick.outputs.count }}
+      wave2: ${{ steps.pick.outputs.wave2 }}
+      wave2_count: ${{ steps.pick.outputs.wave2_count }}
     steps:
       - uses: actions/checkout@v4
       - id: pick
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
+          WAVES = os.environ.get('WAVES', '') == 'true'
           inline = os.environ.get('INLINE', '').strip()
           given = os.environ.get('ARMS', '').strip()
           only = [x.strip() for x in os.environ.get('ONLY', '').split(',') if x.strip()]
@@ -144,10 +203,33 @@ jobs:
                       'logs': bool(a.get('logs')),
                   })
           assert len(shards) <= 256, f'{len(shards)} shards; a matrix holds 256'
-          print(f'shards={json.dumps(shards)}')
-          print(f'count={len(shards)}')
+          # WAVES. Half the shards of each arm now, the rest only where the
+          # interim look does not settle the question. The split is by arm
+          # and in shard order, so two arms on the same block and the same
+          # shard size play the SAME seeds in wave 1 -- which is what the
+          # paired interim reads. `ceil` puts the odd shard in wave 1: the
+          # look is the thing being paid for, so it gets the extra seeds.
+          #
+          # `waves: false` runs everything at once, which is what a LEVEL
+          # reading wants (drift.yml): halving the seeds doubles the
+          # interval, and a canary's number is quoted, not compared.
+          wave1, wave2 = shards, []
+          if WAVES:
+              by_arm = {}
+              for s in shards:
+                  by_arm.setdefault(s['slug'], []).append(s)
+              wave1, wave2 = [], []
+              for arm_shards in by_arm.values():
+                  cut = -(-len(arm_shards) // 2)
+                  wave1 += arm_shards[:cut]
+                  wave2 += arm_shards[cut:]
+          print(f'shards={json.dumps(wave1)}')
+          print(f'count={len(wave1)}')
+          print(f'wave2={json.dumps(wave2)}')
+          print(f'wave2_count={len(wave2)}')
           PY
         env:
+          WAVES: ${{ inputs.waves }}
           # `inputs`, not `github.event.inputs`: the one context both a
           # dispatch and a workflow_call fill.
           INLINE: ${{ inputs.inline }}
@@ -177,58 +259,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
-
       # Base sync is enough: the package declares no runtime dependencies and
       # the benchmark is stdlib. ruff and ty are only needed by the gate.
       - run: uv sync --frozen
-
-      - name: ${{ matrix.s.slug }} seeds ${{ matrix.s.seeds }}
-        run: |
-          set -o pipefail
-          . scripts/lib/gate_common.sh
-          echo "$SHARD" > arm.json
-          python3 -c 'import json,sys; print(json.dumps({"version":1,"weights":json.loads(sys.argv[1])["weights"]}))' "$SHARD" \
-            > arm.weights.json
-          cat arm.json
-          BOT=strategic OPP=strategic ARGS=()
-          # Only when the arm sets weights: see the bot_ref assertion in plan.
-          if [ "$(python3 -c 'import json,sys; print(bool(json.loads(sys.argv[1])["weights"]))' "$SHARD")" = True ]; then
-            ARGS+=(--bot-weights arm.weights.json)
-          fi
-          if [ -n "$BOT_REF" ]; then
-            snapshot "$BOT_REF" snap-bot
-            BOT="strategic@$PWD/snap-bot/strategic/policy.py"
-          fi
-          if [ -n "$ANCHOR" ]; then
-            snapshot "$ANCHOR" snap-opp
-            OPP="strategic@$PWD/snap-opp/strategic/policy.py"
-          fi
-          if [ -n "$OPENINGS" ]; then ARGS+=(--openings "$OPENINGS"); fi
-          # `"logs": true` keeps every game's INFO log, for diagnosing HOW a
-          # result happened (which play took DEFCON to 1) rather than only
-          # what it scored. Tens of MB a shard; leave it off for A/Bs.
-          if [ "$LOGS" = true ]; then ARGS+=(--log-dir game-logs); fi
-          # Exit 6 is a stall: the report is still written and the shard's
-          # games still count, but the shard is marked failed so the run
-          # says so. Anything else nonzero is a crash.
-          uv run python -m struggler.bots.benchmark \
-            --bot "$BOT" --opponent "$OPP" \
-            --seeds "$SEEDS" --stall-timeout 1200 --workers 4 "${ARGS[@]}" \
-            --report "$SLUG.json" 2>&1 | tail -15
-        env:
-          SHARD: ${{ toJSON(matrix.s) }}
-          SLUG: ${{ matrix.s.slug }}
-          SEEDS: ${{ matrix.s.seeds }}
-          ANCHOR: ${{ matrix.s.anchor }}
-          BOT_REF: ${{ matrix.s.bot_ref }}
-          OPENINGS: ${{ matrix.s.openings }}
-          LOGS: ${{ matrix.s.logs }}
-
+      - uses: ./.github/actions/run-shard
+        with:
+          shard: ${{ toJSON(matrix.s) }}
+          no_cache: ${{ inputs.no_cache }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -237,13 +278,130 @@ jobs:
             ${{ matrix.s.slug }}.json
             arm.json
             arm.weights.json
+            benchmark.log
+            game-logs/
+          retention-days: 30
+
+  # THE LOOK. Pool wave 1 and ask, per arm, whether wave 2 can still change
+  # the answer. `scripts/wave_verdict.py` holds the rule and the reason the
+  # boundary is where it is; the short version is that two chances to clear a
+  # bar are easier than one, so the interim bar is raised to 2.373 and the
+  # final one to 1.678 -- a 2% wider final interval, for half the seeds on
+  # every arm that was never close.
+  #
+  # `if: always()` and not `success()`: a wave-1 shard that crashed is a
+  # reason to PLAY wave 2, not to skip the decision and thereby play it. The
+  # script fails open on every unreadable path for the same reason.
+  interim:
+    needs: [plan, run]
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.look.outputs.shards }}
+      count: ${{ steps.look.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: experiment-*
+          path: shards
+      - id: look
+        run: |
+          # `set -u`, NOT `set -e`. THE LOOK MUST NEVER ABORT THE STEP.
+          # `wave_verdict.py` fails open on every unreadable path, and on
+          # 2026-09-21 that guard was bypassed entirely: every wave-1 shard
+          # failed, `pool_reports.py` exited 2 with "no shard reports found",
+          # `set -e` killed the step before the script ran, and `run2` was
+          # skipped for want of a successful `interim`. A total wave-1
+          # failure silently cancelled wave 2 -- the one outcome the whole
+          # design says must not happen. Each stage below degrades instead.
+          set -uo pipefail
+          echo "$WAVE2" > wave2.json
+          uv run python scripts/pool_reports.py shards --json interim.json > interim.md \
+            || echo 'POOLING WAVE 1 FAILED; the look will fail open.' | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo '## Interim (wave 1)'; cat interim.md 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
+          if ! uv run python scripts/wave_verdict.py interim.json \
+               --wave2 wave2.json --out next.json > verdict.md; then
+            echo 'THE LOOK ITSELF FAILED; playing every wave-2 shard.' | tee -a "$GITHUB_STEP_SUMMARY"
+            cp wave2.json next.json
+          fi
+          cat verdict.md 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+          echo "shards=$(cat next.json)" >> "$GITHUB_OUTPUT"
+          echo "count=$(python3 -c 'import json;print(len(json.load(open("next.json"))))')" >> "$GITHUB_OUTPUT"
+        env:
+          WAVE2: ${{ needs.plan.outputs.wave2 }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: interim
+          path: |
+            interim.json
+            interim.md
+            verdict.md
+            next.json
+          retention-days: 90
+
+  run2:
+    needs: [plan, interim]
+    # FAIL OPEN AT THE JOB LEVEL TOO. The step above degrades rather than
+    # failing, but a lost runner or a cancelled `interim` would still leave
+    # this job with nothing to read -- and skipping it would report half an
+    # arm's seeds as a whole arm. So an `interim` that did not succeed falls
+    # back to plan's full wave 2, and only a successful look is allowed to
+    # shorten it.
+    if: >-
+      always() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
+      && (needs.interim.result != 'success' || needs.interim.outputs.count != '0')
+    name: ${{ matrix.s.slug }} [${{ matrix.s.shard }}/${{ matrix.s.of }}] w2
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        # The look's selection when there is one, plan's full wave 2 when
+        # there is not -- the same fail-open rule as the job's `if`, and the
+        # reason the fallback is `plan`'s list rather than `'[]'`: an empty
+        # matrix is a workflow error, and a workflow error on wave 2 would be
+        # reported as a failed experiment rather than a shortened one.
+        s: ${{ fromJSON(needs.interim.outputs.shards || needs.plan.outputs.wave2) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - uses: ./.github/actions/run-shard
+        with:
+          shard: ${{ toJSON(matrix.s) }}
+          no_cache: ${{ inputs.no_cache }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: experiment-${{ matrix.s.slug }}--${{ matrix.s.shard }}
+          path: |
+            ${{ matrix.s.slug }}.json
+            arm.json
+            arm.weights.json
+            benchmark.log
             game-logs/
           retention-days: 30
 
   collect:
-    needs: [plan, run]
+    needs: [plan, run, interim, run2]
     # Pool whatever finished: a shard that crashed or timed out is listed as
     # MISSING next to its arm rather than silently pooled around.
+    #
+    # An arm the interim stopped reports on wave 1 alone, and its `shards`
+    # count says so. That is not a missing shard -- it is the design -- but
+    # the two read alike in the table, which is why `interim`'s verdict is
+    # uploaded as its own artifact and printed to the run summary.
     if: always() && needs.plan.result == 'success'
     runs-on: ubuntu-latest
     steps:
