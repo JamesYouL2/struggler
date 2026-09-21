@@ -609,8 +609,43 @@
       "compare_to": "fit-fresh-base",
       "title": "fitted weights vs bc5ef93, fresh block: on at the matched scale",
       "context": "The question is whether -0.001 was the block or the weights, and the old block cannot answer it however many times it is run. PRE-REGISTERED, before dispatch: paired lower bound above 0 on the full 1024 seeds means the fit is a measurable gain and step 4 (deleting battleground, control and the un-fitted half of country_value) becomes a normal change with an anchored arm behind it; at or below 0 means two independent blocks agree it is not measurable, and the refit at current main (fitted_country_weights.json is fitted on 598e4d1, two structural changes stale) is the next move rather than another block. docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md"
+    },
+    {
+      "slug": "refit-base",
+      "bot_ref": "15caae4",
+      "anchor": "bc5ef93",
+      "seeds": "70000-71023",
+      "title": "refit control: the SHIPPED fitted weights vs bc5ef93, fresh block",
+      "context": "The base half of the refit question. bot_ref rather than plain HEAD on purpose: `refit-on` can only be expressed as a revision, because a refit changes bots/strategic/fitted_country_weights.json rather than a StrategicWeights field, and a paired arm must run through identical snapshot machinery or the pairing prices the machinery too. 15caae4 is the shipped country layer (country_vp_scale 2.795, weights fitted on 598e4d1). docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md"
+    },
+    {
+      "slug": "refit-on",
+      "bot_ref": "a802539",
+      "anchor": "bc5ef93",
+      "seeds": "70000-71023",
+      "compare_to": "refit-base",
+      "title": "refit at current main: weights fitted on 28adb67 vs bc5ef93",
+      "context": "branch vp/refit-at-main. The weights were fitted on 598e4d1, two structural changes back, and weights fitted on the positions one bot reaches need not price the positions another reaches -- the standing argument for a refit, which survived the fresh block rather than being answered by it. The refit keeps the LEVEL (its matched_scale is measured against the shipped level, shipped rounded to 2.793), so this tests SHAPE. PRE-REGISTERED: paired lower bound above 0 means the refit ships; at or below 0 means the 598e4d1 weights stay and the staleness argument is spent, not merely unproven. Europe's in-sample R^2 FALLS 0.835 -> 0.576 on the refit while every other region holds or improves, so a loss here is the likely outcome and is worth knowing: it would say the linear model, not the sample, is what limits Europe. Cannot distinguish 'the refit is worse' from 'Europe needs a different functional form'."
+    },
+    {
+      "slug": "potential-verdict-base",
+      "anchor": "bc5ef93",
+      "seeds": "72000-73023",
+      "title": "potential verdict: the term OFF vs bc5ef93, 1024 seeds",
+      "context": "Step 5 of docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md, the base half. The country layer is finished and shipped; this is the region layer and the last open question in that plan."
+    },
+    {
+      "slug": "potential-verdict-on",
+      "weights": {
+        "potential": 1.0,
+        "potential_refresh": 1.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "72000-73023",
+      "compare_to": "potential-verdict-base",
+      "title": "potential verdict: the VP rebuild in the ranking vs bc5ef93, 1024 seeds",
+      "context": "The 1024-seed verdict the term has never had. `potential-round-on` read +0.021 [-0.009, +0.052] over 512 seeds against 07d553a (run 35531902621): not measured to help, not measured not to, at half the registry's own default for a question worth asking. At 1024 the interval roughly halves and separates +0.021 from zero if it is real. TWO THINGS CHANGED SINCE THAT READING and both matter. The opponent is bc5ef93, the strongest anchor, not 07d553a. And 15caae4 closed the gap where `_resolve_sandbox` never priced the potential at all, so events were mispriced against placements by the whole term (2.9075 VP on a 43 VP Fidel) -- the 512-seed reading was taken on a bot with events and placements on different scoring halves, and is NOT comparable to this one. PRE-REGISTERED: paired lower bound above 0 means the term earns its place and the refresh approximation is the next question; at or below 0 means it does not, at a sample size that can say so. Cannot separate the term from its `potential_refresh` round-level tables, which are on in both arms of the pair as they were in the 512-seed one."
     }
-
   ],
   "_retired": {
     "_what": "arms already run (results in docs/notes/codex/); kept so their seed blocks stay reserved",

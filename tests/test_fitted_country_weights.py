@@ -1,13 +1,18 @@
 """The fitted per-country weights (`StrategicWeights.country_vp_scale`) and
 the Europe Control price (`europe_control_vp`).
 
-See docs/notes/claude/2026-09-18-fitted-country-weights.md. On by default
-since 2026-09-18 (the parity corpus still pins the tiers: its records carry
-country_vp_scale 0.0 from capture); these tests pin what the fit means.
+See docs/notes/claude/2026-09-18-fitted-country-weights.md. Shipped ON
+since 2026-09-21, when the guessed `battleground`/`control` tiers and
+`country_value`'s un-fitted half were deleted on the strength of +0.054
+[+0.031, +0.078] paired against bc5ef93 (run 35614516089,
+docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md). These
+tests pin what the fit means, and that the tiers cannot come back.
 """
 import dataclasses
-import math
 import json
+import math
+import pathlib
+import re
 
 import pytest
 
@@ -66,16 +71,55 @@ def test_fitted_country_values_are_zero_sum_across_the_seats(seed):
         assert us == pytest.approx(-ussr, abs=1e-9), t.ids[i]
 
 
-def test_switching_the_fit_on_changes_country_values_and_off_leaves_the_tiers():
+def test_the_shipped_scale_is_the_truncation_every_arm_actually_played():
+    """`country_vp_scale` ships at 2.795, not the file's `matched_scale`.
+
+    The two differ from the fourth decimal (2.7949857573867254), and every
+    arm that ever measured the fit was dispatched with the short one --
+    `.github/experiments.json` carries `{"country_vp_scale": 2.795}` in all
+    of them. Rankings are decided by strict comparison, so "close enough"
+    is not a thing here: shipping the long form would ship a bot no arm has
+    played. If a refit moves `matched_scale`, the new scale has to be
+    measured before it is shipped, and this assertion is where that
+    conversation starts.
+    """
+    matched = json.loads(ev.FITTED_WEIGHTS_PATH.read_text())['matched_scale']
+    shipped = StrategicWeights().country_vp_scale
+    # The rule, stated rather than approximated by a tolerance: the shipped
+    # scale is `matched_scale` rounded to three decimals. A bare tolerance
+    # was 1e-4, which only passed because 2.7949857... happens to sit almost
+    # exactly on 2.795; a three-decimal rounding may move by up to 5e-4, so
+    # the tolerance would have rejected the next refit for being ordinary.
+    assert shipped == 2.795 == round(matched, 3)
+    assert shipped != matched, 'the long form is not what any arm played'
+
+
+def test_country_value_is_linear_in_the_scale_so_it_is_a_level_knob():
+    """Doubling `country_vp_scale` doubles every country value.
+
+    That is what makes `matched_scale` meaningful as a *level*: all four
+    terms multiply importance, and `access` prices the battlegrounds it
+    reaches through the same `importance` call, so the scale factors
+    straight out of `country_value`. It is also what makes the scale sweep
+    (half and double, both measurably worse) a test of the level alone.
+
+    A term that read the scale non-linearly -- or one that priced part of
+    the country layer on something else, which is exactly what the deleted
+    tier fallback did inside `access` -- breaks this.
+    """
     engine = bare_engine()
-    engine.board.influence['France']['US'] = 3
+    for cid, side, n in (('France', 'US', 3), ('Iran', 'USSR', 2),
+                         ('Venezuela', 'US', 2), ('Cameroon', 'USSR', 1)):
+        engine.board.influence[cid][side] = n
     t = ev.terrain()
     pos = ev.Position(t).sync(engine.board)
-    france, urgency = t.index['France'], ev.ones(t)
-    off = StrategicWeights(country_vp_scale=0.0)
-    assert ev.importance(t, off, urgency, france, ev.US) == off.battleground
-    assert ev.country_value(t, pos, france, ev.US, fitted_weights(), urgency) != \
-        ev.country_value(t, pos, france, ev.US, off, urgency)
+    urgency = ev.ones(t)
+    one = StrategicWeights(country_vp_scale=1.0)
+    two = StrategicWeights(country_vp_scale=2.0)
+    for i in range(len(t.ids)):
+        for side in (ev.US, ev.USSR):
+            assert ev.country_value(t, pos, i, side, two, urgency) == pytest.approx(
+                2.0 * ev.country_value(t, pos, i, side, one, urgency), abs=1e-9), t.ids[i]
 
 
 @pytest.mark.parametrize('price', [20.0, 40.0, 60.0])
@@ -120,48 +164,44 @@ def test_the_europe_curve_prices_only_europe_and_off_is_the_tiers():
     assert StrategicWeights().europe_curve == 0.0
 
 
-def test_the_fit_owns_the_whole_country_layer_and_the_guessed_tiers_are_not_read():
-    """With `country_vp_scale` set, nothing under `country_value` may still
-    read `battleground`/`control`.
+def test_the_guessed_tiers_are_gone_and_cannot_come_back():
+    """`battleground` and `control` are deleted, and nothing may re-add them.
 
-    Shipped at 0.0, the fit rescales a country's importance from a guessed
-    tier to fitted VP -- and `country_value` multiplies that importance into
-    four terms: control, progress, the reserve, and `access`. `access` took
-    the tier path regardless, because it called `importance` without a side
-    and the fitted branch is guarded on `s is not None`. So Italy was worth
-    7.136 to the three terms that read the fit and 5.000 to the one that did
-    not: two scales inside one value, with `w.access` (1.5) multiplying the
-    stale half -- and `access` is the tiebreaker
-    (docs/notes/claude/2026-09-12-access-is-the-tiebreaker.md).
+    They were a guessed 5.0/1.5 pair that gave every battleground on the
+    map the same importance, and their last bug was subtler than their
+    flatness: `access` called `importance` without a side, the fitted
+    branch was guarded on `s is not None`, so the tiebreaker priced the
+    battlegrounds it reached on the tiers while control, progress and the
+    reserve were on fitted VP. Two scales inside one `country_value` (bug
+    shape 6), with `w.access` multiplying the stale half.
 
-    The property, stated so it cannot rot: with the fit on, moving the tier
-    weights must move nothing. That is also exactly what
-    `docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md` step 4 needs
-    before those two fields can be deleted.
+    This test used to state that as a value property -- with the fit on,
+    moving the tiers must move nothing -- and that property is now
+    unstateable, because there is nothing to move. What replaces it is the
+    deletion itself: the fields are gone, and no source file in the
+    strategic package names them as weights. The failure this guards is
+    someone re-introducing a guessed per-country or per-battleground tier
+    *beside* the fit, which is how two scales got into one value the first
+    time.
+
+    docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md
     """
-    engine = bare_engine()
-    # A board with reach to price: influence next to uncontrolled battlegrounds.
-    for cid, side, n in (('France', 'US', 3), ('Iran', 'USSR', 2),
-                         ('Venezuela', 'US', 2), ('Cameroon', 'USSR', 1)):
-        engine.board.influence[cid][side] = n
+    fields = {f.name for f in dataclasses.fields(StrategicWeights)}
+    assert not ({'battleground', 'control'} & fields), (
+        'the guessed country tiers are back as weights. The fit owns the country '
+        'layer; a second tier weight beside it is two scales in one value again.')
+
+    strategic = pathlib.Path(ev.__file__).parent
+    offenders = []
+    for path in sorted(strategic.glob('*.py')):
+        for n, line in enumerate(path.read_text().splitlines(), 1):
+            if re.search(r'\bw(eights)?\.(battleground|control)\b', line):
+                offenders.append(f'{path.name}:{n}: {line.strip()}')
+    assert not offenders, 'weights-level tier reads are back:\n' + '\n'.join(offenders)
+
+    # The board fact stays forever and is a different thing entirely:
+    # `defcon.py` alone reads it five times to answer "can the opponent Coup
+    # a Battleground and lower DEFCON". This asserts the two did not get
+    # deleted together.
     t = ev.terrain()
-    pos = ev.Position(t).sync(engine.board)
-    urgency = ev.ones(t)
-
-    fit = fitted_weights()
-    # Same fit, absurd tiers. If any term still reads them, a value moves.
-    moved = dataclasses.replace(fit, battleground=500.0, control=250.0)
-
-    for i in range(len(t.ids)):
-        for side in (ev.US, ev.USSR):
-            assert ev.country_value(t, pos, i, side, fit, urgency) == \
-                pytest.approx(ev.country_value(t, pos, i, side, moved, urgency), abs=1e-9), \
-                f'{t.ids[i]} still reads the guessed tiers with the fit on'
-
-    # And the negative control: with the fit OFF the tiers must still bite,
-    # or the assertion above would pass for the wrong reason.
-    off = StrategicWeights(country_vp_scale=0.0)
-    off_moved = dataclasses.replace(off, battleground=500.0, control=250.0)
-    france = t.index['France']
-    assert ev.country_value(t, pos, france, ev.US, off, urgency) != \
-        ev.country_value(t, pos, france, ev.US, off_moved, urgency)
+    assert any(t.battleground) and not all(t.battleground)

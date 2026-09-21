@@ -1,5 +1,17 @@
 # Finishing the VP rebuild, and deleting `battleground`
 
+> **DONE for the country layer, 2026-09-21.** Steps 1-4 have all landed:
+> `battleground`, `control` and `country_value`'s un-fitted half are
+> deleted and `country_vp_scale` ships at 2.795. The arm that unblocked
+> step 4 is in
+> [the fresh-block note](2026-09-21-the-fresh-block-answers-the-fit.md)
+> (+0.054 [+0.031, +0.078] paired against `bc5ef93`). **Step 5 -- the
+> `potential` term, its 1024-seed verdict, and the sandbox gap in
+> `_delta`'s contract -- is untouched and is what is left of this plan.**
+> Everything below is kept as written, including the two branches that
+> were not taken, because the reasoning is what made the fourth dispatch
+> the right one.
+
 2026-09-20. What is built, what is missing, and the order to do it in. The
 hook itself was already described in
 [the margin deletion note](2026-09-19-delete-the-region-margin.md); this is
@@ -88,6 +100,11 @@ Gated by `test_the_fit_owns_the_whole_country_layer_and_the_guessed_tiers_are_no
 which states the property the deletion in step 4 actually needs: **with the
 fit on, moving `battleground` and `control` must move nothing.** Verified to
 fail without the fix (971.22 against an expected 43.10).
+
+(That test is now `test_the_guessed_tiers_are_gone_and_cannot_come_back`, in
+the same file. Step 4 made its property unstateable -- there are no tier
+weights left to move -- so what it asserts is the deletion itself: the
+fields are absent and no strategic module reads them.)
 
 ## So what is stopping it: one measurement, not any code
 
@@ -191,14 +208,44 @@ tables are the expensive thing in the profile.
    step 2 measures a bot with two scales in it.
 2. **Run `fit-intransitive-{base,on}`** (registered, 62000-63023, 16
    shards), on the fixed bot. This is the gate on the whole programme.
+   **DONE:** +0.038, which read level-or-better, so step 3 followed.
 3. **If it loses: refit at current main** and re-run step 2. If it reads
    level or better: **run it against `bc5ef93`** before believing it.
+   **DONE, and it took two blocks.** Block 64000 read +0.023 [-0.001,
+   +0.047] and was held back on the pre-registered rule; block 68000 read
+   **+0.054 [+0.031, +0.078]** and cleared it (run 35614516089). The
+   refit branch was therefore NOT taken -- see the fresh-block note for
+   why the -0.001 was the block rather than the weights.
 4. **Delete the un-fitted branch** -- `importance`'s fallback,
    `country_value`'s un-fitted half, and the `battleground` / `control`
    fields -- with the anchored arm from step 3 as the evidence, *before*
-   the merge, not after.
+   the merge, not after. **DONE 2026-09-21**, on a branch cut from the
+   exact tree the arm played. `_fitted_country_value` is folded back into
+   `country_value`, `importance` takes a mandatory side, and the parity
+   corpus was re-captured because its records pinned a code path that no
+   longer exists.
 5. **Only then, the potential.** 1024-seed verdict first; if it earns its
    place, close the sandbox gap as part of turning it on, not after.
+   **IN FLIGHT, and the order was inverted deliberately.** The sandbox gap
+   is CLOSED (15caae4): `_resolve_sandbox` now prices the potential's
+   before/after pair, gated by
+   `test_with_the_potential_on_the_event_prices_it_too_and_the_gap_is_the_approximation`,
+   and it is inert at `potential = 0` -- the parity corpus is unchanged,
+   which is the proof. It had to go first after all: the 512-seed reading
+   was taken on a bot whose events and placements were on different
+   scoring halves, so turning the term on without the fix would have
+   measured that instead of the term. The verdict arms
+   `potential-verdict-{base,on}` are registered at 1024 seeds against
+   `bc5ef93` on block 72000-73023.
+
+The refit branch the plan named under step 3 is **also built and
+unmeasured**: `vp/refit-at-main` (a802539), weights fitted at 28adb67,
+`country_vp_scale` 2.793, arms `refit-{base,on}` on block 70000-71023.
+It was NOT selected by step 3 -- the fresh block cleared the fit, so the
+refit is a further question rather than a rescue -- and it is worth
+knowing that Europe's in-sample R^2 falls 0.835 -> 0.576 on it while every
+other region holds or improves. A loss there would say the linear model,
+not the sample, is what limits Europe.
 
 Steps 1-4 are the VP rebuild for the *country* layer, which is the one
 `battleground` lives in. Step 5 is the *region* layer, which is a separate

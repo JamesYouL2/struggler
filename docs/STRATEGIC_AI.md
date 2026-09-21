@@ -171,12 +171,15 @@ action = bot.choose_action(observation, history)
   candidate, and only it is valued as a space play when choosing a card.
   Decolonization (-75) is spaced ahead of Fidel (-23); before, both
   collapsed to the same space value and the tie broke on hand order.
-- Country importance is battleground or not (`battleground`, `control`=0):
-  a plain country is worth nothing of its own, since its control only moves
-  the domination tally the region score computes exactly; what it is for is
-  reach, priced by the access and first-mover terms. The Southeast Asia
-  tier and the realignment-leverage term were removed in Sept 2026: the
-  scoring weights and access express both.
+- Country importance is that country's own fitted weight, per side, times
+  `country_vp_scale` (see *Fitted country weights* below). It was a
+  guessed two-tier pair -- battleground or not -- until 2026-09-21; that
+  pair returned one number for every battleground on the map, and the
+  flatness, not the number, was the defect. A plain country is still worth
+  little of its own, since its control mostly moves the domination tally
+  the region score computes exactly; what it is for is reach, priced by the
+  access terms. The Southeast Asia tier and the realignment-leverage term
+  were removed in Sept 2026: the scoring weights and access express both.
 - Coups and realignments are priced on the same board change as placing
   influence (`delta`), then multiplied by `coup_discount` (0.9): they are
   the less Ops-efficient route to the same result (a coup on a
@@ -581,21 +584,38 @@ does not demonstrate that learning improved playing strength.
 Validation: 392 tests passed, 3 skipped, including tactical regressions,
 observation non-mutation, deterministic paired games, and model serialization.
 
-## Fitted country weights (off: they lose to the 07d553a anchor)
+## Fitted country weights (the country layer; the tiers are deleted)
 
-`StrategicWeights.country_vp_scale` replaces the guessed `battleground` and
-`control` tiers in `evaluator.importance` with a fixed per-country, per-side
-weight fitted to the exact scoring potential
+`StrategicWeights.country_vp_scale` (2.795) is the **only**
+country-importance weight. `evaluator.importance` is that scale times the
+country's own fitted per-side weight
 (`bots/strategic/fitted_country_weights.json`, produced by
-`scripts/fit_country_weights.py`). It is multiplied by the same
-turn-and-deck scoring mass (`urgency`) the tiers used. Southeast Asia's own
-payout rides its card's mass exactly. At the file's `matched_scale`
-(2.795) they beat the tiers head to head but lost 0.031 to the fixed
-anchor `07d553a`, paired, so the default is 0. `country_value` then prices our
+`scripts/fit_country_weights.py`, fitted to the exact scoring potential),
+times the turn-and-deck scoring mass `urgency` carries. Southeast Asia's
+own payout rides its card's mass exactly. `country_value` prices our
 control at our weight and the opponent's at theirs, and stays zero-sum
-across the seats. At 0 the old tiers run unchanged; the parity corpus's
-records pin 0, so it still checks that path exactly. `europe_control_vp`
-(40, the whole track) is Europe Control's price in the region term. See
+across the seats. `country_value` is linear in the scale, which is what
+makes `matched_scale` a level knob rather than a shape change.
+
+The guessed `battleground` (5.0) and `control` (1.5) tiers, and
+`country_value`'s un-fitted half, were **deleted on 2026-09-21**. The
+evidence is one anchored paired arm: **+0.054 [+0.031, +0.078]** against
+`bc5ef93` over 1020 shared seeds of a fresh block (run 35614516089), which
+cleared a bound pre-registered before dispatch. It took four dispatches to
+get there -- the fit beat the tiers head to head, then lost 0.031 to
+`07d553a` because `access` was still on the tier scale, then read +0.023
+[-0.001, +0.047] on a block whose reading was capped at 896 seeds and was
+held back for it. `access` threading its side is what made the fitted path
+own all four terms.
+
+The shipped scale is **2.795, not the file's `matched_scale`**
+(2.7949857573867254): 2.795 is the truncation every arm was dispatched
+with, and rankings are decided by strict comparison.
+
+`europe_control_vp` (40, the whole track) is Europe Control's price in the
+region term. The board fact `Terrain.battleground` is a rule and is
+untouched by any of this. See
+`docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md` and
 `docs/notes/claude/2026-09-18-fitted-country-weights.md`.
 
 ## Hand survival

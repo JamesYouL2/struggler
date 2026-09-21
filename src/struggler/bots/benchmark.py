@@ -1160,7 +1160,7 @@ def main(argv=None):
         weights = None
         if args.bot_weights:
             from struggler.bots.strategic import StrategicWeights
-            weights = StrategicWeights.load(args.bot_weights)
+            weights = StrategicWeights.load(args.bot_weights, strict=True)
         if args.table:
             event_table(parse_seeds(args.seeds)[0], weights)
         if args.expert:
@@ -1187,6 +1187,19 @@ def main(argv=None):
         parser.error('--stall-timeout is seconds, and 0 means wait for ever')
     if args.max_seconds < 0:
         parser.error('--max-seconds is seconds, and 0 means no ceiling')
+    # VALIDATE --bot-weights ONCE, HERE, BEFORE ANY GAME RUNS. `build` loads
+    # it per game and loads it tolerantly, because a trained model outlives
+    # the weight set it was trained against. An EXPERIMENT must not get that
+    # tolerance: an arm naming a weight that no longer exists would play the
+    # default bot for every seed and report the score as a measurement.
+    # Failing here costs a second; finding out costs a runner-hour and a
+    # wrong number in a note.
+    if args.bot_weights:
+        from struggler.bots.strategic import StrategicWeights
+        try:
+            StrategicWeights.load(args.bot_weights, strict=True)
+        except ValueError as exc:
+            parser.error(str(exc))
     # `results.next(timeout=0)` polls and returns at once, so the documented
     # "0 waits for ever" used to report a stall on the first poll (audit F4).
     stall_timeout = args.stall_timeout or None

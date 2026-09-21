@@ -95,17 +95,54 @@ def test_one_member_moving_is_priced_exactly():
 def test_a_trial_across_a_regional_border_prices_both_regions():
     """Libya is Middle Eastern and borders Africa, so a placement there moves
     Africa's forecast through reach. Pricing only the country's own region
-    was wrong by 0.074 VP on every Libya trial -- the one single-member case
-    that was not exact, and the reason `potential_delta` walks the regions of
-    the country AND its neighbours."""
+    was wrong by 0.074 VP on every Libya trial, and that is why
+    `potential_delta` walks the regions of the country AND its neighbours.
+
+    RE-PINNED 2026-09-21, and the claim is weaker on purpose. This used to
+    assert exactness, because on the board the old bot reached after 120
+    steps Libya's trial happened to move exactly one member's triple. The
+    fitted country weights became the only country weights
+    (docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md), the
+    bot plays differently, the board after 120 steps is a different board,
+    and Libya's trial now moves three triples -- two in the Middle East and
+    one in Africa. That is a first-order case, so exactness is the wrong
+    claim to make about it and asserting it anyway would be pinning a
+    coincidence of the fixture.
+
+    What is load-bearing survives the move and is what is asserted here:
+    the trial plan covers BOTH regions, a triple moves in each, and the
+    price is within the first-order error rather than wrong by the whole
+    African contribution. Exactness on single-member trials is
+    `test_one_member_moving_is_priced_exactly`, which still holds.
+    """
     engine = _played()
     bot, obs = _ranking_bot(engine)
-    t = bot._terrain
+    t, pos = bot._terrain, bot._position
     i = t.index['Libya']
     assert t.region_of[i] is Region.MIDDLE_EAST
     assert any(t.region_of[n] is Region.AFRICA for n in t.neighbors[i])
-    (_cid, _own, _moved, priced, exact), = _trials(bot, obs, ['Libya'])[:1]
-    assert priced == pytest.approx(exact, abs=1e-9)
+
+    # The plan is what walks the neighbours' regions; a Middle-East-only
+    # plan is the defect this test exists for.
+    assert {entry[0] for entry in bot._trial_plans[i]} == {Region.MIDDLE_EAST, Region.AFRICA}
+
+    # And the African half is not empty on this board: a triple really does
+    # move there, so a Middle-East-only sum would miss a real contribution.
+    moved_by_region = {}
+    for region in (Region.MIDDLE_EAST, Region.AFRICA):
+        before = [fcst._horizon_triple(t, pos, m, 1) for m in t.members[region]]
+        was = pos.place(i, pos.inf[ev.US][i] + 1, pos.inf[ev.USSR][i])
+        after = [fcst._horizon_triple(t, pos, m, 1) for m in t.members[region]]
+        pos.place(i, *was)
+        moved_by_region[region] = sum(a != b for a, b in zip(after, before, strict=True))
+    assert all(n >= 1 for n in moved_by_region.values()), moved_by_region
+
+    (_cid, _own, moved, priced, exact), = _trials(bot, obs, ['Libya'])[:1]
+    assert moved == sum(moved_by_region.values())
+    # 0.0033 VP as measured on this board; the bound is the first-order
+    # error, an order of magnitude under the 0.074 a Middle-East-only
+    # pricing was wrong by.
+    assert priced == pytest.approx(exact, abs=0.01)
 
 
 def test_several_members_moving_is_first_order_and_the_error_is_measured():
