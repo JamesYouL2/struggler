@@ -587,7 +587,7 @@
       "seeds": "66000-67023",
       "compare_to": "leak-iso-fixed",
       "title": "access leak isolated: the fit ON with access still on the guessed tiers",
-      "context": "exp/access-leak-isolation, a deliberately buggy branch: main with the access scale fix reverted and country_vp_scale defaulted to 2.795 (bot_ref forbids weights, so the challenger carries its own default). A local probe over the 401-record parity corpus says the leak changes 52 rankings (13.0%) and 6 top actions (1.5%); this asks what that is worth in games. If the paired difference is about -0.069 the leak explains the whole sign flip; if it is near zero the flip was the block or the bot and the intransitivity claim needs different evidence."
+      "context": "ANSWERED (run 35550341433): the leak is worth +0.011 [-0.007, +0.029] over 1024 seeds -- nothing measurable, and the buggy arm reads a hair BETTER. The prediction on record was that near -0.069 would mean the leak explained the -0.031 -> +0.038 sign flip; it came back near zero, so the flip was the block or the bot. docs/notes/claude/2026-09-21-the-leak-cost-nothing.md retracts the claim. The arm was exp/access-leak-isolation, a deliberately buggy branch (main with the access fix reverted and country_vp_scale defaulted to 2.795, because bot_ref forbids weights)."
     }
 
   ],
