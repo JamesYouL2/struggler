@@ -62,14 +62,25 @@ the tests.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
   the full suite before committing -- push and let `tests.yml` do it, or run
   it locally if you are not pushing yet. ALWAYS RUN THE WHOLE THING.
-  Last timed locally at 5:30 for 915 tests on an idle 8-core box
-  (2026-09-17), of which `test_parity_corpus.py` is 3:41 -- two thirds of
-  the suite. It was 4:41 of a 6:10 suite on 2026-09-12 at 401 records, and
+  Last timed at **3:49 for 1121 tests on an idle 4-core box (2026-09-21)**,
+  of which `test_parity_corpus.py` is 2:02 at 401 records -- 53% of the
+  suite -- and `test_poke_rate.py` 0:28.
+
+  **That is not faster than the 5:30 below; it is a different machine.**
+  The previous reading was 915 tests at 5:30 on an idle *8-core* box
+  (2026-09-17), `test_parity_corpus.py` 3:41 of it. Four cores against
+  eight, 1121 tests against 915: the two numbers do not divide into a
+  speedup and nobody should try. `sample_machine` exists for exactly this,
+  and the core count is now part of the reading for the same reason the
+  idleness is.
+
+  `test_parity_corpus.py` was 4:41 of a 6:10 suite on 2026-09-12 at 401
+  records, and
   1:26 the afternoon before that at 344: the corpus grows when the bot's
   games last longer, because turn-9 positions are the most expensive there
   are to rank, and the record count moved 344 -> 401 -> 485 without anyone
-  editing a test. Expect it to move again, and expect any CI number to be
-  larger for the runner alone.
+  editing a test. (It reads 401 again on 2026-09-21.) Expect it to move
+  again, and expect any CI number to be larger for the runner alone.
   This entry was wrong twice on 2026-09-12. It said three and a half minutes
   from before the tests that make up the difference existed, and was then
   "corrected" to eleven minutes from a run taken while a 128-seed gate held
