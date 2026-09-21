@@ -114,6 +114,6 @@ def test_the_fast_attributes_are_the_slow_ones():
 
     # CHANCE has no opponent, and must not quietly answer as if it had one.
     with pytest.raises(AttributeError):
-        Side.CHANCE.opp_key
+        _ = Side.CHANCE.opp_key
     with pytest.raises(ValueError):
-        Side.CHANCE.opponent
+        _ = Side.CHANCE.opponent

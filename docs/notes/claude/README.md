@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [`Enum.value` is a descriptor, and the engine read it 3.2 million times a game](2026-09-21-enum-attribute-reads.md) — 2026-09-21 (3,172,738 reads → 188,658 from eight sites, -1.8% a game; the profile's own-time column overstated it 3x, and one round of one seed reported the wrong sign)
 - [Wiring the VP rebuild into the ranking: 172x, and where it actually goes](2026-09-20-potential-in-the-ranking.md) — 2026-09-20 (the cost is rebuilding the linear tables per position; round-level tables plus three exact precomputed tables take it to 2.75x, and the approximation's error is measured)
 - [The access scale leak cost nothing, and the prediction was wrong](2026-09-21-the-leak-cost-nothing.md) — 2026-09-21 (+0.011 [-0.007, +0.029]: the leak is worth nothing, the preceding note is RETRACTED, and a third demonstration that blocks move a level by 0.02-0.03 on identical code)
 - [RETRACTED: the intransitivity was NOT the access scale leak](2026-09-21-the-intransitivity-was-the-access-scale.md) — 2026-09-21 (its +0.038 reading stands; its causal claim does not -- see the correction above. Kept for the record and because experiments.json cites it by path)
