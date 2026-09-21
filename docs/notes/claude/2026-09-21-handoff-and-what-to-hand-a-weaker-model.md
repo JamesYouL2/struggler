@@ -23,6 +23,12 @@ decision per record and cannot see compounding.
 
 ## What is in flight
 
+**ANSWERED** -- see
+[the fresh-block reading](2026-09-21-the-fit-clears-on-a-fresh-block.md):
+**+0.054 [+0.031, +0.078]** over 1020 paired seeds, which clears the
+pre-registered line and unblocks step 4. The original text is kept below
+because its two open questions are what the reading answered.
+
 **Run 35614516089**, `fit-fresh-{base,on}`, block 68000-69023 against
 `bc5ef93`, paired, waves on. The decision rule is pre-registered in the
 arm's own `context` in `.github/experiments.json` and must not move once
