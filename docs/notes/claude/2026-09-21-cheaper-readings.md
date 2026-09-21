@@ -279,6 +279,47 @@ into a 37-minute one. The cache turns a re-dispatched shard into
 zero, and the waves turn half of a settled arm into zero. Spend attention
 there.
 
+## The shard that cannot be measured
+
+Worth recording here because it is the thing the cache was built in
+response to, and because it has now happened twice.
+
+`fit-bc-base [5/8]` -- seeds 64640-64767 of block 64000-65023, against
+`bc5ef93` -- ran 1h51m on its first dispatch and passed 2h21m on its
+second, against siblings that finished in 28-67 minutes. **Two
+independent dispatches, the same arm, the same shard index, therefore the
+same 128 seeds.** Shards are deterministic, so that is not runner luck: it
+is a reproducible slow slice, and a reproducible slice is findable.
+
+The mechanism is not a mystery either. `benchmark.py`:
+
+```python
+floor = stall_timeout
+if floor is not None and games:
+    floor = max(floor, 8 * max(g['seconds'] for g in games))
+```
+
+So the hang detector's floor is **eight times the slowest game seen so
+far**: one ten-minute game lifts it to eighty minutes. That is deliberate
+and well argued where it stands -- six shards of the 2026-09-19 bisect
+each lost their last game to a fixed gap, because with four workers and
+two games left the gap between finishes IS one whole game -- but it has no
+ceiling, and an earlier note filed it as a hypothesis about PR #21. It is
+not a hypothesis; the code says it.
+
+**The costly part is what happens at the other end.** `--stall-timeout` is
+a gap-between-finishes detector, not a wall clock. When the 180-minute job
+timeout fires, the runner kills the benchmark before it writes its report,
+so the shard yields **nothing** -- where a benchmark-side stall (exit 6)
+writes a partial report that pools. The asymmetry is worth closing: a
+wall-clock cap inside the benchmark, set below the job timeout, converts
+"lost shard" into "partial shard" for free. Not built; it should be the
+maintainer's call, because it changes what a timed-out arm reports.
+
+Bisecting the slice is cheap and decisive whenever someone wants it: four
+inline arms of 32 seeds over 64640-64767 against `bc5ef93`. Three finish,
+one does not, and the one that does not names the seed.
+
 ## The measurement discipline, restated
 
 Every number above is from an idle box, as `CLAUDE.md` requires after that
