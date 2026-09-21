@@ -186,13 +186,39 @@ distinct `(digest, region)` keys with 1,227 builds, 1.91 per key, so the
 existing digest-keyed cache was already 89% effective. And it is not the
 DP's numerical tail, which pruning showed has nothing to throw away.
 
+## The arm's answer (run 35531902621, 512 seeds 56000-56511)
+
+| arm | vs | score | one-sided 95% |
+| --- | --- | ---: | --- |
+| `potential-round-base` | 07d553a | 0.541 | [0.518, 0.564] |
+| `potential-round-on` | 07d553a | 0.562 | [0.538, 0.586] |
+
+Paired, seed by seed: **+0.021 [-0.009, +0.052]**.
+
+The interval contains zero. The term is not measured to help and not
+measured not to -- which, against a cost of 2.75x a game, is a decision:
+**both weights ship at 0.0.** `potential` and `potential_refresh` stay in
+the tree as an experiment an arm can switch on, not as a default.
+
+Worth being plain about what this does and does not say. It does not say the
+VP rebuild is worthless in the ranking; +0.021 is the wrong sign for that
+claim, and 512 seeds cannot resolve it. It says nobody may turn the term on
+on the strength of what has been measured so far, and that the next person
+to want it needs either a bigger block or a cheaper term, because 2.75x buys
+a reading whose error bars swallow the effect.
+
+The three exact changes underneath it -- the flat lattice, the memoised
+control forecast, the precomputed trial plans -- do not depend on this
+verdict and are on by default. They were never about the potential; they
+were about the DP, the fit and the per-call rebuilds that the potential
+merely made visible.
+
 ## Next
 
-1. An anchored arm for `potential=1.0, potential_refresh=1.0` against
-   `07d553a`. At 2.75x a game it is affordable; nothing measured here says
-   the potential makes the bot stronger, and every number above is a price.
-2. If the arm is flat or negative, stop -- the term does not earn 2.75x.
-   If it is positive, refresh on drift rather than on the clock, and close
-   the known gap that the event sandbox does not price the potential.
-3. The flat lattice and the forecast memo are exact and stand on their own
-   merits whatever the arm says.
+1. Nothing here. The term is off and the arm has answered; reopening it
+   needs a cheaper formulation or a much bigger block, not another dispatch
+   of the same arm on the same size.
+2. If it is ever reopened: refresh on drift rather than on the clock (the
+   turn-1 max of 3.73 VP is the reason), and close the known gap that the
+   event sandbox does not price the potential, so that a placement and an
+   event making the same board change are valued the same way.

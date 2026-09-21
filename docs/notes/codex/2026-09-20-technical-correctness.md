@@ -28,6 +28,14 @@ aggregate playing-strength effects have not been measured.
 
 ## F1 — card-specific coup restrictions disappear in latent-hazard detection
 
+**Status: fixed** 2026-09-21, branch `fix/latent-hazard-geography`. The
+geography and DEFCON exception live once in
+`DefconPlanner.borrowed_coup_threat`, used by both `event_risk` and
+`latent_hazards`; the acceptance regressions (both cards, planner /
+placement / event-board resimulation level, with the outside-geography
+controls) are in `tests/test_defcon_planner.py` under the 2026-09-20
+section heading.
+
 **Locations:** `src/struggler/bots/strategic/defcon.py`,
 `DefconPlanner.latent_hazards`, `coup_threat`, and `_event_risk`;
 `src/struggler/bots/strategic/policy.py`, `rank_actions`, `_mode_risk`,
