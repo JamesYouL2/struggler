@@ -134,6 +134,36 @@ The lesson to keep is the third one. The gate was written to prevent
 future drift and found eighteen past ones on its first run. A convention
 that is not a test is a convention nobody has checked lately.
 
+## Waking up: `ci-watchdog` (built 2026-09-22, in `~/.pi/agent/extensions/`)
+
+The harness answer to "runs finish while nobody looks": a small
+extension that polls watch files (`logs/watches/<run-id>`, body = what
+to do when it lands) and, on completion, notifies the TUI and injects a
+user message -- `pi.sendUserMessage(content, { deliverAs: "followUp" })`
+-- which always triggers a turn. The agent wakes and applies the
+pre-registered rule. `/watch <run-id> [instruction]` files one by hand;
+`dispatch-reading` now files one after every dispatch. It is outside the
+repo on purpose: it is harness machinery, not the game's.
+
+The smoke test earned its keep twice, on a five-minute feature:
+
+- **An uncaught async rejection kills the whole process.**
+  `pi.sendUserMessage` returns a `Promise`; called bare inside
+  `pollOnce`'s try/catch it rejected asynchronously, escaped, and took
+  pi down at print-mode teardown. Wake is awaited now, and delivery is
+  **at-least-once**: the watch file is renamed to `.done` before the
+  wake and restored if delivery fails, so a verdict can be read twice
+  but never lost.
+- **The error message names the concept, not the option.** "Specify
+  streamingBehavior ('steer' or 'followUp')" refers to the input
+  event's field; `sendUserMessage`'s option is `deliverAs`. The type
+  declaration (`dist/core/extensions/types.d.ts`) was the ground truth
+  the error text was not.
+
+The final smoke was end-to-end: a busy session, a tick mid-`sleep`, zero
+errors, the watch consumed exactly once -- and the woken agent went and
+read the run's actual verdict. Verify the way the consumer reads, again.
+
 ## What not to move into a skill
 
 Anything a test can enforce. The rule stands: a workflow step that can

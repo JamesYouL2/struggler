@@ -83,6 +83,23 @@ rule says stop, stop; record the disappointment in the note instead.
   `gate.yml`'s own header says the timings do not survive the move.
   Timing results stay local and alone.
 
+## Watch it, so it gets read when it lands
+
+A run that finishes while nobody looks is a pre-registered rule sitting
+unread. After dispatching, write a watch file -- one line, the name is
+the run id:
+
+    echo "read the pooled verdict; rule in <note>.md" > logs/watches/<run-id>
+
+The `ci-watchdog` extension (`~/.pi/agent/extensions/ci-watchdog.ts`,
+outside this repo) polls those and wakes the agent with a queued
+follow-up when a run completes -- delivery is at-least-once (the watch
+file is the durable record and is restored if the wake cannot be
+delivered), so a read verdict must consume its `.done` receipt. In the
+TUI, `/watch <run-id> [instruction]` does the same by hand. With no live
+session there is no watchdog: that is what the `queue` skill's agentless
+waiter is for.
+
 ## Waiting is sometimes the action
 
 Before cancelling a slow or stalled run, ask what the surviving data
