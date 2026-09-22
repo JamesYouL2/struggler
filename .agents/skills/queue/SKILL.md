@@ -61,7 +61,7 @@ machine. So three of the local rules below stop applying to them:
   run id up afterwards and record `NOT FOUND` rather than waiting on it, and
   classify a failed *run* by its failing step before blaming GitHub -- every
   failed run in the repo's history so far was ours. See
-  `docs/notes/Codex/2026-09-13-github-dispatch-degradation.md`.
+  `docs/notes/claude/2026-09-13-github-dispatch-degradation.md`.
 - **Quote a runner's verdict, never its wall-clock.** The hardware is
   shared and its load is unknown.
 - **Nothing lands in git by itself.** The workflows have `contents: read`
@@ -86,7 +86,11 @@ machine. So three of the local rules below stop applying to them:
 **Commit after every item.** A machine that dies at 3am must leave every
 finished result in git. Check what is gitignored first: if reports land
 in `logs/`, the commit is a *generated note of the numbers*, not the
-report. `scripts/report_note.py` is the worked version.
+report. `scripts/report_note.py` is the worked version -- and every note
+writer indexes its note via `scripts/index_note.py` before the commit,
+because an unindexed note fails the suite
+(`tests/test_agent_files.py`). If you write a note by hand in the middle
+of a queue, index it the same way.
 
 **Never `set -e`.** A failed item must not abandon the queue. Record the
 failure, continue. The one exception is a setup step whose failure makes
@@ -106,7 +110,7 @@ as it goes, so `HEAD~1` means something different by item 6 than it did
 at launch. A gate written against `HEAD~1` compared a change against a
 docs commit that already contained it -- the change on both sides,
 reporting a dead heat by construction. That is shape 3 in
-`docs/notes/Codex/bug-shapes.md`, six recurrences. Capture the SHA
+`docs/notes/claude/bug-shapes.md`, six recurrences. Capture the SHA
 first and pass it explicitly.
 
 **Order by value, not by dependency.** The machine may die. Put the item

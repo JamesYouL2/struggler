@@ -67,12 +67,17 @@ credential, the machine, or the authority.
 
 Standing members of this section:
 
-- **`git push`** -- no credentials here. `git push` cannot read a
-  username for the HTTPS remote and `gh` is not logged in. Before
-  listing it, check whether it is actually still outstanding:
-  `git ls-remote origin refs/heads/main` against `git rev-parse HEAD`.
-  The maintainer has pushed on their own before, and reporting an
-  already-landed push as outstanding is noise.
+- **Anything on the write path this environment denies.** Check before
+  listing; never assume. `gh auth status` and a `git ls-remote` say whether
+  this environment can push at all -- under pi on the maintainer's box it
+  can (docs commit+push unasked), a sandbox without credentials cannot.
+  What has actually needed a human here is narrower than "pushing": tag
+  creation and branch deletion returned 403 on the write path (2026-09-21,
+  `git push origin anchor-2026-09-12` and deleting
+  `exp/access-leak-isolation` were the two items). And check whether the
+  item is still outstanding at all: `git ls-remote origin refs/heads/main`
+  against `git rev-parse HEAD`. The maintainer has pushed on their own
+  before, and reporting an already-landed push as outstanding is noise.
 - **MCP connector auth** (Gmail, Google Calendar) -- needs the OAuth
   flow in an interactive session.
 
@@ -94,7 +99,7 @@ has been wrong at least once here:
   `bash -n scripts/gate.sh` still matched. **Do not ask `pgrep`.** Use
   `scripts/gate_running.py`, which walks `/proc` and excludes the whole
   ancestor chain, or `flock`. Shape 9 in
-  `docs/notes/Codex/bug-shapes.md`, gated by
+  `docs/notes/claude/bug-shapes.md`, gated by
   `tests/test_process_checks.py`.
 - **Exit code 0 from the launcher is not the job's verdict.** The gate's
   verdict is its own exit status, and the log's last line. Read the log.

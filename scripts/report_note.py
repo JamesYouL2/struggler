@@ -15,6 +15,8 @@ import argparse
 import datetime
 import json
 import pathlib
+import subprocess
+import sys
 
 
 def main(argv=None):
@@ -70,6 +72,14 @@ def main(argv=None):
 
     out = pathlib.Path(a.out_dir) / f'{today}-{a.slug}.md'
     out.write_text('\n'.join(lines))
+    # Index it in the same act that writes it: an unindexed note fails the
+    # suite (tests/test_agent_files.py), so the writer owns the index line.
+    subprocess.run(
+        [sys.executable,
+         str(pathlib.Path(__file__).resolve().with_name('index_note.py')),
+         str(out), '--generated'],
+        check=True,
+    )
     print(out)
     return 0
 

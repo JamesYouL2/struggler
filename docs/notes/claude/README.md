@@ -14,7 +14,7 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Status, 2026-09-22: the hold-option grid is in flight, and a `compare_to` arm cannot run alone](2026-09-22-status-the-grid-in-flight.md) — 2026-09-22 (run 35753235236 is the verdict run; the orphan's wave 2 and the two readings of it; three dispatches failed in 15 s on `compare_to 'hold-option-base' is not in this run`, and the fix waits until the grid lands because arm identity is the shard cache's key)
-- [The pi harness, and what to ask of it](2026-09-22-the-pi-harness-and-what-to-ask-of-it.md) — 2026-09-22 (edits are a tool now, not a heredoc; and three skills that would move the handoff's discipline into the workflow that needs it)
+- [The pi harness, and what to ask of it](2026-09-22-the-pi-harness-and-what-to-ask-of-it.md) — 2026-09-22 (edits are a tool now, not a heredoc; the three skills are BUILT -- `dispatch-reading`, `write-note`, `handoff` -- and the build surfaced four drifts of one shape: skill mirrors, the contract pair, eighteen unindexed notes, and a skill's stale credential claim, all now gated by `tests/test_agent_files.py`)
 - [Deleting `battleground`: what shipped, and the proof it is the measured bot](2026-09-21-the-fresh-block-answers-the-fit.md) — 2026-09-21 (the landing record, not the reading: what the deletion removed, why the scale ships truncated to 2.795, and the 355/355 bit-for-bit corpus comparison showing the deleted-branch bot IS the bot the arm measured)
 - [The slow shard is the runner, not the seeds](2026-09-21-the-slow-shard-is-the-runner.md) — 2026-09-21 (the 2h14m shard was the LIGHTEST of four by local work; CI spans 4.5x on 1.33x of work, so shard size is the only lever)
 - [`Enum.value` is a descriptor, and the engine read it 3.2 million times a game](2026-09-21-enum-attribute-reads.md) — 2026-09-21 (3,172,738 reads → 188,658 from eight sites, -1.8% a game; the profile's own-time column overstated it 3x, and one round of one seed reported the wrong sign)
@@ -167,3 +167,31 @@ path because `tests/test_recurring_defects.py` parses it.
 - [Codex's MCTS findings (docs/notes/codex/)](codex-s-mcts-findings-docs-codex-notes-md.md)
 - [Astra's corpus review (2026-09-08): what was done](astra-s-corpus-review-2026-09-08-what-was-done.md)
 - [Architecture, as of Sept 2026](architecture-as-of-sept-2026.md)
+
+### Experiment records and generated reports, indexed retroactively (2026-09-22)
+
+Eighteen notes landed without index lines before
+`tests/test_agent_files.py` made one mandatory. Their writers now index
+their own notes via `scripts/index_note.py`; these were added by hand,
+oldest first. The five weight-A/B records and the bisect are hand-written
+experiment notes; the rest are `scripts/collect_ci.sh` and
+`scripts/queue_*.sh` output.
+
+- [4x vp_swing against the shipped 2x, 256 seeds](2026-09-11-vp-swing-4x.md) — 2026-09-11
+- [Ablating access_chain alone, 128 seeds](2026-09-12-ablate-access-chain.md) — 2026-09-12
+- [A steeper scoring discount: 0.55 against 0.8, 80 seeds](2026-09-12-scoring-discount-055.md) — 2026-09-12 (DROPPED, not re-run)
+- [A shallower scoring discount: 0.93 against the shipped 0.8](2026-09-12-scoring-discount-093.md) — 2026-09-12
+- [A flat VP curve: vp_swing 1.0 against the shipped 2.0, 80 seeds](2026-09-12-vp-swing-1x.md) — 2026-09-12
+- [The Blockade fix gate, the openings check, the China-phantom bisect and three full-seed arms](2026-09-13-blockade-openings-phantom-and-full-arms.md) — 2026-09-13 (generated)
+- [The China Card phantom, re-gated on iran/austria](2026-09-13-china-phantom-on-iran-austria.md) — 2026-09-13 (generated)
+- [P(control at scoring): measured, and every candidate shape fitted](2026-09-13-control-odds-fits.md) — 2026-09-13 (generated)
+- [coup_discount: the full-seed experiment and the gate of its deletion](2026-09-13-coup-discount-experiment-and-gate.md) — 2026-09-13 (generated)
+- [Where coup_discount's strength comes from: battleground coups, or coups at all](2026-09-13-coup-discount-where-it-matters.md) — 2026-09-13 (generated)
+- [HEAD against the strategic bot before the package split](2026-09-13-drift-before-the-package-split.md) — 2026-09-13 (generated)
+- [The gate of first_mover's deletion](2026-09-13-first-mover-deletion-gate.md) — 2026-09-13 (generated)
+- [HEAD against pre-v0.1.0 anchors, and the gate ladder on iran/austria](2026-09-13-pre-v0.1.0-drift-and-iran-austria-ladder.md) — 2026-09-13 (generated)
+- [Reply models 4 and 5: the opponent's known cards in the reply budget](2026-09-13-reply-budget-models.md) — 2026-09-13 (generated)
+- [Reply look-ahead layer C: our coups and realignments get the look-ahead, coup_discount 1.0](2026-09-13-reply-lookahead-layer-c.md) — 2026-09-13 (generated)
+- [Reply look-ahead layers A and B: Codex's reply fixes, then coups as replies](2026-09-13-reply-lookahead-layers-ab.md) — 2026-09-13 (generated)
+- [P(control at scoring): measured, and every candidate shape fitted](2026-09-14-control-odds-fits.md) — 2026-09-14 (generated)
+- [The v0.2.1 bisect: one commit, 52bb329, and what the chain costs](2026-09-19-bisect-v0.2.1.md) — 2026-09-19

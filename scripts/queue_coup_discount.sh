@@ -125,6 +125,8 @@ NOTE=docs/notes/claude/$(date +%F)-coup-discount-experiment-and-gate.md
   echo "is the maintainer's call; this script dispatched the gate regardless of the"
   echo "experiment's result. Nobody has read these numbers yet."
 } > "$NOTE"
-git add -- "$NOTE" && git commit -q -m "docs: coup_discount experiment and the gate of its deletion, collected from CI" \
-  -m "$ATTRIB" -- "$NOTE" && say "  committed: $(git log --oneline -1)"
+"$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
+git add -- "$NOTE" docs/notes/claude/README.md \
+  && git commit -q -m "docs: coup_discount experiment and the gate of its deletion, collected from CI" \
+  -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md && say "  committed: $(git log --oneline -1)"
 say "finished"

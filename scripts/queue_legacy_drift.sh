@@ -89,7 +89,9 @@ for rev in $ANCHORS; do
   fi
   echo >> "$READINGS"
   write_note
-  git add -- "$NOTE" && git commit -q -m "docs: HEAD against pre-split anchor $rev" -m "$ATTRIB" -- "$NOTE" \
+  "$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
+  git add -- "$NOTE" docs/notes/claude/README.md \
+    && git commit -q -m "docs: HEAD against pre-split anchor $rev" -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md \
     && say "  committed: $(git log --oneline -1)"
 done
 say "finished"

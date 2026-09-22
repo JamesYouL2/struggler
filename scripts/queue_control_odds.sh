@@ -71,7 +71,8 @@ NOTE=docs/notes/claude/$(date +%Y-%m-%d)-control-odds-fits.md
   echo "Which shape fits P(control at scoring) best on held-out seeds, and nothing else. Not what the value formula should be, not whether pricing it that way makes the bot stronger -- that is a gate -- and rows from one game are correlated, so read small log-loss differences with care. Nothing here is wired into the bot."
 } > "$NOTE"
 
-git add "$NOTE" && git commit -q -m "docs: P(control at scoring) measured and fitted, generated
+"$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
+git add "$NOTE" docs/notes/claude/README.md && git commit -q -m "docs: P(control at scoring) measured and fitted, generated
 
-$ATTRIB" -- "$NOTE" && say "committed $NOTE" || say "commit FAILED for $NOTE"
+$ATTRIB" -- "$NOTE" docs/notes/claude/README.md && say "committed $NOTE" || say "commit FAILED for $NOTE"
 say "done"

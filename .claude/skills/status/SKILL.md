@@ -67,12 +67,17 @@ credential, the machine, or the authority.
 
 Standing members of this section:
 
-- **`git push`** -- no credentials here. `git push` cannot read a
-  username for the HTTPS remote and `gh` is not logged in. Before
-  listing it, check whether it is actually still outstanding:
-  `git ls-remote origin refs/heads/main` against `git rev-parse HEAD`.
-  The maintainer has pushed on their own before, and reporting an
-  already-landed push as outstanding is noise.
+- **Anything on the write path this environment denies.** Check before
+  listing; never assume. `gh auth status` and a `git ls-remote` say whether
+  this environment can push at all -- under pi on the maintainer's box it
+  can (docs commit+push unasked), a sandbox without credentials cannot.
+  What has actually needed a human here is narrower than "pushing": tag
+  creation and branch deletion returned 403 on the write path (2026-09-21,
+  `git push origin anchor-2026-09-12` and deleting
+  `exp/access-leak-isolation` were the two items). And check whether the
+  item is still outstanding at all: `git ls-remote origin refs/heads/main`
+  against `git rev-parse HEAD`. The maintainer has pushed on their own
+  before, and reporting an already-landed push as outstanding is noise.
 - **MCP connector auth** (Gmail, Google Calendar) -- needs the OAuth
   flow in an interactive session.
 

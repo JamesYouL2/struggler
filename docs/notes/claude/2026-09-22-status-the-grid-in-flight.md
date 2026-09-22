@@ -96,10 +96,11 @@ recurrence signal: gate it then.
    its own branch.
 6. **The refit at current main** -- now a potential gain on top of a
    shipped one rather than a rescue, and better posed for it. Below 5.
-7. **Human-only, proxy 403 on the write path**: `git push origin
-   anchor-2026-09-12`, `git push origin --delete
-   exp/access-leak-isolation`. The `FURB136` cleanup stays undone by the
-   maintainer's ruling.
+7. The `FURB136` cleanup stays undone by the maintainer's ruling. The two
+   human-only write-path items from the 2026-09-21 handoff -- pushing
+   `anchor-2026-09-12` and deleting `exp/access-leak-isolation` -- were
+   done by the maintainer and verified on 2026-09-22: the tag is on
+   origin (`5859063`), the branch is gone.
 
 Harness habits for this session's shape -- what to run where, what the
 skills can carry -- are in

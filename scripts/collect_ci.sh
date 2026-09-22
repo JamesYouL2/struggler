@@ -107,6 +107,8 @@ NOTE=docs/notes/claude/$(date +%F)-$SLUG.md
   echo "the arm's): above 0.500 is the candidate doing better. Nobody has read these"
   echo "numbers yet."
 } > "$NOTE"
-git add -- "$NOTE" && git commit -q -m "docs: $TITLE, collected from CI" -m "$ATTRIB" -- "$NOTE" \
+"$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
+git add -- "$NOTE" docs/notes/claude/README.md \
+  && git commit -q -m "docs: $TITLE, collected from CI" -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md \
   && say "  committed: $(git log --oneline -1)"
 say "finished"
