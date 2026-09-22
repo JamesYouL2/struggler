@@ -2912,9 +2912,12 @@ class StrategicPlayer:
         ops = effective_ops_estimate(card, obs, obs.side)
         event = (self._shallow_event_value(obs, cid) if shallow
                  else self.event_value(obs, cid))
-        value = self.card_play_value(obs, cid, ops, event)
-        value += self._hold_option_value(obs, ops)
         cap = self.game_value(obs)  # GAME_SWING_VP: the whole -20..+20 track
+        # `card_play_value` hands the certain-outcome flag through by design
+        # ("said as a flag, not as `ops + LOSS`"), and the premium below is
+        # price arithmetic: bound first, as `priced` exists to do.
+        value = priced(self.card_play_value(obs, cid, ops, event), cap)
+        value += self._hold_option_value(obs, ops)
         return max(-cap, min(cap, value))
 
     def _hold_option_value(self, obs: Observation, ops: int) -> float:
