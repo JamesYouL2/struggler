@@ -102,6 +102,15 @@ the tests.
   single files; both earn it -- one is the exactness oracle, the other the
   only behavioural rate the suite measures -- but run a subset while
   iterating.
+- **Hooks**: `git config core.hooksPath hooks` (once per clone) installs
+  the repo's `pre-push`: the whole suite except
+  `tests/test_parity_corpus.py` (~2 min -- the pole is CI's, `tests.yml`
+  runs it on every push). It stands down while a gate or measurement is
+  running (`scripts/gate_running.py`, the contention rule) and says so
+  out loud; `git push --no-verify` is the escape hatch. Two red pushes on
+  2026-09-22 both tripped gates that cost under a second
+  (`test_types`, `test_scale_discipline`) and were not in the local
+  subset run before pushing -- the hook is that lesson, mechanised.
 - **License**: MIT.
 - **Language**: all code, comments, docstrings, and commit messages in
   English.

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# The repo's pre-push hook: the whole suite except the parity corpus.
+#
+#   Enable once per clone:   git config core.hooksPath hooks
+#   Escape hatch:            git push --no-verify
+#
+# Why this shape (2026-09-22): two pushes in one evening went out red,
+# both tripping gates that cost under a second -- `test_types` (the gated
+# `ty` rules) and `test_scale_discipline` -- and neither was in the local
+# subset that was run before pushing. The full suite is ~4 min and the
+# corpus (`tests/test_parity_corpus.py`, 2:02 of it) is CI's: `tests.yml`
+# runs it on every push. Everything else runs here (~2 min) because its
+# failures are the cheap kind and a round trip through CI to learn about
+# them is the slow way to be told.
+#
+# The hook stands down while a gate or measurement is running -- the
+# contention rule: this repo has recorded, twice, that load on the box
+# corrupts a timing it is about to quote. A push then goes through with
+# CI as its only gate, and says so out loud rather than silently passing.
+set -u
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if scripts/gate_running.py >/dev/null 2>&1; then
+    echo "pre-push: STOOD DOWN -- a gate or measurement is running (contention rule)." >&2
+    echo "pre-push: tests.yml is the only gate for this push." >&2
+    exit 0
+fi
+
+echo "pre-push: uv run pytest -q --ignore=tests/test_parity_corpus.py" >&2
+uv run pytest -q --ignore=tests/test_parity_corpus.py
+status=$?
+if [ "$status" -ne 0 ]; then
+    echo "pre-push: REJECTED (pytest exit $status)." >&2
+    echo "pre-push: the corpus is still CI's; fix the failures or push with --no-verify." >&2
+fi
+exit "$status"
