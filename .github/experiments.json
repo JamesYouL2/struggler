@@ -10,7 +10,7 @@
     "anchor": "optional git ref: play against that revision's bot instead of HEAD with default weights",
     "bot_ref": "optional git ref: the challenger is that revision instead of HEAD. Cannot be combined with weights",
     "openings": "optional US=x,USSR=y; defaults to italy/austria whenever a ref is involved",
-    "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference",
+    "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference. It must be dispatched TOGETHER with its target -- the pairing is collected within one run -- so `only=` both slugs in one call (`-f only=<target>,<arm>`). One dispatch per arm is the natural reading of this file and fails at plan time (2026-09-22: three dispatches, 15 s each)",
     "shard": "optional shard size in seeds (default 128, ~30-65 min on a runner)",
     "logs": "optional true: upload every game's INFO log"
   },

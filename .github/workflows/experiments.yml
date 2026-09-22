@@ -92,7 +92,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: 'Run these arms by slug, comma-separated (blank = every arm in experiments.json)'
+        description: 'Run these arms by slug, comma-separated (blank = every arm in experiments.json); an arm with compare_to must be listed together with its target'
         default: ''
       inline:
         description: 'One-off arm as JSON, e.g. {"slug":"try","weights":{"region":1.0},"seeds":"9100-9611","anchor":"v0.2.1","title":"t","context":"c"}'
@@ -174,7 +174,9 @@ jobs:
                   f"{a['slug']}: weights apply to HEAD's bot only; drop bot_ref or weights")
               if a.get('compare_to'):
                   assert a['compare_to'] in seen, (
-                      f"{a['slug']}: compare_to {a['compare_to']!r} is not in this run")
+                      f"{a['slug']}: compare_to {a['compare_to']!r} is not in this "
+                      f"run; dispatch them together "
+                      f"(-f only={a['compare_to']},{a['slug']})")
           def span(text):
               lo, hi = (int(x) for x in text.split('-'))
               return list(range(lo, hi + 1))
