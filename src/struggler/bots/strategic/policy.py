@@ -31,6 +31,7 @@ from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import forecast as fcst
 from struggler.bots.strategic import schedule as sch
 from struggler.bots.strategic import public_cards as pc
+from struggler.bots.strategic import hand_planner as hp
 from struggler.bots.strategic import valuation
 from struggler.bots.strategic.public_cards import card_state, scoring_cards_for
 from struggler.engine.player import Event
@@ -440,6 +441,7 @@ class StrategicWeights:
     # draw carry the same premium so a swap compares like with like.
     # docs/notes/claude/2026-09-20-the-whole-hand-planner.md
     hold_option: float = 0.0
+    hand_assignment: float = 0.0
     # (A region-margin term -- partial credit toward the next scoring tier:
     # progress toward presence, and battlegrounds and countries of margin
     # toward domination -- stood here until 2026-09-19. Measured paired at
@@ -717,10 +719,16 @@ class StrategicWeights:
 #   hold_option  a term shipped at 0 (ruling 3); its grid (run 35753235236,
 #                1024 paired seeds) read nothing above 0 at 0.25 / 0.5 /
 #                1.0 and a measurable loss at 1.0, so it stays 0
+#   hand_assignment  the turn-assignment planner's gate (step 3 of the
+#                hand planner plan): at 0 every card is priced and
+#                chosen per card as it always has been; at a positive
+#                value `hand_plan` allocates the whole hand and its pick
+#                leads the ranking for the slot
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup', 'hold_option')
+UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup', 'hold_option',
+                   'hand_assignment')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -785,6 +793,25 @@ class StrategicPlayer:
         self._urgency = None
         self._shuttle_pick = None   # a function of `_urgency`, cached with it
         self._delta_cache = None
+        # The card-pick and hand-planner caches, with the same reason as
+        # above: `hand_prices`, `space_picks` and `hand_plan` are
+        # reachable without a `rank_actions` first.
+        self._space_card = None
+        self._space_picks = None
+        self._un_card = None
+        self._hand_plan = None
+        # The rest of `rank_actions`' per-decision block, same reason:
+        # the scorer's read set is reachable from `hand_prices` now.
+        self._ops_values = {}
+        self._vp_price = None
+        self._unseen_hold_values = {}
+        self._events_in_progress = set()
+        self._sandbox_terminal = False
+        self._placement_values = {}
+        self._relocation_gain = None
+        self._stress = None
+        self._risks = {}
+        self._placement_risks = {}
         # The potential's prepared state: shaped (mass, horizon) lists per
         # scoring card, each region's card, and the E[payout] cache keyed on
         # everything it reads. None before the first `prepare`; the
@@ -849,6 +876,8 @@ class StrategicPlayer:
         self._placement_values = {}
         self._relocation_gain = None
         self._space_card = None
+        self._space_picks = None
+        self._hand_plan = None
         self._un_card = None
         self._planner = None
         self._stress = None
@@ -870,8 +899,18 @@ class StrategicPlayer:
             if not self._planner.latent_hazards(self._planner.hand):
                 self._planner = None  # no placement can create the target that matters
         try:
-            return sorted(((self.safety_key(observation, a), a) for a in decision.options),
-                          key=lambda pair: pair[0], reverse=True)
+            # The hand planner's pick leads *within* the safety key's own
+            # order: `certain` still dominates (certain defeat is refused
+            # outright), `pref` names the card the assignment wants for
+            # this slot, and the risk/score blend orders everything else
+            # exactly as before. `pref` is constant 0 whenever the
+            # planner is off or has no opinion, so the shipped ordering is
+            # unchanged at weight 0 -- the parity corpus pins that.
+            return sorted(
+                ((self.safety_key(observation, a), a) for a in decision.options),
+                key=lambda pair: (pair[0][0], self._plan_pref(observation, pair[1]))
+                + pair[0][1:],
+                reverse=True)
         finally:
             self._base_regions = self._base_country = None  # callers may move the board after ranking
             self._base_neighbours = None
@@ -3573,14 +3612,37 @@ class StrategicPlayer:
         several arms read more than one, and returns `None` for "no
         opinion", which `score` turns into 0.0 exactly as the old
         fall-through did.
+
+        The pricing itself is `play_price`'s, in one place: the hand
+        planner's price table must read the same numbers, not a second
+        copy of them (bug shape 4).
         """
-        cid = p['card']
+        return self.play_price(obs, p['card'], kind)
+
+    def play_price(self, obs: Observation, cid: str, kind, *,
+                   scoring_nudge: bool = True, space_slot: bool = True) -> float:
+        """What one card is worth played in `kind`'s slot.
+
+        The scoring card is priced exactly (`scoring_card_value`: tiers
+        are discontinuous and a near miss pays nothing) and, for an
+        action round, nudged later by `+2 x action_round`; a normal card
+        is its best legal mode with the play-vs-keep nudges (the China
+        charge, Five Year Plan's late hand) and the one space slot's
+        pre-assignment.
+
+        The last two are the planner's to decide
+        (`docs/notes/pi/2026-09-22-assignment-planner-design.md`, ruling
+        5 removes the timing nudge and the assignment allocates the
+        space slot itself), so the price table asks with them off and the
+        live scorer keeps them -- which the parity corpus pins it doing.
+        """
         card = CARDS[cid]
         if card.scoring:
             value = self.scoring_card_value(obs, cid)
             if abs(value) >= -LOSS:  # scoring it ends the game
                 return value
-            return value + (0 if kind is K.HEADLINE_PLAY else 2 * obs.action_round)
+            return value + (0 if kind is K.HEADLINE_PLAY or not scoring_nudge
+                            else 2 * obs.action_round)
         event = self.event_value(obs, cid)
         ops = effective_ops_estimate(card, obs, obs.side)
         if kind is K.HEADLINE_PLAY:
@@ -3622,9 +3684,163 @@ class StrategicPlayer:
             value -= max(0, len(obs.hand)-3)
         # One space slot a turn: it goes to the worst card in hand, and
         # only that card is valued as a space play here.
-        if cid == self.space_card(obs):
+        if space_slot and cid == self.space_card(obs):
             value = max(value, self.space_value(obs, ops))
         return value
+
+    def space_picks(self, obs: Observation) -> tuple[str, ...]:
+        """Ruling 4's policy picks for the space slot(s), worst first.
+
+        The same policy as `space_card` -- the opponent card whose
+        Ops-plus-event is worst among those the Space Race accepts -- but
+        ranked (the second slot needs a second pick) and WITHOUT the
+        `un_card` guard: the planner's constraints spend one card once,
+        so the pairwise hack is subsumed exactly as the design note says.
+        The shipped `space_card` path keeps its guard; the parity corpus
+        pins it.
+        """
+        if self._space_picks is None:
+            engine = self.public_engine(obs)
+            ranked = []
+            for cid in obs.hand:
+                card = CARDS[cid]
+                if card.side.value != obs.side.opponent.value or not engine._can_space_race(obs.side, card):
+                    continue
+                value = self.card_play_value(obs, cid, effective_ops_estimate(card, obs, obs.side),
+                                             self.event_value(obs, cid))
+                ranked.append((value, cid))
+            ranked.sort()
+            self._space_picks = tuple(cid for _, cid in ranked)
+        return self._space_picks
+
+    def _space_slot_mix(self, obs: Observation) -> tuple[tuple[int, float], ...]:
+        """Ruling 1's two-solve weights: how many space slots this turn.
+
+        The count now is the ENGINE's (`_space_attempts_allowed`); the
+        mid-turn opening is ruling 1's own statement of 6.4.4 -- "a
+        second attempt when our marker is at box 2 or beyond and theirs is
+        not", created by the first attempt succeeding -- so the second
+        solve is weighted by the roll that would create it. Note the
+        engine grants the double attempt through a game effect nothing in
+        `src/` writes (`space_race_double_attempt_holder`), while
+        `DefconPlanner.attempts_allowed` states the marker rule; the two
+        disagree and that is a finding for the wiring note, not something
+        to paper over here.
+        """
+        engine = self.public_engine(obs)
+        if engine._space_attempts_allowed(obs.side) >= 2:
+            return ((2, 1.0),)
+        our = obs.space_race.get(obs.side.value, 0)
+        theirs = obs.space_race.get(obs.side.opponent.value, 0)
+        opens = our + 1 >= 2 and theirs < 2
+        if not opens:
+            return ((1, 1.0),)
+        chance = RULES['space_race_boxes'][str(our + 1)]['roll_max'] / 6.0
+        return ((1, 1.0 - chance), (2, chance))
+
+    def _plan_gain(self, obs: Observation) -> dict[str, float]:
+        """Ruling 5's `gain(c)`: what a play is expected to add to the
+        scoring cards' regions before they score.
+
+        First order on purpose: the play's Ops value times those regions'
+        share of the shaped scoring mass. The fixed point in `plan_hand`
+        is exact GIVEN this number; this is the named approximation a
+        measurement would move, not a law.
+        """
+        scoring = [cid for cid in obs.hand if CARDS[cid].scoring]
+        if not scoring:
+            return {}
+        t = ev.terrain()
+        regions = {SCORING_CARD_REGION[cid] for cid in scoring}
+        members = [i for r in regions for i in t.members[r]]
+        total = float(sum(self._urgency)) or 1.0
+        share = sum(self._urgency[i] for i in members) / total
+        out = {}
+        for cid in obs.hand:
+            card = CARDS[cid]
+            if card.scoring:
+                continue
+            ops = effective_ops_estimate(card, obs, obs.side)
+            out[cid] = share * max(0.0, self.ops_value(obs, ops))
+        return out
+
+    def hand_prices(self, obs: Observation) -> tuple:
+        """The turn's price table: one `hand_planner.Card` per card in
+        hand, from the same prices the live scorer reads.
+
+        `play` is `play_price` without the two planner-owned terms
+        (ruling 5's timing nudge and the space pre-assignment); `space`
+        is the attempt GROSS (`value_as_space`), whose docstring already
+        says the opportunity charge is the planner's comparison to make;
+        the UN unit carries today's pairing price (its partner is
+        `un_card`'s pick, that policy standing like ruling 4's) and
+        consumes both cards in one round.
+        """
+        rounds = self._rounds_left(obs)
+        partner = self.un_card(obs)
+        picks = set(self.space_picks(obs))
+        out = []
+        for cid in sorted(obs.hand):
+            card = CARDS[cid]
+            ops = effective_ops_estimate(card, obs, obs.side)
+            play = self.play_price(obs, cid, K.ACTION_ROUND_PLAY,
+                                   scoring_nudge=False, space_slot=False)
+            out.append(hp.Card(
+                key=cid,
+                headline=self.play_price(obs, cid, K.HEADLINE_PLAY,
+                                         scoring_nudge=False, space_slot=False),
+                play=(play,) * rounds,
+                space=(self.value_as_space(obs) if cid in picks else hp.NEG),
+                un_play=(play if cid == 'UN_Intervention' and partner else hp.NEG),
+                un_partner=(0.0 if cid == partner else hp.NEG),
+                hold=self.value_as_held(obs, cid),
+                may_hold=not card.scoring))
+        return tuple(out)
+
+    def hand_plan(self, obs: Observation):
+        """The turn's allocation (rulings 1, 4 and 5), per decision.
+
+        None at `hand_assignment` 0 -- not computed either, since the
+        table prices through the event sandbox and a gate that is off
+        should cost nothing. The weighting over space-slot counts is
+        ruling 1's two-solve approximation; `_plan_pref` consults the
+        most probable allocation.
+        """
+        if self.weights.hand_assignment <= 0:
+            return None
+        if self._hand_plan is None:
+            decision = obs.pending_decision
+            headline_slots = 1 if decision is not None and decision.kind is K.HEADLINE_PLAY else 0
+            partner = self.un_card(obs)
+            self._hand_plan = hp.plan_hand(
+                self.hand_prices(obs), self._rounds_left(obs),
+                headline_slots=headline_slots,
+                un_key='UN_Intervention' if partner else None,
+                space_keys=self.space_picks(obs)[:2],
+                space_slot_weights=self._space_slot_mix(obs),
+                gain=self._plan_gain(obs))
+        return self._hand_plan
+
+    def _plan_pref(self, obs: Observation, action: Action) -> int:
+        """1 when `action` plays the card the assignment wants for this
+        slot, 0 otherwise -- and always 0 when the planner is off or has
+        no opinion, which is why the shipped ordering is byte-identical
+        at weight 0.
+        """
+        if self.weights.hand_assignment <= 0:
+            return 0
+        kind = action.kind
+        if kind not in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
+            return 0
+        plans = self.hand_plan(obs)
+        if not plans:
+            return 0
+        assignment = max(plans, key=lambda wp: wp.probability).assignment
+        if kind is K.HEADLINE_PLAY:
+            want = assignment.headline
+        else:
+            want = assignment.rounds[0][1] if assignment.rounds else None
+        return int(want is not None and action.payload.get('card') == want)
 
     def _non_firing_value(self, obs: Observation, cid: str, ops: int, default: float) -> float:
         """The best of `cid`'s legal modes that do not fire its event --

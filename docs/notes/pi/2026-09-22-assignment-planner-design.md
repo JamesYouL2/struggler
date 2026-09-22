@@ -30,13 +30,15 @@ Holds are the remainder and cost nothing to assign.
 | headline | `_score_card_play`'s headline price + `headline_pick_risk` | per card |
 | round play | `card_play_value` (best legal mode) | per card per round |
 | space | `space_value(...)` | **only** the ruling-4 pick(s): "the worst opponent card the Space Race accepts" |
-| UN unit | `un_card`'s clean-Ops value + the partner's `_non_firing_value` gain | enumerated partner |
+| UN unit | the pairing's play price (`play_price` of the UN card) | partner fixed at `un_card`'s pick -- that policy stands, like ruling 4's; enumerated partners are a later refinement |
 | hold | `value_as_held` (= `hold_value`, `hold_option` at 0 after its grid) | scoring cards ineligible |
 
 What the assignment buys (the note's list): no double allocation (the
-`space_card`-skips-`un_card` hack disappears into the constraints),
-space and UN and hold decided together, and the headline chosen knowing
-what the rest of the hand needs.
+`space_card`-skips-`un_card` hack is subsumed *in the planner's path* --
+the shipped `space_card` keeps its guard until the per-card path is
+deleted, because the parity corpus pins it), space and UN and hold
+decided together, and the headline chosen knowing what the rest of the
+hand needs.
 
 ## Ruling 5: scoring timing from the plan, not a constant
 
@@ -79,12 +81,32 @@ it, prove it reproduces the DP's risks on the corpus, then delete").
   and constraints and returns an allocation (DP over subsets; 10 cards x
   7 rounds is ~58k states, exact, dependency-free). No evaluator or
   engine imports, the same contract `evaluator.py` has.
-- A weight (`hand_assignment`) at **0** as shipped; at 0 the allocation
-  is computed and ignored, so the parity corpus is unchanged. The arm
-  prices it like every other term here.
+- A weight (`hand_assignment`) at **0** as shipped. At 0 the allocation
+  is **not computed at all** -- the table prices through the event
+  sandbox, and a gate that is off should cost nothing -- so the ranking
+  is byte-identical and the parity corpus pins it. (The first draft of
+  this note said "computed and ignored"; measured practice beat it.) The
+  arm prices the term like every other one here.
+- The plan reaches exactly one place: the ranking for a card choice,
+  where its pick leads WITHIN the safety key's own order --
+  `(certain, pref, risk/score)`. Certain defeat still refuses a play
+  outright, the risk/score blend orders everything the plan does not
+  name, and `pref` is constant 0 whenever the gate is off.
 - Infeasible hands (more scoring cards than play slots) return `None`
   and the caller keeps today's per-card behaviour. The planner is never
   a source of crashes.
+
+## Found while wiring: the double-attempt grant has no writer
+
+Ruling 1's "second attempt at box 2 (6.4.4)" exists twice and is granted
+nowhere: `Engine._space_attempts_allowed` reads the game effect
+`space_race_double_attempt_holder`, and **nothing in `src/` writes it** --
+while `DefconPlanner.attempts_allowed` states the marker rule the ruling
+describes. The two implementations disagree and the engine's may never
+fire. The plan takes the engine's count as the count and estimates the
+mid-turn opening from the ruling's own words; when the grant is fixed
+(or the two rules unified), `_space_slot_mix` is the only caller to
+update. One occurrence, so a note -- twice and it becomes a shape.
 
 ## Measuring it
 
@@ -97,11 +119,14 @@ search.
 
 ## Next slices, in order
 
-1. The solver and its exactness tests (this branch's main content).
-2. Wiring: policy builds the price table per turn and consults the
-   allocation behind `hand_assignment`; the `space_card`/`un_card`
-   pairwise guard is deleted as the first thing the constraints subsume.
-3. The arm (base/on pair, 1024 seeds, `compare_to` in one dispatch),
-   with `scripts/measure_last_exit.py` before and after for the tail.
+1. ~~The solver and its exactness tests~~ **done**: `hand_planner.py`,
+   10 exact tests, a mutation check on the may-hold constraint.
+2. ~~Wiring~~ **done**: policy's `hand_prices`/`hand_plan` (the table is
+   the scorer's own `play_price`, minus the two plan-owned terms), the
+   ranking lead behind `hand_assignment`, the corpus backfilled with
+   `hand_assignment: 0.0` (the `reply_model=0` precedent, 355 records),
+   the parity oracle green unchanged -- the refactor is bit-identical.
+3. The arm (base/on pair, 1024 seeds, one dispatch), with
+   `scripts/measure_last_exit.py` before and after for the tail.
 4. Ruling 2's question: does it reproduce the DP's risks on the corpus?
    Only then delete the DP.
