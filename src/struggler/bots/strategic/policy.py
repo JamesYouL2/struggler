@@ -426,6 +426,20 @@ class StrategicWeights:
     # Inert unless `potential` is set: with the term off, nothing reads the
     # tables at all.
     potential_refresh: float = 0.0
+    # THE HOLD OPTION VALUE, behind a weight. Ruling 3 of the hand planner
+    # plan (2026-09-20): "A hold does deserve option value ... it arrives as
+    # a weight at 0 with an arm over a small grid -- the same shape as
+    # `vp_swing`, which is how that one was finally settled." At 0 (as
+    # shipped) nothing changes. Set, a hold carries this much of the card's
+    # Ops value on top of what it will be worth when played: what a hold
+    # defers is the spending of its Ops, so the flexibility of choosing the
+    # moment is priced in those units. Stated once in `hold_value`, which
+    # `value_as_held` (the planner's hold-slot price) delegates to and the
+    # live hold terms -- Ask Not, the hand attacks, the Missile Envy and
+    # Aldrich picks -- all read; `_unseen_holds` and Ask Not's replacement
+    # draw carry the same premium so a swap compares like with like.
+    # docs/notes/claude/2026-09-20-the-whole-hand-planner.md
+    hold_option: float = 0.0
     # (A region-margin term -- partial credit toward the next scoring tier:
     # progress toward presence, and battlegrounds and countries of margin
     # toward domination -- stood here until 2026-09-19. Measured paired at
@@ -700,10 +714,12 @@ class StrategicWeights:
 # 2026-09-13 -- off, pinned or retired -- so they no longer need guarding.)
 #
 #   reply_ops, reply_model  the forward search's configuration, not a price
+#   hold_option  a term shipped at 0 (ruling 3), waiting on its grid to
+#                price the size
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup')
+UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup', 'hold_option')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -2871,7 +2887,9 @@ class StrategicPlayer:
         """What having `cid` in hand is worth to `obs.side`: a scoring card
         scores its region, anything else gets played (`card_play_value`, so
         an opponent event carries its harm). Negative for a card you would
-        rather not hold -- which is what makes losing it a gift.
+        rather not hold -- which is what makes losing it a gift. A hold also
+        carries its option value for the flexibility of choosing its moment
+        (`_hold_option_value`, ruling 3 of the hand planner plan).
 
         A card that would end the game is clamped rather than carrying the
         win/loss sentinel out: this is a value term, and the sentinel is
@@ -2891,17 +2909,29 @@ class StrategicPlayer:
             value = self.scoring_card_value(obs, cid)
             cap = 20 * self.vp_value(obs)
             return max(-cap, min(cap, value))
+        ops = effective_ops_estimate(card, obs, obs.side)
         event = (self._shallow_event_value(obs, cid) if shallow
                  else self.event_value(obs, cid))
-        value = self.card_play_value(obs, cid, effective_ops_estimate(card, obs, obs.side), event)
+        value = self.card_play_value(obs, cid, ops, event)
+        value += self._hold_option_value(obs, ops)
         cap = self.game_value(obs)  # GAME_SWING_VP: the whole -20..+20 track
         return max(-cap, min(cap, value))
 
+    def _hold_option_value(self, obs: Observation, ops: int) -> float:
+        """The FLEXIBILITY half of a hold's price: `weights.hold_option`
+        times the card's Ops value -- what a hold defers is the spending of
+        its Ops, so the flexibility of choosing the moment is priced in
+        those units. Ruling 3 of the hand planner plan; 0 as shipped, so
+        every hold is worth exactly its next-turn price."""
+        return self.weights.hold_option * self.ops_value(obs, ops)
+
     def _unseen_holds(self, obs: Observation, side: Side) -> list[float]:
         """A hold value for every unseen card, from `side`'s seat, on Ops
-        alone (valuing ~100 unseen events would cost more than the decision).
-        Scoring cards are the exception and are exact: their region nets the
-        same VP whoever plays them, so `side`'s hold is ours or its negation."""
+        alone (valuing ~100 unseen events would cost more than the decision)
+        plus the same hold premium `hold_value` adds, so a swap compares
+        like with like. Scoring cards are the exception and are exact:
+        their region nets the same VP whoever plays them, so `side`'s hold
+        is ours or its negation."""
         cached = self._unseen_hold_values.get(side)
         if cached is not None:
             return cached  # the same pool for every hand-attack card in one ranking
@@ -2913,7 +2943,8 @@ class StrategicPlayer:
                 value = self.hold_value(obs, card.id)
                 holds.append(value if side is obs.side else -value)
             else:
-                holds.append(self.ops_value(obs, effective_ops_estimate(card, obs, side)))
+                ops = effective_ops_estimate(card, obs, side)
+                holds.append(self.ops_value(obs, ops) + self._hold_option_value(obs, ops))
         self._unseen_hold_values[side] = holds
         return holds
 
@@ -3138,7 +3169,8 @@ class StrategicPlayer:
         the ~100 unseen events would cost more than the whole decision, and
         the omission understates the draw and therefore understates this
         card, which is the safe direction for a term that decides whether to
-        spend an Action Round.
+        spend an Action Round. The hold's option value goes on BOTH sides of
+        the subtraction, so what the premium cannot do is tilt the upgrade.
 
         When the opponent is the beneficiary their hand is unseen (mandate
         #4), so what they gain is the expected positive deviation over the
@@ -3156,7 +3188,10 @@ class StrategicPlayer:
                   if not c.scoring and card_state(obs, c.id) == 'unseen']
         if not unseen:
             return 0.
-        draw = [self.ops_value(obs, effective_ops_estimate(c, obs, beneficiary)) for c in unseen]
+        draw = []
+        for c in unseen:
+            ops = effective_ops_estimate(c, obs, beneficiary)
+            draw.append(self.ops_value(obs, ops) + self._hold_option_value(obs, ops))
         mean = sum(draw) / len(draw)
         # Upgrading a card you will never get to play is worth nothing, so
         # the count is bounded by the Action Rounds left after this one --
@@ -3282,9 +3317,12 @@ class StrategicPlayer:
         and its constraints should agree rather than relying on the engine
         to refuse.
 
-        Anything else is worth what it will be worth next turn. No discount
-        is applied yet: whether a held card should also carry option value
-        for the flexibility itself is open (see the hand planner plan).
+        Anything else is worth what it will be worth next turn plus the
+        hold's option value for the flexibility of choosing its moment --
+        `weights.hold_option` times the card's Ops value, ruling 3 of the
+        hand planner plan, priced in `hold_value` so every hold term reads
+        one number. At 0 (as shipped) there is no premium and this is
+        exactly the next-turn price.
         """
         if CARDS[cid].scoring:
             return LOSS
