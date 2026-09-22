@@ -726,7 +726,13 @@ one shared query `borrowed_coup_threat`: Tear Down This Wall in Europe,
 Ortega adjacent to Nicaragua, each ignoring the DEFCON coup prohibition per
 the FAQ) is re-planned on the board a play leaves:
 an event that fires is resolved on a public sandbox (`_after_event`: the
-event helper's choices, chance at its middle option, no dice forks), and a
+event helper's choices, chance at its middle option, no dice forks), and
+the hand it leaves is re-planned as a continuation (`continuation_risk`:
+the play's card and round spent exactly once -- the one consumption rule
+lives in `DefconPlanner._consumed` -- starting from the effects already
+resolved, i.e. the hand the event rebuilt, China Card, discard and removed
+piles, turn/game effect state and DEFCON, and never by transitioning the
+play again; F2 of the 2026-09-20 technical-correctness review), and a
 placement of our Influence into a battleground we are absent from is
 re-planned with that point on the board (`_placement_risk`, priced like a
 Coup target, not ranked ahead of value). Nothing else pays for this: the

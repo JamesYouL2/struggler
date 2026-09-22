@@ -110,6 +110,17 @@ cover the event-board resimulation guard as well as single-point placements.
 
 ## F2 — the event is transitioned twice when replanning its resulting board
 
+**Status: fixed** 2026-09-21, branch `fix/post-event-continuation`.
+`_after_event` now carries back the whole resolved state (the hand the
+event rebuilt, China Card, discard and removed piles, trap/turn effect
+state, DEFCON), and the re-plan is `DefconPlanner.continuation_risk`, which
+consumes the play's card and round exactly once from that state instead of
+transitioning the play again; the consumption rule lives once in
+`DefconPlanner._consumed`. The acceptance regressions (the one-round
+Duck/CIA `rank_actions` case with its non-latent control and real-engine
+outcome check, the Bear Trap stateful case, and the preserved Fidel case)
+are in `tests/test_defcon_planner.py` under the 2026-09-20 section heading.
+
 **Locations:** `policy.py`, `StrategicPlayer._mode_risk` and `_after_event`;
 `defcon.py`, `DefconPlanner.transition` and `_event_risk`.
 

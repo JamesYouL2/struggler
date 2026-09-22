@@ -1449,14 +1449,24 @@ class StrategicPlayer:
         after = self._after_event(obs, cid)
         if after is None:
             return risk
-        return max(risk, self.planner_for(after).risk(cid, mode))
+        return max(risk, self.planner_for(after).continuation_risk(cid))
 
     def _after_event(self, obs, cid):
         """`obs` with `cid`'s event resolved on a public sandbox: the event
         helper plays its choices and chance takes its middle option, as in
         `_resolve_sandbox`, without forking the dice -- this asks where
         influence can land, not what it is worth. None when the event ends
-        the game or cannot be driven to rest."""
+        the game or cannot be driven to rest.
+
+        Everything the resolution changes comes back -- influence, DEFCON
+        and VP, the hand as the event rebuilt it, the China Card, the
+        discard and removed piles, and turn/game effect state -- so the
+        continuation starts from the effects already resolved and counts
+        each once (F2 of the 2026-09-20 technical-correctness review); the
+        play's card and round are consumed by
+        `DefconPlanner.continuation_risk`, not here. The opponent's hand
+        size and the draw pile are counts no public sandbox can resolve an
+        event against, so they stay as observed."""
         engine = self.public_engine(obs)
         helper = self._event_helper()
         try:
@@ -1473,8 +1483,22 @@ class StrategicPlayer:
             return None
         if engine.is_terminal:
             return None
-        influence = {c: dict(engine.board.influence[c]) for c in obs.influence}
-        return replace(obs, influence=influence, defcon=engine.defcon)
+        return replace(
+            obs,
+            influence={c: dict(engine.board.influence[c]) for c in obs.influence},
+            defcon=engine.defcon,
+            vp=engine.vp,
+            hand=tuple(engine.hands[obs.side.value]),
+            discard_pile=tuple(engine.discard_pile),
+            removed_cards=tuple(engine.removed_cards),
+            china_card_owner=Side(engine.china_card_owner),
+            china_card_available=engine.china_card_available,
+            space_race=_copy_state(dict(engine.space_race)),
+            space_race_attempts=_copy_state(dict(engine.space_race_attempts)),
+            military_ops=_copy_state(dict(engine.military_ops)),
+            turn_effects=_copy_state(dict(engine.turn_effects)),
+            game_effects=_copy_state(dict(engine.game_effects)),
+        )
 
     def _placement_risk(self, obs, action) -> float:
         """Turn-loss risk after a point of our Influence lands.
