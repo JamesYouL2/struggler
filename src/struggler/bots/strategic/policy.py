@@ -3748,7 +3748,9 @@ class StrategicPlayer:
         measurement would move, not a law.
         """
         scoring = [cid for cid in obs.hand if CARDS[cid].scoring]
-        if not scoring:
+        # `_urgency` is None before the first `prepare` (bare evaluation
+        # paths); without a position there is no mass to share.
+        if not scoring or self._urgency is None:
             return {}
         t = ev.terrain()
         regions = {SCORING_CARD_REGION[cid] for cid in scoring}

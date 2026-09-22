@@ -56,6 +56,12 @@ KNOWN = {
     ('policy.py', 'value -= CHINA_HOLD_RAW'),
     ('policy.py', 'value -= max(0, len(obs.hand)-3)'),
     ('policy.py', 'total += mass'),
+    # hand_planner's DP sums the per-slot PRICES the caller built -- a
+    # card's hold price among them, which `value_as_held` already put on
+    # the board scale. The module is pure price arithmetic by contract
+    # (like evaluator.py: no pricing functions of its own to call), so
+    # there is nothing here for the scanner to recognise.
+    ('hand_planner.py', 'value += card.hold'),
     # `_potential_total`'s two `total += sum(mass * ...)` lines were here
     # until 2026-09-17. It now sums `_region_term` and `_sea_term` instead of
     # repeating their bodies -- the repeat is how the Southeast Asia half went
