@@ -645,6 +645,46 @@
       "compare_to": "potential-verdict-base",
       "title": "potential verdict: the VP rebuild in the ranking vs bc5ef93, 1024 seeds",
       "context": "The 1024-seed verdict the term has never had. `potential-round-on` read +0.021 [-0.009, +0.052] over 512 seeds against 07d553a (run 35531902621): not measured to help, not measured not to, at half the registry's own default for a question worth asking. At 1024 the interval roughly halves and separates +0.021 from zero if it is real. TWO THINGS CHANGED SINCE THAT READING and both matter. The opponent is bc5ef93, the strongest anchor, not 07d553a. And 15caae4 closed the gap where `_resolve_sandbox` never priced the potential at all, so events were mispriced against placements by the whole term (2.9075 VP on a 43 VP Fidel) -- the 512-seed reading was taken on a bot with events and placements on different scoring halves, and is NOT comparable to this one. PRE-REGISTERED: paired lower bound above 0 means the term earns its place and the refresh approximation is the next question; at or below 0 means it does not, at a sample size that can say so. Cannot separate the term from its `potential_refresh` round-level tables, which are on in both arms of the pair as they were in the 512-seed one."
+    },
+    {
+      "slug": "hold-option-base",
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "title": "hold option value: the term OFF vs bc5ef93, 1024 seeds",
+      "context": "Step 1 of docs/notes/claude/2026-09-20-the-whole-hand-planner.md, ruling 3: a hold deserves option value for the flexibility of keeping it, and no measurement here says what it should be -- so `hold_option` ships at 0 and the hold-option-* arms price it over a small grid, the same shape as `vp_swing`, which is how that one was finally settled. The term is stated once in `hold_value`, so every live hold pricing reads it (Ask Not, the hand attacks, the Missile Envy and Aldrich picks); `value_as_held`, the planner's hold-slot price, delegates there and is what step 3 will read. The base half: the shipped bot, no premium, vs bc5ef93 -- the reference the three grid arms are paired against on identical machinery."
+    },
+    {
+      "slug": "hold-option-025",
+      "weights": {
+        "hold_option": 0.25
+      },
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "title": "hold option value 0.25: a quarter of the card's Ops vs bc5ef93",
+      "context": "The low end of the grid: a hold carries a quarter of its own Ops value on top of what it will be worth when played -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. Cannot separate 'the premium is wrong' from 'the premium belongs in the planner's hold-slot demand and not in the live hold terms' -- only the assignment planner (step 3) moves the latter."
+    },
+    {
+      "slug": "hold-option-05",
+      "weights": {
+        "hold_option": 0.5
+      },
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "title": "hold option value 0.5: half the card's Ops vs bc5ef93",
+      "context": "The middle of the grid: a hold carries half its own Ops value of flexibility. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. This is where a peak is most likely to sit if keeping a card is worth about a small card's Ops. Cannot separate a peak at 0.5 from one at 0.4 or 0.6 -- three points is a direction and a bracket, not a fit."
+    },
+    {
+      "slug": "hold-option-10",
+      "weights": {
+        "hold_option": 1.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "title": "hold option value 1.0: the card's whole Ops value again vs bc5ef93",
+      "context": "The top of the grid: a held card carries as much again as its Ops value -- the flexibility priced at everything the card can buy. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. A win here with 025 and 05 flat says the flexibility is worth pricing but this grid has not found the peak, and the next question is above 1.0. Cannot separate 'worth about 1.0' from 'worth more': 1.0 is the boundary of this grid."
     }
   ],
   "_retired": {
