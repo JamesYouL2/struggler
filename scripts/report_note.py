@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -25,7 +26,8 @@ def main(argv=None):
     ap.add_argument('--title', required=True)
     ap.add_argument('--slug', required=True)
     ap.add_argument('--context', default='')
-    ap.add_argument('--out-dir', default='docs/notes/claude')
+    ap.add_argument('--out-dir',
+                    default=os.environ.get('NOTES_DIR', 'docs/notes/claude'))
     a = ap.parse_args(argv)
 
     data = json.loads(pathlib.Path(a.report).read_text())

@@ -105,7 +105,8 @@ PYEND
   fi
 } >> "$OUT" 2>&1
 
-NOTE=docs/notes/claude/$(date +%F)-coup-discount-experiment-and-gate.md
+NOTES_DIR=${NOTES_DIR:-docs/notes/claude}
+NOTE=$NOTES_DIR/$(date +%F)-coup-discount-experiment-and-gate.md
 {
   echo "# coup_discount: the full-seed experiment and the gate of its deletion"
   echo
@@ -126,7 +127,7 @@ NOTE=docs/notes/claude/$(date +%F)-coup-discount-experiment-and-gate.md
   echo "experiment's result. Nobody has read these numbers yet."
 } > "$NOTE"
 "$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
-git add -- "$NOTE" docs/notes/claude/README.md \
+git add -- "$NOTE" "$NOTES_DIR/README.md" \
   && git commit -q -m "docs: coup_discount experiment and the gate of its deletion, collected from CI" \
-  -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md && say "  committed: $(git log --oneline -1)"
+  -m "$ATTRIB" -- "$NOTE" "$NOTES_DIR/README.md" && say "  committed: $(git log --oneline -1)"
 say "finished"

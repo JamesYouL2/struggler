@@ -7,7 +7,11 @@ commit. `tests/test_agent_files.py` requires every top-level note to be
 indexed; eighteen generated notes predate that gate and were indexed
 retroactively on 2026-09-22.
 
-    python scripts/index_note.py docs/notes/claude/2026-09-22-foo.md --generated
+    python scripts/index_note.py <notes-tree>/<YYYY-MM-DD>-<slug>.md --generated
+
+(The tree is the writing agent's own -- `docs/notes/pi/`,
+`docs/notes/claude/`, `docs/notes/codex/` -- and the README indexed is
+the one inside it.)
 
 The title is the note's first `# ` line (its stem if it has none) and the
 date is the note's `YYYY-MM-DD` filename prefix. A note that is already

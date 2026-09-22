@@ -14,7 +14,7 @@ commit.
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
-| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Codex's audit is `docs/notes/codex/`, the Rust plan `docs/RUST_PORT_PLAN.md`.) |
+| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Each agent keeps its own notes tree -- pi's is `docs/notes/pi/` -- and Codex's audit is `docs/notes/codex/`; the Rust plan is `docs/RUST_PORT_PLAN.md`.) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
 | [.github/workflows/](.github/workflows/) | Running a gate, a drift check, a weight A/B or the full suite. Each workflow's header says what a hosted runner does that the one local box cannot, and `gate.yml`'s says which readings survive the move (the verdict) and which do not (the clock). Prefer CI; it is why these exist. |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
@@ -265,7 +265,7 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
 What changes under the pi harness -- targeted `edit`/`write` tools instead
 of heredoc edits (the backslash-escape hazard above is Codex-specific),
 and skills under `.agents/skills/` mirrored to `.claude/skills/` -- is in
-`docs/notes/claude/2026-09-22-the-pi-harness-and-what-to-ask-of-it.md`.
+`docs/notes/pi/2026-09-22-the-pi-harness-and-what-to-ask-of-it.md`.
 
 **This file is `CLAUDE.md` as well.** The two names are byte-identical on
 purpose -- harnesses hardcode one name or the other -- and

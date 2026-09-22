@@ -47,7 +47,7 @@ dispatch takes, and what the number that comes back may be quoted as.
   "one entry per arm" and it fails at plan time --
   `AssertionError: ...: compare_to '...' is not in this run`. Three
   dispatches lost 15 s each finding this on 2026-09-22
-  (`docs/notes/claude/2026-09-22-status-the-grid-in-flight.md`).
+  (`docs/notes/pi/2026-09-22-status-the-grid-in-flight.md`).
 - **Smoke the machinery before a real run rides on it**: a 4-seed
   dispatch finds in ten minutes what a 1024-seed one finds two hours in,
   or not at all.

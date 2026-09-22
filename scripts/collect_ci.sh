@@ -88,7 +88,8 @@ PYEND
   } >> "$OUT" 2>&1
 done
 
-NOTE=docs/notes/claude/$(date +%F)-$SLUG.md
+NOTES_DIR=${NOTES_DIR:-docs/notes/claude}
+NOTE=$NOTES_DIR/$(date +%F)-$SLUG.md
 {
   echo "# $TITLE"
   echo
@@ -108,7 +109,7 @@ NOTE=docs/notes/claude/$(date +%F)-$SLUG.md
   echo "numbers yet."
 } > "$NOTE"
 "$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
-git add -- "$NOTE" docs/notes/claude/README.md \
-  && git commit -q -m "docs: $TITLE, collected from CI" -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md \
+git add -- "$NOTE" "$NOTES_DIR/README.md" \
+  && git commit -q -m "docs: $TITLE, collected from CI" -m "$ATTRIB" -- "$NOTE" "$NOTES_DIR/README.md" \
   && say "  committed: $(git log --oneline -1)"
 say "finished"

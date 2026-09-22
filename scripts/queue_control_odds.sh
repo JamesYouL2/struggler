@@ -44,7 +44,8 @@ for h in 1 2; do
   fi
 done
 
-NOTE=docs/notes/claude/$(date +%Y-%m-%d)-control-odds-fits.md
+NOTES_DIR=${NOTES_DIR:-docs/notes/claude}
+NOTE=$NOTES_DIR/$(date +%Y-%m-%d)-control-odds-fits.md
 {
   echo "# P(control at scoring): measured, and every candidate shape fitted"
   echo
@@ -72,7 +73,7 @@ NOTE=docs/notes/claude/$(date +%Y-%m-%d)-control-odds-fits.md
 } > "$NOTE"
 
 "$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
-git add "$NOTE" docs/notes/claude/README.md && git commit -q -m "docs: P(control at scoring) measured and fitted, generated
+git add "$NOTE" "$NOTES_DIR/README.md" && git commit -q -m "docs: P(control at scoring) measured and fitted, generated
 
-$ATTRIB" -- "$NOTE" docs/notes/claude/README.md && say "committed $NOTE" || say "commit FAILED for $NOTE"
+$ATTRIB" -- "$NOTE" "$NOTES_DIR/README.md" && say "committed $NOTE" || say "commit FAILED for $NOTE"
 say "done"

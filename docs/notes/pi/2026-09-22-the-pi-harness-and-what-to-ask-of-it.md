@@ -19,6 +19,10 @@ where they disagree on a mechanism, this note is the pi-side correction.
 - **Long runs**: `bash` takes a timeout; commands can run long directly
   and log to `logs/<topic>/...` per the standing rule. No `&`
   backgrounding anywhere -- that rule is harness-independent.
+- **Notes are per-agent.** This tree is `docs/notes/pi/`; Claude's is
+  `docs/notes/claude/`, the audit's `docs/notes/codex/`, and the
+  maintainer keeps them separate on purpose (2026-09-22). `write-note`
+  has the list; the shared note generators take `NOTES_DIR`.
 - Everything else in `AGENTS.md` holds verbatim: `uv run` for all
   Python, gates need explicit maintainer approval before dispatch, logs
   under `logs/`, docs commit+push unasked.
@@ -61,8 +65,10 @@ alongside the three that already existed (`queue`, `status`,
    after the number is visible. That last item is where the temptation
    lives (handoff item 7), so it belongs in the checklist the agent
    reads, not in a note it may not open.
-2. **`write-note`** -- one file per topic in `docs/notes/claude/`, an
-   entry in its `README.md`, and the house conventions: a title states
+2. **`write-note`** -- one file per topic in the writing agent's own
+   tree (the maintainer's rule, 2026-09-22: notes are per-agent;
+   pi's is `docs/notes/pi/`), an entry in its `README.md`, and the house
+   conventions: a title states
    only what the body defends (the retracted intransitivity note is the
    cost of getting that wrong); one measurement has one telling (the
    fresh-block note cut its own copy rather than keep it "for

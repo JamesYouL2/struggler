@@ -1,6 +1,6 @@
 ---
 name: write-note
-description: Write a working note under docs/notes/claude/ -- one file per topic, indexed in its README -- to the house conventions. Use when recording a finding, a run's verdict, a correction, a defect shape, a plan, or any session record the next model will read.
+description: Write a working note in your own agent's tree (docs/notes/pi/ for pi sessions) -- one file per topic, indexed in its README -- to the house conventions. Use when recording a finding, a run's verdict, a correction, a defect shape, a plan, or any session record the next model will read.
 ---
 
 # Writing a note
@@ -10,9 +10,11 @@ because each one was once violated in a way that cost something.
 
 ## Where and what
 
-- **`docs/notes/claude/`** for strategy and process work.
-  `docs/notes/codex/` is the audit's -- do not write there. Older
-  entries live under `archive/`; their index lines stay where they are.
+- **Your agent's tree, and only yours.** Notes are kept separate per
+  harness on purpose: `docs/notes/pi/` for pi sessions,
+  `docs/notes/claude/` for Claude, `docs/notes/codex/` for the audit
+  (Codex/Astra). Do not write into another agent's tree. Older entries
+  live under `archive/`; their index lines stay where they are.
 - **One topic per file.** `YYYY-MM-DD-<slug>.md`. If a draft covers two
   findings, it is two notes.
 - **One measurement has one telling.** A second note that quotes a
@@ -23,14 +25,16 @@ because each one was once violated in a way that cost something.
 
 ## Index it
 
-Add a bullet at the top of the Contents list in
-`docs/notes/claude/README.md`, with the date and one parenthetical of
+Add a bullet at the top of the Contents list in your tree's
+`README.md`, with the date and one parenthetical of
 what the note actually established. **The suite fails on an unindexed
 note** (`tests/test_agent_files.py`), so this is not a convention one may
 forget. A note a script wrote (`scripts/report_note.py`,
 `scripts/collect_ci.sh`, and the `queue_*.sh` family under `scripts/`)
 is already indexed -- the writers call `scripts/index_note.py` before
-committing -- so this is only a hand step for hand notes.
+committing -- so this is only a hand step for hand notes. The shared
+generators default to `docs/notes/claude/`; set `NOTES_DIR` (or pass
+`report_note.py`'s `--out-dir`) to write into your own tree.
 
 ## House rules
 

@@ -28,7 +28,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ('AGENTS.md', 'CLAUDE.md')
 SKILL_TREES = ('.agents/skills', '.claude/skills')
-NOTES_TREES = ('docs/notes/claude', 'docs/notes/codex')
+NOTES_TREES = ('docs/notes/claude', 'docs/notes/codex', 'docs/notes/pi')
 SCANNED_SKILL_NAME = 'SKILL.md'
 
 # A repo-relative path citation, e.g. `docs/ARCHITECTURE.md` or

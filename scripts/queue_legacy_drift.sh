@@ -32,7 +32,8 @@ ATTRIB='Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'
 ANCHORS="95b44b7 50e8bff 1a03954 6ec71d4 b375ae5 372609e"
 SEEDS=6000-6127
 LAUNCH=$(git rev-parse HEAD)
-NOTE=docs/notes/claude/$(date +%F)-drift-before-the-package-split.md
+NOTES_DIR=${NOTES_DIR:-docs/notes/claude}
+NOTE=$NOTES_DIR/$(date +%F)-drift-before-the-package-split.md
 
 say() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$STATUS"; }
 
@@ -90,8 +91,8 @@ for rev in $ANCHORS; do
   echo >> "$READINGS"
   write_note
   "$PY" "$ROOT/scripts/index_note.py" "$NOTE" --generated
-  git add -- "$NOTE" docs/notes/claude/README.md \
-    && git commit -q -m "docs: HEAD against pre-split anchor $rev" -m "$ATTRIB" -- "$NOTE" docs/notes/claude/README.md \
+  git add -- "$NOTE" "$NOTES_DIR/README.md" \
+    && git commit -q -m "docs: HEAD against pre-split anchor $rev" -m "$ATTRIB" -- "$NOTE" "$NOTES_DIR/README.md" \
     && say "  committed: $(git log --oneline -1)"
 done
 say "finished"
