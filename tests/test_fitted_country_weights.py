@@ -72,16 +72,18 @@ def test_fitted_country_values_are_zero_sum_across_the_seats(seed):
 
 
 def test_the_shipped_scale_is_the_truncation_every_arm_actually_played():
-    """`country_vp_scale` ships at 2.795, not the file's `matched_scale`.
+    """`country_vp_scale` ships at the rounding of the file's `matched_scale`.
 
-    The two differ from the fourth decimal (2.7949857573867254), and every
-    arm that ever measured the fit was dispatched with the short one --
-    `.github/experiments.json` carries `{"country_vp_scale": 2.795}` in all
-    of them. Rankings are decided by strict comparison, so "close enough"
-    is not a thing here: shipping the long form would ship a bot no arm has
-    played. If a refit moves `matched_scale`, the new scale has to be
-    measured before it is shipped, and this assertion is where that
-    conversation starts.
+    The two differ in the fourth decimal -- 2.793341679085859 against the
+    shipped 2.793 as of the 2026-09-22 refit at cec39ca (2.7949857573867254
+    against 2.795 at the 2026-09-21 fit) -- and every arm that measured a
+    fit was dispatched with the short form. Rankings are decided by strict
+    comparison, so "close enough" is not a thing here: shipping the long
+    form would ship a bot no arm has played. When a refit moves
+    `matched_scale`, the new scale is measured before it is shipped -- the
+    refit-vs-shipped arm plays this exact default and merges only if its
+    interval clears -- and this assertion is where that conversation
+    happens.
     """
     matched = json.loads(ev.FITTED_WEIGHTS_PATH.read_text())['matched_scale']
     shipped = StrategicWeights().country_vp_scale
@@ -90,7 +92,7 @@ def test_the_shipped_scale_is_the_truncation_every_arm_actually_played():
     # was 1e-4, which only passed because 2.7949857... happens to sit almost
     # exactly on 2.795; a three-decimal rounding may move by up to 5e-4, so
     # the tolerance would have rejected the next refit for being ordinary.
-    assert shipped == 2.795 == round(matched, 3)
+    assert shipped == 2.793 == round(matched, 3)
     assert shipped != matched, 'the long form is not what any arm played'
 
 

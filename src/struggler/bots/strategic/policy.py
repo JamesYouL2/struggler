@@ -363,7 +363,7 @@ class StrategicWeights:
     # provenance for where 2.795 came from -- the scale that keeps
     # importance's overall level where the tiers had it.
     # docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md
-    country_vp_scale: float = 2.795
+    country_vp_scale: float = 2.793
     # What controlling all of Europe is worth in the region term, in VP. It
     # ends the game, so it is the whole 40 VP swing (stakes.GAME_SWING_VP);
     # a weight only so experiments can price it otherwise. The fitted
