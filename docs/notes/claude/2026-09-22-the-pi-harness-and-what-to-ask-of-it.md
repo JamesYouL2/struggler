@@ -110,13 +110,19 @@ one of its gates was checked by putting its defect back:
   actually needed a human here was tag creation and branch deletion (403
   on the write path). It now says check, do not assume.
 
-- **And one drift the build made in itself.** The skill mirror was run
+- **And two drifts the build made in itself.** The skill mirror was run
   in the same tool batch as edits to its source tree; the copy executed
   first, and a later restore-from-mirror clobbered the edits.
-  `git status` disagreeing with what was believed written is what caught
-  it -- and the mirror test passed throughout, because both trees were
+  `git status` disagreeing with what was believed written is what
+  caught it -- and the mirror test passed throughout, because both trees were
   identically wrong. Identity is not correctness. Sequence-dependent
-  steps (edit, then copy) do not belong in one parallel batch.
+  steps (edit, then copy) do not belong in one parallel batch. Then the
+  fix was committed by chaining `pytest | tail -2 && git commit`: `tail`
+  exits 0, so the red gate could not stop the commit, and a broken
+  citation (`scripts/queue_*.sh` parses as the path `scripts/queue_`)
+  went out in `149efb8`. Read the gate's exit code on its own before
+  any step that must not follow a failure -- piping it into anything
+  makes the pipe's status the gate's.
 
 The lesson to keep is the third one. The gate was written to prevent
 future drift and found eighteen past ones on its first run. A convention

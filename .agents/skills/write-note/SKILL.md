@@ -28,9 +28,9 @@ Add a bullet at the top of the Contents list in
 what the note actually established. **The suite fails on an unindexed
 note** (`tests/test_agent_files.py`), so this is not a convention one may
 forget. A note a script wrote (`scripts/report_note.py`,
-`scripts/collect_ci.sh`, `scripts/queue_*.sh`) is already indexed -- the
-writers call `scripts/index_note.py` before committing -- so this is
-only a hand step for hand notes.
+`scripts/collect_ci.sh`, and the `queue_*.sh` family under `scripts/`)
+is already indexed -- the writers call `scripts/index_note.py` before
+committing -- so this is only a hand step for hand notes.
 
 ## House rules
 
