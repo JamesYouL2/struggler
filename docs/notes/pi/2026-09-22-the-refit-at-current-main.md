@@ -84,10 +84,31 @@ first. The `queue` skill warns about exactly this interpreter-path
 class, and the tell was a failure that cannot exist. Read an impossible
 failure as wrong-tree evidence before believing it.
 
-## When it lands
+## The reading (run 35777206185, pooled 21:21 UTC)
 
-Read the pooled score against 0.500 one-sided and apply the rule as
-quoted -- it does not move. If it clears, the candidate merges as-is:
-the ledger and the pin already state the rule, so nothing needs
-rewriting after the fact. If it does not, `exp/refit-country-weights` is
-dropped, the shipped weights stay, and the reading gets added here.
+| arm | vs `cec39ca` | one-sided 95% | seats (US / USSR) |
+| --- | ---: | --- | --- |
+| `refit-vs-shipped` | **0.483** | **[0.468, 0.498]** | 0.556 / 0.410 |
+
+**The rule's third branch fires: the upper bound is below 0.500.** Not
+a null -- a measurable loss. The shipped weights stand
+(`country_vp_scale` 2.795, the `598e4d1` fit) and the refit is dropped:
+PR #41 closed, branch deleted. As registered: "an upper bound below
+0.500 keeps them and records why." What the number says, and no more:
+even with the level held by `matched_scale`, re-fitting the shape to
+current-main play made the bot measurably worse over 1152 paired seeds.
+The old shape being two structural changes stale did not make it wrong
+-- stale was not broken.
+
+What that does *not* say: why. The auditor could not rank the fits and
+play ranked them against the refit -- whether the exact potential is the
+wrong target, whether current-main self-play positions under-represent
+the states that decide games, or whether the level-holding
+`matched_scale` chain moved something the shape did not, is not
+identified by this reading. The seat split (US 0.556 / USSR 0.410) is
+the one hint: whatever the refit lost, it lost mostly as the USSR.
+
+The "unfinished business" line in the provenance ledger is closed by
+this measurement: the weights are now "measured at 2.795, and a refit at
+current main read measurably worse" -- a different standing than
+"stale".
