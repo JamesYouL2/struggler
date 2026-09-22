@@ -376,13 +376,21 @@ class DefconPlanner:
 
     # -- one card play ------------------------------------------------------
 
-    def transition(self, cid, mode, hand, rounds, defcon, pos, attempts, china, trapped=False):
+    def _consumed(self, hand, cid, china):
+        """`hand` with one play spent: the card out of the hand, the China
+        Card's availability flag cleared. The one statement of the
+        consumption rule -- `transition` and `continuation_risk` both start
+        here, so a play is spent exactly once whichever frame prices it
+        (F2 of the 2026-09-20 technical-correctness review)."""
         remaining = list(hand)
         if cid == CHINA:
             china = False
         elif cid in remaining:
             remaining.remove(cid)
-        remaining = tuple(remaining)
+        return tuple(remaining), china
+
+    def transition(self, cid, mode, hand, rounds, defcon, pos, attempts, china, trapped=False):
+        remaining, china = self._consumed(hand, cid, china)
         def onward(h=remaining, d=defcon, p=pos, a=attempts, t=trapped):
             return self.next(h, rounds-1, d, p, a, china, t)
         if mode == 'space_race':
@@ -552,6 +560,23 @@ class DefconPlanner:
         log.debug("planner %s: %s risk by mode %s", self.side.value, cid,
                   {m: round(v, 3) for m, v in per_mode.items()})
         return min(per_mode.values())
+
+    def continuation_risk(self, cid):
+        """Turn-loss risk of the hand a resolved play leaves, from the next
+        round on: the post-event continuation contract (F2 of the
+        2026-09-20 technical-correctness review).
+
+        This planner must sit on the state the play's effects are already
+        resolved into (`StrategicPlayer._after_event`) -- the event is part
+        of the world handed to `next`, never applied again -- and the play's
+        card and round are spent here exactly once, so nothing resolves
+        twice."""
+        remaining, china = self._consumed(self.hand, cid, self.china)
+        value = self.next(remaining, self.rounds-1, self.obs.defcon,
+                          self.obs.space_race[self.side.value],
+                          self.obs.space_race_attempts[self.side.value],
+                          china, self.trapped)
+        return self._with_pending_headline(value, remaining)
 
     def features(self):
         risk = self.risk()

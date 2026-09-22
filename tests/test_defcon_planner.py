@@ -524,6 +524,46 @@ def test_an_event_that_fills_a_restricted_coups_geography_is_priced_on_the_board
     assert risks == {'ops': 1, 'event': 1}
 
 
+@pytest.mark.parametrize('latent', [True, False])
+def test_a_resolved_event_is_applied_once_in_the_replanned_hand(latent):
+    # F2: the post-event re-plan transitioned the play a second time, so
+    # Duck and Cover resolved at DEFCON 3 was priced as a reducer starting
+    # at 2 -- a certain turn loss -- and both modes collapsed onto the
+    # game's priced score. The control keeps CIA Created non-latent (Cuba
+    # manned), where no re-plan runs and the answer was already (0, 0).
+    e = setup_hand(['Duck_and_Cover', 'CIA_Created'], rounds=1, defcon=3, space_used=1)
+    e.board.influence['Cuba']['USSR'] = 0 if latent else 2
+    e._push_action_round_play(Side.USSR)
+    e.step(Action(K.ACTION_ROUND_PLAY, {'card': 'Duck_and_Cover'}))
+    bot, obs, ranked = ranked_with_risk(e, opponent_lowers_defcon=0)
+    assert {a.payload['mode']: ir for _, a, ir in ranked} == {'event': (0, 0), 'ops': (0, 0)}
+    keys = {a.payload['mode']: key for key, a, _ in ranked}
+    assert keys['event'][2] != keys['ops'][2]
+    assert all(key[2] != pytest.approx(-bot.game_value(obs)) for key in keys.values())
+    # The real engine's outcome, taken independently of the planner's price.
+    e.step(next(a for _, a, _ in ranked if a.payload['mode'] == 'event'))
+    assert e.defcon == 2 and not e.is_terminal
+
+
+def test_the_replanned_hand_counts_the_events_trap_once():
+    # F2's stateful case: Bear Trap's event IS trap state. The continuation
+    # must start from the effects already resolved and count each once --
+    # with the trap in force a trapped round disposes of Grain Sales without
+    # firing its event and the hand survives, where a re-plan that lost the
+    # effect must play it at DEFCON 2 and reads as certain loss.
+    e = cleared_board_setup(['Bear_Trap', 'Grain_Sales_to_Soviets', 'Tear_Down_This_Wall'],
+                            Side.USSR, rounds=3, defcon=3)
+    # Cuba gives Grain Sales a target and makes it hazardous at 2, while
+    # Europe stays empty -- Tear Down This Wall is latent on want of
+    # geography, which is what runs the re-plan at all.
+    e.board.influence['Cuba']['USSR'] = 2
+    e._push_action_round_play(Side.USSR)
+    e.step(Action(K.ACTION_ROUND_PLAY, {'card': 'Bear_Trap'}))
+    bot, obs, ranked = ranked_with_risk(e, opponent_lowers_defcon=1)
+    assert bot._after_event(obs, 'Bear_Trap').game_effects == {'bear_trap': True}
+    assert {a.payload['mode']: ir for _, a, ir in ranked} == {'event': (0, 0), 'ops': (0, 0)}
+
+
 @pytest.mark.parametrize('opponent_box,expected', [(0, 1/3), (2, 1.)])
 def test_reaching_box_two_in_the_search_grants_the_second_attempt(opponent_box, expected):
     # F4: success (4 in 6) reaches box 2 first and allows spacing KAL too;
