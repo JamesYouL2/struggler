@@ -714,8 +714,9 @@ class StrategicWeights:
 # 2026-09-13 -- off, pinned or retired -- so they no longer need guarding.)
 #
 #   reply_ops, reply_model  the forward search's configuration, not a price
-#   hold_option  a term shipped at 0 (ruling 3), waiting on its grid to
-#                price the size
+#   hold_option  a term shipped at 0 (ruling 3); its grid (run 35753235236,
+#                1024 paired seeds) read nothing above 0 at 0.25 / 0.5 /
+#                1.0 and a measurable loss at 1.0, so it stays 0
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.

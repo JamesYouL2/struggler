@@ -321,8 +321,10 @@ action = bot.choose_action(observation, history)
   flexibility of choosing its moment -- ruling 3 of
   [the hand planner plan](notes/claude/2026-09-20-the-whole-hand-planner.md)
   -- `weights.hold_option` times the card's Ops value, because what a hold
-  defers is the spending of its Ops. It is 0 as shipped and priced by the
-  `hold-option-*` grid in `.github/experiments.json`. The term is stated
+  defers is the spending of its Ops. It is 0 as shipped and **stays 0**:
+  the `hold-option-*` grid (run 35753235236, 1024 paired seeds) read
+  nothing above 0 at 0.25 / 0.5 / 1.0 and a measurable loss at 1.0
+  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)). The term is stated
   once in `hold_value`, so `value_as_held` (the planner's hold-slot price)
   and every live hold pricing read one number; the ops-only proxies
   (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so

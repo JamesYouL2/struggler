@@ -179,7 +179,7 @@
       "value": 0.0,
       "source": "guess",
       "determination": "inert",
-      "note": "OFF as shipped, 2026-09-21, ruling 3 of the hand planner plan: `value_as_held` priced a held card at what it will be worth next turn and nothing for the flexibility. Set, every hold carries `hold_option` times the card's Ops value on top of its next-turn price -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. Stated once in `hold_value`; the ops-only proxies (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so a swap compares like with like. No measurement here says what it should be: the hold-option-* grid (0.25 / 0.5 / 1.0 against hold-option-base) prices it the way vp_swing's was priced. docs/notes/claude/2026-09-20-the-whole-hand-planner.md"
+      "note": "OFF as shipped, 2026-09-21, ruling 3 of the hand planner plan: `value_as_held` priced a held card at what it will be worth next turn and nothing for the flexibility. Set, every hold carries `hold_option` times the card's Ops value on top of its next-turn price -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. Stated once in `hold_value`; the ops-only proxies (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so a swap compares like with like. The hold-option-* grid (0.25 / 0.5 / 1.0 against hold-option-base, run 35753235236, 1024 paired seeds) read -0.004 [-0.012, +0.005], -0.005 [-0.018, +0.007] and -0.031 [-0.047, -0.016]: nothing above 0 anywhere and a measurable loss at 1.0, so it stays 0 in the live hold pricings. docs/notes/pi/2026-09-22-the-hold-option-grid.md"
     }
   },
   "SurvivalPrior": {
