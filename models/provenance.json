@@ -174,6 +174,12 @@
       "source": "measured",
       "determination": "bounded",
       "note": "P(the opponent takes a legal DEFCON-lowering Coup at DEFCON 3), for cornered_after_drop, priced at the 40 VP game (maintainer ruling 2026-09-18: a probability, not a rule). Measured by scripts/measure_defcon_drop.py over 32 self-play games (seeds 42000-42031): in the guard's case (the other side holds a borrowed Coup) 60/140 = 0.43 (US 0.36, USSR 0.60); a bot-vs-bot rate. Over 1024 seeds vs 07d553a (run 35374218178, paired against 1.0): 0.43 plays identically (diff 0.000), off reads -0.001 [-0.002, 0.001] with USSR nuclear losses 37 -> 42. So PR #4's +0.043 is F1-F5, and the guard's value is a few nuclear losses."
+    },
+    "hold_option": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "OFF as shipped, 2026-09-21, ruling 3 of the hand planner plan: `value_as_held` priced a held card at what it will be worth next turn and nothing for the flexibility. Set, every hold carries `hold_option` times the card's Ops value on top of its next-turn price -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. Stated once in `hold_value`; the ops-only proxies (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so a swap compares like with like. The hold-option-* grid (0.25 / 0.5 / 1.0 against hold-option-base, run 35753235236, 1024 paired seeds) read -0.004 [-0.012, +0.005], -0.005 [-0.018, +0.007] and -0.031 [-0.047, -0.016]: nothing above 0 anywhere and a measurable loss at 1.0, so it stays 0 in the live hold pricings. docs/notes/pi/2026-09-22-the-hold-option-grid.md"
     }
   },
   "SurvivalPrior": {
@@ -304,7 +310,7 @@
   "_summary": {
     "counts_by_source": {
       "expert": 7,
-      "guess": 15,
+      "guess": 16,
       "gate": 9,
       "measured": 10,
       "derived": 5
@@ -313,11 +319,11 @@
       "underdetermined": 10,
       "known-wrong": 2,
       "bounded": 13,
-      "inert": 6,
+      "inert": 7,
       "overdetermined": 4,
       "determined": 11
     },
-    "_reading": "Recounted 2026-09-21, after `battleground` and `control` were deleted: 46 entries, of which 15 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones are now `access_chain` and `CHINA_HOLD_RAW`. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to.",
-    "total": 46
+    "_reading": "Recounted 2026-09-21, after `battleground` and `control` were deleted and `hold_option` added: 47 entries, of which 16 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones are now `access_chain` and `CHINA_HOLD_RAW`. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to. `hold_option` is the second term after `potential` to arrive deliberately at 0 with an arm to price it (2026-09-21): a hold's option value for the flexibility of keeping it, per ruling 3 of the hand planner plan -- a guess in the size, with the hold-option-* grid (0.25 / 0.5 / 1.0) to say what it should be.",
+    "total": 47
   }
 }

@@ -86,7 +86,11 @@ machine. So three of the local rules below stop applying to them:
 **Commit after every item.** A machine that dies at 3am must leave every
 finished result in git. Check what is gitignored first: if reports land
 in `logs/`, the commit is a *generated note of the numbers*, not the
-report. `scripts/report_note.py` is the worked version.
+report. `scripts/report_note.py` is the worked version -- and every note
+writer indexes its note via `scripts/index_note.py` before the commit,
+because an unindexed note fails the suite
+(`tests/test_agent_files.py`). If you write a note by hand in the middle
+of a queue, index it the same way.
 
 **Never `set -e`.** A failed item must not abandon the queue. Record the
 failure, continue. The one exception is a setup step whose failure makes

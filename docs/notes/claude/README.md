@@ -165,3 +165,31 @@ path because `tests/test_recurring_defects.py` parses it.
 - [Codex's MCTS findings (docs/notes/codex/)](codex-s-mcts-findings-docs-codex-notes-md.md)
 - [Astra's corpus review (2026-09-08): what was done](astra-s-corpus-review-2026-09-08-what-was-done.md)
 - [Architecture, as of Sept 2026](architecture-as-of-sept-2026.md)
+
+### Experiment records and generated reports, indexed retroactively (2026-09-22)
+
+Eighteen notes landed without index lines before
+`tests/test_agent_files.py` made one mandatory. Their writers now index
+their own notes via `scripts/index_note.py`; these were added by hand,
+oldest first. The five weight-A/B records and the bisect are hand-written
+experiment notes; the rest are `scripts/collect_ci.sh` and
+`scripts/queue_*.sh` output.
+
+- [4x vp_swing against the shipped 2x, 256 seeds](2026-09-11-vp-swing-4x.md) — 2026-09-11
+- [Ablating access_chain alone, 128 seeds](2026-09-12-ablate-access-chain.md) — 2026-09-12
+- [A steeper scoring discount: 0.55 against 0.8, 80 seeds](2026-09-12-scoring-discount-055.md) — 2026-09-12 (DROPPED, not re-run)
+- [A shallower scoring discount: 0.93 against the shipped 0.8](2026-09-12-scoring-discount-093.md) — 2026-09-12
+- [A flat VP curve: vp_swing 1.0 against the shipped 2.0, 80 seeds](2026-09-12-vp-swing-1x.md) — 2026-09-12
+- [The Blockade fix gate, the openings check, the China-phantom bisect and three full-seed arms](2026-09-13-blockade-openings-phantom-and-full-arms.md) — 2026-09-13 (generated)
+- [The China Card phantom, re-gated on iran/austria](2026-09-13-china-phantom-on-iran-austria.md) — 2026-09-13 (generated)
+- [P(control at scoring): measured, and every candidate shape fitted](2026-09-13-control-odds-fits.md) — 2026-09-13 (generated)
+- [coup_discount: the full-seed experiment and the gate of its deletion](2026-09-13-coup-discount-experiment-and-gate.md) — 2026-09-13 (generated)
+- [Where coup_discount's strength comes from: battleground coups, or coups at all](2026-09-13-coup-discount-where-it-matters.md) — 2026-09-13 (generated)
+- [HEAD against the strategic bot before the package split](2026-09-13-drift-before-the-package-split.md) — 2026-09-13 (generated)
+- [The gate of first_mover's deletion](2026-09-13-first-mover-deletion-gate.md) — 2026-09-13 (generated)
+- [HEAD against pre-v0.1.0 anchors, and the gate ladder on iran/austria](2026-09-13-pre-v0.1.0-drift-and-iran-austria-ladder.md) — 2026-09-13 (generated)
+- [Reply models 4 and 5: the opponent's known cards in the reply budget](2026-09-13-reply-budget-models.md) — 2026-09-13 (generated)
+- [Reply look-ahead layer C: our coups and realignments get the look-ahead, coup_discount 1.0](2026-09-13-reply-lookahead-layer-c.md) — 2026-09-13 (generated)
+- [Reply look-ahead layers A and B: Codex's reply fixes, then coups as replies](2026-09-13-reply-lookahead-layers-ab.md) — 2026-09-13 (generated)
+- [P(control at scoring): measured, and every candidate shape fitted](2026-09-14-control-odds-fits.md) — 2026-09-14 (generated)
+- [The v0.2.1 bisect: one commit, 52bb329, and what the chain costs](2026-09-19-bisect-v0.2.1.md) — 2026-09-19

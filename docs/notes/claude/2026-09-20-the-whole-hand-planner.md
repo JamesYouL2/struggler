@@ -247,8 +247,16 @@ case of a per-card nudge that a plan makes unnecessary.
 
 1. Hold option value as a weight, with a grid arm. Independent of the
    planner, and it is an input the planner needs priced.
+   *Landed 2026-09-21*: `hold_option`, at 0 as shipped, stated once in
+   `hold_value` (which `value_as_held` delegates to and the live hold
+   terms read), with the `hold-option-*` grid in `.github/experiments.json`.
 2. The hand canonicalisation (25,122 -> 7,317 states). It pays for itself in
    the survival DP now and again in the assignment search later.
+   *Dropped 2026-09-21* ("drop step 2 for now"): whether a card is safe is
+   state-dependent -- a DEFCON drop or a board move between the root and
+   the play turns a root-safe card into a hazard -- so a root-state merge
+   can move exactly the risks the parity corpus pins. Pay the
+   search cost until profiling says the DP is the wall again.
 3. The assignment planner behind a weight, alongside the DP, scoring timing
    included from the start (ruling 5) and the space slot count handled by
    the two-solve approximation (ruling 1).

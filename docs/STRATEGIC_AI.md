@@ -317,8 +317,20 @@ action = bot.choose_action(observation, history)
 - Prices the hidden-information cards from what a card in a hand is worth
   (`hold_value`: a scoring card scores its region, anything else is played,
   so an opponent event carries its harm and a card you would rather not
-  hold is *negative*). Ask Not is the sum of the chosen upgrades over our
-  hand, capped at the Action Rounds left (`_hand_upgrade_value`); Five Year
+  hold is *negative*). A hold also carries its option value for the
+  flexibility of choosing its moment -- ruling 3 of
+  [the hand planner plan](notes/claude/2026-09-20-the-whole-hand-planner.md)
+  -- `weights.hold_option` times the card's Ops value, because what a hold
+  defers is the spending of its Ops. It is 0 as shipped and **stays 0**:
+  the `hold-option-*` grid (run 35753235236, 1024 paired seeds) read
+  nothing above 0 at 0.25 / 0.5 / 1.0 and a measurable loss at 1.0
+  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)). The term is stated
+  once in `hold_value`, so `value_as_held` (the planner's hold-slot price)
+  and every live hold pricing read one number; the ops-only proxies
+  (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so
+  a swap compares like with like. Ask Not is the sum of the chosen
+  upgrades over our hand, capped at the Action Rounds left
+  (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,
   Grain Sales the better of 2 Ops and the shown card, Missile Envy the
   opponent's best card swapped for a 2, Star Wars the best US or neutral

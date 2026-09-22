@@ -14,7 +14,7 @@ commit.
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
-| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Codex's audit is `docs/notes/codex/`, the Rust plan `docs/RUST_PORT_PLAN.md`.) |
+| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Each agent keeps its own notes tree -- pi's is `docs/notes/pi/` -- and Codex's audit is `docs/notes/codex/`; the Rust plan is `docs/RUST_PORT_PLAN.md`.) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
 | [.github/workflows/](.github/workflows/) | Running a gate, a drift check, a weight A/B or the full suite. Each workflow's header says what a hosted runner does that the one local box cannot, and `gate.yml`'s says which readings survive the move (the verdict) and which do not (the clock). Prefer CI; it is why these exist. |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
@@ -123,6 +123,10 @@ the tests.
     `rules.json`).
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
+- **Logs**: run outputs go under `logs/` (gitignored) -- that is what it is
+  there for -- not `/tmp`. Name them so the next session finds them:
+  `logs/<topic>/...`, following the existing `ci-<runid>` entries. `/tmp`
+  does not survive a reboot and hides work from whoever resumes.
 
 ## The rule
 
@@ -183,3 +187,87 @@ by remembering harder.
   differently depending on what came first: 39 of 598 corpus rankings changed
   when the memo was bypassed. The terms now live in `bots/strategic/evaluator.py` and
   own no state; see the snapshot contract in `docs/STRATEGIC_AI.md`.
+
+## Session environment (Codex CLI, 2026-09-15)
+
+Learnings from running gates, suites, and recaptures in this container.
+Standing prefs: docs always commit+push unasked; run logs under `logs/`
+(gitignored); gates need explicit approval before dispatch.
+
+- `exec_command`: `yield_time_ms` must be an integer, floats fail arg parse.
+  Omit it for long runs, they background after ~10s wall with a session ID.
+- Long commands: run as `cmd > logs/<topic>.log 2>&1; echo "exit=$?" >> log`,
+  then poll with `sleep` + `tail`. Never `&`-background, it dies with the turn.
+- No `apply_patch` tool in this harness. Edit via `python` + quoted heredocs,
+  prefer line-number-targeted edits, verify with `grep` / `sed -n`. Watch
+  heredoc backslash-escapes, a stray backtick escape has shipped a bug before.
+- Kill duplicate runners (`ps aux | grep`) before timing anything. Suite and
+  gate contend for all cores; the timing note in Conventions above was wrong
+  twice from contended runs. Run gates alone locally, or prefer remote
+  `gate.yml` dispatch, which is isolated so several can run at once.
+- Fast A/B attribution: `git stash` + re-run the single failing test to decide
+  "bundle or revert" before splitting branches.
+- `gh` is authed (JamesYouL2). Gate dispatch:
+  `gh workflow run gate.yml --ref <branch> -f bases='["<SHA>"]' -f vary=0`;
+  poll with `gh run view <id> --json status,conclusion`.
+  `decide` defaults to 1 (curtails ~15% once the verdict is stable); pass
+  `-f decide=0` only for a full read when the precise score matters.
+- `experiments.yml` runs weight A/Bs (one runner per arm, in parallel)
+  rather than comparing revisions: dispatch
+  `gh workflow run experiments.yml -f only=<slug>` (arms from
+  `.github/experiments.json`) or `-f inline='{"slug":...,"weights":{...},
+  "seeds":"...","held":"...",...}'` for a one-off without editing
+  anything. Both `--decide` and `--held-seeds` come from the arm's own
+  `held` field, which is required -- an arm without it silently never
+  early-stops. Size arms full (a runner per arm removes the local
+  one-at-a-time constraint; several 2026-09-12 runs were +/-0.075 and
+  could not see a 6-point effect). The run's verdict is the summarise
+  step's artifact, read it from the job summary, not the exit code.
+- Ledger `models/provenance.json`: 2-space indent, never plain `json.dumps`
+  (a test parses the format). Recompute `_summary` counts, verify with
+  `tests/test_provenance.py`. New weights need entries or the suite fails.
+- Suite ~4-6 min, `test_parity_corpus.py` is the pole. Recapture ~5-6 min for
+  seeds 4000-4003. Ruff: compare against HEAD via `git stash`; only
+  pre-existing (RUF005, B905, RUF059, PLW1510) should remain.
+
+## Session environment, continued (opening swap, 2026-09-15)
+
+- `yield_time_ms` takes an integer or nothing: `120000.0` fails arg parsing.
+  When in doubt omit it; long commands background after ~10s with a session
+  ID and `sleep 9` + `tail` polls them.
+- Behaviour-change checklist for a default-opening swap: `DEFAULT_OPENINGS`
+  in `policy.py`, the default test in `tests/test_openings.py`, the
+  setup-and-handicap test in `tests/test_strategic.py` (it pins the exact
+  placement order and board — grep for the new book name misses it; the
+  suite is the backstop), and the opening bullet in `docs/STRATEGIC_AI.md`.
+  First full run found the `test_strategic.py` pin; `-x` for fast discovery,
+  then a full re-run.
+- Recapture after any default change: the corpus follows the opening
+  (431 records on iran, 474 on italy — longer games). Suite time follows
+  the corpus: ~9:34 at 474 records, parity test the pole. A pass-count
+  delta vs another branch is expected when the bases differ (861 here vs
+  862 with the deck-tracking test).
+- New experiments branch off `origin/main`, never pile onto a branch with
+  a running gate — a moved HEAD confounds the verdict in flight.
+- CI is free for verification, use it: `tests.yml` runs the full suite automatically on every push to `main`, and a full `decide=0` gate dispatches to isolated runners (`gh workflow run gate.yml --ref main -f bases='["<SHA>"]' -f decide=0 -f vary=0`). Route full-suite verification through CI whenever possible — a PR (or push to `main`) runs `tests.yml` with the parity oracle (`test_parity_corpus.py`) included. Prefer both over local runs and keep the local box free — local suite/gate contention is what corrupted the timing notes twice. Suites AND gates belong on GitHub; local runs are the exception, reserved for fast iterate-on-a-failure loops (2026-09-16, maintainer).
+- The remote gate cannot measure an opening-default change: `gate.yml` has
+  no openings input and `scripts/gate.sh` defaults both arms to
+  `iran/austria` (`GATE_BOOKS`). Same for drift (`DRIFT_OPENINGS` in
+  `scripts/drift_check.sh`). A remote gate on such a branch is safety-only;
+  measuring the swap wants a local `GATE_OPENINGS=` empty run (each
+  revision its own default) or `scripts/opening_tournament.py`.
+- Never merge before the gate ACCEPTs, one verdict per branch, no bundling.
+  Poll with `gh run view <id> --json status,conclusion`; workflow `success`
+  is the ACCEPT, but confirm the ACCEPTED line in the log before merging.
+
+## Session environment (pi, 2026-09-22)
+
+What changes under the pi harness -- targeted `edit`/`write` tools instead
+of heredoc edits (the backslash-escape hazard above is Codex-specific),
+and skills under `.agents/skills/` mirrored to `.claude/skills/` -- is in
+`docs/notes/pi/2026-09-22-the-pi-harness-and-what-to-ask-of-it.md`.
+
+**This file is `CLAUDE.md` as well.** The two names are byte-identical on
+purpose -- harnesses hardcode one name or the other -- and
+`tests/test_agent_files.py` fails if they drift apart, the same way the
+`.agents`/`.claude` skill mirrors are gated. Edit one, copy to the other.

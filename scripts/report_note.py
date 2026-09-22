@@ -14,7 +14,10 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import pathlib
+import subprocess
+import sys
 
 
 def main(argv=None):
@@ -23,7 +26,8 @@ def main(argv=None):
     ap.add_argument('--title', required=True)
     ap.add_argument('--slug', required=True)
     ap.add_argument('--context', default='')
-    ap.add_argument('--out-dir', default='docs/notes/claude')
+    ap.add_argument('--out-dir',
+                    default=os.environ.get('NOTES_DIR', 'docs/notes/claude'))
     a = ap.parse_args(argv)
 
     data = json.loads(pathlib.Path(a.report).read_text())
@@ -70,6 +74,14 @@ def main(argv=None):
 
     out = pathlib.Path(a.out_dir) / f'{today}-{a.slug}.md'
     out.write_text('\n'.join(lines))
+    # Index it in the same act that writes it: an unindexed note fails the
+    # suite (tests/test_agent_files.py), so the writer owns the index line.
+    subprocess.run(
+        [sys.executable,
+         str(pathlib.Path(__file__).resolve().with_name('index_note.py')),
+         str(out), '--generated'],
+        check=True,
+    )
     print(out)
     return 0
 

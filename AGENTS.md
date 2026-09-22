@@ -14,8 +14,9 @@ commit.
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 | [docs/RULES_SOURCES.md](docs/RULES_SOURCES.md) | Any rules question: the card face, the rulebook, the FAQ, and the rulings this engine rests on |
-| [docs/notes/Codex/](docs/notes/Codex/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Codex's audit is `docs/notes/codex/`, the Rust plan `docs/RUST_PORT_PLAN.md`.) |
+| [docs/notes/claude/](docs/notes/claude/) | Bot strategy work: one file per topic, indexed by its `README.md`, older entries under `archive/`. `bug-shapes.md` is the defect registry and has a stable path because a test parses it. (Each agent keeps its own notes tree -- pi's is `docs/notes/pi/` -- and Codex's audit is `docs/notes/codex/`; the Rust plan is `docs/RUST_PORT_PLAN.md`.) |
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
+| [.github/workflows/](.github/workflows/) | Running a gate, a drift check, a weight A/B or the full suite. Each workflow's header says what a hosted runner does that the one local box cannot, and `gate.yml`'s says which readings survive the move (the verdict) and which do not (the clock). Prefer CI; it is why these exist. |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
@@ -32,21 +33,71 @@ the tests.
   pytest`; that is a missing `uv run`, not a broken checkout. `environment.yml`
   (conda) and `pip install -e ".[test]"` still work but are not what this
   repo is developed against.
+- **CI runs the expensive things; read `.github/workflows/` before starting
+  one locally.** Four workflows, each with a header explaining what it is
+  for and what a hosted runner can do that the one local box cannot:
+  `tests.yml` (the full suite, on every push and PR), `gate.yml`
+  (`workflow_dispatch` with a JSON list of `bases`, one job per base -- the
+  local `gate.sh` holds a machine-wide lock, and that lock is a property of
+  having one machine, not of the gate), `drift.yml` (every anchor as an anchored
+  `experiments.yml` arm, 1024 seeds sharded, with the canary's verdict on
+  the pooled readings) and
+  `experiments.yml` (arms from `.github/experiments.json`, cut into
+  128-seed shards so an arm can be 1024+ seeds, played against HEAD's
+  defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`).
+  Two things make a dispatch cheaper than it looks and both change what a
+  reading means, so read them before quoting one: shards are **cached** on
+  their identity (`scripts/arm_identity.py`), so re-dispatching an unchanged
+  arm replays nothing; and arms run in **two waves**, with the second played
+  only where the first did not settle the question
+  (`scripts/wave_verdict.py` -- an arm that stopped early reports on half
+  its seeds, deliberately, and the run summary says which). `no_cache: true`
+  replays anyway and `waves: false` plays everything, which is what a LEVEL
+  reading wants; `drift.yml` passes it. Push and dispatch instead of occupying the
+  maintainer's cores for an hour. The exception is anything whose RESULT is a
+  wall-clock number: `gate.yml`'s own header says the verdict survives the
+  move and the timings do not, because a shared 4 vCPU runner's clock means
+  nothing. Verdicts, suites and A/Bs go to CI; quotable timings stay local
+  and alone.
 - **Tests**: `uv run pytest`, plus `hypothesis` for property-based tests. Run
-  the full suite before committing; it takes about six minutes (6:10 for
-  777 tests on an idle machine, 2026-09-12 evening).
-  `test_parity_corpus.py` is 4:41 of that -- three quarters of the suite --
-  and it grew from 1:26 the same afternoon without anyone touching it: the
-  corpus went from 344 records to 401 because the bot started reaching turn
-  9, and turn-9 positions are the most expensive there are to rank. That
-  cost is a function of how long the bot's games last, so it will move
-  again. ALWAYS RUN THE WHOLE THING.
+  the full suite before committing -- push and let `tests.yml` do it, or run
+  it locally if you are not pushing yet. ALWAYS RUN THE WHOLE THING.
+  Last timed at **3:49 for 1121 tests on an idle 4-core box (2026-09-21)**,
+  of which `test_parity_corpus.py` is 2:02 at 401 records -- 53% of the
+  suite -- and `test_poke_rate.py` 0:28.
+
+  **That is not faster than the 5:30 below; it is a different machine.**
+  The previous reading was 915 tests at 5:30 on an idle *8-core* box
+  (2026-09-17), `test_parity_corpus.py` 3:41 of it. Four cores against
+  eight, 1121 tests against 915: the two numbers do not divide into a
+  speedup and nobody should try. `sample_machine` exists for exactly this,
+  and the core count is now part of the reading for the same reason the
+  idleness is.
+
+  `test_parity_corpus.py` was 4:41 of a 6:10 suite on 2026-09-12 at 401
+  records, and
+  1:26 the afternoon before that at 344: the corpus grows when the bot's
+  games last longer, because turn-9 positions are the most expensive there
+  are to rank, and the record count moved 344 -> 401 -> 485 without anyone
+  editing a test. (It reads 401 again on 2026-09-21.) Expect it to move
+  again, and expect any CI number to be larger for the runner alone.
   This entry was wrong twice on 2026-09-12. It said three and a half minutes
   from before the tests that make up the difference existed, and was then
   "corrected" to eleven minutes from a run taken while a 128-seed gate held
   all eight cores -- contention recorded as fact, in the file that documents
   `sample_machine` and `contention_verdict` for exactly that reason. Time the
-  suite on an idle machine or do not time it. `test_parity_corpus.py` (a bot rebuilt per
+  suite on an idle machine or do not time it, and never quote a CI clock as
+  the suite's speed.
+
+  **The same applies to the profiler, and harder.** cProfile charges about a
+  microsecond per call, so it systematically over-rewards any change that
+  removes calls -- which is most optimisations. Two separate pieces of work
+  found this on 2026-09-21: a change reading 18% fewer `country_value` calls
+  was 0.8% of wall under the profiler and **2.1% without it**, and the enum
+  descriptor hot spot's own-time column overstated it about threefold
+  (docs/notes/claude/2026-09-21-enum-attribute-reads.md). **Profile to rank
+  the work; time N whole games with no profiler attached to say what
+  removing it was worth, and quote that number.** `test_parity_corpus.py` (a bot rebuilt per
   record) and `test_poke_rate.py` (four played games) are the largest
   single files; both earn it -- one is the exactness oracle, the other the
   only behavioural rate the suite measures -- but run a subset while
@@ -98,7 +149,7 @@ by remembering harder.
   Rule 6.1.1 freezes reachability at the start of the action round; see the
   reachability section of `docs/ARCHITECTURE.md`.
 - **The full list, with the practice that stops each, is
-  `docs/notes/Codex/bug-shapes.md`.** Nine
+  `docs/notes/claude/bug-shapes.md`.** Nine
   shapes; every one has recurred. Read it before adding a cache, a sentinel, a
   fallback, or a second copy of a rule.
 - **Don't move the board mid-ranking without calling `_invalidate_base()`.**
@@ -116,6 +167,20 @@ by remembering harder.
   for headlines. Match the *values* against the card ids. Gated by
   `tests/test_history_privacy.py`, which checks the rules' question: every
   card the shared history names must already have been revealed in it.
+- **Don't regroup a float expression while optimising it, and don't cache a
+  sum when the caller accumulates it.** Made twice in one sitting on
+  2026-09-21, both times while removing builtin calls from a hot loop.
+  `coup_outcomes` nearly had `ops - 2 * stability + modifier` hoisted out of
+  the six-roll loop -- `(1 + 3 - 4) + 0.1` is `0.1` and
+  `1 + ((3 - 4) + 0.1)` is `0.09999999999999998`, with an `int()`
+  truncation immediately downstream -- and `_delta`'s neighbour cache
+  nearly stored `sum(after - then)` where the caller adds each difference
+  into a running total. Neither is "close enough": rankings are decided by
+  strict comparison, so one ulp is a changed move.
+  `evaluator.py`'s header says this about multiplication; it is just as
+  true of addition, and a profile is exactly the context that invites it.
+  **The gate is `tests/test_parity_corpus.py`** -- run it before believing
+  any optimisation, and cache the addends rather than the sum.
 - **Don't memoise an evaluation term on less state than it reads.** This has
   shipped twice. `_access` reads influence two hops out and was keyed on one
   country, so a trial placement left it stale and the same position scored
@@ -194,3 +259,15 @@ Standing prefs: docs always commit+push unasked; run logs under `logs/`
 - Never merge before the gate ACCEPTs, one verdict per branch, no bundling.
   Poll with `gh run view <id> --json status,conclusion`; workflow `success`
   is the ACCEPT, but confirm the ACCEPTED line in the log before merging.
+
+## Session environment (pi, 2026-09-22)
+
+What changes under the pi harness -- targeted `edit`/`write` tools instead
+of heredoc edits (the backslash-escape hazard above is Codex-specific),
+and skills under `.agents/skills/` mirrored to `.claude/skills/` -- is in
+`docs/notes/pi/2026-09-22-the-pi-harness-and-what-to-ask-of-it.md`.
+
+**This file is `CLAUDE.md` as well.** The two names are byte-identical on
+purpose -- harnesses hardcode one name or the other -- and
+`tests/test_agent_files.py` fails if they drift apart, the same way the
+`.agents`/`.claude` skill mirrors are gated. Edit one, copy to the other.
