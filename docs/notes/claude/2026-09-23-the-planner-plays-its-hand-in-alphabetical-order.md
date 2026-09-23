@@ -176,8 +176,28 @@ table showed two causes:
 
 Fixed in the table only (`51c9224`): an opponent's card is never a headline
 candidate, and the headline price is the event alone. The re-run,
-**35858542880**, is in flight, with its rule in `hand-headline-on`'s
-context. The event-price question became its own experiment:
+**35858542880**, read (block 80000-81023 + held 90000-90127, paired, both
+waves played because the halfway check was not decisive):
+
+| arm | score | paired diff vs `hand-lead-base` | seeds | US seat | USSR seat | nuked (US/USSR) |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `hand-lead-base` | 0.548 [0.532, 0.564] | -- | 1152 | 0.614 | 0.481 | 19/25 |
+| `hand-headline-on` | 0.543 [0.527, 0.559] | **-0.005 [-0.023, +0.014]** | 1148 | 0.614 | 0.472 | 13/55 |
+
+**Under the pre-registered rule, the gate stays shut.** The lower bound is
+at or below 0. Changing only the headline is worth nothing measurable, and
+the interval rules out a gain above about 1.4 points. Four seeds were
+lost to two slow planner shards.
+
+What the average hides: **USSR-seat nuclear losses more than double, 25 to
+55**, while the score barely moves. The planner's headline lead sorts above
+the risk/score blend and below only `certain` (a certain defeat). So a
+headline that raises the chance of nuclear war without making it certain
+can still lead. This is the same shape as the USSR nuclear rise in both
+whole-turn variants. *Hypothesis, not measured:* a lead that only reorders
+cards within one DEFCON-risk band would close it. With four planner
+variants now below or level with the shipped bot, it is not worth
+another run unless holding a card gets its own price. The event-price question became its own experiment:
 [event strength](2026-09-23-event-scale.md).
 
 **The cancel did not stop the run.** Cancelling killed wave 1, but
