@@ -10,6 +10,8 @@ regardless of who records a new shape.
 
 ## Contents
 
+- [Handoff, 2026-09-23: what landed tonight, the arm in flight, and what to pass on](2026-09-23-handoff.md) — 2026-09-23 (three verdicts read by their rules -- hold-option stays 0, the refit LOST, the potential term stops -- the assignment planner built behind its gate, run 35814771005 in flight with its rule quoted; and the session's five mistakes in the order a weaker model will remake them)
+
 - [The assignment planner: tail reads before the number, and the arm in flight](2026-09-23-assignment-planner-tail-reads.md) — 2026-09-23 (USSR tail at 0.25 halves 6/32 -> 3/32 under the planner and its closings come later (turn 6 -> 9) -- direction and story at 32 seeds, not measurement; run 35814771005 is the measurement; plus the two defects the played-game smoke caught: the SEA scoring card has no Region, and the table carried flags into pure arithmetic until the sentinel refused)
 
 - [The refit at current main: candidate, audit, and the rule before the number](2026-09-22-the-refit-at-current-main.md) — 2026-09-22, read 21:21 UTC (**the refit LOST: 0.483 [0.468, 0.498]** over 1152 paired seeds, upper bound below 0.500 -- the rule's third branch, shipped weights stand at 2.795, PR #41 closed and dropped; seats 0.556/0.410 say the loss is mostly the USSR seat; matched_scale 2.793341679085859 CHAINS; the auditor could not rank the fits and play did; and how `uv run pytest` tested the wrong tree)
