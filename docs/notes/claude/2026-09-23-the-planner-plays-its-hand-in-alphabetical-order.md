@@ -74,12 +74,127 @@ a China play, the lead overrides it with a hand card. Seed 4001, USSR,
 turn 1: the scorer wanted China in AR2 through AR6, and the planner overrode
 it every time.
 
+## The same tie decides which cards are held (found while fixing)
+
+Reading the plan as a set (fix 1 below, as first written) is not enough.
+On a smoke run of that version, seed 4000 still overrode the scorer in
+32 of 62 action rounds: it held NORAD, the scorer's top pick, and played
+Duck and Cover. The price table shows why. At `hold_option` 0 **an
+ordinary card's hold price is exactly its play price**. `hold_value` reads
+the same `card_play_value` that `play_price` does:
+
+    turn 1 AR1 US, rounds_left 6        play      hold
+       COMECON                          26.42     26.42
+       Duck_and_Cover                   40.34     40.34
+       NORAD                            40.34     40.34
+       Europe_Scoring                    0.00   -415.18   (never held)
+
+So every partition of the ordinary cards into "played" and "held" has the
+same total, and the partition is the solver's by-key tie-break too. Early
+slots fill alphabetically, so the leftover card is the alphabetically last.
+Apart from its hard constraints (scoring cards, the space and UN units,
+the round count), the objective is flat. The only real content is the
+headline choice (headline price against play price) and those units.
+
+**What shipped on `fix/hand-planner-lead`:** the lead acts only on a
+STRICT preference, tested by re-solving with the candidate forced
+(`_plan_lead`). A held card is demoted only if forcing it into a round
+lowers the plan's value. A headline leads only if forcing it reaches the
+plan's value. A one-ulp tolerance keeps float regrouping from counting as
+a preference. The China Card is exempt. Where every ordinary card ties,
+nothing is demoted and the ranking is exactly the shipped one;
+`test_a_tie_between_playing_and_holding_is_not_a_preference` pins that.
+
+That makes the re-run arm (`hand-lead-on`) a narrow reading. It measures
+the planner's strict preferences, mostly the headline and the space and
+UN units, not whole-hand allocation. For the allocation to say anything
+about holds, a hold has to be priced differently from a play: a real
+next-turn price (the card's value on a later board, the risk of
+carrying it, a discard or an event lost), not the same number twice.
+That is the modelling question the hold-option grid tried to answer with
+a premium, and it read nothing above 0.
+
+## Readings, 2026-09-23: both fixed variants lose, and the rule says stop
+
+Block 80000-81023 (held 90000-90127), paired, against `bc5ef93`. Both
+runs were stopped by the halfway check (the `paired` fix, PR #45, doing its job).
+Neither result is below -0.10, so under the pre-registered rule each is a
+verdict, not a defect to chase. Each upper bound is below 0, so **the gate
+stays shut** for both.
+
+| arm | run | paired diff vs `hand-lead-base` | seeds | US seat | USSR seat | nuked (US/USSR) |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `hand-lead-base` | both | -- | 640 | 0.628 | 0.509 | 11/7 |
+| `hand-lead-on` (strict lead) | 35844260343 | **-0.061 [-0.090, -0.032]** | 639 | 0.586 | 0.427 | 8/26 |
+| `hand-worst-on` (hold the worst) | 35845098170 | **-0.088 [-0.117, -0.060]** | 637 | 0.536 | 0.425 | 23/22 |
+
+- **The base arm read identically in both runs** (0.568 [0.547, 0.589],
+  the same seats and nuclear counts), as it must at weight 0. The two
+  on-arms are therefore comparable: holding the worst cards by default is
+  about 3 points worse than acting only on strict preferences, and both
+  are worse than no planner.
+- **The loss is mostly the USSR seat** (0.509 down to about 0.43), and
+  nuclear losses rise: USSR from 7 to 26 under the strict lead, and both
+  seats under hold-worst. *Hypothesis, not measured:* `pref` sorts
+  above the risk/score blend in `rank_actions`' key (only `certain` is
+  above it). Demoting a card therefore promotes the next non-demoted card
+  even when that card carries more DEFCON risk. A lead that only reorders
+  within an equal-risk band would test this.
+- **The planner arms are slow.** One strict-lead shard and two hold-worst
+  shards stalled, each on a single game that ran past the 1200 s stall floor
+  (for example seed 80638 USSR). No base shard stalled. `_plan_lead`
+  re-solves the DP once per held card (and `hold_worst` adds one per
+  candidate), on every ranked decision. The pooled readings lose 1 and 3
+  seeds to this; that is what audit F2 warns about, and here it is too
+  small to matter.
+- **Not settled:** whether a planner with a real hold price (not play ==
+  hold) could win. Everything measured so far on this line has been the
+  lead's tie-breaks, not whole-hand allocation.
+
+## The headline-only planner, and a correction from the maintainer (in flight)
+
+After both whole-turn variants lost, the maintainer asked whether the
+headline alone helps: `headline_only` (on `fix/hand-planner-headline-only`)
+lets the plan lead the headline and nothing else.
+
+Its first dispatch (35857931995) was cancelled before any reading. In
+smoke games it **headlined opponent cards** (Cambridge Five and
+Arab-Israeli War as the US). The maintainer's correction: a headline fires
+the event, so the card that loses least should be a strong event of your
+own, and you should almost never headline the opponent's cards. The price
+table showed two causes:
+
+- The table's headline price was the scorer's `event - 0.5 x Ops value`,
+  and the plan also charges the headlined card its whole play. Ops were
+  counted 1.5 times, which favours low-Ops cards.
+- **The bot values its own events far below their Ops.** East European
+  Unrest's event is worth 11 against 63 for its 3 Ops (turn 1, seed 4000),
+  so "event minus Ops" is strongly negative for almost every own card, and
+  a 2-Ops opponent card whose event fires anyway looked cheapest. Charging
+  the Ops once does not fix this (Cambridge Five -42 against East European
+  Unrest -52).
+
+Fixed in the table only (`51c9224`): an opponent's card is never a headline
+candidate, and the headline price is the event alone. The re-run,
+**35858542880**, is in flight, with its rule in `hand-headline-on`'s
+context. The event-price question became its own experiment:
+[event strength](2026-09-23-event-scale.md).
+
+**The cancel did not stop the run.** Cancelling killed wave 1, but
+`interim` and `run2` were `if: always()`. `interim` ran on the empty
+artifacts, failed open, and launched all of wave 2, and eight shards played
+for twenty minutes until a second cancel. It was the second time: pi's
+2026-09-22 hold-option "orphan" had the same shape. Both jobs are now
+`!cancelled()`, gated by `test_a_cancel_never_launches_wave_two`.
+
 ## What would fix it
 
 This part is design, and it has not been measured. The branch is pi's, and
 the call is the maintainer's.
 
-1. **Stop reading an order the objective does not contain.** Use the plan
+1. **Stop reading an order the objective does not contain.** (As first
+   written, this said to use the plan as a set. That is not enough: see the
+   section above. What shipped acts only on strict preferences.) Use the plan
    as a set, not a sequence. Demote cards the plan holds, and let the
    existing scorer choose among the cards it means to play this turn:
    `pref = 1 if card not in assignment.holds else 0`. Keep a slot-specific

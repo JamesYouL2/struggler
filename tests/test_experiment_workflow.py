@@ -226,3 +226,26 @@ def test_the_drift_canary_does_not_take_waves():
     canary's seeds doubles the interval that gets written into a note."""
     measure = _load(ROOT / '.github' / 'workflows' / 'drift.yml')['jobs']['measure']
     assert measure['with']['waves'] is False
+
+
+def test_a_cancel_never_launches_wave_two():
+    """A cancelled run must stay cancelled.
+
+    `interim` and `run2` fail open -- a crashed wave-1 shard is a reason to
+    PLAY wave 2 -- and they used `always()` to do it. `always()` also runs
+    after a CANCEL: the cancel killed wave 1, `interim` read the empty
+    artifacts, failed open, and `run2` played the whole second wave. That
+    happened twice before this test existed: the 2026-09-22 hold-option
+    "orphan" (run 35752606270) and the 2026-09-23 headline run 35857931995,
+    eight shards for twenty minutes after the cancel, on a variant already
+    known to be wrong. `!cancelled()` keeps the fail-open on failures and
+    honours the cancel.
+    """
+    jobs = _load(WORKFLOW)['jobs']
+    for name in ('interim', 'run2'):
+        condition = ' '.join(str(jobs[name].get('if') or '').split())
+        assert 'always()' not in condition, (
+            f'{name} runs after a cancel with always(); use !cancelled()')
+        assert condition.startswith('!cancelled()'), (
+            f'{name} must keep failing open on a crashed shard: !cancelled(), '
+            f'not success(), is the condition that does both')
