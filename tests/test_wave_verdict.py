@@ -77,12 +77,12 @@ def pooled(slug='on', *, score=None, se=None, missing=(), compare_to=None, **ext
 
 def test_a_decisive_interim_stops_the_arm():
     # z = 0.06 / 0.02 = 3.0, past 2.373.
-    out = W.decide({'arms': pooled(score=0.56, se=0.02), 'pairs': []})
+    out = W.decide({'arms': pooled(score=0.56, se=0.02), 'paired': []})
     assert out['on']['proceed'] is False
 
 
 def test_a_decisively_worse_interim_stops_too_because_that_is_a_result():
-    out = W.decide({'arms': pooled(score=0.44, se=0.02), 'pairs': []})
+    out = W.decide({'arms': pooled(score=0.44, se=0.02), 'paired': []})
     assert out['on']['proceed'] is False
     assert out['on']['z'] < 0
 
@@ -90,18 +90,18 @@ def test_a_decisively_worse_interim_stops_too_because_that_is_a_result():
 def test_an_interim_short_of_the_boundary_plays_the_second_wave():
     # z = 0.04 / 0.02 = 2.0: clears 1.645 and would read as a "measurable
     # gain" at one look, and is exactly the case the boundary exists for.
-    out = W.decide({'arms': pooled(score=0.54, se=0.02), 'pairs': []})
+    out = W.decide({'arms': pooled(score=0.54, se=0.02), 'paired': []})
     assert out['on']['proceed'] is True
 
 
 def test_a_missing_wave_one_shard_plays_the_second_wave():
-    out = W.decide({'arms': pooled(score=0.56, se=0.02, missing=['on--2']), 'pairs': []})
+    out = W.decide({'arms': pooled(score=0.56, se=0.02, missing=['on--2']), 'paired': []})
     assert out['on']['proceed'] is True
     assert 'missing' in out['on']['why']
 
 
 def test_an_arm_with_no_finished_pairs_plays_the_second_wave():
-    out = W.decide({'arms': pooled(score=None, se=None), 'pairs': []})
+    out = W.decide({'arms': pooled(score=None, se=None), 'paired': []})
     assert out['on']['proceed'] is True
 
 
@@ -112,7 +112,7 @@ def test_a_compare_to_arm_is_judged_on_its_paired_difference_not_its_level():
     arms = {**pooled('on', score=0.560, se=0.010, compare_to='base'),
             **pooled('base', score=0.558, se=0.010)}
     pairs = [{'arm': 'on', 'minus': 'base', 'diff_exact': 0.002, 'se': 0.010, 'seeds': 512}]
-    out = W.decide({'arms': arms, 'pairs': pairs})
+    out = W.decide({'arms': arms, 'paired': pairs})
     assert out['on']['proceed'] is True, 'the level was decisive; the difference is not'
 
 
@@ -120,7 +120,7 @@ def test_a_decisive_paired_difference_stops_both_arms_of_the_pair():
     arms = {**pooled('on', score=0.60, se=0.01, compare_to='base'),
             **pooled('base', score=0.50, se=0.01)}
     pairs = [{'arm': 'on', 'minus': 'base', 'diff_exact': 0.10, 'se': 0.01, 'seeds': 512}]
-    out = W.decide({'arms': arms, 'pairs': pairs})
+    out = W.decide({'arms': arms, 'paired': pairs})
     assert out['on']['proceed'] is False
     assert out['base']['proceed'] is False
 
@@ -134,7 +134,7 @@ def test_a_base_arms_own_level_does_not_decide_its_pair():
     arms = {**pooled('on', score=0.52, se=0.02, compare_to='base'),
             **pooled('base', score=0.70, se=0.01)}   # decisive on its own level
     pairs = [{'arm': 'on', 'minus': 'base', 'diff_exact': 0.01, 'se': 0.02, 'seeds': 512}]
-    out = W.decide({'arms': arms, 'pairs': pairs})
+    out = W.decide({'arms': arms, 'paired': pairs})
     assert out['on']['proceed'] is True
     assert out['base']['proceed'] is True, 'the pair must move together'
     assert 'paired' in out['base']['why']
@@ -149,7 +149,7 @@ def test_a_third_arm_joining_a_pair_is_dragged_by_it():
             **pooled('base', score=0.50, se=0.01)}
     pairs = [{'arm': 'on', 'minus': 'base', 'diff_exact': 0.20, 'se': 0.01, 'seeds': 512},
              {'arm': 'alt', 'minus': 'base', 'diff_exact': 0.01, 'se': 0.02, 'seeds': 512}]
-    out = W.decide({'arms': arms, 'pairs': pairs})
+    out = W.decide({'arms': arms, 'paired': pairs})
     assert out['alt']['proceed'] is True
     assert out['base']['proceed'] is True
     assert out['on']['proceed'] is True, 'its base continues, so it must too'
@@ -158,7 +158,7 @@ def test_a_third_arm_joining_a_pair_is_dragged_by_it():
 
 def test_a_paired_arm_whose_partner_never_reported_plays_the_second_wave():
     arms = pooled('on', score=0.60, se=0.01, compare_to='base')
-    out = W.decide({'arms': arms, 'pairs': []})
+    out = W.decide({'arms': arms, 'paired': []})
     assert out['on']['proceed'] is True
 
 
@@ -200,9 +200,67 @@ def test_the_cli_writes_the_surviving_shards_and_reports_the_count(tmp_path, cap
     (tmp_path / 'wave2.json').write_text(json.dumps(wave2))
     (tmp_path / 'pooled.json').write_text(json.dumps({
         'arms': {**pooled('on', score=0.60, se=0.01), **pooled('off', score=0.51, se=0.01)},
-        'pairs': []}))
+        'paired': []}))
     out = tmp_path / 'next.json'
     assert W.main([str(tmp_path / 'pooled.json'), '--wave2', str(tmp_path / 'wave2.json'),
                    '--out', str(out)]) == 0
     assert [s['slug'] for s in json.loads(out.read_text())] == ['off']
     assert 'count=1' in capsys.readouterr().out
+
+
+# --- the producer-to-consumer boundary -----------------------------------
+
+P = load_script('pool_reports')
+
+
+def _game(seed, side, result):
+    """One seat-game as `benchmark` reports it, with every field
+    `summarize` reads and nothing else."""
+    return {'seed': seed, 'bot_side': side, 'result': result, 'finished': True,
+            'winner': side if result == 1 else ('' if result == 0.5 else 'X'),
+            'reason': 'vp', 'turn': 10, 'signed_vp': 0, 'projected_vp': 0, 'total': 0,
+            'bg_diff': {'Europe': 0}, 'value': 0, 'defcon': 3, 'seconds': 1.0,
+            'searches': 0, 'search_seconds': 0.0}
+
+
+def _write_shard(root, slug, shard, seeds, result, compare_to=''):
+    d = root / f'experiment-{slug}--{shard}'
+    d.mkdir()
+    games = [_game(s, side, result(s)) for s in seeds for side in ('US', 'USSR')]
+    (d / f'{slug}.json').write_text(json.dumps({'games': games}))
+    (d / 'arm.json').write_text(json.dumps({'compare_to': compare_to} if compare_to else {}))
+
+
+def test_the_real_pooled_file_reaches_the_paired_verdict(tmp_path):
+    """The file `decide` reads is the one `pool_reports.main` WRITES, not a
+    dict built to the consumer's expectations. Until 2026-09-23 the producer
+    wrote `paired` and the consumer read `pairs`; every test above built its
+    own `pairs` and passed, and every paired arm on CI played both waves.
+
+    Three pairs through the real CLI: decisive (both arms stop), inconclusive
+    (both play), and a partner that never reported (fail open)."""
+    shards = tmp_path / 'shards'
+    shards.mkdir()
+    seeds = range(40)
+    # Decisive: the candidate wins every other seed its base drew.
+    _write_shard(shards, 'base', 0, seeds, lambda s: 0.5)
+    _write_shard(shards, 'on', 0, seeds, lambda s: 1.0 if s % 2 else 0.5, compare_to='base')
+    # Inconclusive: the same seeds, the difference alternates in sign.
+    _write_shard(shards, 'flat-base', 0, seeds, lambda s: 0.5)
+    _write_shard(shards, 'flat', 0, seeds, lambda s: (1.0, 0.0, 0.5, 0.5)[s % 4],
+                 compare_to='flat-base')
+    # A partner that never reported.
+    _write_shard(shards, 'orphan', 0, seeds, lambda s: 1.0, compare_to='ghost')
+
+    out = tmp_path / 'pooled.json'
+    assert P.main([str(shards), '--json', str(out)]) == 0
+    pooled_json = json.loads(out.read_text())
+    assert W.PAIRED_KEY in pooled_json, 'the producer and the consumer name the field differently'
+
+    verdicts = W.decide(pooled_json)
+    assert verdicts['on']['proceed'] is False and verdicts['base']['proceed'] is False
+    assert verdicts['on']['z'] > W.INTERIM_BOUNDARY
+    assert 'paired' in verdicts['on']['why']
+    assert verdicts['flat']['proceed'] is True and verdicts['flat-base']['proceed'] is True
+    assert verdicts['flat']['z'] is not None, 'readable, just not decisive'
+    assert verdicts['orphan']['proceed'] is True and verdicts['orphan']['z'] is None
