@@ -13,6 +13,7 @@ import dataclasses
 
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.bots.strategic import hand_planner as hp
+from struggler.bots.strategic.policy import is_certain
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
 
 HAND = ('Asia_Scoring', 'Duck_and_Cover', 'Marshall_Plan', 'Fidel', 'UN_Intervention')
@@ -84,3 +85,42 @@ def test_the_headline_leads_the_headline_ranking():
     assert plans
     want = max(plans, key=lambda wp: wp.probability).assignment.headline
     assert ranked[0][1].payload['card'] == want
+
+
+def test_certain_outcomes_are_bounded_before_they_reach_the_solver():
+    # A position where a card's price is a certain-outcome FLAG: the
+    # USSR holding Duck and Cover at DEFCON 2, where the Ops play fires
+    # the US event and drops DEFCON to 1. The scorer is allowed to say
+    # that with a flag; the table must hand the solver PRICES, because
+    # the solver is pure arithmetic and the sentinel refuses to be added
+    # (`_refuse`) -- which is exactly how the played-game smoke found
+    # this. The plan then avoids the card if the hand allows.
+    engine = Engine(seed=0)
+    engine.defcon = 2
+    engine.hands[Side.US.value] = []
+    engine.hands[Side.USSR.value] = ['Duck_and_Cover', 'Fidel']
+    obs = engine.observe(Side.USSR)
+    cards = tuple(obs.hand)
+    options = tuple(Action(K.ACTION_ROUND_PLAY, {'card': c}) for c in cards)
+    obs = dataclasses.replace(
+        obs, action_round=6,
+        pending_decision=Decision(1, Side.USSR, K.ACTION_ROUND_PLAY, options))
+    bot = StrategicPlayer(StrategicWeights(hand_assignment=1.0))
+    bot.prepare(obs)
+    table = {c.key: c for c in bot.hand_prices(obs)}
+    gv = bot.game_value(obs)
+    for card in table.values():
+        for price in (card.headline, card.space, card.hold, *card.play):
+            if price is hp.NEG:
+                continue  # the eligibility marker: checked, never summed
+            assert not is_certain(price), f'{card.key} carried a flag into the table'
+            assert abs(price) <= abs(gv) * (1 + 1e-9)
+    plans = bot.hand_plan(obs)
+    assert plans
+    plan = max(plans, key=lambda wp: wp.probability).assignment
+    # The best disposal is the space slot: the attempt removes the event
+    # risk entirely and advances our marker -- ruling 4's policy pick is
+    # exactly this card. Better than holding it, and far better than the
+    # certain-defeat Ops play the flag was talking about.
+    assert plan.rounds == (('space', 'Duck_and_Cover'),)
+    assert plan.holds == ('Fidel',)

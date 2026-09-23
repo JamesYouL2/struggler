@@ -799,6 +799,26 @@
         "held": "11748-11811",
         "title": "rival urgency at a quarter (0.25 vs 1.0), the far side of scoring-rival-half",
         "context": "scoring_rival multiplies buckets 1+2 by (1 + r * P(the opponent holds it)), so at 1.0 a card they certainly hold doubles its own this-cycle urgency. F3 grew exactly that base by 16%, which means this knob's leverage went UP without anyone choosing that. scoring-rival-half (0.5) brackets the near side; this is the far side, so the pair reads as a direction rather than one point. Run both or neither: a single not-measurably-worse at 0.5 cannot distinguish 'the term is over-set' from 'the term does nothing', and 0.25 failing while 0.5 passes is what would locate the edge. Cannot calibrate r itself; three points on a curve is not a fit."
+      },
+      {
+        "slug": "hand-assignment-base",
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "title": "the assignment planner OFF vs bc5ef93 -- the base half of hand-assignment-on",
+        "context": "Step 3 of the hand planner (docs/notes/pi/2026-09-22-assignment-planner-design.md), the base half: the shipped per-card pricing (hand_assignment 0 -- the allocation is not computed at all) against bc5ef93 on identical machinery. The reference hand-assignment-on is paired against."
+      },
+      {
+        "slug": "hand-assignment-on",
+        "weights": {
+          "hand_assignment": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "compare_to": "hand-assignment-base",
+        "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
+        "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
       }
     ]
   }

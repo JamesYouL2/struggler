@@ -24,13 +24,14 @@ from __future__ import annotations
 import argparse
 import collections
 import concurrent.futures as cf
+import json
 import logging
 import math
 import os
 import sys
 
 from struggler.engine import DecisionKind as K, Engine, Side
-from struggler.bots.strategic import StrategicPlayer
+from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 
 
 def seed_range(text: str) -> list[int]:
@@ -47,13 +48,13 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (centre - half, centre + half)
 
 
-def play(args: tuple[int, float]) -> list[dict]:
+def play(args: tuple[int, float, object]) -> list[dict]:
     """One game. A row per seat: whether it was ever cornered, and where."""
-    seed, cornered_at = args
+    seed, cornered_at, weights = args
     logging.disable(logging.CRITICAL)
     engine = Engine.new_game(seed=seed, setup_bonus=True)
-    bots = {Side.US: StrategicPlayer(), Side.USSR: StrategicPlayer()}
-    probe = StrategicPlayer()
+    bots = {Side.US: StrategicPlayer(weights), Side.USSR: StrategicPlayer(weights)}
+    probe = StrategicPlayer(weights)
     # Per seat: the first cornered round, the play that closed it, and how
     # many rounds were played at all.
     seats = {s: {'seed': seed, 'side': s.value, 'rounds': 0, 'cornered': None,
@@ -94,12 +95,20 @@ def main(argv=None) -> int:
     parser.add_argument('--cornered', type=float, default=1.0,
                         help='whole-hand risk that counts as no exit (default 1.0, certain)')
     parser.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) // 2))
+    parser.add_argument('--bot-weights', default='',
+                        help='StrategicWeights fields as JSON, e.g. \'{"hand_assignment": 1.0}\' '
+                             '-- the before/after of a gate. Strict: an unknown field is an error, '
+                             'not a silent copy of the base.')
     args = parser.parse_args(argv)
+    weights = None
+    if args.bot_weights.strip():
+        weights = StrategicWeights(**json.loads(args.bot_weights))  # raises on a typo, loudly
     seeds = seed_range(args.seeds)
     with cf.ProcessPoolExecutor(args.workers) as pool:
-        rows = [r for game in pool.map(play, [(s, args.cornered) for s in seeds]) for r in game]
+        rows = [r for game in pool.map(play, [(s, args.cornered, weights) for s in seeds]) for r in game]
 
-    print(f'{len(rows)} seat-games over {len(seeds)} seeds, cornered = whole-hand risk >= {args.cornered}')
+    print(f'{len(rows)} seat-games over {len(seeds)} seeds, cornered = whole-hand risk >= {args.cornered}'
+          + (f', bot weights {args.bot_weights}' if weights is not None else ''))
     print()
     print('seat  cornered/seat-games  rate   95% Wilson        median round  median turn')
     for side in ('US', 'USSR'):

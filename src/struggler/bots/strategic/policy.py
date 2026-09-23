@@ -3753,7 +3753,15 @@ class StrategicPlayer:
         if not scoring or self._urgency is None:
             return {}
         t = ev.terrain()
-        regions = {SCORING_CARD_REGION[cid] for cid in scoring}
+        # Southeast Asia Scoring has no `Region` -- its payout is exact and
+        # separate (fit_country_weights special-cases it the same way) --
+        # so only the region-mapped scoring cards shape the share. A hand
+        # with only SEA scoring simply gets flat timing, which is the
+        # right degenerate answer rather than a KeyError.
+        regions = {SCORING_CARD_REGION[cid] for cid in scoring
+                   if cid in SCORING_CARD_REGION}
+        if not regions:
+            return {}
         members = [i for r in regions for i in t.members[r]]
         total = float(sum(self._urgency)) or 1.0
         share = sum(self._urgency[i] for i in members) / total
@@ -3781,21 +3789,29 @@ class StrategicPlayer:
         rounds = self._rounds_left(obs)
         partner = self.un_card(obs)
         picks = set(self.space_picks(obs))
+        gv = self.game_value(obs)
         out = []
         for cid in sorted(obs.hand):
             card = CARDS[cid]
             ops = effective_ops_estimate(card, obs, obs.side)
-            play = self.play_price(obs, cid, K.ACTION_ROUND_PLAY,
-                                   scoring_nudge=False, space_slot=False)
+            # Every field is a PRICE. The scorer's certain outcomes are
+            # ordering flags, not numbers (`_refuse` enforces that on
+            # arithmetic), and the solver is pure arithmetic -- so each
+            # is bounded by `priced()` here, exactly as its refusal
+            # message prescribes. A certain-defeat play becomes the whole
+            # game's cost: avoidable if the hand has any alternative, and
+            # picked last if it has not.
+            play = priced(self.play_price(obs, cid, K.ACTION_ROUND_PLAY,
+                                          scoring_nudge=False, space_slot=False), gv)
             out.append(hp.Card(
                 key=cid,
-                headline=self.play_price(obs, cid, K.HEADLINE_PLAY,
-                                         scoring_nudge=False, space_slot=False),
+                headline=priced(self.play_price(obs, cid, K.HEADLINE_PLAY,
+                                                scoring_nudge=False, space_slot=False), gv),
                 play=(play,) * rounds,
-                space=(self.value_as_space(obs) if cid in picks else hp.NEG),
+                space=(priced(self.value_as_space(obs), gv) if cid in picks else hp.NEG),
                 un_play=(play if cid == 'UN_Intervention' and partner else hp.NEG),
                 un_partner=(0.0 if cid == partner else hp.NEG),
-                hold=self.value_as_held(obs, cid),
+                hold=priced(self.value_as_held(obs, cid), gv),
                 may_hold=not card.scoring))
         return tuple(out)
 
