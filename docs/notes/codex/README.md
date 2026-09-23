@@ -8,6 +8,8 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-22 — Current state and experiment boundaries](2026-09-22-current-state-and-experiment-boundaries.md) — safety fixes verified, country rebuild shipped, pooling/stopping defects and next-step sequence
+- [2026-09-20 — Strategic bot experiment plan](2026-09-20-experiment-plan.md) — safety baseline, VP activation, runtime, hand allocation, and paired measurement protocol
 - [2026-09-20 — Technical correctness: hand-survival boundaries](2026-09-20-technical-correctness.md) — reproduced restricted-coup hazard omission and duplicate post-event transition
 - [2026-09-18 — Bot audit and hand-planner implementation plan](2026-09-18-hand-planner-audit.md) — verified safety defects, disposal deadlines, joint space/hold allocation and scoring timing
 - [2026-09-17 — Three scoring arms after the deck-walk fix](2026-09-17-scoring-knob-arms.md) — 2026-09-17 (all level; the rival term orders monotonically and is not over-set)
@@ -16,12 +18,15 @@ path because `tests/test_recurring_defects.py` parses it.
 - [2026-09-17 — Descope gate, and the CI-red pin note](2026-09-17-descope-gate-and-cipins.md) — 2026-09-17
 - [2026-09-17 — Factor-2 consumer gate: the real masses are ACCEPTED](2026-09-17-factor2-gate-verdict.md) — 2026-09-17
 - [2026-09-17 — Potential-delta rewrite: the design](2026-09-17-potential-delta-design.md) — 2026-09-17
+- [2026-09-16 — Overall sequencing with the active rebuild branch](2026-09-16-overall-rebuild-sequencing.md) — prototype exists on `rebuild/value-function`; next: schedule correction, stochastic tiers, forecasts, and integration
+- [2026-09-16 — Engine/strategic audit, rebuild progress, and small improvements](2026-09-16-engine-strategic-rebuild-audit.md) — two reproduced coup-reply defects; main-only assessment, see branch-aware sequencing above
 - [2026-09-16 — Tier expectation: the independence count-DP](2026-09-16-tier-independence-dp.md) — 2026-09-16
 - [2026-09-16 — Control forecast v2: the measured logistic](2026-09-16-control-forecast-v2.md) — 2026-09-16
 - [2026-09-16 — Bucket 3: the post-reshuffle deal walk](2026-09-16-bucket-3-deal-walk.md) — 2026-09-16
 - [2026-09-16 — Perf evaluator gate verdict](2026-09-16-perf-evaluator-gate-verdict.md) — 2026-09-16
 - [2026-09-16 — Factor 1: one-region expected-scoring prototype (Africa)](2026-09-16-factor-1-africa-prototype.md) — 2026-09-16
 - [2026-09-16 — Schedule + other regions](2026-09-16-schedule-and-regions.md) — 2026-09-16
+- [2026-09-15 — Nine weight arms: re-runs plus six halvings](2026-09-15-nine-weight-arms.md) — 2026-09-15
 - [Value-function rebuild — development plan](value-function-rebuild/README.md) — 2026-09-15; next priority: expected VP, scoring horizons, control forecasts, and regional accounting
 - [2026-09-15 — Repeat repository audit](2026-09-15-repeat-repository-audit.md) — historical findings and validation; development priority is the rebuild plan above
 - [2026-09-15 — Italy default opening (swap from iran), plus handoff](2026-09-15-italy-default-opening-and-handoff.md) — 2026-09-15
