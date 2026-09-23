@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
-# The repo's pre-push hook: the whole suite except the parity corpus.
+# The repo's pre-push hook: the suite minus the pole and the slow tail.
 #
 #   Enable once per clone:   git config core.hooksPath hooks
 #   Escape hatch:            git push --no-verify
 #
-# Why this shape (2026-09-22): two pushes in one evening went out red,
-# both tripping gates that cost under a second -- `test_types` (the gated
-# `ty` rules) and `test_scale_discipline` -- and neither was in the local
-# subset that was run before pushing. The full suite is ~4 min and the
-# corpus (`tests/test_parity_corpus.py`, 2:02 of it) is CI's: `tests.yml`
-# runs it on every push. Everything else runs here (~2 min) because its
-# failures are the cheap kind and a round trip through CI to learn about
-# them is the slow way to be told.
+# Skipped here, run ALWAYS by CI (`tests.yml` runs the whole suite on
+# every push):
+#
+#   tests/test_parity_corpus.py                      2:02  the exactness oracle
+#   test_order_independence.py::...order...asked_for  17.6s
+#   test_poke_rate.py::...holds_the_rate_down        11.7s
+#   test_potential_delta.py::...is_priced_exactly     6.7s
+#   test_potential_delta.py::...error_is_measured     6.4s
+#   test_poke_rate.py::...repeatedly[4001]            6.3s
+#
+# The hook is the fast lane (~70 s), not the record: a regression in the
+# slow five is caught at CI before anything merges. What the hook is for
+# is the cheap failures -- `test_types`, `test_scale_discipline` -- that
+# two red pushes on 2026-09-22 tripped in under a second each.
 #
 # The hook stands down while a gate or measurement is running -- the
 # contention rule: this repo has recorded, twice, that load on the box
@@ -26,11 +32,19 @@ if scripts/gate_running.py >/dev/null 2>&1; then
     exit 0
 fi
 
-echo "pre-push: uv run pytest -q --ignore=tests/test_parity_corpus.py" >&2
-uv run pytest -q --ignore=tests/test_parity_corpus.py
+SLOW=(
+    --deselect='tests/test_order_independence.py::test_values_do_not_depend_on_the_order_they_are_asked_for'
+    --deselect='tests/test_poke_rate.py::test_the_forward_search_is_what_holds_the_rate_down'
+    --deselect='tests/test_potential_delta.py::test_one_member_moving_is_priced_exactly'
+    --deselect='tests/test_potential_delta.py::test_several_members_moving_is_first_order_and_the_error_is_measured'
+    --deselect='tests/test_poke_rate.py::test_a_seat_does_not_poke_battlegrounds_repeatedly[4001]'
+)
+
+echo "pre-push: uv run pytest -q (minus the corpus and the slow five)" >&2
+uv run pytest -q --ignore=tests/test_parity_corpus.py "${SLOW[@]}"
 status=$?
 if [ "$status" -ne 0 ]; then
     echo "pre-push: REJECTED (pytest exit $status)." >&2
-    echo "pre-push: the corpus is still CI's; fix the failures or push with --no-verify." >&2
+    echo "pre-push: the corpus and the slow five are CI's; fix or push with --no-verify." >&2
 fi
 exit "$status"
