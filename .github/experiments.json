@@ -705,6 +705,26 @@
         "compare_to": "hand-assignment-base",
         "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
         "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
+      },
+      {
+        "slug": "hand-lead-base",
+        "anchor": "bc5ef93",
+        "seeds": "80000-81023",
+        "held": "90000-90127",
+        "title": "the assignment planner OFF vs bc5ef93 -- the base half of hand-lead-on",
+        "context": "The base half of hand-lead-on: the shipped per-card pricing (hand_assignment 0) against bc5ef93, on a fresh block. The reference hand-lead-on is paired against."
+      },
+      {
+        "slug": "hand-lead-on",
+        "weights": {
+          "hand_assignment": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "80000-81023",
+        "held": "90000-90127",
+        "compare_to": "hand-lead-base",
+        "title": "the assignment planner ON, leading only where it strictly prefers (hand_assignment 1.0) vs bc5ef93",
+        "context": "PRE-REGISTERED, read paired against hand-lead-base on one block. The re-run of hand-assignment-on after its -0.240 was traced to the lead, not the allocation (docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md). The solver's objective is flat almost everywhere: an ordinary card's price is the same in every round, and its hold price equals its play price at hold_option 0, so both the ORDER of rounds and WHICH cards are held were the solver's by-key tie-break. The lead now acts only on STRICT preferences, tested by re-solving with the candidate forced: a held card is demoted only if playing it lowers the plan's value; a headline leads only if it reaches the plan's value; the China Card, which the table cannot see, is never demoted. The scorer orders everything else exactly as shipped. Same solver, same rulings 1/4/5. Rule: paired lower bound above 0 means the planner's strict preferences beat per-card pricing and it ships (gate first, then the default flips); at or below 0 the gate stays shut. A reading below -0.10 is the size of a defect, not a verdict: find it before reading the number. Prior, stated before the number: close to 0 -- with play == hold the plan is strict mainly about the headline (headline price against play price), the space and UN units and scoring cards, so most action rounds rank exactly as shipped."
       }
     ],
   "_retired": {

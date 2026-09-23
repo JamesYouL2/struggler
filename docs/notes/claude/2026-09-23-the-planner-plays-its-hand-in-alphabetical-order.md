@@ -74,12 +74,54 @@ a China play, the lead overrides it with a hand card. Seed 4001, USSR,
 turn 1: the scorer wanted China in AR2 through AR6, and the planner overrode
 it every time.
 
+## The same tie decides which cards are held (found while fixing)
+
+Reading the plan as a set (fix 1 below, as first written) is not enough.
+On a smoke run of that version, seed 4000 still overrode the scorer in
+32 of 62 action rounds: it held NORAD, the scorer's top pick, and played
+Duck and Cover. The price table shows why. At `hold_option` 0 **an
+ordinary card's hold price is exactly its play price**. `hold_value` reads
+the same `card_play_value` that `play_price` does:
+
+    turn 1 AR1 US, rounds_left 6        play      hold
+       COMECON                          26.42     26.42
+       Duck_and_Cover                   40.34     40.34
+       NORAD                            40.34     40.34
+       Europe_Scoring                    0.00   -415.18   (never held)
+
+So every partition of the ordinary cards into "played" and "held" has the
+same total, and the partition is the solver's by-key tie-break too. Early
+slots fill alphabetically, so the leftover card is the alphabetically last.
+Apart from its hard constraints (scoring cards, the space and UN units,
+the round count), the objective is flat. The only real content is the
+headline choice (headline price against play price) and those units.
+
+**What shipped on `fix/hand-planner-lead`:** the lead acts only on a
+STRICT preference, tested by re-solving with the candidate forced
+(`_plan_lead`). A held card is demoted only if forcing it into a round
+lowers the plan's value. A headline leads only if forcing it reaches the
+plan's value. A one-ulp tolerance keeps float regrouping from counting as
+a preference. The China Card is exempt. Where every ordinary card ties,
+nothing is demoted and the ranking is exactly the shipped one;
+`test_a_tie_between_playing_and_holding_is_not_a_preference` pins that.
+
+That makes the re-run arm (`hand-lead-on`) a narrow reading. It measures
+the planner's strict preferences, mostly the headline and the space and
+UN units, not whole-hand allocation. For the allocation to say anything
+about holds, a hold has to be priced differently from a play: a real
+next-turn price (the card's value on a later board, the risk of
+carrying it, a discard or an event lost), not the same number twice.
+That is the modelling question the hold-option grid tried to answer with
+a premium, and it read nothing above 0.
+
 ## What would fix it
 
 This part is design, and it has not been measured. The branch is pi's, and
 the call is the maintainer's.
 
-1. **Stop reading an order the objective does not contain.** Use the plan
+1. **Stop reading an order the objective does not contain.** (As first
+   written, this said to use the plan as a set. That is not enough: see the
+   section above. What shipped acts only on strict preferences.) Use the plan
    as a set, not a sequence. Demote cards the plan holds, and let the
    existing scorer choose among the cards it means to play this turn:
    `pref = 1 if card not in assignment.holds else 0`. Keep a slot-specific
