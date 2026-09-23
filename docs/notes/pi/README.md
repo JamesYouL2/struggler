@@ -10,6 +10,7 @@ regardless of who records a new shape.
 
 ## Contents
 
+- [The ablation sweep: which live variables earn their keep](2026-09-23-the-ablation-sweep.md) — 2026-09-23
 - [Handoff, 2026-09-23: what landed tonight, the arm in flight, and what to pass on](2026-09-23-handoff.md) — 2026-09-23 (three verdicts read by their rules -- hold-option stays 0, the refit LOST, the potential term stops -- the assignment planner built behind its gate, run 35814771005 in flight with its rule quoted; and the session's five mistakes in the order a weaker model will remake them) -- since read: paired -0.240 [-0.262, -0.218], the gate stays shut, the loss diagnosed as a tie-break in `docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md`
 
 - [The assignment planner: tail reads before the number, and the arm in flight](2026-09-23-assignment-planner-tail-reads.md) — 2026-09-23 (USSR tail at 0.25 halves 6/32 -> 3/32 under the planner and its closings come later (turn 6 -> 9) -- direction and story at 32 seeds, not measurement; run 35814771005 is the measurement) -- since read: paired -0.240 [-0.262, -0.218], the gate stays shut, the loss diagnosed as a tie-break in `docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md`; plus the two defects the played-game smoke caught: the SEA scoring card has no Region, and the table carried flags into pure arithmetic until the sentinel refused
