@@ -7,6 +7,13 @@ will be applied here when the number lands. What follows is the
 *before-the-number* evidence, written now so the verdict cannot
 retro-fit it.
 
+> **RESOLVED, read by a later session.** The number landed: paired
+> **-0.240 [-0.262, -0.218]** at 1152 shared seeds, so the rule's second
+> branch fired and **the gate stays shut**. The USSR tail shape below did
+> not translate into play strength; the reason is
+> [the planner plays its hand in alphabetical order](../claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md) --
+> a tie-break defect in how the plan is read, not a verdict on allocation.
+
 ## The tail at 0.25, before and after (`scripts/measure_last_exit.py`)
 
 Same 32 seeds (42000-42031), cornered = whole-hand risk >= 0.25, run
