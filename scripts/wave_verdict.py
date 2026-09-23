@@ -115,6 +115,9 @@ def obrien_fleming(alpha: float = 0.10, tolerance: float = 1e-9) -> tuple[float,
 # directions. Computed, not quoted, so a change to the convention moves it.
 INTERIM_BOUNDARY, FINAL_BOUNDARY = obrien_fleming(0.10)
 
+# The field of `pool_reports.py --json` holding the seed-by-seed differences.
+PAIRED_KEY = 'paired'
+
 
 def _level(slug: str, pooled: dict) -> tuple[float, float] | None:
     """`(score - 0.500, standard error)` for an arm read on its own, or None
@@ -153,7 +156,14 @@ def decide(pooled_json: dict, boundary: float = INTERIM_BOUNDARY) -> dict[str, d
     -- would decide its partner too.
     """
     pooled = pooled_json.get('arms') or {}
-    pairs = {p['arm']: p for p in (pooled_json.get('pairs') or [])}
+    # `paired` is the key `pool_reports.main` writes. This read `pairs` until
+    # 2026-09-23, so every `compare_to` arm found no paired difference and
+    # played its second wave however decisive the first had been -- the
+    # hand-assignment pair sat at z ~ -18 and played on. Hand-built dicts in
+    # the tests used the consumer's spelling and could not see it;
+    # `test_the_real_pooled_file_reaches_the_paired_verdict` feeds the
+    # producer's own file through instead.
+    pairs = {p['arm']: p for p in (pooled_json.get(PAIRED_KEY) or [])}
     out: dict[str, dict] = {}
     for slug, entry in sorted(pooled.items()):
         if entry.get('missing'):

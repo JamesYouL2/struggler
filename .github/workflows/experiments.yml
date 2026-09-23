@@ -291,12 +291,19 @@ jobs:
   # final one to 1.678 -- a 2% wider final interval, for half the seeds on
   # every arm that was never close.
   #
-  # `if: always()` and not `success()`: a wave-1 shard that crashed is a
+  # `!cancelled()` and not `success()`: a wave-1 shard that crashed is a
   # reason to PLAY wave 2, not to skip the decision and thereby play it. The
   # script fails open on every unreadable path for the same reason.
+  #
+  # And `!cancelled()`, not `always()`: a CANCELLED run is not a failure to
+  # fail open on. With `always()` a cancel killed wave 1, this job ran on the
+  # empty artifacts, failed open, and launched the whole of wave 2 -- twice:
+  # the 2026-09-22 hold-option "orphan" (run 35752606270) and the 2026-09-23
+  # headline run 35857931995, which played eight shards for twenty minutes
+  # after its cancel. Gated by `test_a_cancel_never_launches_wave_two`.
   interim:
     needs: [plan, run]
-    if: always() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
+    if: "!cancelled() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'"
     runs-on: ubuntu-latest
     outputs:
       shards: ${{ steps.look.outputs.shards }}
@@ -354,9 +361,11 @@ jobs:
     # this job with nothing to read -- and skipping it would report half an
     # arm's seeds as a whole arm. So an `interim` that did not succeed falls
     # back to plan's full wave 2, and only a successful look is allowed to
-    # shorten it.
+    # shorten it. A cancelled RUN is the exception (`!cancelled()`): the
+    # maintainer stopped it, and playing wave 2 anyway is what the cancel
+    # was for preventing.
     if: >-
-      always() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
+      !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.wave2_count != '0'
       && (needs.interim.result != 'success' || needs.interim.outputs.count != '0')
     name: ${{ matrix.s.slug }} [${{ matrix.s.shard }}/${{ matrix.s.of }}] w2
     runs-on: ubuntu-latest
