@@ -30,6 +30,8 @@ import pytest
 
 from struggler.bots.strategic.policy import StrategicWeights
 
+import shard_plan
+
 REGISTRY = Path(__file__).resolve().parents[1] / '.github' / 'experiments.json'
 
 
@@ -69,18 +71,14 @@ def test_every_arm_weight_is_a_live_field() -> None:
 def test_seed_blocks_are_identical_or_disjoint() -> None:
     # Defect 3: a partial overlap is the trap. Sharing a block is how arms are
     # paired; sharing *part* of one is two questions reading the same games
-    # while presenting as independent.
-    blocks: dict[str, set[int]] = {}
-    for arm in _arms():
-        for text in [arm['seeds']] + ([arm['held']] if arm.get('held') else []):
-            blocks.setdefault(text, set(_span(text)))
-    overlaps = []
-    for a, b in ((a, b) for a in blocks for b in blocks if a < b):
-        if blocks[a] & blocks[b]:
-            overlaps.append((a, b))
-    assert not overlaps, (
-        'seed blocks that share seeds without being the same block; arms on them '
-        f'read the same games while looking independent: {overlaps}')
+    # while presenting as independent. The tail reserve
+    # (scripts/shard_plan.py) widens the seed space a run claims -- a
+    # backfill must land in its own spares and nowhere else -- so `reserve`
+    # ranges are held to the same rule, retired arms included: their blocks
+    # stay reserved. The rule has ONE statement, `shard_plan.assert_disjoint`,
+    # shared with experiments.yml's plan step.
+    reg = json.loads(REGISTRY.read_text())
+    shard_plan.assert_disjoint(reg['experiments'] + reg['_retired']['arms'])
 
 
 @pytest.mark.parametrize('arm', _arms(), ids=lambda a: a['slug'])

@@ -58,6 +58,62 @@ def _fake_pool(results):
     return FakePool
 
 
+def _run_reserve(tmp_path, monkeypatch, results, seeds, reserve):
+    """One sample with a tail reserve -- what a shard actually runs."""
+    monkeypatch.setattr(benchmark, 'Pool', _fake_pool(results))
+    monkeypatch.setattr(benchmark, 'summarize', lambda games, stop_turn: {'games': len(games)})
+    report = tmp_path / 'shard.json'
+    status = benchmark.main(['--bot', 'greedy', '--opponent', 'greedy', '--workers', '1',
+                             '--seeds', seeds, '--reserve-seeds', reserve,
+                             '--report', str(report)])
+    return status, json.loads(report.read_text())
+
+
+def test_a_lost_core_game_is_backfilled_and_the_report_reads_complete(tmp_path, monkeypatch):
+    """The 255-of-256 fix: a core game never finishes, the reserve
+    backfills it, and the shard delivers its full count -- exit 0 and a
+    COMPLETE report, so the shard is cacheable instead of replayed for
+    ever."""
+    games = [_game(4000, 'US'), _game(4000, 'USSR'), _game(4001, 'US'),
+             _game(5000, 'US'), _game(5000, 'USSR'), _game(5001, 'US'), _game(5001, 'USSR')]
+    status, report = _run_reserve(tmp_path, monkeypatch, _Results(games),
+                                  '4000-4001', '5000-5001')
+    assert status is None, 'a full count delivered is not a partial shard'
+    assert report['summary']['stop_reason'] is None, (
+        'the report must read complete: it is what acceptance judges')
+    assert report['summary']['backfilled_pairs'] == [5000]
+    assert report['summary']['spare_games'] == 3
+    assert sorted({g['seed'] for g in report['games']}) == [4000, 5000]
+    assert report['summary']['finished_games'] == 4
+
+
+def test_the_satisfied_stop_abandons_only_spare_work(tmp_path, monkeypatch):
+    """Every core game in and the count met: the stop abandons spare work
+    and nothing else. A spare that finished EARLY is still dropped -- the
+    counted set is the core by seed order, not whatever landed."""
+    games = [_game(4000, 'US'), _game(4000, 'USSR'), _game(5000, 'US'),
+             _game(4001, 'US'), _game(4001, 'USSR')]
+    status, report = _run_reserve(tmp_path, monkeypatch, _Results(games, stall=False),
+                                  '4000-4001', '5000-5001')
+    assert status is None
+    assert report['summary']['stop_reason'] == 'satisfied'
+    assert sorted({g['seed'] for g in report['games']}) == [4000, 4001]
+    assert report['summary']['spare_games'] == 1
+    assert report['summary']['backfilled_pairs'] == []
+
+
+def test_without_a_reserve_a_stall_is_still_a_partial_shard(tmp_path, monkeypatch):
+    """The pre-reserve behaviour, pinned: no reserve, no rescue."""
+    games = [_game(4000, 'US'), _game(4000, 'USSR'), _game(4001, 'US')]
+    monkeypatch.setattr(benchmark, 'Pool', _fake_pool(_Results(games)))
+    monkeypatch.setattr(benchmark, 'summarize', lambda games, stop_turn: {'games': len(games)})
+    report = tmp_path / 'shard.json'
+    status = benchmark.main(['--bot', 'greedy', '--opponent', 'greedy', '--workers', '1',
+                             '--seeds', '4000-4001', '--report', str(report)])
+    assert status == 6
+    assert json.loads(report.read_text())['summary']['stop_reason'] == 'stalled'
+
+
 def _run(tmp_path, monkeypatch, results, *extra):
     monkeypatch.setattr(benchmark, 'Pool', _fake_pool(results))
     # The summary's statistics are not what is under test, and a real one

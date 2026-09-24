@@ -65,6 +65,24 @@ def _steps(path: Path) -> list[dict]:
     return [s for job in doc['jobs'].values() for s in job.get('steps', [])]
 
 
+def test_the_shard_cut_is_one_rule_in_shard_plan():
+    """`experiments.yml`'s plan step cuts shards by asking
+    `scripts/shard_plan.py` -- the module the registry test checks reserve
+    space with. A second spelling of the cut inside the workflow would
+    drift from the tests' and only ever be exercised on a runner."""
+    body = WORKFLOW.read_text()
+    assert 'import shard_plan' in body
+    assert 'shard_plan.cut' in body
+    assert 'shard_plan.assert_disjoint' in body
+
+
+def test_the_shard_hands_its_reserve_to_the_benchmark():
+    action = ACTION.read_text()
+    assert action.count('--reserve-seeds') == 1, (
+        'the reserve reaches the benchmark exactly once')
+    assert 'RESERVE: ${{ fromJSON(inputs.shard).reserve }}' in action
+
+
 def test_the_shard_is_played_in_one_place_only():
     """`run` and `run2` play shards the same way because they run the SAME
     composite action. A second copy of the benchmark invocation is the bug

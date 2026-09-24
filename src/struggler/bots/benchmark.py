@@ -511,6 +511,21 @@ def complete_pairs(games) -> dict[int, list]:
             if seed not in duplicated and set(seats) == {'US', 'USSR'}}
 
 
+def counted_pairs(games, target: int) -> dict[int, list]:
+    """The reading's seed set when a shard carries a tail reserve: the
+    first `target` complete pairs in seed order.
+
+    Seed order, not completion order, on purpose: the counted set must be
+    a function of what finished and nothing else, or two dispatches of one
+    shard read different samples and the shard cache's reproducibility
+    warrant dies. Reserve seeds sort where the arm declared them, so a
+    reserve pair enters only when a core pair is genuinely lost -- one lost
+    game costs a backfill, not a sample.
+    """
+    pairs = complete_pairs(games)
+    return {seed: pairs[seed] for seed in sorted(pairs)[:target]}
+
+
 def seed_scores(games) -> dict[int, float]:
     """Each complete seed's mean result. Both seats of one seed play the same
     deal from the same shuffle, so they are one observation and not two;
@@ -1132,6 +1147,10 @@ def main(argv=None):
     parser.add_argument('--held-seeds', help='a second, disjoint seed range played in the same pool '
                                              'as --seeds; with --held-report the two are written separately')
     parser.add_argument('--held-report', help='where the --held-seeds games go')
+    parser.add_argument('--reserve-seeds', help="tail reserve for --seeds: spare seeds played "
+                        "last and counted only as backfill (the first N complete pairs in seed "
+                        "order), so a lost or slow game costs no sample. A shard's spare work "
+                        "only: not with --held-seeds or --decide")
     parser.add_argument('--openings', metavar='US=name,USSR=name',
                         help='pin each seat to one opening book '
                              '(bots.strategic.policy.OPENINGS). Holding one seat fixed '
@@ -1168,8 +1187,12 @@ def main(argv=None):
         return 0
     seeds = parse_seeds(args.seeds)
     held = parse_seeds(args.held_seeds) if args.held_seeds else []
+    reserve_seeds = parse_seeds(args.reserve_seeds) if args.reserve_seeds else []
+    reserve_set = set(reserve_seeds)
     if set(seeds) & set(held):
         parser.error('--seeds and --held-seeds must be disjoint: the acceptance rules require it')
+    if reserve_set & (set(seeds) | set(held)):
+        parser.error('--reserve-seeds must be disjoint from --seeds and --held-seeds')
     if args.log_dir:
         os.makedirs(args.log_dir, exist_ok=True)
     # Both samples run in one pool. Two pools drained one after the other pay
@@ -1181,8 +1204,14 @@ def main(argv=None):
         order = [(index, seed)
                  for row in itertools.zip_longest(seeds, held)
                  for index, seed in enumerate(row) if seed is not None]
+    # Reserve work queues LAST: workers only reach it when the core is
+    # served, and `counted_pairs` only counts it as backfill.
+    order += [(0, seed) for seed in reserve_seeds]
     if args.openings and args.vary_openings:
         parser.error('--openings pins the books and --vary-openings moves them; pick one')
+    if args.reserve_seeds and (args.held_seeds or args.decide):
+        parser.error('--reserve-seeds is one sample\'s tail reserve; not with --held-seeds '
+                     'or --decide (a shard runs one sample and curtails by waves)')
     if args.stall_timeout < 0:
         parser.error('--stall-timeout is seconds, and 0 means wait for ever')
     if args.max_seconds < 0:
@@ -1210,6 +1239,10 @@ def main(argv=None):
     sample_of = {seed: index for index, seed in order}
     planned = collections.Counter(index for index, _ in order)
     start = time.time()
+    # The tail reserve's bookkeeping: which games are in, and what the core
+    # owes before the counted set is frozen.
+    finished: set[tuple[int, str]] = set()
+    core_keys = {(seed, side) for seed in seeds for side in ('US', 'USSR')}
     # `monotonic`, not `time()`, for the ceiling: a wall-clock jump backwards
     # (ntp, a suspended container) must not hand the run extra hours or cut
     # it short. `start` stays on `time()` because it only feeds a reported
@@ -1302,6 +1335,23 @@ def main(argv=None):
                       f'the rest cannot change the verdict', file=sys.stderr, flush=True)
                 pool.terminate()
                 break
+            # THE TAIL RESERVE'S STOP RULE. Stop only when the counted set
+            # cannot change: every core game is in and the target is met,
+            # so what is still running is spare work that `counted_pairs`
+            # would drop anyway. Stopping on "N finished" in completion
+            # order would freeze a TIMING-DEPENDENT seed set -- the one
+            # thing the cache's reproducibility forbids.
+            if reserve_seeds:
+                finished.add((game['seed'], game['bot_side']))
+                if (len(counted_pairs(games, len(seeds))) >= len(seeds)
+                        and all(key in finished for key in core_keys)):
+                    stop_reason = 'satisfied'
+                    stopped = len(games)
+                    print(f'SATISFIED: every core game in and {len(seeds)} pairs counted; '
+                          f'abandoning {len(jobs) - len(games)} spare game(s)',
+                          file=sys.stderr, flush=True)
+                    pool.terminate()
+                    break
     if not games:
         # `summarize` averages over the games, so an empty list raises from
         # `statistics.fmean` rather than saying what happened. Reachable only
@@ -1310,6 +1360,14 @@ def main(argv=None):
         return 4
     games.sort(key=lambda g: (g['seed'], g['bot_side']))
     done = {(g['seed'], g['bot_side']) for g in games}
+    # WHAT THE READING COUNTS. With a reserve, the report carries the first
+    # `len(seeds)` complete pairs in seed order and nothing else: the spare
+    # games are backfill, never extra sample, so a planned N reads N.
+    counted = counted_pairs(games, len(seeds)) if reserve_seeds else complete_pairs(games)
+    counted_games = ([g for pair in counted.values() for g in pair]
+                     if reserve_seeds else games)
+    backfilled = (sorted(seed for seed in counted if seed in reserve_set)
+                  if reserve_seeds else [])
     if stop_reason in INCOMPLETE:
         # NAME THEM IN THE LOG. The reports already carry `unfinished`, but a
         # report has to be downloaded and an artifact is not always reachable;
@@ -1321,13 +1379,22 @@ def main(argv=None):
                    if (seed, side) not in done]
         print(f'{stop_reason.upper()}: {len(missing)} game(s) never finished: '
               f'{", ".join(missing)}', file=sys.stderr, flush=True)
-    reports = [(args.report, [g for g in games if sample_of.get(g['seed']) == 0])]
+        if reserve_seeds and len(counted) >= len(seeds):
+            print(f'BUT THE RESERVE DELIVERED: {len(counted)} pairs counted, '
+                  f'backfilled on seed(s) {backfilled}; the reading is complete',
+                  file=sys.stderr, flush=True)
+    reports = [(args.report, [g for g in counted_games if sample_of.get(g['seed']) == 0])]
     if held:
-        reports.append((args.held_report, [g for g in games if sample_of.get(g['seed']) == 1]))
-    summary = summarize(games, args.stop_turn)
+        reports.append((args.held_report, [g for g in counted_games if sample_of.get(g['seed']) == 1]))
+    summary = summarize(counted_games, args.stop_turn)
     summary['wall_seconds'] = round(time.time() - start, 1)
     summary['bot'], summary['opponent'], summary['simulations'] = args.bot, args.opponent, args.simulations
     summary['bot_weights'] = args.bot_weights
+    if reserve_seeds:
+        summary['counted_pairs'] = len(counted)
+        summary['backfilled_pairs'] = backfilled
+        summary['spare_games'] = len(games) - len(counted_games)
+        summary['reserve_seeds'] = args.reserve_seeds
     if stopped is not None:
         summary['stopped_after'] = stopped
         summary['planned_games'] = len(jobs)
@@ -1342,6 +1409,8 @@ def main(argv=None):
         if not path:
             continue
         mine = [(seed, side) for _, _, seed, side, *_ in jobs if sample_of.get(seed) == index]
+        if reserve_seeds:
+            mine = [(seed, side) for seed in counted for side in ('US', 'USSR')]
         report_summary = summarize(subset, args.stop_turn) if subset else {}
         unfinished = [[seed, side] for seed, side in mine if (seed, side) not in done]
         # A stall belongs to the sample that lost games, not to every report
@@ -1353,9 +1422,13 @@ def main(argv=None):
             unfinished=unfinished,
             bot=args.bot, opponent=args.opponent, bot_weights=args.bot_weights,
             openings=args.openings, vary_openings=args.vary_openings)
+        if reserve_seeds:
+            report_summary.update(
+                counted_pairs=len(counted), backfilled_pairs=backfilled,
+                spare_games=len(games) - len(counted_games))
         with open(path, 'w') as f:
             json.dump({'summary': report_summary, 'games': subset}, f, indent=1)
-    if stop_reason in INCOMPLETE:
+    if stop_reason in INCOMPLETE and not (reserve_seeds and len(counted) >= len(seeds)):
         # A distinct status, after the partial reports are safely written:
         # an abandoned run is neither a verdict nor a crash, and a caller that
         # treats every nonzero as "crashed" would hide which one it was.

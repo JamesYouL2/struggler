@@ -11,7 +11,7 @@ passed acceptance, which never checked that a seed was a pair at all.
 """
 from __future__ import annotations
 
-from struggler.bots.benchmark import _decided, acceptance, complete_pairs, seed_scores
+from struggler.bots.benchmark import _decided, acceptance, complete_pairs, counted_pairs, seed_scores
 
 
 def _game(seed, side, result):
@@ -34,6 +34,35 @@ def _audit_reproduction():
 def _as_reports(games, sample_of):
     return [(f'sample{i}', {'summary': {}, 'games': [g for g in games if sample_of[g['seed']] == i]})
             for i in (0, 1)]
+
+
+def test_counted_pairs_reads_the_first_target_in_seed_order():
+    """The tail reserve's counting rule (scripts/shard_plan.py). Seed order,
+    not completion order: the counted set is a function of what finished,
+    or two dispatches of one shard read different samples and the shard
+    cache's reproducibility warrant dies."""
+    games = [_game(5000, 'US', 1.0), _game(4001, 'USSR', 1.0), _game(4000, 'US', 1.0),
+             _game(5000, 'USSR', 1.0), _game(4000, 'USSR', 1.0), _game(4001, 'US', 1.0)]
+    counted = counted_pairs(games, 2)
+    assert sorted(counted) == [4000, 4001]
+    # A function of the set, not of arrival order.
+    assert sorted(counted_pairs(list(reversed(games)), 2)) == [4000, 4001]
+
+
+def test_a_reserve_pair_enters_only_when_a_core_pair_is_lost():
+    games = [_game(4000, 'US', 1.0), _game(4000, 'USSR', 1.0),
+             _game(5000, 'US', 1.0), _game(5000, 'USSR', 1.0)]
+    assert sorted(counted_pairs(games, 1)) == [4000]
+    # Core seed 4000 loses its USSR seat: the reserve backfills, one lost
+    # game costs a backfill and not a sample.
+    games = [g for g in games if not (g['seed'] == 4000 and g['bot_side'] == 'USSR')]
+    assert sorted(counted_pairs(games, 1)) == [5000]
+
+
+def test_counted_pairs_never_counts_more_than_the_target():
+    games = [_game(seed, side, 1.0) for seed in (4000, 4001, 5000) for side in ('US', 'USSR')]
+    assert sorted(counted_pairs(games, 2)) == [4000, 4001]  # the spare is dropped
+    assert sorted(counted_pairs(games, 3)) == [4000, 4001, 5000]  # and counted only on demand
 
 
 def test_stopping_and_acceptance_agree_on_the_audit_reproduction():
