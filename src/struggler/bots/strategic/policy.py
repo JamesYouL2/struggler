@@ -583,7 +583,15 @@ class StrategicWeights:
     # the bot had almost no reason to cover it. This is the third weight
     # found flat against the Ops scale, after `vp` and `ops`; see the
     # comment on vp_base.
-    military: float = 1.0
+    #
+    # 2.0 since 2026-09-24: measured over the principled 1.0 by the
+    # ablation sweep's phase-2 grid -- the double read +0.026 [+0.007,
+    # +0.045] paired over 1152 games, the half +0.007 [-0.010, +0.025]
+    # (run 35978271735). Rule 6.3.5 is exact in UNITS; the multiplier is
+    # where everything the model omits about a deficit goes -- a VP handed
+    # over is not the whole cost -- and 1.0 under-priced the requirement.
+    # Gated on this branch before landing.
+    military: float = 2.0
     # A country is worth what its region will still score: the sum over its
     # scoring cards' expected future plays of scoring_discount ** (turns
     # away), from the static period schedule and where each card is now
