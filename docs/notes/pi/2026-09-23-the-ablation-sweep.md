@@ -148,6 +148,43 @@ as written above, before the number:
 | `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
 | `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
 
+### Space race as one knob: the rule, written before the number (2026-09-24)
+
+The four `space_ability_*` prices were excluded from phase 1 as
+pre-declared unmeasurable -- box 8 fires in ~1% of games -- but that is
+four RARE variables; as one knob (every ability box at the same level)
+it is read by every Space Race attempt and every card whose alternative
+is a space play. Maintainer's framing: "measure space race as a single
+variable, do 0 vp, 1 vp, 2 vp experiment".
+
+Four arms on a fresh block (`100000-101023` + held `101500-101627`,
+reserve `101700-101717`), anchor `bc5ef93`, paired:
+`space-race-base` = the shipped mix (boxes 2/4/8 at 1.0, 6 at 1.5);
+`space-race-0` = all four at 0; `space-race-1` = all at 1;
+`space-race-2` = all at 2. The base is what makes the three levels
+paired readings -- and it also says whether uniform-1 differs from the
+shipped mix at all (only box 6 differs between them).
+
+THE RULE, not moved after the number:
+
+1. Each level's paired diff vs base: LB above 0 = that level beats the
+   shipped mix.
+2. Exactly one level beats it -> that level (uniform across the four
+   boxes) is nominated for the change gate.
+3. More than one beats it -> the HIGHEST point estimate is nominated
+   (0/1/2 are an ordered scale -- unlike the scoring_final U, a monotone
+   read makes the ordering meaningful), with the runner-up's clearance
+   recorded.
+4. None beats it: (a) if 0's UB is below 0, the ability pricing earns
+   its keep and the shipped mix stands; (b) else the whole family reads
+   unimportant at this sample -- the four fields join the deletion
+   question, and "unmeasurable" becomes "bounded at +/-0.02-0.04 over
+   1152 games".
+
+What it cannot settle: a uniform level cannot separate box 6's 1.5
+premium; single-box effects stay unresolvable; and the VP boxes 3/5/7
+are untouched -- only the ability prices move.
+
 ### The tie-break's rule, written before the number (2026-09-24)
 
 The rule gap below gets THREE arms, not two, on a fresh block

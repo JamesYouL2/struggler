@@ -1709,6 +1709,85 @@
       ]
     },
     {
+      "id": "space-race-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "space-race-0",
+      "kind": "ablation",
+      "knobs": {
+        "space_ability_2": 0.0,
+        "space_ability_4": 0.0,
+        "space_ability_6": 0.0,
+        "space_ability_8": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "space-race-1",
+      "kind": "ablation",
+      "knobs": {
+        "space_ability_2": 1.0,
+        "space_ability_4": 1.0,
+        "space_ability_6": 1.0,
+        "space_ability_8": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "space-race-2",
+      "kind": "ablation",
+      "knobs": {
+        "space_ability_2": 2.0,
+        "space_ability_4": 2.0,
+        "space_ability_6": 2.0,
+        "space_ability_8": 2.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
       "id": "region-par-rerun",
       "kind": "grid-point",
       "knobs": {
