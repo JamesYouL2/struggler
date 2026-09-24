@@ -962,6 +962,44 @@
         "compare_to": "grid-base",
         "title": "grid: vp_base at 0.75 (vs the expert 0.5) -- the first variation ever",
         "context": "The other bracket on the VP price's level. A VP at 0.75 Ops is the Late War rate applied everywhere; 0.35 is between the Early and Mid rates. THE RULE, written before the number and not moved after it: LB above 0 -> 0.75 beats the shipped 0.5 and the default faces a change gate; UB below 0 -> worse; covers 0 -> no move. With grid-vp-base-035: both at or below 0 means the expert rate is the peak of the bracket, which is the first measured support the rate has had."
+      },
+      {
+        "slug": "scoring-final-tb-base",
+        "weights": {
+          "scoring_final": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "98000-99023",
+        "held": "99500-99627",
+        "reserve": "99700-99717",
+        "title": "scoring_final tie-break: the shipped 1.0 on the fresh block -- the paired base",
+        "context": "Phase 2 read 0.5 at +0.027 [+0.008, +0.046] and 2.0 at +0.023 [+0.004, +0.043] against the shipped 1.0 (run 35978271735): the U-shape -- the shipped value worse than BOTH neighbours -- and the sweep's rule cannot order two clearing points. Three arms, not two, because the U itself is the first question: three of ten points cleared, which is the false-positive arithmetic. THE RULE, written in docs/notes/pi/2026-09-23-the-ablation-sweep.md before the number and not moved after it: for each of 05/20 vs base, LB above 0 means that beat replicates; exactly one replicates -> it goes to the change gate; both replicate -> 0.5 (minimum effective dose and the larger phase-2 estimate -- CONVENTION, not measurement) unless this block reads 2.0's paired diff strictly higher while 0.5's covers 0; neither replicates -> the U was the phase-2 block's noise, scoring_final stays 1.0 and the nomination is withdrawn. Fresh block; the declared tail reserve (scripts/shard_plan.py) in its first use. Cannot separate the bucket's price from the measured odds it multiplies."
+      },
+      {
+        "slug": "scoring-final-tb-05",
+        "weights": {
+          "scoring_final": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "98000-99023",
+        "held": "99500-99627",
+        "reserve": "99700-99717",
+        "compare_to": "scoring-final-tb-base",
+        "title": "scoring_final tie-break: the low side (0.5 vs 1.0)",
+        "context": "The half-price of the final-scoring bucket -- phase 2's larger clearance (+0.027 [+0.008, +0.046]) and the rule's fallback pick if both beats replicate. THE RULE is the three-arm tree in docs/notes/pi/2026-09-23-the-ablation-sweep.md, frozen: LB above 0 vs base means the beat replicates; only one replicates -> it ships to the gate; both -> this arm (minimum effective dose, convention) unless 2.0 reads strictly higher here while this covers 0; neither -> 1.0 stays and the nomination is withdrawn."
+      },
+      {
+        "slug": "scoring-final-tb-20",
+        "weights": {
+          "scoring_final": 2.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "98000-99023",
+        "held": "99500-99627",
+        "reserve": "99700-99717",
+        "compare_to": "scoring-final-tb-base",
+        "title": "scoring_final tie-break: the high side (2.0 vs 1.0)",
+        "context": "The double-price -- phase 2's other clearance (+0.023 [+0.004, +0.043]), and the more balanced seat split (0.610/0.487 against 0.5's 0.634/0.470). THE RULE is the three-arm tree in docs/notes/pi/2026-09-23-the-ablation-sweep.md, frozen: LB above 0 vs base means the beat replicates; only one replicates -> it ships to the gate; both -> 0.5 by convention unless THIS arm reads strictly higher while 0.5 covers 0; neither -> 1.0 stays and the nomination is withdrawn."
       }
     ],
   "_retired": {

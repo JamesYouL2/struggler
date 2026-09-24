@@ -148,6 +148,31 @@ as written above, before the number:
 | `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
 | `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
 
+### The tie-break's rule, written before the number (2026-09-24)
+
+The rule gap below gets THREE arms, not two, on a fresh block
+(`98000-93023` + held `99500-99627`, reserve `99700-99717` -- the tail
+reserve's first use), anchor `bc5ef93`, paired:
+`scoring-final-tb-base` (1.0, the shipped value), `scoring-final-tb-05`,
+`scoring-final-tb-20`. Three arms because the U-shape -- 1.0 worse than
+BOTH neighbours -- is phase-2's most surprising claim, three of ten
+cleared points is the false-positive arithmetic, and the first question
+is whether the U replicates at all. Read in this order:
+
+1. For each of 0.5 and 2.0 against base: LB above 0 means that beat
+   replicates.
+2. Exactly one replicates -> that value goes to the change gate.
+3. Both replicate -> **0.5** goes to the gate, UNLESS the fresh block
+   reads 2.0's paired diff strictly higher while 0.5's covers 0 (the
+   one-clearance case again).
+4. Neither replicates -> the U was the phase-2 block's noise:
+   `scoring_final` stays 1.0, the nomination is withdrawn, and the two
+   clearances join the false-positive arithmetic.
+
+The 2.0-vs-0.5 ordering is only ever a difference of paired reads on one
+block; the fallback in (3) is CONVENTION -- minimum effective dose, and
+the larger phase-2 estimate -- not measurement, and it says so.
+
 ### What the rule does NOT decide, said now rather than invented later
 
 `scoring_final` cleared at BOTH points -- 0.5 and 2.0, on opposite sides
