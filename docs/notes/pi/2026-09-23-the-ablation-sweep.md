@@ -148,6 +148,35 @@ as written above, before the number:
 | `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
 | `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
 
+### Space race as one knob: the reads (run 36057974080, 2026-09-24)
+
+1152 counted pairs an arm, 9 ok shards a piece -- the declared tail
+reserve's second use and its cleanest yet: one shard's report reads
+`counted_pairs 128, stop: satisfied, backfilled [], spare_games 1` --
+the straggler was absorbed as a spare and dropped from the reading
+instead of stalling the shard, and the run concluded SUCCESS where
+phases 1 and 2 flaked failed shards.
+
+| level | paired (level - base) | rule |
+| --- | --- | --- |
+| 0 VP | -0.008 [-0.016, +0.000] | no clearance |
+| 1 VP | -0.000 [-0.002, +0.001] | no clearance -- dead heat |
+| 2 VP | +0.002 [-0.008, +0.012] | no clearance |
+
+The tree's branch 4 (none beats the shipped mix) fires. Branch (a)
+requires 0's UB BELOW 0; it prints **+0.000** -- not below 0 -- so on the
+letter (b) applies: the family reads unimportant at this sample and the
+four fields join the deletion question. The boundary case is stated
+rather than sorted: the (a)/(b) split rests on a rounding digit. What
+both branches agree on: NOTHING IS NOMINATED, nothing ships, and the
+family's bound is tighter than the old claim -- +/-0.016 at 1152 games,
+not +/-0.02-0.04. Two side answers: the shipped box-6 premium (1.5 vs
+1.0) does nothing measurable (1 vs base: -0.000 [-0.002, +0.001]), and
+if the deletion question IS pursued the lean says keep -- removing the
+prices is the worst point estimate of the three (-0.008), which is
+consistent with the pricing earning its keep in spirit where the letter
+of the rule said "unimportant".
+
 ### Space race as one knob: the rule, written before the number (2026-09-24)
 
 The four `space_ability_*` prices were excluded from phase 1 as
