@@ -179,6 +179,21 @@ three clearances out of ten points is about what one false positive per
 twenty predicts. "Beats the shipped value" here means exactly that --
 the gate is what turns a nomination into a default.
 
+### Closed by the gates (2026-09-24)
+
+Both gated nominations were ACCEPTED and merged, sequentially so the
+second gate measured the marginal on top of the first:
+
+- `region` 1.3 -> 2.6 -- PR #50, gate run 36032056574: ACCEPTED
+  (0.547 +/- 0.039 over 75, curtailed; no WARN), merged `a55fa4a`.
+- `military` 1.0 -> 2.0 -- PR #51, gate run 36045490201: ACCEPTED
+  (0.540 +/- 0.034 over 75; no WARN), merged `e1994cf` on top of it.
+
+"ACCEPTED" means not measurably worse on fresh gate seeds; the strength
+case is the phase-2 grid's paired reads, cited in each PR. `scoring_final`
+remains open behind its tie-break arm, and the rule gap above is where
+its story starts.
+
 ## Phase 1 reads: run 35937042894 (read 2026-09-24)
 
 1152 pooled games a pair (shared seeds 1147-1151; every arm pooled 9 ok
