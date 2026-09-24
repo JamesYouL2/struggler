@@ -685,8 +685,28 @@
       "compare_to": "hold-option-base",
       "title": "hold option value 1.0: the card's whole Ops value again vs bc5ef93",
       "context": "The top of the grid: a held card carries as much again as its Ops value -- the flexibility priced at everything the card can buy. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. A win here with 025 and 05 flat says the flexibility is worth pricing but this grid has not found the peak, and the next question is above 1.0. Cannot separate 'worth about 1.0' from 'worth more': 1.0 is the boundary of this grid."
-    }
-  ],
+      },
+      {
+        "slug": "hand-assignment-base",
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "title": "the assignment planner OFF vs bc5ef93 -- the base half of hand-assignment-on",
+        "context": "Step 3 of the hand planner (docs/notes/pi/2026-09-22-assignment-planner-design.md), the base half: the shipped per-card pricing (hand_assignment 0 -- the allocation is not computed at all) against bc5ef93 on identical machinery. The reference hand-assignment-on is paired against."
+      },
+      {
+        "slug": "hand-assignment-on",
+        "weights": {
+          "hand_assignment": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "compare_to": "hand-assignment-base",
+        "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
+        "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
+      }
+    ],
   "_retired": {
     "_what": "arms already run (results in docs/notes/codex/); kept so their seed blocks stay reserved",
     "arms": [
