@@ -10,6 +10,7 @@ regardless of who records a new shape.
 
 ## Contents
 
+- [The weights: what each one does, and what it is worth](2026-09-24-the-weights-what-each-one-is-worth.md) — 2026-09-24
 - [Drift panel 2026-09-24: every anchor is behind us now](2026-09-24-drift-panel-all-five-behind-us.md) — 2026-09-24
 - [The ablation sweep: which live variables earn their keep](2026-09-23-the-ablation-sweep.md) — 2026-09-23
 - [Handoff, 2026-09-23: what landed tonight, the arm in flight, and what to pass on](2026-09-23-handoff.md) — 2026-09-23 (three verdicts read by their rules -- hold-option stays 0, the refit LOST, the potential term stops -- the assignment planner built behind its gate, run 35814771005 in flight with its rule quoted; and the session's five mistakes in the order a weaker model will remake them) -- since read: paired -0.240 [-0.262, -0.218], the gate stays shut, the loss diagnosed as a tie-break in `docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md`
