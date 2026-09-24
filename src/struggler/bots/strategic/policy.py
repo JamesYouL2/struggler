@@ -636,16 +636,19 @@ class StrategicWeights:
     # same result (a coup on a 2-stability country loses a point of margin
     # to the roll), and it is random where placement is certain.
     coup_discount: float = 0.9
-    # Half-action-round forward search: the Ops the opponent is assumed to
-    # answer a placement plan with, or 0 to price the plan as if they never
-    # moved. See `_survives_reply` -- a break that does not take control
+    # Half-action-round forward search: whether the opponent is assumed to
+    # answer a placement plan at all, and how their answer's budget is
+    # chosen. See `_survives_reply` -- a break that does not take control
     # loses the exchange 2:1, and that is invisible until one ply later.
-    # `reply_model` selects how the reply budget is chosen, since weights
-    # must be nonnegative and a sentinel cannot be: 0 off, 1 the
-    # `reply_ops` constant (what the reply-lookahead tests pin a budget
-    # with), 3 a weighted average over budgets 0-4. Model 2, the median of
+    # `reply_model` is the selector, since weights must be nonnegative and
+    # a sentinel cannot be: 0 off, 3 a weighted average over budgets 0-4.
+    # Model 1 (a constant `reply_ops` budget) and the `reply_ops` field
+    # were deleted on 2026-09-24: dead at model 3, the constant was test
+    # scaffolding posing as a price -- the reply-lookahead tests pin a
+    # budget by overriding `_reply_budgets` now. Model 2, the median of
     # the opponent's likely holdings, was deleted on 2026-09-19: nothing
-    # called it, and it is model 3 with the distribution thrown away.
+    # called it, and it is model 3 with the distribution thrown away. A 1
+    # falls through to model 3 today, as a 2 did then.
     #
     # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
     # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
@@ -654,7 +657,6 @@ class StrategicWeights:
     # Battleground with the single cheapest point -- falls from 6.27 a
     # seat a game to 0.08, and no seat in 48 does it more than once.
     # Gated by `tests/test_poke_rate.py`.
-    reply_ops: float = 2.0
     reply_model: float = 3.0
     # Whether the reply may be a Coup as well as a retake (`_coup_reply`,
     # merged at 4813570, v0.2.2): 0 prices only the retake, anything else
@@ -715,7 +717,7 @@ class StrategicWeights:
 # (`wipe`, `wipe_backed`, `progress_curve` and `ops` were deleted outright on
 # 2026-09-13 -- off, pinned or retired -- so they no longer need guarding.)
 #
-#   reply_ops, reply_model  the forward search's configuration, not a price
+#   reply_model  the forward search's configuration, not a price
 #   hold_option  a term shipped at 0 (ruling 3); its grid (run 35753235236,
 #                1024 paired seeds) read nothing above 0 at 0.25 / 0.5 /
 #                1.0 and a measurable loss at 1.0, so it stays 0
@@ -727,7 +729,7 @@ class StrategicWeights:
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_ops', 'reply_model', 'reply_coup', 'hold_option',
+UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hold_option',
                    'hand_assignment')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
@@ -2364,10 +2366,9 @@ class StrategicPlayer:
         """The Operations the opponent might answer with, as
         (budget, weight) pairs summing to 1.
 
-        Two models, selected by `weights.reply_model`:
+        The budget distribution behind `weights.reply_model` (0 short-
+        circuits at the caller):
 
-        - **1** -- the `reply_ops` constant, weight 1. Simplest, and the
-          thing to beat.
         - **3, a weighted average over every budget 0-4**, weighted by
           how often the opponent holds a card of each size. Their hand is
           hidden (mandate #4), but the *distribution* is not: every card
@@ -2375,16 +2376,16 @@ class StrategicPlayer:
           theirs, and its printed Ops are public. Four more evaluations,
           and only on the placements where a reply exists to make.
 
-        (Model 2 took the median of that same pool. It was deleted on
+        (Model 1 was a constant `reply_ops` budget; it and the field were
+        deleted on 2026-09-24 as scaffolding posing as a price -- the
+        reply-lookahead tests pin a budget by overriding this method.
+        Model 2 took the median of that same pool and was deleted on
         2026-09-19, unreferenced and strictly less informed than 3.)
 
         Eventless throughout: this prices the Ops of the answer, not its
         event. Pricing hidden events would be guessing at the hand, which
         is exactly what mandate #4 forbids and what the pool avoids.
         """
-        model = int(self.weights.reply_model)
-        if model == 1:
-            return ((int(self.weights.reply_ops), 1.0),)
         # The unseen pool is a property of the position, not of the country
         # being priced, so it is built once per decision like
         # `_unseen_hold_values`. It was rebuilt on every call: 3008 calls

@@ -1542,7 +1542,7 @@ def test_training_does_not_switch_on_a_deliberately_disabled_weight():
         for name in UNTUNED_WEIGHTS:
             assert getattr(got, name) == getattr(base, name), name
     # Naming one explicitly is how a deliberate ablation moves it.
-    assert mutate(base, random.Random(1), ('reply_ops',)).reply_ops != base.reply_ops
+    assert mutate(base, random.Random(1), ('reply_coup',)).reply_coup != base.reply_coup
     assert set(TUNABLE_WEIGHTS).isdisjoint(UNTUNED_WEIGHTS)
     assert set(TUNABLE_WEIGHTS) | set(UNTUNED_WEIGHTS) == {
         f.name for f in dataclasses.fields(StrategicWeights)}

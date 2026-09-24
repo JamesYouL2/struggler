@@ -91,17 +91,11 @@
       "source": "guess",
       "determination": "underdetermined"
     },
-    "reply_ops": {
-      "value": 2.0,
-      "source": "guess",
-      "determination": "inert",
-      "note": "The constant Operations budget the forward search assumes the opponent answers with, used only when `reply_model` is 1. Inert at the shipped setting of 3, which averages over budgets 0-4 and never reads this."
-    },
     "reply_model": {
       "value": 3.0,
       "source": "gate",
       "determination": "bounded",
-      "note": "Which reply model the half-action-round forward search uses: 0 off, 1 the `reply_ops` constant, 2 the median of the opponent's likely holdings, 3 a weighted average over budgets 0-4. On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
+      "note": "Which reply model the half-action-round forward search uses: 0 off, 3 a weighted average over budgets 0-4. (1, a constant `reply_ops` budget, was deleted with its field on 2026-09-24 -- dead at 3, scaffolding posing as a price; 2, the median of the opponent's likely holdings, went 2026-09-19.) On since the gate at `01de83f`, which is a dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds -- 'not a measurable regression', not a gain). What earns it is behaviour: the maintainer's minimum-poke count falls from 6.27 a seat a game to 0.08, with no seat in 48 above one, against their ceiling of three. Bounded, not determined: on beats off, but 3 has never been compared against 1 or 2 on working code. The comparison that was run predates `9bec0a0`, when the stale base cache inverted the term's sign, so it measured three ways of pushing the wrong direction and is void."
     },
     "reply_coup": {
       "value": 1.0,
@@ -315,7 +309,7 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 17,
+      "guess": 16,
       "gate": 9,
       "measured": 10,
       "derived": 5,
@@ -324,12 +318,12 @@
     "counts_by_determination": {
       "underdetermined": 10,
       "bounded": 13,
-      "inert": 8,
+      "inert": 7,
       "overdetermined": 4,
       "determined": 11,
       "known-wrong": 2
     },
-    "_reading": "Recounted 2026-09-21, after `battleground` and `control` were deleted and `hold_option` added: 47 entries, of which 16 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones are now `access_chain` and `CHINA_HOLD_RAW`. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to. `hold_option` is the second term after `potential` to arrive deliberately at 0 with an arm to price it (2026-09-21): a hold's option value for the flexibility of keeping it, per ruling 3 of the hand planner plan -- a guess in the size, with the hold-option-* grid (0.25 / 0.5 / 1.0) to say what it should be.",
-    "total": 48
+    "_reading": "Recounted 2026-09-21, after `battleground` and `control` were deleted and `hold_option` added: 47 entries, of which 16 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones are now `access_chain` and `CHINA_HOLD_RAW`. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to. `hold_option` is the second term after `potential` to arrive deliberately at 0 with an arm to price it (2026-09-21): a hold's option value for the flexibility of keeping it, per ruling 3 of the hand planner plan -- a guess in the size, with the hold-option-* grid (0.25 / 0.5 / 1.0) to say what it should be. `reply_ops` was deleted 2026-09-24 with its model-1 scaffolding: dead at the shipped `reply_model` 3 (`_reply_budgets` reads it only at model 1, which nothing selects), so gone rather than re-measured -- 47 entries, 16 guesses: the same headline as the 2026-09-21 recount, because `hand_assignment`'s at-zero entry arrived in between and this inert one went here.",
+    "total": 47
   }
 }
