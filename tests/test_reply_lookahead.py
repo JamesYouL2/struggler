@@ -13,8 +13,11 @@ from struggler.engine import DecisionKind as K, Engine, Side
 
 def _priced(engine, side, cid, points, budget):
     obs = engine.observe(side)
-    weights = dataclasses.replace(StrategicWeights(), reply_model=1., reply_ops=float(budget))
-    bot = StrategicPlayer(weights)
+    bot = StrategicPlayer(StrategicWeights())
+    # The constant-budget model (reply_model 1) and its `reply_ops` field
+    # were deleted 2026-09-24 as scaffolding posing as a price; a pinned
+    # budget is now exactly this -- the budget source overridden.
+    bot._reply_budgets = lambda obs: ((budget, 1.0),)
     bot.prepare(obs)
     raw = bot.delta(obs, cid, own=points)
     before = bot.board.serialize()
@@ -211,8 +214,8 @@ def test_reply_coup_zero_prices_the_retake_only():
     seven points it would take), exactly as `_may_coup` returning False."""
     engine = _overprotected_lebanon(5)
     obs = engine.observe(Side.US)
-    weights = dataclasses.replace(StrategicWeights(), reply_model=1., reply_ops=4., reply_coup=0.)
-    bot = StrategicPlayer(weights)
+    bot = StrategicPlayer(dataclasses.replace(StrategicWeights(), reply_coup=0.))
+    bot._reply_budgets = lambda obs: ((4, 1.0),)
     bot.prepare(obs)
     raw = bot.delta(obs, 'Lebanon', own=3)
     assert bot._after_reply(obs, 'Lebanon', 3, raw) == raw
