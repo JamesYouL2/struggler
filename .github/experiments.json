@@ -706,6 +706,262 @@
         "compare_to": "hand-assignment-base",
         "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
         "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
+      },
+      {
+        "slug": "ablate-base",
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "title": "the ablation sweep: the shipped bot vs bc5ef93 -- the paired reference",
+        "context": "Phase 1 of docs/notes/pi/2026-09-23-the-ablation-sweep.md (maintainer: every live variable shown useful and well tuned). The reference every ablate-* arm pairs against on identical machinery; fresh block 92000-93023 + held 94000-94127 because every registry block below 89000 is burned. THE RULE, written before the number and not moved after it: read the paired difference arm minus ablate-base, one-sided 95% by seed. Lower bound above 0 -> removing the variable helps: it is harmful at its shipped setting, the default faces a change gate. Upper bound below 0 -> the variable is USEFUL: keep it, phase 2 prices its grid. Covers 0 -> not measurably doing anything at this sample: a deletion candidate by the region-margin precedent (deleted at +0.001 [-0.022, +0.024]), phase 2 cancelled. A dead heat cannot separate 'does nothing' from 'does something rarer than 1152 games can see'."
+      },
+      {
+        "slug": "ablate-access",
+        "weights": {
+          "access": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate access: the whole reach term off (1.5 -> 0)",
+        "context": "access scales all reach-into-battleground value, ships at a guessed 1.5 (provenance: guess), and has been re-derived four times (chain, conversion probability, route decay, the cap). Prior evidence is weak: access-half (0.75) read 0.481 pooled at 128+64 with the note 'do not shrink', and one wide anchored off arm; never paired off at scale. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the term's value from the four derivations inside it -- if it is useful, phase 2 prices access_decay too."
+      },
+      {
+        "slug": "ablate-region",
+        "weights": {
+          "region": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate region: the region tier term off (1.3 -> 0)",
+        "context": "region prices the tier the board is in now (current tier VP x urgency x 1.3, a guess). region-par (1.0) read 'free, not better' twice at 128+64; 0 has never run. The fitted country weights already carry tier change (fitted-no-region asked the double-count question on that branch). THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate 'the term is redundant with the fitted weights' from 'the term is wrong on its own'."
+      },
+      {
+        "slug": "ablate-progress",
+        "weights": {
+          "progress": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate progress: the partial-control credit off (2.8 -> 0)",
+        "context": "progress scales credit toward a first controlled country where a side has none (presence races), ships at an uncalibrated 2.8 (provenance: guess). progress-half (1.4) split its halves violently (0.547 / 0.434) at 128+64 -- no conclusion. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot see the early presence fights the credit is for except as they occur in the sample."
+      },
+      {
+        "slug": "ablate-scoring-discount",
+        "weights": {
+          "scoring_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
+        "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
+      },
+      {
+        "slug": "ablate-scoring-rival",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_rival: deck-tracking rival urgency off (1.0 -> 0)",
+        "context": "scoring_rival multiplies this cycle's buckets by (1 + r x P(the opponent holds the scoring card)), shipped at 1.0 on symmetry with the holding bonus (provenance: guess). Prior evidence is three weak reads: 0.5 and 0.25 leans and one wide anchored off arm; the 2026-09-15 note calls the half an inconclusive lean. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot price p_opponent_holds itself, only this weight on it."
+      },
+      {
+        "slug": "ablate-scoring-final",
+        "weights": {
+          "scoring_final": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_final: no final-scoring bucket (1.0 -> 0)",
+        "context": "bucket 5 prices every region at its measured odds of appearing in final scoring; 0 restores the old behaviour, which priced the last turns as if the game ran for ever. Games end before turn 10 about 70% of the time here. Prior evidence is one wide anchored off arm. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep; covers 0 -> deletion candidate by the region-margin precedent. Cannot separate the odds (measured) from the bucket structure (a design)."
+      },
+      {
+        "slug": "ablate-coup-discount",
+        "weights": {
+          "coup_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate coup_discount: coups and realignments undiscounted (0.9 -> 1.0)",
+        "context": "coup_discount prices a coup or realignment against the same board change as placing, then discounts it for the roll and the poorer Ops efficiency (0.9, provenance: guess). coup-discount-flat (1.0) split its halves 0.516 / 0.422 at 128+64 and the note says a re-run could settle it. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.8 / 0.9 / 1.0); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot distinguish a useless discount from coups mispriced elsewhere in the coup term."
+      },
+      {
+        "slug": "ablate-military",
+        "weights": {
+          "military": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate military: Military Operations unpriced (1.0 -> 0)",
+        "context": "military prices the Military Operations requirement at exactly one VP per point of deficit (rule 6.3.5 is exact; 1.0 is the principled multiplier and the field exists to tune, never varied). It was 2.0 raw against a VP worth 14-75 raw, so the requirement was priced at 3-14% of its real value before the rescale. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL -- expected, since the penalty is real VP -- and phase 2 brackets 0.5 / 2.0; covers 0 -> surprising, and a deletion candidate by the region-margin precedent. Cannot separate 'the bot should cover MilOps' from 'the bot covers it at the right rate'."
+      },
+      {
+        "slug": "ablate-vp-swing-flat",
+        "weights": {
+          "vp_swing": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate vp_swing: the flat curve (3.0 -> 1.0)",
+        "context": "per_vp(turn) = vp_base x vp_swing ** ((turn-1)/9); at 1.0 the curve is the constant, i.e. what 52bb329 shipped and d941a5b deleted before the bisect restored the step. The 1.5/2/3/4/5/6 grids (runs 35531902621's kin and 35539441015) peaked at 3.0 but never included 1.0 on the peak's own block -- the flat reading at 78-256 seeds is what called the curve inert before the restore. This is the USEFUL half of the question the grid never asked. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the flat curve returns (the default faces a change gate); upper bound below 0 -> the curve is USEFUL and 3.0 stands as tuned; covers 0 -> the peak is not doing measurable work on this block and phase 2 re-opens the flat-vs-curve question with more seeds. Cannot separate the curve shape from vp_base's level; they multiply."
+      },
+      {
+        "slug": "ablate-reply-off",
+        "weights": {
+          "reply_model": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate the reply look-ahead: strength only (reply_model 3 -> 0)",
+        "context": "The half-action-round forward search priced every placement plan as if the opponent answered. It shipped on a strength DEAD HEAT (0.497 +/- 0.032) for its behaviour: the maintainer's instrument -- breaking an opponent Battleground with one cheapest point -- fell 6.27 -> 0.08 a seat a game (tests/test_poke_rate.py). This arm reads strength only, at 1152 games where its own gate had 96. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps; upper bound below 0 -> strength-positive too; covers 0 -> consistent with its own gate. IN NO CASE does a strength read alone change this layer: the justification is behavioural and tests/test_poke_rate.py's instrument is required before any change. Cannot separate the search from reply_coup's Coup answer (kept by its own -0.059) or from the poke-rate behaviour it shipped for."
+      },
+      {
+        "slug": "grid-base",
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "title": "phase-2 grids: the shipped bot on the fresh block -- the paired reference",
+        "context": "Phase 2 of docs/notes/pi/2026-09-23-the-ablation-sweep.md: the four terms phase 1 found USEFUL get their brackets, plus vp_base's first-ever variation. Fresh block 95000-96023 + held 97000-97127 because 92000-93023 is burned by phase 1. THE RULE, written before the number and not moved after it: each grid point read paired vs grid-base, one-sided 95% by seed. LB above 0 -> that value beats the shipped one and the default faces a change gate at it. UB below 0 -> that value is worse, the shipped value stands against it. Covers 0 -> indistinguishable at 1152, no move. Both points at or below 0 -> the shipped value is the peak of what is measured; both clearing 0 on one side -> the bracket missed the peak and the next question extends that side."
+      },
+      {
+        "slug": "grid-military-05",
+        "weights": {
+          "military": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: military at half (0.5 vs 1.0)",
+        "context": "Military Operations priced at half a VP per point of deficit. Phase 1 read removal -0.043 [-0.063, -0.023]: useful. Does half capture most of it, or is 1.0 (the rule-exact multiplier) the peak? THE RULE, written before the number and not moved after it: LB above 0 -> 0.5 beats the shipped 1.0 and the default faces a change gate; UB below 0 -> 0.5 is worse, 1.0 stands; covers 0 -> no move. Cannot separate the multiplier from the exactness of rule 6.3.5 it scales."
+      },
+      {
+        "slug": "grid-military-20",
+        "weights": {
+          "military": 2.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: military at double (2.0 vs 1.0)",
+        "context": "The other bracket. 2.0 is where this sat before the rescale flattened it (the requirement was priced at 3-14% of its real value then, so the raw number means something different now). THE RULE, written before the number and not moved after it: LB above 0 -> 2.0 beats the shipped 1.0 and the default faces a change gate; UB below 0 -> worse, 1.0 stands; covers 0 -> no move. Paired with grid-military-05: a half-win here with a double-loss is a peak below 1.0 and prices a reduction."
+      },
+      {
+        "slug": "grid-progress-14",
+        "weights": {
+          "progress": 1.4
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: progress at half (1.4 vs 2.8)",
+        "context": "The presence credit at half. Phase 1 read removal -0.271 [-0.291, -0.250]: the single strongest term in the sweep. The 2026-09-15 half read 0.509 pooled at 192 with its halves violently disagreeing; this is the full-size pair it needed. THE RULE, written before the number and not moved after it: LB above 0 -> 1.4 beats the shipped 2.8 and the default faces a change gate; UB below 0 -> worse, 2.8 stands; covers 0 -> no move. Cannot see the early presence fights the credit prices except as they occur in the sample."
+      },
+      {
+        "slug": "grid-progress-56",
+        "weights": {
+          "progress": 5.6
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: progress at double (5.6 vs 2.8)",
+        "context": "The other bracket on the sweep's strongest term. 2.8 is uncalibrated (provenance: guess) and phase 1 only says the term matters, not that its size is right. THE RULE, written before the number and not moved after it: LB above 0 -> 5.6 beats the shipped 2.8 and the default faces a change gate; UB below 0 -> worse; covers 0 -> no move. Both points at or below 0 means 2.8 is the peak of the bracket."
+      },
+      {
+        "slug": "grid-region-065",
+        "weights": {
+          "region": 0.65
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: region at half (0.65 vs 1.3)",
+        "context": "The region tier term at half. Phase 1 read removal -0.040 [-0.060, -0.020]: useful even under the fitted weights. region-par (1.0) read 'free, not better' twice at 128+64. THE RULE, written before the number and not moved after it: LB above 0 -> 0.65 beats the shipped 1.3 and the default faces a change gate; UB below 0 -> worse, 1.3 stands; covers 0 -> no move. Cannot separate the term's value from the tier table it multiplies."
+      },
+      {
+        "slug": "grid-region-26",
+        "weights": {
+          "region": 2.6
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: region at double (2.6 vs 1.3)",
+        "context": "The other bracket on the region term. THE RULE, written before the number and not moved after it: LB above 0 -> 2.6 beats the shipped 1.3 and the default faces a change gate; UB below 0 -> worse; covers 0 -> no move. With grid-region-065: a half-win and a double-loss prices a reduction; both flat means 1.3 is the peak of the bracket."
+      },
+      {
+        "slug": "grid-final-05",
+        "weights": {
+          "scoring_final": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: scoring_final at half (0.5 vs 1.0)",
+        "context": "The final-scoring bucket at half its measured-odds price. Phase 1 read removal -0.025 [-0.045, -0.005]: the term the fitted country weights do NOT cover (end-of-game odds are not country importance) and the one 09-18 could not convict (-0.020 [-0.041, +0.001]). THE RULE, written before the number and not moved after it: LB above 0 -> 0.5 beats the shipped 1.0 and the default faces a change gate; UB below 0 -> worse, 1.0 stands; covers 0 -> no move. Cannot separate the odds (measured) from the bucket's price (this knob)."
+      },
+      {
+        "slug": "grid-final-20",
+        "weights": {
+          "scoring_final": 2.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: scoring_final at double (2.0 vs 1.0)",
+        "context": "The other bracket on the final-scoring price. THE RULE, written before the number and not moved after it: LB above 0 -> 2.0 beats the shipped 1.0 and the default faces a change gate; UB below 0 -> worse; covers 0 -> no move. Games end before turn 10 about 70% of the time here, so this mostly prices the tail."
+      },
+      {
+        "slug": "grid-vp-base-035",
+        "weights": {
+          "vp_base": 0.35
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: vp_base at 0.35 (vs the expert 0.5) -- the first variation ever",
+        "context": "per_vp's LEVEL, never varied by any arm (provenance: expert, the 1 Op = 2 VP Early rule). The rule cannot be expressed on the Ops side until board value is VP-denominated (the open problem in vp_base's comment), so this brackets the level empirically. THE RULE, written before the number and not moved after it: LB above 0 -> 0.35 beats the shipped 0.5 and the default faces a change gate; UB below 0 -> worse, 0.5 stands; covers 0 -> no move. Cannot separate the level from vp_swing's shape: they multiply, and vp_swing 3.0 was tuned against the 0.5 level."
+      },
+      {
+        "slug": "grid-vp-base-075",
+        "weights": {
+          "vp_base": 0.75
+        },
+        "anchor": "bc5ef93",
+        "seeds": "95000-96023",
+        "held": "97000-97127",
+        "compare_to": "grid-base",
+        "title": "grid: vp_base at 0.75 (vs the expert 0.5) -- the first variation ever",
+        "context": "The other bracket on the VP price's level. A VP at 0.75 Ops is the Late War rate applied everywhere; 0.35 is between the Early and Mid rates. THE RULE, written before the number and not moved after it: LB above 0 -> 0.75 beats the shipped 0.5 and the default faces a change gate; UB below 0 -> worse; covers 0 -> no move. With grid-vp-base-035: both at or below 0 means the expert rate is the peak of the bracket, which is the first measured support the rate has had."
       }
     ],
   "_retired": {

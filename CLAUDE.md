@@ -18,6 +18,7 @@ commit.
 | [docs/EXPERT_STRATEGY.md](docs/EXPERT_STRATEGY.md) | Outside strategy references (Sankt, Ziemowit) before calibrating a weight to "what strong players do" -- including what those sources do *not* say |
 | [.github/workflows/](.github/workflows/) | Running a gate, a drift check, a weight A/B or the full suite. Each workflow's header says what a hosted runner does that the one local box cannot, and `gate.yml`'s says which readings survive the move (the verdict) and which do not (the clock). Prefer CI; it is why these exist. |
 | [docs/EXPERT_ASKS.md](docs/EXPERT_ASKS.md) | What the maintainer still needs to price, ranked by what it unblocks, with current coverage per period |
+| [models/experiment_ledger.json](models/experiment_ledger.json) | Designing or dispatching **any** experiment arm. One record per reading this project has ever taken -- knob, run, sample, reading, and the note that tells it. Consult it FIRST (a duplicated question wastes runners and splits a telling), add the arm at dispatch and its reading at read time; `tests/test_experiment_ledger.py` fails on a registered arm with no entry |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
 non-negotiable. Code referring to "mandate #3" means that list. An
