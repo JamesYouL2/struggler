@@ -475,7 +475,14 @@ class StrategicWeights:
     # over 192 seeds and it shipped at 0.0, which left the branch it guarded
     # dead as shipped. `access` now skips a contested neighbour outright:
     # the same value, one fewer multiply, one fewer weight.)
-    region: float = 1.3
+    # The region tier term: the tier VP the board is in now, times the
+    # region's scoring urgency. 1.3 until 2026-09-24, when the phase-2
+    # grid of the ablation sweep read the double at +0.031 [+0.011,
+    # +0.052] paired over 1152 games and the half at -0.015 [-0.036,
+    # +0.006] (run 35978271735), while the term's removal reads -0.040:
+    # the bracket leans up and 1.3 under-priced a term that measurably
+    # matters. Gated on this branch before landing.
+    region: float = 2.6
     # A VP in Ops, by era: Ops are worth most while the board is empty and
     # VP most when few turns are left to convert Ops into anything, so the
     # expert's rule is 1 Op = 2 VP in the Early War (a VP is 0.5 Op), 1 Op

@@ -349,8 +349,10 @@ def test_with_the_potential_on_the_event_prices_it_too_and_the_gap_is_the_approx
 def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     """Variant b, re-pinned to the factor-2 masses. US +2 Iran on an
     empty turn-1 board, access off: `delta` and the board both read
-    19.57277167772727 under the fitted country weights as shipped from
-    2026-09-21 (21.289943394898987 under those weights on 2026-09-18,
+    24.03741814237374 under `region` 2.6 as shipped from 2026-09-24
+    (19.57277167772727 under the fitted country weights as shipped from
+    2026-09-21 with `region` at 1.3; 21.289943394898987 under those
+    weights on 2026-09-18,
     before `access` was threaded a side; 22.494949494949488 under the
     deleted tiers; under the retention urgency 41.10647617222223; at
     variant-b dating 52.9822222222). Iran is not in Southeast Asia, so
@@ -365,9 +367,12 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     bot = _no_access()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
-    # Re-pinned 2026-09-19 from 22.494949494949488 when the region-margin
-    # terms were deleted: the same board difference with one fewer summand.
-    assert expected == pytest.approx(19.57277167772727, abs=1e-9)
+    # Re-pinned 2026-09-24 from 19.57277167772727 when `region` doubled to
+    # 2.6 (the ablation sweep's phase-2 nomination, run 35978271735, gated
+    # on this branch): the moved amount is 1.3x the region summand, as the
+    # change predicts. 2026-09-19 re-pinned it from 22.494949494949488
+    # when the region-margin terms were deleted.
+    assert expected == pytest.approx(24.03741814237374, abs=1e-9)
     assert bot.delta(obs, 'Iran', own=2) == pytest.approx(expected, rel=0, abs=1e-9)
 
     t, urgency = ev.terrain(), bot._urgency
