@@ -11,6 +11,16 @@ dispatch takes, and what the number that comes back may be quoted as.
 
 ## Before dispatching
 
+- **Consult `models/experiment_ledger.json` before designing arms.** It
+  is the map of every reading this project has taken: knob, run, sample,
+  reading, and the note that tells it. An arm whose question it already
+  answers is a duplicate -- five of eleven ablation arms on 2026-09-24
+  replicated run 35306328917 at the same sample because its verdicts
+  lived only in a prose note. Log the arm there at dispatch
+  (status `in_flight`) and fill the reading at read time;
+  `tests/test_experiment_ledger.py` fails on a registered arm with no
+  entry.
+
 - **Gates need the maintainer's explicit approval** (standing pref).
   Dispatching a workflow on this repo is not outward-facing; pushing code
   is (`../queue/SKILL.md`).

@@ -1,0 +1,2170 @@
+{
+  "_what": "One record per experiment reading this project has ever taken: ablations, grids, ship gates, deletion gates, fits, anchor ladders. Harvested 2026-09-24 from .github/experiments.json (arm shapes come from there verbatim) and from every notes tree; `reading` is null where the number was not transcribed and `notes` says where the telling lives.",
+  "_how_to_use": "BEFORE designing or dispatching an arm: grep this file for the knob and read every entry for it -- an arm whose question was answered is a wasted runner and a duplicated telling (2026-09-24: five of eleven ablation arms replicated run 35306328917 because its verdicts lived only in prose). AT DISPATCH: add the arm here (status in_flight, run id after the dispatch). AT READ: fill reading/verdict/status and the note path. tests/test_experiment_ledger.py fails on an arm in the registry with no entry here.",
+  "_schema": {
+    "id": "unique slug; registry arms use their slug verbatim",
+    "kind": "ablation | grid-point | ship-gate | deletion-gate | bundle | fit | anchor | anchor-ladder | diagnostic | smoke | ablation-batch",
+    "knobs": "what was varied, name -> arm setting (dict of several for bundles)",
+    "ref": "the arm code: a SHA, branch, or era shorthand",
+    "anchor": "what it played against",
+    "seeds": "block(s), verdict+held joined by +",
+    "compare_to": "the paired base, if the reading is a paired difference",
+    "run": "the workflow run id, or null where the notes do not record one",
+    "reading": "the number as the note states it (mean [interval], or paired diff [interval]); null = not transcribed",
+    "verdict": "what the pre-registered rule said, in one line",
+    "status": "answered | in_flight | unrecorded (ran, no verdict located anywhere)",
+    "notes": "every telling of this reading; one measurement has one telling, so usually one path"
+  },
+  "_gaps": [
+    "reading=null means the number lives only in its note; the map is complete, the transcription is not (restore-chain02/04/08, restore-both, sandbox-2000, guard-sweep-*, fit-clean-*, margin-deleted, reply-gate-B/q1/q2/f5, event-scale-15-20, rb-budget-models).",
+    "verdicts located nowhere (status unrecorded): guard-sweep-* on block 50000-51023 -- if their notes exist under another name, fill them in.",
+    "drift.yml anchor runs and ordinary PR gates are not in here by design; only runs that answered a question about the bot.",
+    "the 2026-09-09..09-11 era (mcts, win-probability notes) predates the run-id discipline and is represented only where a number was quotable (vp-swing-1x, scoring-discount-055, ablate-access-chain)."
+  ],
+  "readings": [
+    {
+      "id": "base-vs-07d553a",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": null,
+      "run": 35306328917,
+      "reading": "0.467 [0.450, 0.484]",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "base-vs-v0.2.2",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.2.2",
+      "seeds": "20000-21023",
+      "compare_to": null,
+      "run": 35306328917,
+      "reading": "0.475 [0.459, 0.491]",
+      "verdict": "location",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "base-vs-v0.2.3",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.2.3",
+      "seeds": "20000-21023",
+      "compare_to": null,
+      "run": 35306328917,
+      "reading": "0.495 [0.479, 0.511]",
+      "verdict": "location",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "v0.2.3-vs-07d553a",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": "v0.2.3",
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": null,
+      "run": 35306328917,
+      "reading": "0.501 [0.485, 0.517]",
+      "verdict": "transitivity check: level",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "coup-reply-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "reply_coup": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "run": 35306328917,
+      "reading": "paired -0.059 [-0.082, -0.037]",
+      "verdict": "keep: Coup replies are worth their price",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "reply-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "reply_model": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "run": 35306328917,
+      "reading": "paired -0.056 [-0.079, -0.032]",
+      "verdict": "keep: the reply look-ahead is a strength gain (its ship reason was poke rate)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "rival-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_rival": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "run": 35306328917,
+      "reading": "paired -0.025 [-0.046, -0.004]",
+      "verdict": "keep: rival urgency is useful",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md",
+        "docs/notes/codex/2026-09-17-scoring-knob-arms.md"
+      ]
+    },
+    {
+      "id": "access-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "access": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "run": 35306328917,
+      "reading": "paired -0.038 [-0.061, -0.015]",
+      "verdict": "keep: access is useful",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "final-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_final": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "20000-21023",
+      "compare_to": "base-vs-07d553a",
+      "run": 35306328917,
+      "reading": "paired -0.020 [-0.041, +0.001]",
+      "verdict": "inconclusive lean keep: the only one whose bound touched 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "selfplay-defcon-logs",
+      "kind": "diagnostic",
+      "knobs": {},
+      "ref": null,
+      "anchor": null,
+      "seeds": "22048-22175",
+      "compare_to": null,
+      "run": 35306328917,
+      "reading": null,
+      "verdict": "diagnostic: which play loses DEFCON",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "hand-v3-main-vs-07d553a",
+      "kind": "bundle",
+      "knobs": {},
+      "ref": "70f174c",
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "compare_to": null,
+      "run": 35359674299,
+      "reading": "0.477 [0.460, 0.494]",
+      "verdict": "base (70f174c)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "hand-v3-fix-vs-07d553a",
+      "kind": "bundle",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "compare_to": "hand-v3-main-vs-07d553a",
+      "run": 35359674299,
+      "reading": "0.520 [0.503, 0.537]",
+      "verdict": "shipped: the hand-safety bundle (+0.043 paired)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "hand-v3-fix-vs-main",
+      "kind": "bundle",
+      "knobs": {},
+      "ref": null,
+      "anchor": "70f174c",
+      "seeds": "30000-31023",
+      "compare_to": null,
+      "run": 35359674299,
+      "reading": "0.550 [0.539, 0.561]",
+      "verdict": "head-to-head parent read",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "fitted-matched",
+      "kind": "grid-point",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": null,
+      "run": 35367356155,
+      "reading": "0.518 [0.502, 0.534] vs the tiers",
+      "verdict": "beats the tiers; later -0.031 vs 07d553a and +0.054 on a fresh block",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md",
+        "docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md"
+      ]
+    },
+    {
+      "id": "fitted-half",
+      "kind": "grid-point",
+      "knobs": {
+        "country_vp_scale": 1.3975
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": "fitted-matched",
+      "run": 35367356155,
+      "reading": "paired -0.036 [-0.059, -0.013]",
+      "verdict": "half is measurably worse: 2.795 is the peak",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "fitted-double",
+      "kind": "grid-point",
+      "knobs": {
+        "country_vp_scale": 5.59
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": "fitted-matched",
+      "run": 35367356155,
+      "reading": "paired -0.026 [-0.048, -0.004]",
+      "verdict": "double is measurably worse",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "fitted-no-region",
+      "kind": "ablation",
+      "knobs": {
+        "country_vp_scale": 2.795,
+        "region": 0.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": "fitted-matched",
+      "run": 35367356155,
+      "reading": "paired -0.067 [-0.089, -0.045]",
+      "verdict": "the region term is not double-counting under the fit",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "fitted-eu20",
+      "kind": "grid-point",
+      "knobs": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 20.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": "fitted-matched",
+      "run": 35367356155,
+      "reading": "paired -0.005 [-0.009, -0.002]",
+      "verdict": "40 VP (the rule) beats 20",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "fitted-eu60",
+      "kind": "grid-point",
+      "knobs": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 60.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": "fitted-matched",
+      "run": 35367356155,
+      "reading": "paired -0.004 [-0.007, -0.001]",
+      "verdict": "40 VP beats 60",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "europe-curve-k10",
+      "kind": "ablation",
+      "knobs": {
+        "europe_curve": 10.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "32000-33023",
+      "compare_to": null,
+      "run": 35387907944,
+      "reading": "0.486 [0.471, 0.501] vs the tiers",
+      "verdict": "leans worse, not measurably; not shipped",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "guard-on-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "compare_to": null,
+      "run": 35374218178,
+      "reading": "base for the guard pair (guard 1.0 as then shipped)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "guard-off-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {
+        "last_window_guard": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "compare_to": "guard-on-vs-07d553a",
+      "run": 35374218178,
+      "reading": "paired -0.001 [-0.002, +0.001]; USSR nuclear losses 37 -> 42",
+      "verdict": "keep for behaviour, not strength",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "guard-measured-vs-07d553a",
+      "kind": "grid-point",
+      "knobs": {
+        "last_window_guard": 0.43
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "30000-31023",
+      "compare_to": "guard-on-vs-07d553a",
+      "run": 35374218178,
+      "reading": "paired 0.000 (identical play over 1024)",
+      "verdict": "shipped at the measured 0.43",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "margin-base-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "58095a6",
+      "anchor": "07d553a",
+      "seeds": "44000-45023",
+      "compare_to": null,
+      "run": null,
+      "reading": "base (58095a6, margin on)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-delete-the-region-margin.md"
+      ]
+    },
+    {
+      "id": "margin-deleted-vs-07d553a",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "44000-45023",
+      "compare_to": "margin-base-vs-07d553a",
+      "run": null,
+      "reading": "the deletion measured against the anchor; the evidence is margin-off +0.001 [-0.022, +0.024]",
+      "verdict": "deleted: the one term the ablations found inert",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-delete-the-region-margin.md",
+        "docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md"
+      ]
+    },
+    {
+      "id": "restore-base",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": null,
+      "run": null,
+      "reading": "base (main as it is)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-vp2",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 2.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": "paired +0.029 [+0.009, +0.048]",
+      "verdict": "the flattened curve was costing measurable strength",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-vp15",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 1.5
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": "paired +0.021 [+0.003, +0.038]",
+      "verdict": "half the step back already helps",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-vp3",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 3.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": "paired +0.039 [+0.019, +0.059]",
+      "verdict": "the best point of the first grid; shipped 3.0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-chain04",
+      "kind": "grid-point",
+      "knobs": {
+        "access_chain": 0.4
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": null,
+      "verdict": "access_chain step; see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-chain02",
+      "kind": "grid-point",
+      "knobs": {
+        "access_chain": 0.2
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": null,
+      "verdict": "access_chain step; see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-chain08",
+      "kind": "grid-point",
+      "knobs": {
+        "access_chain": 0.8
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": null,
+      "verdict": "access_chain step; see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-both",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 2.0,
+        "access_chain": 0.4
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-base-bc",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "46000-47023",
+      "compare_to": null,
+      "run": null,
+      "reading": "base vs bc5ef93",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "restore-both-bc",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 2.0,
+        "access_chain": 0.4
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "46000-47023",
+      "compare_to": "restore-base-bc",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "fit-clean-base",
+      "kind": "fit",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "48000-49023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "the tiebreak base (two prior blocks disagreed in sign)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "fit-clean-on",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "48000-49023",
+      "compare_to": "fit-clean-base",
+      "run": null,
+      "reading": null,
+      "verdict": "the tiebreak on; see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-18-fitted-country-weights.md"
+      ]
+    },
+    {
+      "id": "guard-sweep-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "guard re-asked against the anchor; see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "guard-sweep-off",
+      "kind": "ablation",
+      "knobs": {
+        "last_window_guard": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "compare_to": "guard-sweep-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "guard-sweep-certain",
+      "kind": "grid-point",
+      "knobs": {
+        "last_window_guard": 1.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "50000-51023",
+      "compare_to": "guard-sweep-base",
+      "run": null,
+      "reading": null,
+      "verdict": "see note",
+      "status": "unrecorded",
+      "notes": [
+        "docs/notes/claude/2026-09-18-hand-planner-plan-v3.md"
+      ]
+    },
+    {
+      "id": "vp-peak-base",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "compare_to": null,
+      "run": null,
+      "reading": "base (vp_swing 3.0)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "vp-peak-4",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 4.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "compare_to": "vp-peak-base",
+      "run": null,
+      "reading": "paired +0.024 [+0.004, +0.043]",
+      "verdict": "4.0 gains too (other block than 3.0)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "vp-peak-6",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 6.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "52000-53023",
+      "compare_to": "vp-peak-base",
+      "run": null,
+      "reading": "paired +0.004 [-0.017, +0.024]",
+      "verdict": "flat by 6: a peak, not an edge",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "vp-peak-3-bc",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 3.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "52000-53023",
+      "compare_to": "vp-peak-base-bc",
+      "run": null,
+      "reading": "+0.017 [-0.002, +0.037] (closes the gap to bc5ef93: 0.483 -> 0.500)",
+      "verdict": "the strongest anchor gap closed at 3.0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "vp-peak-base-bc",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "52000-53023",
+      "compare_to": null,
+      "run": null,
+      "reading": "base vs bc5ef93",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
+      ]
+    },
+    {
+      "id": "sandbox-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "d9baa95",
+      "anchor": "07d553a",
+      "seeds": "54000-55023",
+      "compare_to": null,
+      "run": 35524307650,
+      "reading": "base (full 20000-state sandbox)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-stall-is-the-drain.md"
+      ]
+    },
+    {
+      "id": "sandbox-2000",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "54000-55023",
+      "compare_to": "sandbox-base",
+      "run": 35524307650,
+      "reading": null,
+      "verdict": "the 2000-state budget; see note",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-stall-is-the-drain.md"
+      ]
+    },
+    {
+      "id": "peak-one-block-base",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 3.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": null,
+      "run": 35539441015,
+      "reading": "0.534 [0.517, 0.551]",
+      "verdict": "base: 3.0 as shipped on one common block",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
+      ]
+    },
+    {
+      "id": "peak-one-block-vp2",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 2.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "run": 35539441015,
+      "reading": "paired -0.005",
+      "verdict": "2.0 loses the peak",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
+      ]
+    },
+    {
+      "id": "peak-one-block-vp4",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 4.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "run": 35539441015,
+      "reading": "paired -0.015 [-0.031, +0.001]",
+      "verdict": "4.0 misses a measurable loss by a thousandth",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
+      ]
+    },
+    {
+      "id": "peak-one-block-vp5",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_swing": 5.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "60000-61023",
+      "compare_to": "peak-one-block-base",
+      "run": 35539441015,
+      "reading": "paired -0.013",
+      "verdict": "the far side of the peak is in 4-6",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-the-vp-peak-on-one-block.md"
+      ]
+    },
+    {
+      "id": "fit-intransitive-base",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 0.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "62000-63023",
+      "compare_to": null,
+      "run": 35545821069,
+      "reading": "base (fit off)",
+      "verdict": "base: the intransitivity re-asked on the current bot",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-intransitivity-was-the-access-scale.md",
+        "docs/notes/claude/2026-09-21-the-leak-cost-nothing.md"
+      ]
+    },
+    {
+      "id": "fit-intransitive-on",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "62000-63023",
+      "compare_to": "fit-intransitive-base",
+      "run": 35545821069,
+      "reading": "paired +0.038 [+0.015, +0.061] vs 07d553a after the access leak fix",
+      "verdict": "the fit wins on the fixed bot",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-intransitivity-was-the-access-scale.md",
+        "docs/notes/claude/2026-09-21-the-leak-cost-nothing.md"
+      ]
+    },
+    {
+      "id": "potential-round-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "56000-56511",
+      "compare_to": null,
+      "run": 35531902621,
+      "reading": "0.541 [0.518, 0.564]",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
+      ]
+    },
+    {
+      "id": "potential-round-on",
+      "kind": "ablation",
+      "knobs": {
+        "potential": 1.0,
+        "potential_refresh": 1.0
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "56000-56511",
+      "compare_to": "potential-round-base",
+      "run": 35531902621,
+      "reading": "0.562 [0.538, 0.586]; paired +0.021 [-0.009, +0.052]",
+      "verdict": "not measured to help at 512: the 1024 verdict was asked next",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
+      ]
+    },
+    {
+      "id": "fit-bc-base",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "64000-65023",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.512 [0.494, 0.530] (896 games: one shard stuck twice)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-fit-vs-bc5ef93.md"
+      ]
+    },
+    {
+      "id": "fit-bc-on",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "64000-65023",
+      "compare_to": "fit-bc-base",
+      "run": null,
+      "reading": "0.530 [0.513, 0.547]; paired +0.023 [-0.001, +0.047] over 896 shared",
+      "verdict": "one thousandth short of the line: rule says stop",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-fit-vs-bc5ef93.md"
+      ]
+    },
+    {
+      "id": "leak-iso-fixed",
+      "kind": "ablation",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": "07d553a",
+      "seeds": "66000-67023",
+      "compare_to": null,
+      "run": 35550341433,
+      "reading": "control arm (the fix in)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-leak-cost-nothing.md"
+      ]
+    },
+    {
+      "id": "leak-iso-buggy",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "580a750f24f442be6d174b769263eed6c0529b08",
+      "anchor": "07d553a",
+      "seeds": "66000-67023",
+      "compare_to": "leak-iso-fixed",
+      "run": 35550341433,
+      "reading": "paired (buggy - fixed) +0.011 [-0.007, +0.029]",
+      "verdict": "the leak cost nothing; the intransitivity claim RETRACTED",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-leak-cost-nothing.md",
+        "docs/notes/claude/2026-09-21-the-intransitivity-was-the-access-scale.md"
+      ]
+    },
+    {
+      "id": "fit-fresh-base",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "68000-69023",
+      "compare_to": null,
+      "run": 35614516089,
+      "reading": "base (fit off)",
+      "verdict": "base: the fresh block that could answer",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md"
+      ]
+    },
+    {
+      "id": "fit-fresh-on",
+      "kind": "fit",
+      "knobs": {
+        "country_vp_scale": 2.795
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "68000-69023",
+      "compare_to": "fit-fresh-base",
+      "run": 35614516089,
+      "reading": "paired +0.054 [+0.031, +0.078] over 1020",
+      "verdict": "SHIPPED: the tiers were deleted on this",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md"
+      ]
+    },
+    {
+      "id": "refit-base",
+      "kind": "fit",
+      "knobs": {},
+      "ref": "15caae4",
+      "anchor": "bc5ef93",
+      "seeds": "70000-71023",
+      "compare_to": null,
+      "run": 35777206185,
+      "reading": "base (shipped weights fitted on 598e4d1)",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-refit-at-current-main.md"
+      ]
+    },
+    {
+      "id": "refit-on",
+      "kind": "fit",
+      "knobs": {},
+      "ref": "a802539",
+      "anchor": "bc5ef93",
+      "seeds": "70000-71023",
+      "compare_to": "refit-base",
+      "run": 35777206185,
+      "reading": "0.483 [0.468, 0.498] over 1152 paired",
+      "verdict": "LOST: the refit does not ship; the staleness argument is spent",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-refit-at-current-main.md"
+      ]
+    },
+    {
+      "id": "potential-verdict-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "72000-73023",
+      "compare_to": null,
+      "run": 35790097695,
+      "reading": "base",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-potential-verdict.md"
+      ]
+    },
+    {
+      "id": "potential-verdict-on",
+      "kind": "ablation",
+      "knobs": {
+        "potential": 1.0,
+        "potential_refresh": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "72000-73023",
+      "compare_to": "potential-verdict-base",
+      "run": 35790097695,
+      "reading": "paired +0.021 [-0.000, +0.042] over 1023",
+      "verdict": "rule says stop: potential stays 0; VP-rebuild step 5 closed",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-potential-verdict.md"
+      ]
+    },
+    {
+      "id": "hold-option-base",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": null,
+      "run": 35753235236,
+      "reading": "base",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-hold-option-grid.md"
+      ]
+    },
+    {
+      "id": "hold-option-025",
+      "kind": "grid-point",
+      "knobs": {
+        "hold_option": 0.25
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "run": 35753235236,
+      "reading": "paired -0.004 [-0.012, +0.005]",
+      "verdict": "nothing above 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-hold-option-grid.md"
+      ]
+    },
+    {
+      "id": "hold-option-05",
+      "kind": "grid-point",
+      "knobs": {
+        "hold_option": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "run": 35753235236,
+      "reading": "paired -0.005 [-0.018, +0.007]",
+      "verdict": "nothing above 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-hold-option-grid.md"
+      ]
+    },
+    {
+      "id": "hold-option-10",
+      "kind": "grid-point",
+      "knobs": {
+        "hold_option": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "74000-75023",
+      "compare_to": "hold-option-base",
+      "run": 35753235236,
+      "reading": "paired -0.031 [-0.047, -0.016]",
+      "verdict": "a full card of option value measurably costs",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-22-the-hold-option-grid.md"
+      ]
+    },
+    {
+      "id": "hand-assignment-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "78000-79023+89000-89127",
+      "compare_to": null,
+      "run": 35814771005,
+      "reading": "base",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-assignment-planner-tail-reads.md"
+      ]
+    },
+    {
+      "id": "hand-assignment-on",
+      "kind": "ablation",
+      "knobs": {
+        "hand_assignment": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "78000-79023+89000-89127",
+      "compare_to": "hand-assignment-base",
+      "run": 35814771005,
+      "reading": "paired -0.240 [-0.262, -0.218] over 1152",
+      "verdict": "gate SHUT: the loss is a tie-break defect, not allocation",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-assignment-planner-tail-reads.md",
+        "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
+      ]
+    },
+    {
+      "id": "ablate-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": null,
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-access",
+      "kind": "ablation",
+      "knobs": {
+        "access": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-region",
+      "kind": "ablation",
+      "knobs": {
+        "region": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-progress",
+      "kind": "ablation",
+      "knobs": {
+        "progress": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-scoring-discount",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-scoring-rival",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_rival": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-scoring-final",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_final": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-coup-discount",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-military",
+      "kind": "ablation",
+      "knobs": {
+        "military": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-vp-swing-flat",
+      "kind": "ablation",
+      "knobs": {
+        "vp_swing": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "ablate-reply-off",
+      "kind": "ablation",
+      "knobs": {
+        "reply_model": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "92000-93023+94000-94127",
+      "compare_to": "ablate-base",
+      "run": 35937042894,
+      "reading": null,
+      "verdict": "in flight: rule in the design note, written before the number",
+      "status": "in_flight",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "region-par-rerun",
+      "kind": "grid-point",
+      "knobs": {
+        "region": 1.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "9700-9827+9828-9891",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.510 (halves 0.498/0.535)",
+      "verdict": "free at par, not better; evidence only",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md"
+      ]
+    },
+    {
+      "id": "access-contested-off-rerun",
+      "kind": "ablation",
+      "knobs": {
+        "access_contested": 0.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "9892-10019+10020-10083",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.523 (0.539/0.492)",
+      "verdict": "contested reach at zero is free; later deleted from the code",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md"
+      ]
+    },
+    {
+      "id": "coup-discount-flat",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "10084-10211+10212-10275",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.485 (0.516/0.422)",
+      "verdict": "halves disagreed; inconclusive at this size",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md"
+      ]
+    },
+    {
+      "id": "access-half",
+      "kind": "grid-point",
+      "knobs": {
+        "access": 0.75
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "10276-10403+10404-10467",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.481 (0.479/0.484)",
+      "verdict": "do not shrink access",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md"
+      ]
+    },
+    {
+      "id": "control-half",
+      "kind": "grid-point",
+      "knobs": {
+        "control": 0.75
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "10468-10595+10596-10659",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.484 (0.502/0.449)",
+      "verdict": "inconclusive lean",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md"
+      ]
+    },
+    {
+      "id": "margin-bg-half",
+      "kind": "grid-point",
+      "knobs": {
+        "margin_battleground": 0.125
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "10660-10787+10788-10851",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.538 (0.553/0.508)",
+      "verdict": "most promising shrink; the margin was later deleted as inert anyway",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md",
+        "docs/notes/claude/2026-09-19-delete-the-region-margin.md"
+      ]
+    },
+    {
+      "id": "margin-country-half",
+      "kind": "grid-point",
+      "knobs": {
+        "margin_country": 0.025
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "10852-10979+10980-11043",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.502 (0.484/0.539)",
+      "verdict": "inconclusive lean",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md",
+        "docs/notes/claude/2026-09-19-delete-the-region-margin.md"
+      ]
+    },
+    {
+      "id": "progress-half",
+      "kind": "grid-point",
+      "knobs": {
+        "progress": 1.4
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "11044-11171+11172-11235",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.509 (0.547/0.434)",
+      "verdict": "halves disagreed; the 0.01 arm had read removal catastrophic",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md",
+        "docs/notes/claude/2026-09-12-ablations-on-ci.md"
+      ]
+    },
+    {
+      "id": "scoring-rival-half",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_rival": 0.5
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "11236-11363+11364-11427",
+      "compare_to": null,
+      "run": 35022058789,
+      "reading": "pooled 0.517 (0.490/0.570); re-run post-F3 as 0.497 +/- 0.035 (run in the knob note)",
+      "verdict": "shrinking leans worse, monotone with 0.25",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-nine-weight-arms.md",
+        "docs/notes/codex/2026-09-17-scoring-knob-arms.md"
+      ]
+    },
+    {
+      "id": "scoring-hand-premium",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_hand": 1.25
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "11428-11555+11556-11619",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.514 +/- 0.034 (post-F3 knob run)",
+      "verdict": "free but nothing above the flat 1.0; the bonus stays priced at zero",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-17-scoring-knob-arms.md"
+      ]
+    },
+    {
+      "id": "scoring-rival-quarter",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_rival": 0.25
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "11620-11747+11748-11811",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.466 +/- 0.035 (post-F3 knob run)",
+      "verdict": "the far side of the monotone ordering: shrinking hurts",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-17-scoring-knob-arms.md"
+      ]
+    },
+    {
+      "id": "seven-arm-batch-2026-09-12",
+      "kind": "ablation-batch",
+      "knobs": {
+        "coup_discount": 1.0,
+        "first_mover": 0.0,
+        "margin_battleground": 0.0,
+        "margin_country": 0.0,
+        "progress": 0.01,
+        "region": 1.0,
+        "reply_model": 0.0,
+        "scoring_hand": 1.0
+      },
+      "ref": "b721744",
+      "anchor": "b721744",
+      "seeds": "9400-9527+9528-9655",
+      "compare_to": null,
+      "run": 34737646819,
+      "reading": "seven arms, one runner each, curtailed at 76-212 of 256 games: coup-discount-1 0.526, first-mover-0 0.526, margin-guesses-0 0.494, progress-001 0.354 REJECTED, region-1 0.506, reply-model-0 0.431 REJECTED, scoring-hand-1 0.493",
+      "verdict": "evidence only (128-seed era, curtailed)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-ablations-on-ci.md"
+      ]
+    },
+    {
+      "id": "progress-001",
+      "kind": "ablation",
+      "knobs": {
+        "progress": 0.01
+      },
+      "ref": "b721744",
+      "anchor": "b721744",
+      "seeds": "9400-9527+9528-9655",
+      "compare_to": null,
+      "run": 34737659633,
+      "reading": "0.354 +/- 0.034 over 77",
+      "verdict": "REJECTED at 1%: presence credit is load-bearing",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-ablations-on-ci.md"
+      ]
+    },
+    {
+      "id": "reply-model-0-2026-09-12",
+      "kind": "ablation",
+      "knobs": {
+        "reply_model": 0.0
+      },
+      "ref": "b721744",
+      "anchor": "b721744",
+      "seeds": "9400-9527+9528-9655",
+      "compare_to": null,
+      "run": 34737665853,
+      "reading": "0.431 +/- 0.028 over 124",
+      "verdict": "REJECTED: removal hurts even the defect-riddled search",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-ablations-on-ci.md"
+      ]
+    },
+    {
+      "id": "vp-swing-1x-2026-09-12",
+      "kind": "ablation",
+      "knobs": {
+        "vp_swing": 1.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "(80-seed era)",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.493 +/- 0.096 over 39",
+      "verdict": "flat vs the old 2.0: not a measurable difference either way",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-vp-swing-1x.md"
+      ]
+    },
+    {
+      "id": "scoring-discount-055",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_discount": 0.55
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "(80-seed era)",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.438 +/- 0.079 over 40",
+      "verdict": "DROPPED as confounded (fitted two effects at once); never re-run",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-scoring-discount-055.md"
+      ]
+    },
+    {
+      "id": "ablate-access-chain-2026-09-12",
+      "kind": "ablation",
+      "knobs": {
+        "access_chain": 0.4
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "(109-game run)",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.468 +/- 0.079 over 55",
+      "verdict": "evidence only",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-ablate-access-chain.md"
+      ]
+    },
+    {
+      "id": "gate-ladder-2026-09-12",
+      "kind": "anchor-ladder",
+      "knobs": {},
+      "ref": null,
+      "anchor": "05b6690, 9b90ef0, c0ccd95, bc5ef93, 52bb329",
+      "seeds": "9400-9655",
+      "compare_to": null,
+      "run": 34736918880,
+      "reading": "HEAD vs anchors: 05b6690 0.520 ACCEPTED; 9b90ef0 0.453 ACCEPTED (upper 0.504); c0ccd95 0.447 REJECTED; bc5ef93 0.496 ACCEPTED; 52bb329 0.518 ACCEPTED",
+      "verdict": "located the regression since 05b6690",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-12-gate-ladder-since-05b6690.md",
+        "docs/notes/claude/2026-09-13-overnight-readings.md"
+      ]
+    },
+    {
+      "id": "route-decay-gate",
+      "kind": "ship-gate",
+      "knobs": {
+        "access_decay": "route decay in"
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.498 +/- 0.020 over 128, every game played",
+      "verdict": "ACCEPTED (not measurably worse)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-13-overnight-readings.md"
+      ]
+    },
+    {
+      "id": "first-mover-off-full",
+      "kind": "ablation",
+      "knobs": {
+        "first_mover": 0.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "256",
+      "compare_to": null,
+      "run": 34747658364,
+      "reading": "0.513 [0.475, 0.550] over 256",
+      "verdict": "removal reads level-to-better; deletion gated next",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-13-first-mover-deletion-gate.md"
+      ]
+    },
+    {
+      "id": "first-mover-deletion-gate",
+      "kind": "deletion-gate",
+      "knobs": {
+        "first_mover": "deleted"
+      },
+      "ref": "delete/first-mover",
+      "anchor": "1cfd08b",
+      "seeds": "128",
+      "compare_to": null,
+      "run": null,
+      "reading": "0.484 +/- 0.028 over 128",
+      "verdict": "ACCEPTED; the term is deleted (#130)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-13-first-mover-deletion-gate.md"
+      ]
+    },
+    {
+      "id": "coup-discount-off-full",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "256",
+      "compare_to": null,
+      "run": 34747654283,
+      "reading": "0.467 [0.428, 0.506] over 256, every seed",
+      "verdict": "REJECTED: removal leans harmful; the discount stays 0.9",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-13-coup-discount-experiment-and-gate.md"
+      ]
+    },
+    {
+      "id": "coup-discount-deletion-gate",
+      "kind": "deletion-gate",
+      "knobs": {
+        "coup_discount": "deleted"
+      },
+      "ref": "delete/coup-discount",
+      "anchor": "07d553a",
+      "seeds": "128",
+      "compare_to": null,
+      "run": 34750946023,
+      "reading": "0.486 +/- 0.027 over 128",
+      "verdict": "ACCEPTED vs the anchor; never merged (branch deleted 2026-09-24)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-13-coup-discount-experiment-and-gate.md"
+      ]
+    },
+    {
+      "id": "deck-tracking-ship-gate",
+      "kind": "ship-gate",
+      "knobs": {
+        "scoring_rival": 1.0
+      },
+      "ref": "deck tracking",
+      "anchor": "35182ef",
+      "seeds": "128",
+      "compare_to": null,
+      "run": 34990361093,
+      "reading": "0.520 +/- 0.025 over 128",
+      "verdict": "ACCEPTED; shipped",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-15-deck-tracking-rival-urgency.md"
+      ]
+    },
+    {
+      "id": "reply-gate-B",
+      "kind": "ship-gate",
+      "knobs": {
+        "reply_coup": 1.0
+      },
+      "ref": "experiment/reply-coup-only",
+      "anchor": "930dfdc",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 34913877037,
+      "reading": "see note",
+      "verdict": "B ships (coups as replies)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-reply-ablations-and-corpus-recapture.md",
+        "docs/notes/codex/2026-09-14-reply-gate-verdicts.md"
+      ]
+    },
+    {
+      "id": "reply-gate-no-q1",
+      "kind": "ablation",
+      "knobs": {
+        "q1 fix": "reverted"
+      },
+      "ref": "experiment/reply-no-q1",
+      "anchor": "930dfdc",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 34913881138,
+      "reading": "see note",
+      "verdict": "the fix stays",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-reply-ablations-and-corpus-recapture.md",
+        "docs/notes/codex/2026-09-14-reply-gate-verdicts.md"
+      ]
+    },
+    {
+      "id": "reply-gate-no-q2",
+      "kind": "ablation",
+      "knobs": {
+        "q2 fix": "reverted"
+      },
+      "ref": "experiment/reply-no-q2",
+      "anchor": "930dfdc",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 34913885256,
+      "reading": "see note",
+      "verdict": "the fix stays",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-reply-ablations-and-corpus-recapture.md",
+        "docs/notes/codex/2026-09-14-reply-gate-verdicts.md"
+      ]
+    },
+    {
+      "id": "reply-gate-no-f5",
+      "kind": "ablation",
+      "knobs": {
+        "f5 fix": "reverted"
+      },
+      "ref": "experiment/reply-no-f5",
+      "anchor": "930dfdc",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 34913888786,
+      "reading": "see note",
+      "verdict": "the fix stays",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-reply-ablations-and-corpus-recapture.md",
+        "docs/notes/codex/2026-09-14-reply-gate-verdicts.md"
+      ]
+    },
+    {
+      "id": "five-bucket-bundle-gate",
+      "kind": "ship-gate",
+      "knobs": {
+        "five buckets + removals + reply-coup revert": "stacked"
+      },
+      "ref": "experiment/scoring-five-bucket",
+      "anchor": "35182ef (stale base)",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 34987717417,
+      "reading": "see note",
+      "verdict": "joint gate on a stale base; superseded by the re-gate",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-scoring-buckets-and-removals.md"
+      ]
+    },
+    {
+      "id": "five-bucket-regate",
+      "kind": "ship-gate",
+      "knobs": {
+        "five buckets + removals + reply-coup revert": "stacked"
+      },
+      "ref": "experiment/scoring-five-bucket",
+      "anchor": "339d5ac",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 35008792222,
+      "reading": "0.449 +/- 0.028 over 128, upper 0.494",
+      "verdict": "REJECTED: NOT merged; bisect pointed at the reply-coup revert",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-scoring-buckets-and-removals.md"
+      ]
+    },
+    {
+      "id": "no-reply-bisect",
+      "kind": "ablation",
+      "knobs": {
+        "five buckets + removals": "bundle without the reply-coup revert"
+      },
+      "ref": "experiment/scoring-five-no-reply",
+      "anchor": "339d5ac",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 35017324662,
+      "reading": "0.506 +/- 0.027 over 128, upper 0.550",
+      "verdict": "ACCEPTED: the reply-coup revert was the loser (+0.057 pooled to drop it)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-scoring-buckets-and-removals.md"
+      ]
+    },
+    {
+      "id": "five-bucket-clean-gate",
+      "kind": "ship-gate",
+      "knobs": {
+        "five buckets + removals": "bundle"
+      },
+      "ref": "experiment/five-bucket-clean",
+      "anchor": "4ea54c7",
+      "seeds": "128+128",
+      "compare_to": null,
+      "run": 35042129019,
+      "reading": "0.506 +/- 0.027 over 128, upper 0.550",
+      "verdict": "ACCEPTED; merged to main",
+      "status": "answered",
+      "notes": [
+        "docs/notes/codex/2026-09-14-scoring-buckets-and-removals.md"
+      ]
+    },
+    {
+      "id": "planner-strict-lead",
+      "kind": "ablation",
+      "knobs": {
+        "hand_assignment": 1.0,
+        "lead rule": "strict only"
+      },
+      "ref": "fix/hand-planner-lead",
+      "anchor": "bc5ef93",
+      "seeds": "~1152",
+      "compare_to": "hand-assignment-base",
+      "run": 35844260343,
+      "reading": "paired -0.061 [-0.090, -0.032], stopped at the halfway check",
+      "verdict": "still a loss: the ordering fix alone does not rescue the planner",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
+      ]
+    },
+    {
+      "id": "planner-hold-worst",
+      "kind": "ablation",
+      "knobs": {
+        "hand_assignment": 1.0,
+        "hold rule": "keep the worst"
+      },
+      "ref": "fix/hand-planner-hold-worst",
+      "anchor": "bc5ef93",
+      "seeds": "~1152",
+      "compare_to": "hand-assignment-base",
+      "run": 35845098170,
+      "reading": "paired -0.088 [-0.117, -0.060], stopped at the halfway check",
+      "verdict": "a loss",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
+      ]
+    },
+    {
+      "id": "planner-headline-only",
+      "kind": "ablation",
+      "knobs": {
+        "hand_assignment": 1.0,
+        "plan scope": "headline only"
+      },
+      "ref": "fix/hand-planner-headline-only",
+      "anchor": "bc5ef93",
+      "seeds": "1148",
+      "compare_to": "hand-assignment-base",
+      "run": 35858542880,
+      "reading": "paired -0.005 [-0.023, +0.014]; USSR nuclear losses 25 -> 55",
+      "verdict": "level on strength, worse on nukes: gate shut",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
+      ]
+    },
+    {
+      "id": "event-scale-15-20",
+      "kind": "grid-point",
+      "knobs": {
+        "event_scale": [
+          1.5,
+          2.0
+        ]
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "82000-83023",
+      "compare_to": "event-scale-base",
+      "run": 35859412267,
+      "reading": "see note (run failed on shards; the interim read paired)",
+      "verdict": "the question: is event strength scaled too low",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-23-event-scale.md"
+      ]
+    },
+    {
+      "id": "smoke-ablate",
+      "kind": "smoke",
+      "knobs": {
+        "scoring_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "300-303+400-403",
+      "compare_to": null,
+      "run": 35936354905,
+      "reading": "none taken",
+      "verdict": "machinery smoke for the ablation sweep",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "rb-budget-models-2026-09-19",
+      "kind": "ablation",
+      "knobs": {
+        "reply_model": [
+          1.0,
+          4.0
+        ],
+        "reply_ops": 4.0
+      },
+      "ref": null,
+      "anchor": "v0.2.1",
+      "seeds": "see note",
+      "compare_to": "rb-base-vs-v0.2.1",
+      "run": 35457740325,
+      "reading": "neither closes the gap to v0.2.1",
+      "verdict": "reply budget models 1@4 and 4 both fail; model 3 stands",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-19-reply-budget-best-card.md"
+      ]
+    }
+  ]
+}
