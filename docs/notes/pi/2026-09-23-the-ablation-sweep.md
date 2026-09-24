@@ -129,6 +129,56 @@ strength read does not measure the reply layer's actual justification --
 behaviour -- so no change to it follows from strength alone, and
 `tests/test_poke_rate.py`'s instrument is required before any.
 
+## Phase 2 reads: run 35978271735 (read 2026-09-24)
+
+1152 pooled games a pair (shared 1149-1151; ten shard jobs failed mid-run
+and the wave machinery re-covered every arm to 9 ok shards). Rule applied
+as written above, before the number:
+
+| point | paired (point - grid-base) | branch | verdict |
+| --- | --- | --- | --- |
+| `scoring_final` 0.5 | **+0.027** [+0.008, +0.046] | LB > 0 | beats the shipped 1.0; **nominated for a change gate** |
+| `scoring_final` 2.0 | **+0.023** [+0.004, +0.043] | LB > 0 | also beats 1.0; **nominated too** |
+| `military` 2.0 | **+0.026** [+0.007, +0.045] | LB > 0 | beats the shipped 1.0; **nominated** |
+| `military` 0.5 | +0.007 [-0.010, +0.025] | covers 0 | no move |
+| `region` 2.6 | **+0.031** [+0.011, +0.052] | LB > 0 | beats the shipped 1.3; **nominated** |
+| `region` 0.65 | -0.015 [-0.036, +0.006] | covers 0 | no move |
+| `progress` 1.4 | -0.028 [-0.049, -0.006] | UB < 0 | worse: 2.8 stands against it |
+| `progress` 5.6 | -0.014 [-0.036, +0.007] | covers 0 | no move: **2.8 is the peak of the bracket** |
+| `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
+| `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
+
+### What the rule does NOT decide, said now rather than invented later
+
+`scoring_final` cleared at BOTH points -- 0.5 and 2.0, on opposite sides
+of the shipped 1.0. The rule nominates each point individually ("LB
+above 0 -> that value beats the shipped one") but orders nothing between
+TWO clearing points, and their intervals overlap (+0.027 vs +0.023, not
+measured apart). Both cannot ship; the frozen text cannot pick. The
+honest reading: **1.0 is measured worse than both of its neighbours** --
+not a smooth optimum, and possibly one true point and one near-miss
+(both lower bounds clear zero by 0.008 and 0.004). The deciding
+measurement is one arm -- 0.5 against 2.0 directly, paired -- with its
+rule written first. It is an experiment, not a gate, and it is the only
+thing that can say which value a change gate carries.
+
+### The nominations (a change gate each -- the maintainer's call)
+
+Three defaults face a gate, and they are coherent as a direction: the
+value terms are UNDER-weighted as shipped. `region` 2.6 (+0.031) with
+phase 1's removal at -0.040 says the term matters and 1.3 is too small;
+`military` 2.0 (+0.026) says the rule-exact 1.0 is too small (2.0 sat
+here once, before the rescale flattened it); `scoring_final` says its
+price is wrong somewhere -- which side is the tie-break's question.
+`progress` and `vp_base` are the two brackets whose shipped values are
+the peak: nothing to gate there.
+
+What none of this settles: every nomination is ONE block's paired read
+at the lower edge of its interval (lower bounds +0.004 to +0.011), and
+three clearances out of ten points is about what one false positive per
+twenty predicts. "Beats the shipped value" here means exactly that --
+the gate is what turns a nomination into a default.
+
 ## Phase 1 reads: run 35937042894 (read 2026-09-24)
 
 1152 pooled games a pair (shared seeds 1147-1151; every arm pooled 9 ok
