@@ -129,15 +129,97 @@ strength read does not measure the reply layer's actual justification --
 behaviour -- so no change to it follows from strength alone, and
 `tests/test_poke_rate.py`'s instrument is required before any.
 
-## Phase 2: tuning grids (only for phase-1 survivors)
+## Phase 1 reads: run 35937042894 (read 2026-09-24)
 
-Separate dispatch, because nothing may depend on an earlier verdict
-while unattended -- the arm sets are chosen after the phase-1 reads.
-Shape per survivor: current value bracketed by half and double on one
-fresh block against a fresh `*-base`, the `vp_swing` grid's shape. Also
-queued for phase 2 regardless of phase 1: `access_decay` (1.445 is
-measured-derived from one conversion rate; brackets 1.2 / 1.8) and
-`vp_base` (expert 0.5, never varied; brackets 0.35 / 0.75).
+1152 pooled games a pair (shared seeds 1147-1151; every arm pooled 9 ok
+shards -- ten shard jobs failed mid-run and the wave machinery re-covered
+them). The rule applied as written above, before the number:
+
+| arm | paired (arm - base) | branch | verdict |
+| --- | --- | --- | --- |
+| `ablate-progress` | **-0.271** [-0.291, -0.250] | (b) | USEFUL, overwhelmingly: presence credit is load-bearing. Phase 2 grids it |
+| `ablate-military` | **-0.043** [-0.063, -0.023] | (b) | USEFUL: MilOps at 1 VP/Op earns its keep. Phase 2 grids it |
+| `ablate-region` | **-0.040** [-0.060, -0.020] | (b) | USEFUL: the region tier term matters even under the fitted weights. Phase 2 grids it |
+| `ablate-vp-swing-flat` | **-0.026** [-0.044, -0.008] | (b) | USEFUL: the curve beats flat; 3.0 stands as tuned (the grid's missing point is now measured) |
+| `ablate-scoring-final` | **-0.025** [-0.045, -0.005] | (b) | USEFUL: the final-scoring bucket clears zero where 35306328917's -0.020 [-0.041, +0.001] grazed it. Phase 2 grids it |
+| `ablate-access` | -0.011 [-0.032, +0.011] | (c) | deletion candidate: the whole access term is not measurable at 1150 games. Phase 2 (its decay grid) cancelled |
+| `ablate-coup-discount` | -0.005 [-0.025, +0.015] | (c) | deletion candidate: 0.9 vs 1.0 not measurable. Phase 2 (its grid) cancelled |
+| `ablate-scoring-rival` | +0.006 [-0.014, +0.026] | (c) | deletion candidate: the rival urgency not measurable -- and the point estimate moved sign vs 09-18. Phase 2 (its grid) cancelled |
+| `ablate-reply-off` | -0.016 [-0.038, +0.006] | arm context | consistent with its own gate (a strength dead heat at 96 seeds). **No change follows from this alone**; the poke-rate instrument is required before any |
+
+And one read that is not an ablation:
+
+| `ablate-scoring-discount` | +0.000 [+0.000, +0.000] | **INVALID** |
+
+`scoring_discount` is **dead code**. The arm played byte-identical to
+base -- same score 0.540, same seats 0.596/0.484, same signed VP, same
+nuke split -- because nothing reads the field: `_scoring_weight_uncached`
+(policy.py:1762), the scoring term's only consumer, reads
+`scoring_hand`, `scoring_rival` and `scoring_final` and says in its own
+comment "No residual discount yet: 1.0 is the documented
+documented baseline until a measurement asks for one". The shipped
+default of 0.8 describes a bot that does not exist; play has run
+undiscounted since the value rebuild. The identical rows are stronger
+proof than the grep. Second dead default found this sweep after
+`reply_ops`.
+
+### The replications against run 35306328917 (the pre-registered question)
+
+The 09-18 reads were on the tiers bot, before the fitted weights, the
+margin deletion and vp_swing 3.0. What moved:
+
+| knob | 09-18 (tiers bot) | now (fitted bot) |
+| --- | --- | --- |
+| access off | -0.038 [-0.061, -0.015] measurable | -0.011 [-0.032, +0.011] covers 0 |
+| reply off | -0.056 [-0.079, -0.032] measurable | -0.016 [-0.038, +0.006] covers 0 |
+| rival off | -0.025 [-0.046, -0.004] measurable | +0.006 [-0.014, +0.026] covers 0, sign moved |
+| final off | -0.020 [-0.041, +0.001] grazed | -0.025 [-0.045, -0.005] now clears |
+
+The pre-registered note said a moved sign would be this sweep's most
+interesting result. What happened is broader: **the fitted rebuild
+absorbed three of the 09-18 gains** -- access, the reply look-ahead and
+rival urgency were measurable on the tiers bot and are inside noise on
+the fitted one, where the fitted country weights price much of what they
+approximated. The one that moved the other way (final scoring) is the
+term the fitted weights do NOT cover -- end-of-game odds are not country
+importance. That is a coherent story and it is a story, not a mechanism:
+nothing here isolates the interaction.
+
+## Phase 2: the arms and the rule (written before the number)
+
+Survivors only (branch (b) above), the vp_swing grid's shape -- half and
+double bracket the shipped value -- plus the vp_base grid the design
+queued regardless. Fresh block `95000-96023` + held `97000-97127`,
+anchor `bc5ef93`, all paired against `grid-base` on identical machinery:
+
+| arm | weights |
+| --- | --- |
+| `grid-base` | -- (the shipped bot again, on the fresh block) |
+| `grid-military-05` / `grid-military-20` | `military` 0.5 / 2.0 |
+| `grid-progress-14` / `grid-progress-56` | `progress` 1.4 / 5.6 |
+| `grid-region-065` / `grid-region-26` | `region` 0.65 / 2.6 |
+| `grid-final-05` / `grid-final-20` | `scoring_final` 0.5 / 2.0 |
+| `grid-vp-base-035` / `grid-vp-base-075` | `vp_base` 0.35 / 0.75 (never varied; expert 0.5) |
+
+**The rule, before the number:** each point read paired vs `grid-base`.
+LB above 0 -> that value beats the shipped one and the default faces a
+change gate at it (gate first). UB below 0 -> that value is worse and the
+shipped value stands against it. Covers 0 -> indistinguishable at 1152
+and no move. Both points at or below 0 means the shipped value is the
+peak of what is measured; both clearing 0 on one side means the bracket
+missed the peak and the next question extends that side. A half that
+beats full while double loses is a peak below the shipped value and
+prices a reduction.
+
+Deliberately NOT in phase 2: `access_decay` (the design queued it
+regardless, but `access` itself is now a deletion candidate -- its fate
+is the maintainer's and a gate, and a decay grid on a term headed for
+deletion measures nothing durable); `scoring_discount` (dead -- no grid
+can touch it); `coup_discount` and `scoring_rival` grids (rule (c)
+cancelled them). The three deletion candidates -- `access`,
+`coup_discount`, `scoring_rival` -- and the two dead defaults --
+`scoring_discount`, `reply_ops` -- go to the maintainer: deletion is a
+code change and ships through a gate, the region-margin precedent.
 
 ## The mechanism gap: SurvivalPrior
 

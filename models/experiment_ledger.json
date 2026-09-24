@@ -12,7 +12,7 @@
     "run": "the workflow run id, or null where the notes do not record one",
     "reading": "the number as the note states it (mean [interval], or paired diff [interval]); null = not transcribed",
     "verdict": "what the pre-registered rule said, in one line",
-    "status": "answered | in_flight | unrecorded (ran, no verdict located anywhere)",
+    "status": "answered | planned (registered, not dispatched) | in_flight | unrecorded (ran, no verdict located anywhere)",
     "notes": "every telling of this reading; one measurement has one telling, so usually one path"
   },
   "_gaps": [
@@ -1271,9 +1271,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": null,
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "0.540 [0.524, 0.556]",
+      "verdict": "base",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1289,9 +1289,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.011 [-0.032, +0.011]",
+      "verdict": "rule (c): deletion candidate -- the whole access term inside noise on the fitted bot (was -0.038 measurable on the tiers bot)",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1307,9 +1307,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.040 [-0.060, -0.020]",
+      "verdict": "rule (b): USEFUL -- keep, phase 2 grids it",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1325,9 +1325,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.271 [-0.291, -0.250]",
+      "verdict": "rule (b): USEFUL, the sweep's strongest term -- keep, phase 2 grids it",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1343,9 +1343,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired +0.000 [+0.000, +0.000]; rows byte-identical to base",
+      "verdict": "INVALID as an ablation: scoring_discount is dead code (nothing reads the field; _scoring_weight_uncached says so). Second dead default after reply_ops",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1361,9 +1361,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired +0.006 [-0.014, +0.026]",
+      "verdict": "rule (c): deletion candidate -- inside noise, sign moved vs 09-18's -0.025",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1379,9 +1379,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.025 [-0.045, -0.005]",
+      "verdict": "rule (b): USEFUL -- clears where 09-18 grazed; phase 2 grids it",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1397,9 +1397,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.005 [-0.025, +0.015]",
+      "verdict": "rule (c): deletion candidate -- 0.9 vs 1.0 inside noise",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1415,9 +1415,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.043 [-0.063, -0.023]",
+      "verdict": "rule (b): USEFUL -- keep, phase 2 grids it",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1433,9 +1433,9 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
-      "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "reading": "paired -0.026 [-0.044, -0.008]",
+      "verdict": "rule (b): the curve is USEFUL; 3.0 stands as tuned (the grid's flat point finally measured)",
+      "status": "answered",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]
@@ -1451,9 +1451,205 @@
       "seeds": "92000-93023+94000-94127",
       "compare_to": "ablate-base",
       "run": 35937042894,
+      "reading": "paired -0.016 [-0.038, +0.006]",
+      "verdict": "consistent with its own gate (strength dead heat); no change follows -- the poke-rate instrument is required",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-base",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": null,
+      "run": null,
       "reading": null,
-      "verdict": "in flight: rule in the design note, written before the number",
-      "status": "in_flight",
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-military-05",
+      "kind": "grid-point",
+      "knobs": {
+        "military": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-military-20",
+      "kind": "grid-point",
+      "knobs": {
+        "military": 2.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-progress-14",
+      "kind": "grid-point",
+      "knobs": {
+        "progress": 1.4
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-progress-56",
+      "kind": "grid-point",
+      "knobs": {
+        "progress": 5.6
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-region-065",
+      "kind": "grid-point",
+      "knobs": {
+        "region": 0.65
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-region-26",
+      "kind": "grid-point",
+      "knobs": {
+        "region": 2.6
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-final-05",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_final": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-final-20",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_final": 2.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-vp-base-035",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_base": 0.35
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "grid-vp-base-075",
+      "kind": "grid-point",
+      "knobs": {
+        "vp_base": 0.75
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "95000-96023+97000-97127",
+      "compare_to": "grid-base",
+      "run": null,
+      "reading": null,
+      "verdict": "phase-2 grid: the rule is in the design note, written before the number",
+      "status": "planned",
       "notes": [
         "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
       ]

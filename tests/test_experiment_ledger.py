@@ -19,7 +19,7 @@ LEDGER = ROOT / 'models/experiment_ledger.json'
 REGISTRY = ROOT / '.github/experiments.json'
 
 REQUIRED = {'id', 'kind', 'knobs', 'run', 'reading', 'verdict', 'status', 'notes'}
-STATUS = {'answered', 'in_flight', 'unrecorded'}
+STATUS = {'planned', 'in_flight', 'answered', 'unrecorded'}
 
 
 def _readings() -> list[dict]:
