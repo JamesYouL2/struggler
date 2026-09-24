@@ -10,8 +10,14 @@ test_engine_m2.py, fixed by consolidating here).
 from __future__ import annotations
 
 import importlib.util
+import sys
 from collections import Counter
 from pathlib import Path
+
+# `scripts/shard_plan.py` is a rule the workflow's plan step and the
+# registry test must share (one statement of a cut, per bug shape 1), and
+# `scripts/` is not a package.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
 from struggler.engine import Engine
 from struggler.engine.cards import ENTRY_TURN, cards_entering

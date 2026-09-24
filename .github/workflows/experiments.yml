@@ -143,7 +143,9 @@ jobs:
       - id: pick
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, os
+          import json, os, sys
+          sys.path.insert(0, 'scripts')
+          import shard_plan
           WAVES = os.environ.get('WAVES', '') == 'true'
           inline = os.environ.get('INLINE', '').strip()
           given = os.environ.get('ARMS', '').strip()
@@ -180,14 +182,22 @@ jobs:
           def span(text):
               lo, hi = (int(x) for x in text.split('-'))
               return list(range(lo, hi + 1))
+          # Reserve ranges are part of the seed space a run claims: a
+          # backfill must never land in another block's core.
+          shard_plan.assert_disjoint(arms)
           shards = []
           for a in arms:
               blocks = [span(a['seeds'])] + ([span(a['held'])] if a.get('held') else [])
               flat = [x for b in blocks for x in b]
               assert len(set(flat)) == len(flat), f"{a['slug']}: seeds and held overlap"
               size = int(a.get('shard', 128))
-              # Cut each block separately so no shard straddles a gap.
-              chunks = [b[i:i + size] for b in blocks for i in range(0, len(b), size)]
+              # Cut each block separately so no shard straddles a gap; the
+              # arm's reserve is split across every shard it produces, and a
+              # shard counts only its core pairs (benchmark's
+              # `counted_pairs`) -- the spares are backfill for a lost game.
+              specs = shard_plan.cut(
+                  [a['seeds']] + ([a['held']] if a.get('held') else []),
+                  a.get('reserve') or '', size)
               openings = a.get('openings') or (
                   'US=italy,USSR=austria' if (a.get('anchor') or a.get('bot_ref')) else '')
               # "default": each side plays its own revision's default book --
@@ -195,10 +205,14 @@ jobs:
               # asks gate_common.sh's `opening_args`, as drift_check.sh does).
               if openings == 'default':
                   openings = ''
-              for i, chunk in enumerate(chunks):
+              for i, spec in enumerate(specs):
                   shards.append({
-                      'slug': a['slug'], 'shard': i, 'of': len(chunks),
-                      'seeds': f'{chunk[0]}-{chunk[-1]}',
+                      'slug': a['slug'], 'shard': i, 'of': len(specs),
+                      'seeds': spec['seeds'],
+                      # Only when present: the shard object IS the cache key
+                      # (run-shard -> arm_identity), so an empty field on
+                      # every old arm would move every identity once.
+                      **({'reserve': spec['reserve']} if spec['reserve'] else {}),
                       'weights': a.get('weights') or {},
                       'anchor': a.get('anchor', ''), 'bot_ref': a.get('bot_ref', ''),
                       'openings': openings, 'compare_to': a.get('compare_to', ''),

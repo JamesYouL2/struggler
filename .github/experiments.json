@@ -12,6 +12,7 @@
     "openings": "optional US=x,USSR=y; defaults to italy/austria whenever a ref is involved",
     "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference. It must be dispatched TOGETHER with its target -- the pairing is collected within one run -- so `only=` both slugs in one call (`-f only=<target>,<arm>`). One dispatch per arm is the natural reading of this file and fails at plan time (2026-09-22: three dispatches, 15 s each)",
     "shard": "optional shard size in seeds (default 128, ~30-65 min on a runner)",
+    "reserve": "optional tail-reserve seeds (scripts/shard_plan.py): played by the arm's shards as spare work and counted only as backfill, so one lost game costs a seed swap and not a sample -- the 255-of-256 fix. Disjoint from every block; an arm without it plays exactly what it always did",
     "logs": "optional true: upload every game's INFO log"
   },
   "_sizing": "1024 seeds is the default for a question worth asking: +/-0.016 one-sided, against +/-0.045 at 128. The old 256-seed ceiling was one job's 6-hour limit, not a statistical choice; sharding removed it. Arms that share a seed block and an opponent are paired, so give every ablation of one question the same block and a compare_to.",
