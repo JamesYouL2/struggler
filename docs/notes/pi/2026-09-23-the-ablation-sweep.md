@@ -43,6 +43,52 @@ under model 1 (policy.py:2387). It is model-1 configuration and test
 scaffolding, not a live price. Not an ablation target; a simplification
 question for the maintainer.
 
+## Correction, 2026-09-24: the prior art the design missed (run 35306328917)
+
+Asked by the maintainer whether any arm is duplicative, the notes turned
+up what the registry did not show: **run 35306328917 (2026-09-18) already
+read four of these arms at 1024 paired seeds**
+(`docs/notes/claude/2026-09-18-drift-located-at-v0.2.1-v0.2.3.md`), and
+`progress` was read at 77 seeds. The registry's `*-off-vs-07d553a` arm
+contexts were never marked ANSWERED, so the verdicts live only in the
+note -- the design above claims "one wide anchored off arm" where a
+full-scale paired read existed. Corrected status per arm:
+
+| arm | the prior read | status |
+| --- | --- | --- |
+| `ablate-access` | access off **-0.038 [-0.061, -0.015]**, 1024 paired | **replication**, not a new question |
+| `ablate-reply-off` | reply look-ahead off **-0.056 [-0.079, -0.032]**, 1024 paired | **replication** |
+| `ablate-scoring-rival` | rival urgency off **-0.025 [-0.046, -0.004]**, 1024 paired; the 09-17 knob pair (0.25/0.5 monotone) corroborates | **replication** |
+| `ablate-scoring-final` | final scoring off **-0.020 [-0.041, +0.001]**, 1024 paired | **replication, and the one worth re-reading**: its upper bound just touched 0, the only ablation in that sweep not clearly measurable |
+| `ablate-progress` | progress at 0.01 read **0.354 REJECTED** (removal catastrophic), 77 early-stopped seeds, 2026-09-12 bot | **replication** of a known-strong effect |
+| `ablate-coup-discount` | 1.0 read 0.467 [0.428, 0.506] REJECTED at 256 full seeds (run 34747654283) + the deletion gate ACCEPTED at 128 (run 34750946023) -- and "Nobody has read these numbers yet" | **semi-novel**: never 1024 paired; this arm is the definitive version of a muddled record |
+| `ablate-scoring-discount` | 0.55 (the OTHER direction) read 0.438 +/- 0.079 and was DROPPED as confounded; 1.0 never run | novel |
+| `ablate-military` | never varied | novel |
+| `ablate-vp-swing-flat` | 1.0 vs the old 2.0: dead heat at 39-78 seeds (2026-09-12); 1.0 vs 3.0 never run -- the six-point grid's missing point | novel at this contrast |
+| `ablate-region` | region at par (1.0) read "free" twice at 128; `fitted-no-region` ran region 0 only under the fitted weights; 0 at shipped weights never run | semi-novel |
+
+Why the replications still have their run (stated before the numbers,
+not after): the 1024-seed reads were taken on the 2026-09-18 bot --
+**before** the fitted country weights shipped (09-21, the biggest
+valuation change here), before the region-margin deletion (09-19) and
+before vp_swing's 3.0 restore. Ablations are interactions: "access is
+worth +0.038 on the tiers bot" need not hold on the fitted bot. If the
+replications agree with 35306328917's signs, the four gains are robust
+to the rebuild; if any sign moved, that is the most interesting result
+this sweep can produce. The arm-level rules above do not move either way.
+
+And one hazard retired on the same evidence: the 2026-09-11 four-hour
+hang that made `progress-001` use 0.01 instead of 0.0 (`access 0.0`
+then) is stale -- run 35306328917 played `access: 0.0` through all 81
+shards at 1024 seeds. The three 0.0 arms in flight are safe on that
+evidence.
+
+Process defect this exposed, worth a gate someday: **an arm whose
+context is never marked ANSWERED is invisible to the next dispatch.**
+The registry keeps the arms; the verdicts live only in prose notes, and
+a design that greps the registry sees "never paired at scale" where a
+1024-seed read sits in a note under another tree.
+
 ## Phase 1: the arms (usefulness)
 
 One dispatch, eleven arms, paired against `ablate-base` on identical
