@@ -10,6 +10,7 @@ regardless of who records a new shape.
 
 ## Contents
 
+- [Ties, and what breaks them](2026-09-24-ties-and-what-breaks-them.md) — 2026-09-24
 - [The weights: what each one does, and what it is worth](2026-09-24-the-weights-what-each-one-is-worth.md) — 2026-09-24
 - [Drift panel 2026-09-24: every anchor is behind us now](2026-09-24-drift-panel-all-five-behind-us.md) — 2026-09-24
 - [The ablation sweep: which live variables earn their keep](2026-09-23-the-ablation-sweep.md) — 2026-09-23
