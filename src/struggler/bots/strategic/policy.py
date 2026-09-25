@@ -620,32 +620,23 @@ class StrategicWeights:
     # the old behaviour, which priced the last turns as if the game ran for
     # ever and then stopped without scoring.
     scoring_final: float = 1.0
-    # The Space Race ability boxes award no VP: boxes 2, 4 and 6 are worth 0
-    # to both first and second in the rules, so `space_race_expected_vp`
-    # returns exactly 0.0 there and `space_value` reads the attempt as a pure
-    # cost. The track is sequential, so that puts a zero-VP wall in front of
-    # every reward box -- box 3 (2 VP), 5 (3) and 7 (4) are all unreachable
-    # without crossing one. These price the abilities instead, in VP at par
-    # (the maintainer's numbers). They apply only when we would be *first*:
-    # `Engine._grant_space_ability` pops the effect when the opponent draws
-    # level, so a box the opponent has already reached grants nothing.
-    space_ability_2: float = 1.0   # two Space Race attempts per turn
-    space_ability_4: float = 1.0   # the opponent's headline is revealed first
-    space_ability_6: float = 1.5   # discard a held card at the end of each turn
-    # Box 8 is an extra action round, and the maintainer's reading is that it
-    # is worth *less* than box 6 despite sounding bigger: the extra round
-    # forces out the card you would otherwise have held, and the held card is
-    # your worst -- usually an opponent event you were avoiding firing, which
-    # "is negative more than half the time". Box 6 is its near-mirror (it
-    # *removes* that card), so 6 dominates 8.
-    #
-    # Their number, and their estimate of how often it matters: "maybe 1 vp,
-    # should happen once in a hundred games or something". That rate makes it
-    # effectively **inert** -- a constant reached in ~1% of games cannot be
-    # moved by a gate that plays 192, so no benchmark here will ever
-    # distinguish 0.5 from 2.0. It is priced for correctness, not for
-    # strength, and should not be tuned against results.
-    space_ability_8: float = 1.0
+    # The Space Race ability boxes award no VP: boxes 2, 4, 6 and 8 are
+    # worth 0 to both first and second in the rules, so
+    # `space_race_expected_vp` returns exactly 0.0 there and `space_value`
+    # reads the attempt as a pure cost -- a zero-VP wall in front of every
+    # reward box (3: 2 VP, 5: 3, 7: 4). This prices the abilities instead:
+    # ONE variable, 1.0 VP each, since 2026-09-24. It was four fields (2/4/8
+    # at 1.0, 6 at 1.5) until the maintainer folded them: the space-race
+    # knob experiment (run 36057974080, 1152 paired games a level) read
+    # 0/1/2 VP at -0.008 / -0.000 / +0.002 against the shipped mix -- the
+    # family bounded at +/-0.016 and the box-6 premium a dead heat -- so
+    # nothing about the four-way split was worth its four variables. The
+    # older per-box reasoning (6's discard dominates 8's extra action
+    # round; 8 fires in ~1% of games) lives in the provenance ledger. The
+    # price applies only when we would be *first*:
+    # `Engine._grant_space_ability` pops the effect when the opponent
+    # draws level, so a box they have already reached grants nothing.
+    space_ability: float = 1.0
     # A coup or realignment is priced on the same board change as placing
     # influence, then discounted: it is the less Ops-efficient route to the
     # same result (a coup on a 2-stability country loses a point of margin
@@ -3438,7 +3429,8 @@ class StrategicPlayer:
         """
         raw = space_race_expected_vp(obs, obs.side)
         box = obs.space_race.get(obs.side.value, 0) + 1
-        premium = getattr(self.weights, f'space_ability_{box}', 0.0)
+        # The ability boxes are exactly the ones the rules pay 0 VP for.
+        premium = self.weights.space_ability if box in (2, 4, 6, 8) else 0.0
         if not premium:
             return raw
         if obs.space_race.get(obs.side.opponent.value, 0) >= box:
