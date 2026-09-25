@@ -82,6 +82,7 @@ def pooled(arms: dict[str, dict]) -> dict[str, dict]:
                 'seats': seat_scores(paired), 'nuclear': nuclear_split(paired),
                 'mean_signed_vp': s['mean_signed_vp'], 'endings': s.get('endings'),
                 'mean_end_turn': s.get('mean_end_turn'),
+                'events_fired': s.get('events_fired'), 'blind_picks': s.get('blind_picks'),
             })
         out[slug] = entry
     return out
@@ -143,6 +144,25 @@ def markdown(result: dict[str, dict], pairs: list[dict] | None = None) -> str:
         for p in pairs:
             lines.append(f'| `{p["arm"]}` | `{p["minus"]}` | {p["diff"]:+.3f} | '
                          f'[{p["lower"]:+.3f}, {p["upper"]:+.3f}] | {p["seeds"]} |')
+    # EVENT MEASUREMENT (2026-09-24): what fired, and how often an event
+    # choice was made with no opinion behind it (every option priced
+    # equal -- the unhandled-event shape, where the first legal option
+    # won). The exposure number for the unhandled branches; the impact is
+    # what the sandbox counterfactual prices next.
+    ev_rows = [(slug, e) for slug, e in result.items()
+               if e.get('events_fired') or e.get('blind_picks')]
+    if ev_rows:
+        lines += ['', '**Event measurement** (fired = events that resolved; '
+                  'blind = an EVENT_CHOICE whose every option priced equal):', '',
+                  '| arm | events fired | top events | blind picks | blind events |',
+                  '| --- | ---: | --- | ---: | --- |']
+        for slug, e in ev_rows:
+            ev = e.get('events_fired') or {}
+            bl = e.get('blind_picks') or {}
+            top = ', '.join(f'{k} {v}' for k, v in list(ev.items())[:3]) or '--'
+            btop = ', '.join(f'{k} {v}' for k, v in list(bl.items())[:3]) or '--'
+            lines.append(f'| `{slug}` | {sum(ev.values())} | {top} | '
+                         f'{sum(bl.values())} | {btop} |')
     lines += ['',
               '_Interval is one-sided 95% each way (score +/- 1.645 SE, seed as the unit), '
               'the convention the gate decides on. An upper bound below 0.500 is a measurable '

@@ -455,3 +455,28 @@ def test_a_snapshot_of_the_bots_package_is_a_whole_bot(tmp_path):
         engine.board.influence[c]['US'] = 3
     value = policy.StrategicPlayer().evaluate(engine.observe(Side.US))
     assert isinstance(value, float)
+
+
+def test_the_summary_carries_the_event_measurement():
+    """EVENT MEASUREMENT (2026-09-24): reports say what fired and how many
+    event choices were made with no opinion behind them (every option
+    priced equal -- the unhandled-event shape, where the first legal
+    option won). The numbers the maintainer asked to see in every
+    experiment log."""
+    from struggler.bots.benchmark import summarize
+
+    def game(seed, events, blind):
+        return {'seed': seed, 'bot_side': 'US', 'finished': True, 'turn': 10,
+                'reason': 'vp', 'result': 1.0, 'signed_vp': 5, 'projected_vp': 0.0,
+                'defcon': 3, 'seconds': 1.0, 'total': 5.0, 'value': 0.0,
+                'winner': 'US', 'card_modes': {}, 'vp_by_turn': {},
+                'reshuffle_turns': [], 'removed_cards': 0, 'final_scoring': False,
+                'searches': 0, 'search_seconds': 0.0,
+                'bg_diff': {'Asia': 0.0},
+                'events_fired': events, 'blind_picks': blind}
+
+    games = [game(1, {'Olympic_Games': 2, 'Fidel': 1}, {'Che': 3}),
+             game(2, {'Olympic_Games': 1}, {})]
+    summary = summarize(games, 0)
+    assert summary['events_fired'] == {'Olympic_Games': 3, 'Fidel': 1}
+    assert summary['blind_picks'] == {'Che': 3}

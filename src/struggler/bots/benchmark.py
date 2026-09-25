@@ -315,6 +315,10 @@ def play(job: tuple) -> dict:
     # always events and are counted apart, since picking a headline is a
     # different decision from choosing event mode in an action round.
     card_modes: collections.Counter = collections.Counter()
+    # EVENT_CHOICEs whose every option priced equal -- the policy has no
+    # opinion and the first legal option won
+    # (docs/notes/pi/2026-09-24-ties-measured-and-unhandled-events.md).
+    blind_picks: collections.Counter = collections.Counter()
     pending_card: dict = {}
     players = {side: build(bot, seed, simulations, model, books),
                side.opponent: build(opponent, seed, simulations, None, books)}
@@ -369,6 +373,10 @@ def play(job: tuple) -> dict:
                 if any(o.payload.get('mode') == 'event' for o in d.options):
                     card_modes[f"{d.actor.value}|{pending_card[d.actor]}|"
                                f"_event_offered"] += 1
+            elif d.kind is DecisionKind.EVENT_CHOICE:
+                keys = [player.safety_key(engine.observe(d.actor), o) for o in d.options]
+                if len(set(keys)) == 1:
+                    blind_picks[(d.context or {}).get('event', '?')] += 1
             last = getattr(player, 'last_search', None)
             if player is players[side] and last:
                 searches += 1
@@ -382,6 +390,9 @@ def play(job: tuple) -> dict:
     outlook = projection(engine, side)
     return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
                 card_modes=dict(card_modes), vp_by_turn=vp_by_turn,
+                events_fired=dict(collections.Counter(
+                    name for _, name in engine.events_fired).most_common()),
+                blind_picks=dict(blind_picks),
                 reshuffle_turns=reshuffle_turns, removed_cards=len(engine.removed_cards),
                 **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
@@ -881,6 +892,17 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
         summary['mean_end_turn'] = round(statistics.fmean(g['turn'] for g in finished), 2)
         summary['reached_late_war'] = round(
             sum(1 for g in finished if g['turn'] >= 8) / len(finished), 3)
+        # EVENT MEASUREMENT (2026-09-24): what fired, and how often an
+        # event choice was made with no opinion behind it. The second is
+        # the exposure number for the unhandled branches; the impact is
+        # what measure_event_gaps-style counterfactuals price next.
+        evs: collections.Counter = collections.Counter()
+        blinds: collections.Counter = collections.Counter()
+        for g in finished:
+            evs.update(g.get('events_fired') or {})
+            blinds.update(g.get('blind_picks') or {})
+        summary['events_fired'] = dict(evs.most_common())
+        summary['blind_picks'] = dict(blinds.most_common())
     # Which cards each side chooses to *event*, ranked. Revealed
     # preference rather than valuation: it never reads what the bot thinks
     # a card is worth, only what it did with it. Most useful where it
