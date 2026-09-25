@@ -10,6 +10,7 @@ regardless of who records a new shape.
 
 ## Contents
 
+- [Ties measured, and the unhandled events](2026-09-24-ties-measured-and-unhandled-events.md) — 2026-09-24
 - [Ties, and what breaks them](2026-09-24-ties-and-what-breaks-them.md) — 2026-09-24
 - [The weights: what each one does, and what it is worth](2026-09-24-the-weights-what-each-one-is-worth.md) — 2026-09-24
 - [Drift panel 2026-09-24: every anchor is behind us now](2026-09-24-drift-panel-all-five-behind-us.md) — 2026-09-24
