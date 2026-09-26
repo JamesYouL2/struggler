@@ -19,6 +19,23 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "v0.6.0-vs-bc5ef93",
+      "bot_ref": "v0.6.0",
+      "anchor": "bc5ef93",
+      "seeds": "143000-144023",
+      "reserve": "144100-144227",
+      "title": "candidate anchor v0.6.0 vs the current anchor bc5ef93",
+      "context": "Is v0.6.0 a stronger baseline than bc5ef93? bc5ef93 (2026-09-12) predates the sandbox helper-chain fix (48007da) and hangs about one game in 700, and it lacks the exact speedups. A level reading: waves off."
+    },
+    {
+      "slug": "main-vs-v0.6.0",
+      "anchor": "v0.6.0",
+      "seeds": "143000-144023",
+      "reserve": "144100-144227",
+      "title": "main vs the candidate anchor v0.6.0",
+      "context": "Where main sits against v0.6.0 (expected near 0.5: only #61 changed play since), and whether v0.6.0 runs clean as a baseline (VERSIONING: check a tag runs as a baseline before relying on it). A level reading: waves off."
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",
