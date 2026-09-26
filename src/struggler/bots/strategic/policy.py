@@ -766,6 +766,17 @@ class StrategicPlayer:
         # and why. Read it before trusting an event value.
         self.sandbox_failures: dict[str, str] = {}
         self._events: dict[str, float] = {}
+        # MEASUREMENT ONLY, never read by a ranking: the ranking the last
+        # LIVE `choose_action` played from, and which of its options the
+        # scorer had no opinion on (`score`'s `None`). The benchmark and
+        # `scripts/measure_ties.py` read these instead of re-scoring every
+        # option -- which cost a second evaluation per decision, crashed on a
+        # bot without `safety_key`, and, patched onto the class, counted the
+        # event helpers' SIMULATED decisions as live ones (Codex audit
+        # 2026-09-25, F3/F4). A helper is a separate instance, so its own
+        # choices land on it, not here.
+        self.last_ranking: tuple | None = None
+        self._no_opinion: set[int] = set()
         # Every card being simulated by the players ABOVE this one in an
         # event-helper chain. Set by the parent in `_event_helper` and, unlike
         # `_events_in_progress`, never reset per decision: a helper ranks its
@@ -833,7 +844,10 @@ class StrategicPlayer:
         self._coup_bans = ev.NO_PROHIBITIONS
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
+        self._no_opinion = set()
         ranked = self.rank_actions(observation)
+        self.last_ranking = (ranked, frozenset(
+            id(a) for _, a in ranked if id(a) in self._no_opinion))
         self._log_choice(observation, observation.pending_decision, ranked)
         return ranked[0][1]
 
@@ -3481,10 +3495,11 @@ class StrategicPlayer:
         kind, p = action.kind, action.payload
         ctx = obs.pending_decision.context
         scorer = self._SCORERS.get(kind)
-        if scorer is None:
+        value = None if scorer is None else scorer(self, obs, action, kind, p, ctx)
+        if value is None:
+            self._no_opinion.add(id(action))  # measurement only; see `last_ranking`
             return 0.0
-        value = scorer(self, obs, action, kind, p, ctx)
-        return 0.0 if value is None else value
+        return value
 
     def opening_book(self, side: Side) -> dict:
         """The setup placements this seat plays, by subregion stage.

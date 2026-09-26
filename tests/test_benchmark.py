@@ -455,3 +455,93 @@ def test_a_snapshot_of_the_bots_package_is_a_whole_bot(tmp_path):
         engine.board.influence[c]['US'] = 3
     value = policy.StrategicPlayer().evaluate(engine.observe(Side.US))
     assert isinstance(value, float)
+
+
+def test_the_summary_carries_the_event_measurement():
+    """EVENT MEASUREMENT (2026-09-24): reports say what fired and how many
+    event choices were made with no opinion behind them (every option
+    priced equal -- the unhandled-event shape, where the first legal
+    option won). The numbers the maintainer asked to see in every
+    experiment log."""
+    from struggler.bots.benchmark import summarize
+
+    def game(seed, events, blind):
+        return {'seed': seed, 'bot_side': 'US', 'finished': True, 'turn': 10,
+                'reason': 'vp', 'result': 1.0, 'signed_vp': 5, 'projected_vp': 0.0,
+                'defcon': 3, 'seconds': 1.0, 'total': 5.0, 'value': 0.0,
+                'winner': 'US', 'card_modes': {}, 'vp_by_turn': {},
+                'reshuffle_turns': [], 'removed_cards': 0, 'final_scoring': False,
+                'searches': 0, 'search_seconds': 0.0,
+                'bg_diff': {'Asia': 0.0},
+                'events_fired': events, 'blind_picks': blind}
+
+    games = [game(1, {'Olympic_Games': 2, 'Fidel': 1}, {'Che': 3}),
+             game(2, {'Olympic_Games': 1}, {})]
+    summary = summarize(games, 0)
+    assert summary['events_fired'] == {'Olympic_Games': 3, 'Fidel': 1}
+    assert summary['blind_picks'] == {'Che': 3}
+
+
+def test_a_non_strategic_benchmark_plays_and_records_its_event_choices_as_unmeasured():
+    """Codex audit 2026-09-25, F4, its reproduction: the measurement called
+    `safety_key` -- not part of the Player protocol -- on every EVENT_CHOICE,
+    so a greedy benchmark died with AttributeError. A bot that keeps no
+    ranking is recorded as unmeasured, not guessed at."""
+    from struggler.bots.benchmark import play
+    game = play(('greedy', 'greedy', 42000, 'US', 24, 0, None, None, False))
+    assert game['finished']
+    assert game['event_choices'] and all(
+        key.endswith(('|unmeasured', '|single')) for key in game['event_choices'])
+    assert game['blind_picks'] == {}
+
+
+def test_the_live_ranking_is_the_one_decision_not_its_simulations():
+    """Audit F3, its reproduction: a US headline holding Marshall Plan and
+    Fidel. Ranking it simulates both events on helper players, and an
+    instrument patched onto the class recorded seven EVENT_INFLUENCE
+    rankings for one headline. The live record is this decision's options
+    and nothing else; the helpers' choices land on the helpers."""
+    import dataclasses
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.engine import Action, Decision, DecisionKind as K, Engine, Side
+    engine = Engine(seed=0)
+    engine.hands['US'] = ['Marshall_Plan', 'Fidel']
+    obs = engine.observe(Side.US)
+    options = tuple(Action(K.HEADLINE_PLAY, {'card': c}) for c in obs.hand)
+    obs = dataclasses.replace(obs, pending_decision=Decision(1, Side.US, K.HEADLINE_PLAY, options))
+    bot = StrategicPlayer()
+    bot.choose_action(obs, [])
+    ranked, _ = bot.last_ranking
+    assert [a.kind for _, a in ranked] == [K.HEADLINE_PLAY, K.HEADLINE_PLAY]
+    assert {a.payload['card'] for _, a in ranked} == {'Marshall_Plan', 'Fidel'}
+    helper = bot.__dict__.get('_event_policy')
+    assert helper is not None and helper.last_ranking is not bot.last_ranking
+
+
+def test_an_unpriced_live_choice_is_a_blind_pick():
+    """Chernobyl's region choice has no scorer branch: all six regions
+    come back `None`, and the first legal option (Europe) wins."""
+    from struggler.bots.benchmark import event_choice_kind
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.engine import Engine, Side
+    engine = Engine(seed=0)
+    engine._fire_event(Side.US, 'Chernobyl')
+    d = engine.pending_decision
+    bot = StrategicPlayer()
+    bot.choose_action(engine.observe(Side.US), [])
+    assert event_choice_kind(d.options, bot.last_ranking) == 'unpriced'
+
+
+def test_event_choice_kind_separates_the_ways_a_choice_is_made():
+    from struggler.bots.benchmark import event_choice_kind
+    a, b, c = object(), object(), object()
+    three = (a, b, c)
+    assert event_choice_kind((a,), None) == 'single'
+    assert event_choice_kind(three, None) == 'unmeasured'
+    ranked = [((0, 0.0, 0.0), a), ((0, 0.0, 0.0), b), ((0, 0.0, 0.0), c)]
+    assert event_choice_kind(three, (ranked, frozenset(map(id, (a, b, c))))) == 'unpriced'
+    assert event_choice_kind(three, (ranked, frozenset())) == 'all_equal'
+    tied = [((0, 0.0, 5.0), a), ((0, 0.0, 5.0), b), ((0, 0.0, 1.0), c)]
+    assert event_choice_kind(three, (tied, frozenset())) == 'top_tie'
+    clear = [((0, 0.0, 9.0), a), ((0, 0.0, 5.0), b), ((0, 0.0, 1.0), c)]
+    assert event_choice_kind(three, (clear, frozenset())) == 'decided'

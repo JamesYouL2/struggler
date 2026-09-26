@@ -2932,3 +2932,17 @@ def test_we_will_bury_you_scores_when_the_us_window_round_is_spent_in_a_trap():
     assert engine.pending_decision.kind is DecisionKind.QUAGMIRE_DISCARD
     assert engine.vp == vp0 - 3
     assert "we_will_bury_you" not in engine.turn_effects
+
+
+def test_a_resolved_event_is_recorded_and_a_fizzled_one_is_not():
+    """`events_fired` is what the benchmark reports measure (2026-09-24):
+    every event that RESOLVED, with its phasing side. An event whose
+    precondition is unmet fizzles and records nothing -- the report says
+    what fired, not what was tried."""
+    engine = _bare()
+    engine.defcon = 5
+    engine._fire_event(Side.US, "Duck_and_Cover")
+    assert engine.events_fired == [("US", "Duck_and_Cover")]
+    fizz = _bare()
+    fizz._fire_event(Side.US, "NATO")  # needs Warsaw Pact or Marshall Plan
+    assert fizz.events_fired == []
