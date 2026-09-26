@@ -98,6 +98,16 @@ it, prove it reproduces the DP's risks on the corpus, then delete").
 
 ## Found while wiring: the double-attempt grant has no writer
 
+> **Correction (2026-09-25): this finding is false.**
+> `Engine._update_space_race_ability` writes the key through
+> `rules.json`'s `space_race_ability_keys` (box 2 ->
+> `space_race_double_attempt_holder`), so a literal-name search finds no
+> writer while the call path has one. Advancing the US twice from box 0
+> sets the holder and `_space_attempts_allowed` returns 2 (Codex audit
+> 2026-09-25, "Prior findings and false alarms"). The section is kept as
+> written below as the record of the mistake: a name search is not a
+> call-path audit.
+
 Ruling 1's "second attempt at box 2 (6.4.4)" exists twice and is granted
 nowhere: `Engine._space_attempts_allowed` reads the game effect
 `space_race_double_attempt_holder`, and **nothing in `src/` writes it** --
