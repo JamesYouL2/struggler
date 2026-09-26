@@ -53,12 +53,14 @@ is the importance: what the bot loses without it.
   -0.240 [-0.262, -0.218]; the loss is a tie-break defect, not
   allocation ([the diagnosis](../claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md)).
   Measured-off; the defect is diagnosed and unremedied.
-- **`space_ability_2/4/6/8` (1 / 1 / 1.5 / 1)** -- prices for the Space
-  Race ability boxes (0 VP in the rules). Pre-declared UNMEASURABLE:
-  box 8 fires in ~1% of games and no gate at this sample can move a
-  number that rare. Correctness prices, not strength knobs -- "priced
-  for correctness, not for strength, and should not be tuned against
-  results."
+- **`space_ability` (1.0)** -- the price of each Space Race ability box
+  (0 VP in the rules; the reward boxes keep their printed 2/3/4). Was
+  FOUR variables (2/4/8 at 1.0, 6 at 1.5) until 2026-09-24: the knob
+  experiment read 0/1/2 VP at -0.008 / -0.000 / +0.002 against the
+  shipped mix (run 36057974080, 1152 paired games a level) -- the family
+  bounded at +/-0.016, the box-6 premium a dead heat -- and the
+  maintainer folded them: "just doesn't matter that much, do 1 VP".
+  One variable now, the model four variables lighter.
 
 ## SurvivalPrior (the hand-survival search's priors)
 
