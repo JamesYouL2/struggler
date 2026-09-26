@@ -441,6 +441,12 @@ class StrategicWeights:
     # draw carry the same premium so a swap compares like with like.
     # docs/notes/claude/2026-09-20-the-whole-hand-planner.md
     hold_option: float = 0.0
+    # THE PLANNER'S TIE-BREAK BAND, in Ops. At 0 (as shipped) the planner
+    # is not consulted. Set, the whole-hand assignment's strict preferences
+    # reorder only the card plays the scorer already rates within this many
+    # Ops of its best -- the maintainer's 2026-09-25 shape ("only when the
+    # normal decision is tied or close to tied"), after every variant that
+    # let the plan override the scorer outright lost. `_plan_band`.
     hand_assignment: float = 0.0
     # (A region-margin term -- partial credit toward the next scoring tier:
     # progress toward presence, and battlegrounds and countries of margin
@@ -727,11 +733,12 @@ class StrategicWeights:
 #   hold_option  a term shipped at 0 (ruling 3); its grid (run 35753235236,
 #                1024 paired seeds) read nothing above 0 at 0.25 / 0.5 /
 #                1.0 and a measurable loss at 1.0, so it stays 0
-#   hand_assignment  the turn-assignment planner's gate (step 3 of the
-#                hand planner plan): at 0 every card is priced and
+#   hand_assignment  the turn-assignment planner's band, in Ops (step 3
+#                of the hand planner plan): at 0 every card is priced and
 #                chosen per card as it always has been; at a positive
-#                value `hand_plan` allocates the whole hand and its pick
-#                leads the ranking for the slot
+#                value `hand_plan` allocates the whole hand and its strict
+#                preferences break ties among the card plays the scorer
+#                rates within this many Ops of its best (`_plan_band`)
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
@@ -808,6 +815,7 @@ class StrategicPlayer:
         self._space_picks = None
         self._un_card = None
         self._hand_plan = None
+        self._plan_lead_cache = None
         # The rest of `rank_actions`' per-decision block, same reason:
         # the scorer's read set is reachable from `hand_prices` now.
         self._ops_values = {}
@@ -886,6 +894,7 @@ class StrategicPlayer:
         self._space_card = None
         self._space_picks = None
         self._hand_plan = None
+        self._plan_lead_cache = None
         self._un_card = None
         self._planner = None
         self._stress = None
@@ -907,16 +916,27 @@ class StrategicPlayer:
             if not self._planner.latent_hazards(self._planner.hand):
                 self._planner = None  # no placement can create the target that matters
         try:
-            # The hand planner's pick leads *within* the safety key's own
-            # order: `certain` still dominates (certain defeat is refused
-            # outright), `pref` names the card the assignment wants for
-            # this slot, and the risk/score blend orders everything else
-            # exactly as before. `pref` is constant 0 whenever the
-            # planner is off or has no opinion, so the shipped ordering is
-            # unchanged at weight 0 -- the parity corpus pins that.
+            keyed = [(self.safety_key(observation, a), a) for a in decision.options]
+            # THE PLANNER BREAKS NEAR-TIES, AND NOTHING ELSE. `pref` demotes
+            # only what the assignment STRICTLY prefers not to play now
+            # (never an order, never a tie: see `_plan_lead`), and it counts
+            # only for options inside `_plan_band` -- the ones the scorer
+            # already rates within `hand_assignment` Ops of its best. Sorted
+            # above the whole risk/score blend, as it was until 2026-09-25,
+            # demoting a card promoted the next one whatever it cost: every
+            # planner variant measured lost (strict lead -0.061, headline
+            # only -0.005) with USSR-seat nuclear losses up 7 -> 26 and
+            # 25 -> 55 (docs/notes/claude/2026-09-23-the-planner-plays-its-
+            # hand-in-alphabetical-order.md). Within the band the plan
+            # arbitrates what the scorer cannot tell apart; outside it the
+            # scorer's order stands. At 0 the band is empty and `pref` is
+            # never asked, so the shipped ordering is unchanged -- the
+            # parity corpus pins that.
+            band = self._plan_band(observation, keyed)
             return sorted(
-                ((self.safety_key(observation, a), a) for a in decision.options),
-                key=lambda pair: (pair[0][0], self._plan_pref(observation, pair[1]))
+                keyed,
+                key=lambda pair: (pair[0][0], self._plan_pref(observation, pair[1])
+                                  if id(pair[1]) in band else 0)
                 + pair[0][1:],
                 reverse=True)
         finally:
@@ -3835,38 +3855,123 @@ class StrategicPlayer:
         if self.weights.hand_assignment <= 0:
             return None
         if self._hand_plan is None:
-            decision = obs.pending_decision
-            headline_slots = 1 if decision is not None and decision.kind is K.HEADLINE_PLAY else 0
-            partner = self.un_card(obs)
-            self._hand_plan = hp.plan_hand(
-                self.hand_prices(obs), self._rounds_left(obs),
-                headline_slots=headline_slots,
-                un_key='UN_Intervention' if partner else None,
-                space_keys=self.space_picks(obs)[:2],
-                space_slot_weights=self._space_slot_mix(obs),
-                gain=self._plan_gain(obs))
+            self._hand_plan = self._solve_plan(obs, self.hand_prices(obs))
         return self._hand_plan
 
+    def _solve_plan(self, obs: Observation, table: tuple):
+        """`plan_hand` over `table` with this decision's constraints -- the
+        one call site, so a counterfactual table is solved exactly as the
+        real one is."""
+        decision = obs.pending_decision
+        headline_slots = 1 if decision is not None and decision.kind is K.HEADLINE_PLAY else 0
+        partner = self.un_card(obs)
+        return hp.plan_hand(
+            table, self._rounds_left(obs),
+            headline_slots=headline_slots,
+            un_key='UN_Intervention' if partner else None,
+            space_keys=self.space_picks(obs)[:2],
+            space_slot_weights=self._space_slot_mix(obs),
+            gain=self._plan_gain(obs))
+
+    def _plan_lead(self, obs: Observation) -> tuple[str, frozenset] | None:
+        """What the plan STRICTLY prefers at this decision, or None.
+
+        Returns `('demote', cards)` on an action round -- the cards the
+        plan holds and would lose value by playing -- or `('lead', cards)`
+        on a headline -- the cards whose headline reaches the plan's
+        value. Everything else is a tie the plan has no opinion on.
+
+        Why strict: the argmax of `solve_hand` is not a preference where
+        the objective is flat, and it is flat almost everywhere. An
+        ordinary card's price is the same in every round (so the ORDER of
+        `rounds` is the solver's by-key tie-break), and its hold price is
+        `hold_value`, which is the same `card_play_value` -- so at
+        `hold_option` 0 play and hold are EXACTLY equal and WHICH cards are
+        held is a tie-break too. Leading with `rounds[0]` played the hand
+        in alphabetical order (run 35814771005, -0.240); reading `holds`
+        instead held the alphabetically last card, NORAD over Duck and
+        Cover on seed 4000
+        (docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md).
+        So each candidate is tested by re-solving with it forced: a held
+        card is demoted only if playing it lowers the plan's value, a
+        headline leads only if it reaches the plan's value.
+        """
+        plans = self.hand_plan(obs)
+        if not plans:
+            return None
+        if self._plan_lead_cache is not None:
+            return self._plan_lead_cache
+        best = max(plans, key=lambda wp: wp.probability)
+        value = best.assignment.value
+        # One ulp of `price + rest` regrouping is not a preference (the
+        # 2026-09-21 float-regrouping entry in CLAUDE.md is this, in reverse).
+        tol = 1e-9 * max(1.0, abs(value))
+        table = self.hand_prices(obs)
+
+        def forced(changed: dict) -> float:
+            plans = self._solve_plan(obs, tuple(changed.get(c.key, c) for c in table))
+            match = [wp for wp in plans or () if wp.slots == best.slots]
+            return match[0].assignment.value if match else hp.NEG
+
+        if best.assignment.headline is not None:
+            lead = frozenset(
+                c.key for c in table if c.headline > hp.NEG
+                and forced({o.key: replace(o, headline=hp.NEG)
+                            for o in table if o.key != c.key}) >= value - tol)
+            self._plan_lead_cache = ('lead', lead)
+        else:
+            by_key = {c.key: c for c in table}
+            demote = frozenset(
+                h for h in best.assignment.holds
+                if forced({h: replace(by_key[h], may_hold=False)}) < value - tol)
+            self._plan_lead_cache = ('demote', demote)
+        return self._plan_lead_cache
+
+    def _plan_band(self, obs: Observation, keyed) -> frozenset:
+        """The options the planner may reorder: card plays whose safety key
+        matches the best one's `certain` and risk slots and whose score is
+        within `hand_assignment` Ops (at this turn's `ops_value`) of it.
+
+        Empty -- so `_plan_lead`'s re-solves never run -- when the planner
+        is off, the decision is not a card play, or fewer than two options
+        are close enough for a tie-break to matter. The planner arms were
+        slow (single games past the 1200 s stall floor) because the lead
+        re-solved the hand on every ranked decision; most decisions have a
+        clear best and now ask it nothing.
+        """
+        width = self.weights.hand_assignment
+        if width <= 0 or obs.pending_decision.kind not in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
+            return frozenset()
+        top = max(key for key, _ in keyed)
+        floor = top[2] - width * self.ops_value(obs, 1)
+        band = frozenset(id(a) for key, a in keyed
+                         if key[:2] == top[:2] and key[2] >= floor)
+        return band if len(band) > 1 else frozenset()
+
     def _plan_pref(self, obs: Observation, action: Action) -> int:
-        """1 when `action` plays the card the assignment wants for this
-        slot, 0 otherwise -- and always 0 when the planner is off or has
-        no opinion, which is why the shipped ordering is byte-identical
-        at weight 0.
+        """1 for a card the plan leads with or has no objection to, 0 for
+        one it strictly prefers to hold (or, on a headline, strictly
+        prefers not to headline) -- and always 0 when the planner is off,
+        which is why the shipped ordering is byte-identical at weight 0.
+
+        See `_plan_lead` for why only STRICT preferences count. A card the
+        plan cannot see -- the China Card is not in `obs.hand`, so not in
+        the table -- is never demoted: it used to be, on every action round
+        the scorer wanted it (seed 4001, turn 1, AR2 through AR6).
         """
         if self.weights.hand_assignment <= 0:
             return 0
         kind = action.kind
         if kind not in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
             return 0
-        plans = self.hand_plan(obs)
-        if not plans:
+        lead = self._plan_lead(obs)
+        if lead is None:
             return 0
-        assignment = max(plans, key=lambda wp: wp.probability).assignment
-        if kind is K.HEADLINE_PLAY:
-            want = assignment.headline
-        else:
-            want = assignment.rounds[0][1] if assignment.rounds else None
-        return int(want is not None and action.payload.get('card') == want)
+        mode, cards = lead
+        card = action.payload.get('card')
+        if mode == 'lead':
+            return int(card in cards)
+        return int(card not in cards)
 
     def _non_firing_value(self, obs: Observation, cid: str, ops: int, default: float) -> float:
         """The best of `cid`'s legal modes that do not fire its event --

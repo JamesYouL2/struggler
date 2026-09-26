@@ -61,13 +61,93 @@ def test_the_table_reads_the_scorers_prices_minus_the_planner_owned_terms():
     assert 'Asia_Scoring' not in bot._plan_gain(obs)
 
 
-def test_the_plan_pref_leads_the_ranking_under_the_weight():
+def _shipped_order(obs):
+    off = StrategicPlayer(StrategicWeights())
+    off.prepare(obs)
+    return [a.payload['card'] for _, a in off.rank_actions(obs)]
+
+
+def test_the_lead_is_the_shipped_ranking_stably_partitioned():
+    """The plan never ORDERS cards: an ordinary card's price is the same in
+    every round, so `rounds` is `solve_hand`'s by-key tie-break. Leading
+    with `rounds[0]` played the hand alphabetically (run 35814771005,
+    -0.240). The ranking under the weight must be the shipped ranking with
+    the demoted cards moved to the back, each group in the scorer's order."""
     bot, obs = _bot_obs()
-    ranked = bot.rank_actions(obs)
-    plans = bot.hand_plan(obs)
-    assert plans
-    want = max(plans, key=lambda wp: wp.probability).assignment.rounds[0][1]
-    assert ranked[0][1].payload['card'] == want
+    ranked = [a.payload['card'] for _, a in bot.rank_actions(obs)]
+    mode, demoted = bot._plan_lead(obs)
+    assert mode == 'demote'
+    shipped = _shipped_order(obs)
+    assert ranked == ([c for c in shipped if c not in demoted]
+                      + [c for c in shipped if c in demoted])
+
+
+def test_a_tie_between_playing_and_holding_is_not_a_preference():
+    """At `hold_option` 0 a card's hold price IS its play price
+    (`hold_value` reads the same `card_play_value`), so which cards the
+    solver holds is a tie-break too -- reading `holds` directly held the
+    alphabetically LAST card (NORAD over Duck and Cover, seed 4000). With
+    every ordinary card tied, nothing may be demoted and the ranking must be
+    exactly the shipped one."""
+    bot, obs = _bot_obs(cards=('Duck_and_Cover', 'Marshall_Plan', 'Fidel', 'NORAD',
+                               'Containment', 'COMECON', 'Truman_Doctrine'),
+                        action_round=4)
+    table = bot.hand_prices(obs)
+    assert all(c.play[0] == c.hold for c in table if c.may_hold), 'the premise: play == hold'
+    plan = max(bot.hand_plan(obs), key=lambda wp: wp.probability).assignment
+    assert plan.holds, 'the solver does hold something -- by tie-break'
+    assert bot._plan_lead(obs) == ('demote', frozenset())
+    assert [a.payload['card'] for _, a in bot.rank_actions(obs)] == _shipped_order(obs)
+
+
+def test_a_strictly_better_hold_is_demoted(monkeypatch):
+    """Where the plan does have a preference, it acts: a card whose hold
+    price strictly beats its play is demoted, whatever its name."""
+    bot, obs = _bot_obs(cards=('Duck_and_Cover', 'Marshall_Plan', 'Fidel', 'NORAD',
+                               'Containment', 'COMECON', 'Truman_Doctrine'),
+                        action_round=4)
+    real = bot.hand_prices(obs)
+    keep = 'Containment'
+    table = tuple(dataclasses.replace(c, hold=c.play[0] + 100.0) if c.key == keep else c
+                  for c in real)
+    monkeypatch.setattr(bot, 'hand_prices', lambda _obs: table)
+    bot._hand_plan = bot._plan_lead_cache = None
+    assert bot._plan_lead(obs) == ('demote', frozenset({keep}))
+    assert bot._plan_pref(obs, Action(K.ACTION_ROUND_PLAY, {'card': keep})) == 0
+    assert bot._plan_pref(obs, Action(K.ACTION_ROUND_PLAY, {'card': 'NORAD'})) == 1
+
+
+def test_renaming_the_cards_cannot_move_what_the_plan_spends():
+    """What the lead now reads -- the set the plan spends and the set it
+    holds -- must be a property of the PRICES, not of the names. Relabel
+    every card so the alphabetical order reverses: the sets must follow.
+    (The ORDER in `rounds` does not survive this, which is why the lead no
+    longer reads it; the partition test above is the one that failed on
+    `rounds[0]`.)"""
+    prices = {'A_weak': 0.5, 'B_ok': 2.0, 'M_mid': 3.0, 'Z_best': 9.0, 'Q_keep': 1.0}
+    holds = {'Q_keep': 50.0}
+
+    def table(names):
+        return tuple(hp.Card(key=names[k], headline=0.0, play=(v,) * 3,
+                             hold=holds.get(k, 0.0)) for k, v in prices.items())
+
+    same = {k: k for k in prices}
+    renamed = dict(zip(sorted(prices), sorted(prices, reverse=True), strict=True))
+    for names in (same, renamed):
+        plan = hp.solve_hand(table(names), 3, headline_slots=0)
+        spent = {unit[1] for unit in plan.rounds}
+        assert spent == {names['Z_best'], names['M_mid'], names['B_ok']}
+        assert set(plan.holds) == {names['A_weak'], names['Q_keep']}
+
+
+def test_the_china_card_is_never_demoted_by_a_plan_that_cannot_see_it():
+    """`hand_prices` reads `obs.hand`, which does not carry the China
+    Card, so the plan has no opinion on it. It must rank with the cards the
+    plan spends -- the old lead vetoed every China play the scorer wanted
+    (seed 4001, turn 1, AR2 through AR6)."""
+    bot, obs = _bot_obs()
+    china = Action(K.ACTION_ROUND_PLAY, {'card': 'The_China_Card'})
+    assert bot._plan_pref(obs, china) == 1
 
 
 def test_the_plan_pref_is_everywhere_zero_with_the_gate_off():
@@ -78,13 +158,41 @@ def test_the_plan_pref_is_everywhere_zero_with_the_gate_off():
     assert all(bot._plan_pref(obs, a) == 0 for _, a in ranked)
 
 
-def test_the_headline_leads_the_headline_ranking():
+def test_the_plan_leads_the_headline_only_inside_the_band():
+    """The maintainer's 2026-09-25 shape: the plan breaks near-ties and
+    nothing else. Here the scorer rates Marshall Plan well above the plan's
+    headline (UN Intervention), so at a 1-Op band the scorer's pick stands;
+    widen the band past the gap and the plan's lead takes the slot -- which
+    is the override every measured variant lost with (-0.061, USSR nukes
+    7 -> 26)."""
     bot, obs = _bot_obs(kind=K.HEADLINE_PLAY)
+    shipped = StrategicPlayer(StrategicWeights()).rank_actions(obs)
     ranked = bot.rank_actions(obs)
     plans = bot.hand_plan(obs)
     assert plans
     want = max(plans, key=lambda wp: wp.probability).assignment.headline
-    assert ranked[0][1].payload['card'] == want
+    mode, lead = bot._plan_lead(obs)
+    assert mode == 'lead' and want in lead
+    top = shipped[0][1].payload['card']
+    assert top not in lead, 'the fixture must put the scorer and the plan at odds'
+    gap = (shipped[0][0][2] - max(k[2] for k, a in shipped if a.payload['card'] in lead))
+    assert gap > bot.ops_value(obs, 1), 'the plan lead sits outside a 1-Op band'
+    assert ranked[0][1].payload['card'] == top
+    wide = StrategicPlayer(StrategicWeights(hand_assignment=2 * gap / bot.ops_value(obs, 1)))
+    assert wide.rank_actions(obs)[0][1].payload['card'] in lead
+
+
+def test_the_band_holds_only_close_card_plays_and_never_one_alone():
+    bot, obs = _bot_obs()
+    keyed = bot.rank_actions(obs)
+    top = max(k for k, _ in keyed)
+    width = bot.ops_value(obs, 1)
+    inside = {id(a) for k, a in keyed if k[:2] == top[:2] and k[2] >= top[2] - width}
+    band = bot._plan_band(obs, keyed)
+    assert band == (frozenset(inside) if len(inside) > 1 else frozenset())
+    # A band too narrow to hold a second option asks the planner nothing.
+    bot.weights = dataclasses.replace(bot.weights, hand_assignment=1e-12)
+    assert len(bot._plan_band(obs, keyed)) != 1
 
 
 def test_certain_outcomes_are_bounded_before_they_reach_the_solver():

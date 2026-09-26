@@ -237,6 +237,50 @@ nothing either way about the allocation hypothesis. The tail read in
 to 3/32 at 0.25) was also taken under this defect and should not be
 quoted.
 
+## The near-tie band: the rule, written before the number (2026-09-25)
+
+Both measured failures share one mechanism, stated as a hypothesis above
+twice: `pref` sorted above the whole risk/score blend, so demoting a card
+promoted the next one whatever it cost, and USSR-seat nuclear losses
+rose with every variant. The maintainer's 2026-09-25 shape closes exactly
+that: **"consider only doing planner if strategic bot's normal decision
+is tied or close to tied."**
+
+Built on `exp/planner-near-tie` (the strict-preference lead of `935872b`,
+ported onto main, plus `_plan_band`): the plan's strict preferences
+reorder only the card plays whose safety key matches the best one's
+`certain` and risk slots and whose score is within `hand_assignment` Ops
+(at this turn's `ops_value`) of it. Outside the band the scorer's order
+stands. A band holding fewer than two options asks the planner nothing,
+which should also end the planner arms' stalls. At 0 the planner is not
+consulted and the parity corpus is unchanged.
+
+Arms, on a fresh block, anchor `bc5ef93`, paired: `planner-band-base`
+(0), `planner-band-01` (0.1 Op), `planner-band-05` (0.5 Op),
+`planner-band-10` (1 Op). Seeds `132000-133023` + held `133500-133627`,
+reserve `133700-133827` (two full spare shards an arm).
+
+THE RULE, not moved after the number:
+
+1. Each band arm's paired difference against `planner-band-base`: lower
+   bound above 0 means that band beats the shipped bot.
+2. Exactly one beats it: that width goes to a change gate. More than one:
+   the highest point estimate (the widths are an ordered scale), with the
+   runner-up's reading recorded.
+3. **Veto:** an arm whose bot DEFCON-1 losses (both seats summed) exceed
+   the base's by more than half is not nominated, whatever its score.
+   That is the failure every earlier planner variant showed.
+4. None beats it: an arm whose upper bound is below 0 costs, and the
+   planner stays off. If all cover 0, the tie-break is not measurable at
+   this sample, and the planner line waits for a real hold price
+   (EXPERT_ASKS 6a: timing an event, or sitting out a negative card past
+   the reshuffle, with `vp_swing` as the per-turn decline).
+
+What it cannot settle: whole-hand allocation. Play and hold are still
+priced the same, so the plan's only strict preferences are the headline
+and the space and UN units. This reads the plan as a tie-breaker, which
+is all it can honestly be until a hold has its own price.
+
 ## Reproduction
 
     git worktree add ../planner origin/feat/hand-planner-assignment
