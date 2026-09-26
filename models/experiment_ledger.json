@@ -2573,9 +2573,9 @@
       "anchor": "bc5ef93",
       "seeds": "132000-133023+133500-133627",
       "compare_to": null,
-      "run": 36219501188,
+      "run": 36225640116,
       "reading": null,
-      "verdict": "in flight (run 36219501188): rule frozen in the note before dispatch",
+      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
       "status": "planned",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
@@ -2591,9 +2591,9 @@
       "anchor": "bc5ef93",
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
-      "run": 36219501188,
+      "run": 36225640116,
       "reading": null,
-      "verdict": "in flight (run 36219501188): rule frozen in the note before dispatch",
+      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
       "status": "planned",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
@@ -2609,9 +2609,9 @@
       "anchor": "bc5ef93",
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
-      "run": 36219501188,
+      "run": 36225640116,
       "reading": null,
-      "verdict": "in flight (run 36219501188): rule frozen in the note before dispatch",
+      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
       "status": "planned",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
@@ -2627,9 +2627,9 @@
       "anchor": "bc5ef93",
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
-      "run": 36219501188,
+      "run": 36225640116,
       "reading": null,
-      "verdict": "in flight (run 36219501188): rule frozen in the note before dispatch",
+      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
       "status": "planned",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
