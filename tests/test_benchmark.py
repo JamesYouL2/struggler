@@ -518,18 +518,36 @@ def test_the_live_ranking_is_the_one_decision_not_its_simulations():
     assert helper is not None and helper.last_ranking is not bot.last_ranking
 
 
-def test_an_unpriced_live_choice_is_a_blind_pick():
-    """Chernobyl's region choice has no scorer branch: all six regions
-    come back `None`, and the first legal option (Europe) wins."""
+def test_a_live_choice_without_an_opinion_is_a_blind_pick(monkeypatch):
+    """The plumbing, from `score`'s `None` to `unpriced`: with Chernobyl's
+    scorer switched back off, all six regions come back `None` and the
+    first legal option (Europe) would win -- a blind pick. (Chernobyl has
+    been priced since 2026-09-26; the patch recreates the unpriced case.)"""
     from struggler.bots.benchmark import event_choice_kind
     from struggler.bots.strategic import StrategicPlayer
     from struggler.engine import Engine, Side
+    monkeypatch.setattr(StrategicPlayer, '_chernobyl_denial', lambda self, obs, region: None)
     engine = Engine(seed=0)
     engine._fire_event(Side.US, 'Chernobyl')
     d = engine.pending_decision
     bot = StrategicPlayer()
     bot.choose_action(engine.observe(Side.US), [])
     assert event_choice_kind(d.options, bot.last_ranking) == 'unpriced'
+
+
+def test_a_live_choice_that_prices_level_is_all_equal():
+    """Olympic Games: boycott is priced (0 above DEFCON 2), participate has
+    no opinion (0.0) -- priced, and level, which is not a blind pick."""
+    from struggler.bots.benchmark import event_choice_kind
+    from struggler.bots.strategic import StrategicPlayer
+    from struggler.engine import Engine, Side
+    engine = Engine(seed=0)
+    engine.events_enabled = True
+    engine._fire_event(Side.US, 'Olympic_Games')
+    d = engine.pending_decision
+    bot = StrategicPlayer()
+    bot.choose_action(engine.observe(d.actor), [])
+    assert event_choice_kind(d.options, bot.last_ranking) == 'all_equal'
 
 
 def test_event_choice_kind_separates_the_ways_a_choice_is_made():
