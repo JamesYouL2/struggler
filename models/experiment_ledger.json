@@ -2494,6 +2494,38 @@
       "notes": [
         "docs/notes/claude/2026-09-19-reply-budget-best-card.md"
       ]
+    },
+    {
+      "id": "access-base-vs-bc5ef93",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "e434b93",
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-access.md"
+      ]
+    },
+    {
+      "id": "access-deleted-vs-bc5ef93",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "4eaeed5",
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": "access-base-vs-bc5ef93",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-access.md"
+      ]
     }
   ]
 }

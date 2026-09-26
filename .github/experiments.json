@@ -19,6 +19,25 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "access-base-vs-bc5ef93",
+      "anchor": "bc5ef93",
+      "bot_ref": "e434b93",
+      "seeds": "140000-142047",
+      "reserve": "142100-142227",
+      "title": "access deletion: the parent (access on, e434b93) vs bc5ef93, 2048 seeds",
+      "context": "The paired baseline for the access deletion: the same code with the term in, pinned by SHA; plays identically to main after #61 (the parity corpus is the proof). docs/notes/claude/2026-09-26-deleting-access.md"
+    },
+    {
+      "slug": "access-deleted-vs-bc5ef93",
+      "anchor": "bc5ef93",
+      "bot_ref": "4eaeed5",
+      "seeds": "140000-142047",
+      "reserve": "142100-142227",
+      "compare_to": "access-base-vs-bc5ef93",
+      "title": "access deletion: the branch (access deleted, 4eaeed5) vs bc5ef93, 2048 seeds",
+      "context": "The deletion measured against the anchor, paired with the parent on the same seeds. THE RULE (frozen in the note): delete if the paired interval covers 0 or lies above it and bot DEFCON-1 losses do not exceed the base's by more than half; keep if the upper bound is below 0 or the veto fires. Evidence it rests on: ablate-access -0.011 [-0.032, +0.011] over 1152 games. docs/notes/claude/2026-09-26-deleting-access.md"
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",
