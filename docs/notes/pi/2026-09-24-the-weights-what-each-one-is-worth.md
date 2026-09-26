@@ -22,7 +22,7 @@ is the importance: what the bot loses without it.
 | 5 | `region` | **2.6** | -0.040 [-0.060, -0.020] | shipped 2.6 (gate ACCEPTED 2026-09-24) |
 | 6 | `reply_model` | 3.0 | -0.016 [-0.038, +0.006] now; -0.056 on the tiers bot | kept for BEHAVIOUR: poke rate 6.27 -> 0.08 |
 | 7 | `vp_swing` | 3.0 | -0.026 [-0.044, -0.008] (flat curve) | tuned on a six-point grid |
-| 8 | `scoring_final` | 1.0 | -0.025 [-0.045, -0.005] | tie-break in flight (0.5/2.0 U-shape) |
+| 8 | `scoring_final` | 1.0 | -0.025 [-0.045, -0.005] | tie-break read (run 36057325196): the U did not replicate, 1.0 stands |
 | 9 | `last_window_guard` | 0.43 | -0.001 on strength; USSR nukes 37 -> 42 | kept for behaviour |
 | 10 | `vp_base` | 0.5 | 0.35 and 0.75 both cover 0 | expert rate, first measured support |
 | 11 | `access` (+`access_decay`) | 1.5 / 1.445 | **-0.011 [-0.032, +0.011] -- covers 0** | deletion candidate: the biggest machinery measured unimportant |

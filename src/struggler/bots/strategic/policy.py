@@ -3728,12 +3728,12 @@ class StrategicPlayer:
         mid-turn opening is ruling 1's own statement of 6.4.4 -- "a
         second attempt when our marker is at box 2 or beyond and theirs is
         not", created by the first attempt succeeding -- so the second
-        solve is weighted by the roll that would create it. Note the
-        engine grants the double attempt through a game effect nothing in
-        `src/` writes (`space_race_double_attempt_holder`), while
-        `DefconPlanner.attempts_allowed` states the marker rule; the two
-        disagree and that is a finding for the wiring note, not something
-        to paper over here.
+        solve is weighted by the roll that would create it. The engine
+        grants the double attempt through the game effect
+        `space_race_double_attempt_holder`, written by
+        `Engine._update_space_race_ability` via `rules.json`'s
+        `space_race_ability_keys` (an earlier version of this comment
+        said nothing wrote it; a literal-name search misses the lookup).
         """
         engine = self.public_engine(obs)
         if engine._space_attempts_allowed(obs.side) >= 2:

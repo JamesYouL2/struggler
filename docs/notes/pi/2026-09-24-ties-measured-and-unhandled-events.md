@@ -1,5 +1,15 @@
 # Ties measured, and the unhandled events
 
+> **Correction (2026-09-25): the counts below are inflated; do not quote
+> them.** `scripts/measure_ties.py` patches `rank_actions` on the class,
+> and the event helpers that price each option are StrategicPlayers too,
+> so it records the SIMULATED event decisions alongside the live ones --
+> one headline ranking recorded seven EVENT_INFLUENCE rankings with no
+> action applied. Its `STAT` also carries over between games on a
+> worker, and some events listed as unpriced (Independent Reds, Junta,
+> Ortega, Tear Down This Wall) do have scorers. See the Codex audit
+> 2026-09-25, F3. The live-only instrument replaces this measurement.
+
 The companion measurement to [the ties catalogue](2026-09-24-ties-and-what-breaks-them.md):
 which tie actually fires, how often, and how many event choices the bot
 makes with no opinion at all. `scripts/measure_ties.py` wraps
