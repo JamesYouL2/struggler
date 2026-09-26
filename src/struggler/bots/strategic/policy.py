@@ -138,6 +138,10 @@ CHINA_HOLD_RAW = 5.0
 # Decisions whose `score` is in raw board units, and can therefore be blended
 # with `game_value`. The rest (EVENT_CHOICE's per-card rules, say) are on
 # their own ad-hoc scales and keep risk as a separate, prior key.
+# Event branches whose whole consequence is influence on the board, priced
+# by the board value before and after (`_board_choice_value`). The others
+# with no scorer move VP, DEFCON or cards and are not a board question.
+BOARD_ONLY_CHOICES = frozenset({'South_African_Unrest', 'Warsaw_Pact_Formed'})
 _RAW_SCORE_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE,
                     K.COUP_TARGET, K.OPS_TYPE, K.PLACE_INFLUENCE, K.EVENT_INFLUENCE)
 # Placements that can hand the opponent its first Coup target for a
@@ -2098,6 +2102,7 @@ class StrategicPlayer:
         # next helper down until RecursionError -- 24 of 192 self-play games --
         # or, with more branching, ran for minutes and hung a gate game.
         helper._outer_events = self._outer_events | frozenset(self.__dict__.get('_events_in_progress', ()))
+        helper._choice_stack = self.__dict__.get('_choice_stack', ())
         return helper
 
     def influence(self, obs: Observation, cid: str, ops: int) -> float:
@@ -2204,6 +2209,18 @@ class StrategicPlayer:
         preserving the original summation order.
         """
         engine = self.public_engine(obs)
+        countries, regions, before = self._sandbox_basis(obs, engine)
+        engine._fire_event(obs.side, cid)
+        self._sandbox_terminal = False
+        return self._resolve_sandbox(engine, obs, cid, countries, regions, before,
+                                     self._event_helper())
+
+    def _sandbox_basis(self, obs: Observation, engine: Engine):
+        """`(countries, regions, before)`: every country's and
+        region's value on the board `engine` holds before anything fires,
+        computed once per decision and board. Shared by the event sandbox
+        and the board-only event choices, so both price against the same
+        basis in the same summation order."""
         basis_key = (self.weights, obs.side, tuple((c, v['US'], v['USSR'])
                                                  for c, v in obs.influence.items()))
         if self._event_basis is None or self._event_basis[0] != basis_key:
@@ -2219,10 +2236,7 @@ class StrategicPlayer:
                                             regions.items()))
             self._event_basis = (basis_key, countries, regions, before)
         _, countries, regions, before = self._event_basis
-        engine._fire_event(obs.side, cid)
-        self._sandbox_terminal = False
-        return self._resolve_sandbox(engine, obs, cid, countries, regions, before,
-                                     self._event_helper())
+        return countries, regions, before
 
     def _resolve_sandbox(self, engine: Engine, obs: Observation, cid: str, countries, regions,
                          before, policy, rolls: int = 0) -> float:
@@ -3465,6 +3479,64 @@ class StrategicPlayer:
         enemy = self.board.influence[cid][obs.side.opp_key]
         return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
 
+    def _chernobyl_denial(self, obs: Observation, region: str) -> float:
+        """What blocking `region` denies the USSR: the most board value one
+        Soviet Op could swing there, per Op (maintainer, 2026-09-25: "pick
+        the region with the highest swing per op").
+
+        Chernobyl bars USSR Influence placement by Ops in the region for
+        the rest of the turn (`chernobyl_blocks`). The price is the best
+        single placement the USSR is barred from -- the harm to us of one
+        more USSR point in a reachable country, over its Op cost (2 into a
+        US-controlled country). Always the US's choice, so `opp` is the
+        USSR from the chooser's seat.
+        """
+        best = 0.
+        for cid, country in self.board.countries.items():
+            if country.region.key != region or not self.board.is_reachable(Side.USSR, cid):
+                continue
+            cost = 2 if self.board.control(cid) is Side.US else 1
+            best = max(best, -self.delta(obs, cid, opp=1) / cost)
+        return best
+
+    def _board_choice_value(self, obs: Observation, action: Action, event: str, ctx) -> float | None:
+        """A board-only event branch, priced by the board value before and
+        after (maintainer, 2026-09-25). The branch is played out in the
+        public sandbox exactly as `event_value` plays a whole event:
+        re-fire the event, take this branch, let the event helper resolve
+        what follows (the placements), and value the change on the
+        sandbox's basis.
+
+        Only when re-firing reproduces THIS decision -- the same chooser
+        and the same options -- is the branch the first step of the event
+        and the sandbox the live position; otherwise there is no opinion
+        (`None`), exactly as before. `_choice_stack` stops a branch that
+        re-enters its own choice through a helper from recursing.
+        """
+        stack = self.__dict__.get('_choice_stack', ())
+        if event in stack:
+            return None
+        decision = obs.pending_decision
+        engine = self.public_engine(obs)
+        countries, regions, before = self._sandbox_basis(obs, engine)
+        phasing = Side(ctx.get('phasing_player', obs.side.value))
+        engine._fire_event(phasing, event)
+        mirror = engine.pending_decision
+        if (mirror is None or mirror.kind is not K.EVENT_CHOICE or mirror.actor is not decision.actor
+                or (mirror.context or {}).get('event') != event
+                or [o.payload for o in mirror.options] != [o.payload for o in decision.options]):
+            return None
+        engine.step(action)
+        self._choice_stack = stack + (event,)
+        try:
+            self._sandbox_terminal = False
+            return self._resolve_sandbox(engine, obs, event, countries, regions, before,
+                                         self._event_helper())
+        except SandboxUnsupported:
+            return None
+        finally:
+            self._choice_stack = stack
+
     def _score_discard(self, obs: Observation, action: Action, kind, p, ctx):
         """Which card to throw away to Quagmire, Bear Trap or a held-card event.
 
@@ -3638,6 +3710,10 @@ class StrategicPlayer:
         if event == 'Independent_Reds' and choice in self.board.countries:
             inf = self.board.influence[choice]
             return self.delta(obs, choice, own=max(0, inf['USSR']-inf['US']))
+        if event == 'Chernobyl':
+            return self._chernobyl_denial(obs, choice)
+        if event in BOARD_ONLY_CHOICES:
+            return self._board_choice_value(obs, action, event, ctx)
         if event == 'Summit_defcon':
             if choice == 'lower' and obs.defcon <= 2:
                 return LOSS if responsible else -LOSS

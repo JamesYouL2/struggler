@@ -776,7 +776,14 @@ although scoring-card and Wargames decisions use the engine's scoring code.
 
 Events that need hidden cards (`HIDDEN_INFO_EVENTS`) use rough
 allegiance/ops-based estimates, events whose only effect is a flag value 0,
-and unhandled event branches tie-break to the first legal option. Long-term event
+and unhandled event branches tie-break to the first legal option. The
+board-only branches are handled: South African Unrest and Warsaw Pact are
+played out in the sandbox and priced by board value before and after
+(`BOARD_ONLY_CHOICES`, `_board_choice_value`), and Chernobyl blocks the
+region where one Soviet Op would swing the most board value
+(`_chernobyl_denial`). The branches still unpriced move VP, DEFCON or
+cards (Olympic Games' participate/boycott, the card queries and reveals).
+Long-term event
 flags are only partially valued. Hand survival is a bounded search with
 fixed priors: it does not track which attack cards the opponent actually
 holds, model the opponent's regional play, or value the board damage a
