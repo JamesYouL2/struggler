@@ -88,7 +88,23 @@ is the actual rule -- presence plus how many Battlegrounds, or dominance
 minus how much risk, or "never before turn N unless X"? Any form that can
 become a condition.
 
-## 4. Flag-only events, an entire class worth 0
+## 4. Flag-only events, an entire class worth 0 -- ANSWERED (numbers)
+
+**Answered 2026-09-25**, seat-own Ops, alongside the earlier NATO ~1 and
+NORAD 1.5:
+
+| Flag | Value |
+| --- | ---: |
+| Nuclear Subs | 2.5 Ops |
+| Bear Trap | 3 Ops |
+| Quagmire | 3.5 Ops |
+| Warsaw Pact Formed, persistent half (it enables NATO) | 0.25 Ops **to the US** |
+
+Outstanding is the implementation: nothing in the bot prices a flag as
+Ops today (NATO and NORAD enter only as the evaluator's board-protection
+flags), so this is a new term and ships through a gate. Formosan
+Resolution is still unpriced.
+
 
 The sandbox values an event by the influence and VP it moves, so an event
 whose whole effect is setting a flag prices at exactly zero. Currently
@@ -106,7 +122,30 @@ cause as the flags, same fix, and it touches Glasnost, Salt Negotiations,
 Summit's raise branch and every Coup declined in a region just unlocked.
 They judge it a constant rather than a parameter.
 
-## 5. Event branch choices the bot decides by tuple order
+## 5. Event branch choices the bot decides by tuple order -- ANSWERED
+
+**Answered 2026-09-25.** The general rule the maintainer gave for most of
+these is **price each branch by the country/board value before and after**
+-- the sandbox's own measure -- rather than a per-card constant:
+
+- **Chernobyl** -- (no separate rule; board value before and after.)
+- **Warsaw Pact Formed** -- **add**, unless removing swings control of
+  East Germany or Poland and adding cannot. Otherwise board value before
+  and after.
+- **South African Unrest** -- generally **Angola** (the adjacent branch);
+  board value before and after.
+- **Latin American Debt Crisis** -- **pay only** if refusing would lose
+  control of a Battleground, or if the only cards to pay with are negative
+  (opponent) cards you want rid of anyway.
+- **War targets** (Indo-Pakistani, Arab-Israeli, Iran-Iraq, Korean, Brush
+  War) -- the target with the higher total value: more Ops/influence at
+  stake, higher stability, better region; i.e. board value before and
+  after, times the chance of winning. `_score_war_target` already has this
+  shape; the ties the 09-24 count found sit where the opponent has no
+  influence to take, so only the VP is left and it is equal.
+
+The original question, for the record:
+
 
 These offer a choice the bot scores at 0 on every branch, so it takes
 whichever the engine lists first. Free Coups are fixed; these are not:
@@ -117,6 +156,23 @@ whichever the engine lists first. Free Coups are fixed; these are not:
 - **Latin American Debt Crisis** -- which countries to halve, and whether to pay.
 
 A one-line rule each is enough.
+
+## 6a. When to hold a card -- ANSWERED as structure
+
+**Answered 2026-09-25.** Holding is about two things:
+
+1. **Timing an event you cannot use well this turn**, or at all yet --
+   One Small Step, UN Intervention, Wargames: hold until the turn where it
+   plays as intended.
+2. **Holding a negative card past the reshuffle** (or one more turn) so it
+   hurts less when it finally comes out.
+
+Otherwise a card loses value every turn it is held: use `vp_swing` (the
+per-turn rise in what a VP is worth) to price that decline, rather than
+a flat option premium -- which is what the `hold_option` grid tried and
+read nothing above 0. This is the missing next-turn price the assignment
+planner needs before its hold decisions can mean anything
+(docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md).
 
 ## 6. Safe windows: which cards must be played before DEFCON falls
 
