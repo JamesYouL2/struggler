@@ -3943,6 +3943,12 @@ class StrategicPlayer:
         if width <= 0 or obs.pending_decision.kind not in (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY):
             return frozenset()
         top = max(key for key, _ in keyed)
+        if is_certain(top[2]):
+            # A certain outcome is an ordering, not a price: there is no
+            # "within N Ops" of a won or lost game, and arithmetic on the
+            # sentinel refuses (`_refuse`) -- which is how the first dispatch
+            # of the band arms died on every shard (run 36219501188).
+            return frozenset()
         floor = top[2] - width * self.ops_value(obs, 1)
         band = frozenset(id(a) for key, a in keyed
                          if key[:2] == top[:2] and key[2] >= floor)

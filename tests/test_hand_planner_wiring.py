@@ -232,3 +232,17 @@ def test_certain_outcomes_are_bounded_before_they_reach_the_solver():
     # certain-defeat Ops play the flag was talking about.
     assert plan.rounds == (('space', 'Duck_and_Cover'),)
     assert plan.holds == ('Fidel',)
+
+
+def test_a_certain_outcome_at_the_top_leaves_the_band_empty():
+    """Run 36219501188 died on every planner shard: a certain win at the
+    top reached `top - width * ops_value`, and the sentinel refuses
+    arithmetic. A certain outcome is an ordering; nothing is within N Ops
+    of it."""
+    from struggler.bots.strategic.policy import LOSS
+    bot, obs = _bot_obs()
+    a, b = obs.pending_decision.options[:2]
+    bot.rank_actions(obs)
+    for top in (-LOSS, LOSS):
+        assert is_certain(top)
+        assert bot._plan_band(obs, [((0, 0.0, top), a), ((0, 0.0, 5.0), b)]) == frozenset()
