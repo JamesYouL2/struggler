@@ -36,19 +36,18 @@ action = bot.choose_action(observation, history)
   card now) or 1.0 when we hold it, bucket 2 the pile share times the
   cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
   recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
-  Holding the card multiplies this cycle's term by `scoring_hand`, and
-  `scoring_rival` raises it by `scoring_rival * P(the opponent holds it)`:
-  we pick the moment, and they score at *their* best moment, so control
-  banked before they do is worth more. **Both ship at 1.0**, which means the
-  hand premium is currently OFF (a multiplier of one) while the rival
-  shaping is at full strength (up to 2x for a card they certainly hold).
-  This paragraph said 1.2 for a while after the value moved.
+  A card we hold is unshaped; one we do not is raised by
+  `scoring_rival * P(the opponent holds it)` (shipped 1.0, up to 2x for a
+  card they certainly hold): they score at *their* best moment, so control
+  banked before they do is worth more. (A hand premium, `scoring_hand`,
+  multiplied the held case and sat at its neutral 1.0 after 1.2 read a dead
+  heat against it; it was deleted on 2026-09-26.)
 
   Two things this sum no longer reads, both replaced by the factor-2
   masses: `evaluator.retention_p` (the CONTROL drift between now and a
   scoring lives in the forecast's fitted horizons instead -- compounding
   retention on top would charge the same uncertainty twice), and the scalar
-  `scoring_discount`. Because it reads neither, the sum is a function of the
+  per-turn discount (`scoring_discount`, deleted 2026-09-26). Because it reads neither, the sum is a function of the
   region and South East Asia membership alone -- **not** of stability --
   which is exactly the key `policy._urgency_for` memoises on, and
   `test_the_urgency_memo_is_keyed_on_everything_the_weight_reads` is what
@@ -125,9 +124,10 @@ action = bot.choose_action(observation, history)
   the measured conversion probability, and the value is shared equally among
   the routes because none is privileged. Chains --
   a battleground two steps away through a country not yet held -- counted
-  too until 2026-09-12, weighted `access_chain`; ablated alone over 128
-  seeds it was not measurably worse (0.491 +/-0.063), while being 92% of
-  the traversal `access` can do, so it was removed. Reach into a
+  too until 2026-09-12, weighted `access_chain`. Restored at 0 for the
+  2026-09-19 bisect and measured at 1024 seeds, it read 0.2 flat and 0.4 /
+  0.8 measurably worse, so the weight and its three-hop radius were deleted
+  on 2026-09-26. Reach into a
   battleground the opponent can already place in is a race they may win
   first, and is worth nothing: `access` skips it. (It was
   `access_contested` x exclusive reach, a guess at 0.25 that shipped at
@@ -317,18 +317,13 @@ action = bot.choose_action(observation, history)
 - Prices the hidden-information cards from what a card in a hand is worth
   (`hold_value`: a scoring card scores its region, anything else is played,
   so an opponent event carries its harm and a card you would rather not
-  hold is *negative*). A hold also carries its option value for the
-  flexibility of choosing its moment -- ruling 3 of
-  [the hand planner plan](notes/claude/2026-09-20-the-whole-hand-planner.md)
-  -- `weights.hold_option` times the card's Ops value, because what a hold
-  defers is the spending of its Ops. It is 0 as shipped and **stays 0**:
-  the `hold-option-*` grid (run 35753235236, 1024 paired seeds) read
-  nothing above 0 at 0.25 / 0.5 / 1.0 and a measurable loss at 1.0
-  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)). The term is stated
-  once in `hold_value`, so `value_as_held` (the planner's hold-slot price)
-  and every live hold pricing read one number; the ops-only proxies
-  (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so
-  a swap compares like with like. Ask Not is the sum of the chosen
+  hold is *negative*). A hold is worth exactly its next-turn price: an
+  option premium, `hold_option` times the card's Ops, read nothing above 0
+  over the `hold-option-*` grid (run 35753235236, 1024 paired seeds) and a
+  measurable loss at 1.0
+  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)), and was
+  deleted on 2026-09-26. `value_as_held` (the planner's hold-slot price)
+  and every live hold pricing read `hold_value`. Ask Not is the sum of the chosen
   upgrades over our hand, capped at the Action Rounds left
   (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,
@@ -543,7 +538,7 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1
 
 python -m struggler.bots.train train --seed 200 --pairs 8 \
   --generations 4 --population 4 --workers 8 \
-  --fields scoring_discount,scoring_hand --output my-model.json
+  --fields scoring_rival,scoring_final --output my-model.json
 python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
   --seed 4000 --model my-model.json --workers 8
 ```

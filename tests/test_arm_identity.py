@@ -51,10 +51,10 @@ def test_every_input_that_can_change_play_changes_the_key(field, moved):
 
 
 def test_a_dropped_weight_is_not_the_same_as_a_zero_one():
-    """`{'access_chain': 0.0}` and `{}` are the same bot only because the
+    """`{'hand_assignment': 0.0}` and `{}` are the same bot only because the
     default happens to be 0.0 today. Defaults move; the key must not assume
     this one has not."""
-    assert key(weights={}) != key(weights={'access_chain': 0.0})
+    assert key(weights={}) != key(weights={'hand_assignment': 0.0})
 
 
 def test_weight_order_and_int_float_spelling_do_not_change_the_key():

@@ -11,17 +11,17 @@ test; both would have shown up in a sign test.
   2. "Playing any non-opponent card is better than nothing."  Our own
      cards and neutrals cannot be worth less than not playing them --
      only an *opponent's* card can, because playing it fires their event.
-  3. "A hold is worth at least what it will be worth when played."  The
-     flexibility of choosing a card's moment is option value and never a
-     discount -- ruling 3 of the hand planner plan -- so the premium
-     `hold_option` prices is non-negative at every setting.
+  3. "A hold is worth at least what it will be worth when played" was
+     the third, while `hold_option` priced a premium on it; the term was
+     deleted on 2026-09-26 (nothing above 0 over 1024 seeds) and a hold is
+     now exactly its next-turn price.
 """
 from __future__ import annotations
 
 import pytest
 
-from struggler.bots.rules_math import effective_ops_estimate, space_race_expected_vp
-from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.bots.rules_math import space_race_expected_vp
+from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.strategic.policy import CARDS, is_certain
 from struggler.engine import Engine, Side
 
@@ -163,36 +163,3 @@ def test_holding_an_ordinary_card_is_not_a_loss():
     for cid in ('Duck_and_Cover', 'NATO', 'Decolonization', 'The_China_Card'):
         if cid in CARDS:
             assert not is_certain(bot.value_as_held(obs, cid)), cid
-
-
-def test_a_hold_carries_option_value_beyond_its_next_turn_price():
-    """Ruling 3 (the hand planner plan): "A hold does deserve option
-    value." The premium is priced in the card's own Ops -- what a hold
-    defers is the spending of its Ops -- and is linear in the weight. At
-    the shipped 0 there is no premium at all, which is what makes
-    `value_as_held` exactly the next-turn price by default.
-    """
-    _engine, bot, obs = primed(5)
-    for cid in ('Duck_and_Cover', 'The_China_Card'):
-        base = bot.value_as_held(obs, cid)
-        priced = StrategicPlayer(StrategicWeights(hold_option=0.5))
-        priced.rank_actions(obs)
-        ops = effective_ops_estimate(CARDS[cid], obs, obs.side)
-        assert priced.value_as_held(obs, cid) == pytest.approx(
-            base + 0.5 * priced.ops_value(obs, ops)), cid
-        assert priced.value_as_held(obs, cid) > base, cid
-
-
-def test_a_scoring_card_hold_carries_no_option_value():
-    """The premium is the flexibility of choosing a card's moment, and a
-    scoring card's hold leaves no such choice: it is its region's score
-    (or, as `value_as_held` says, a certain loss). It must not drift up
-    with the weight -- the scoring branch is a different quantity.
-    """
-    _engine, bot, obs = primed(5)
-    priced = StrategicPlayer(StrategicWeights(hold_option=1.0))
-    priced.rank_actions(obs)
-    scoring = [c for c in CARDS if CARDS[c].scoring]
-    assert scoring, 'no scoring cards in the deck'
-    for cid in scoring:
-        assert priced.hold_value(obs, cid) == bot.hold_value(obs, cid), cid

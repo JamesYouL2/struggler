@@ -38,7 +38,6 @@ ARMS = {
     'reserve=0': {'reserve': 0.0},
     'region=0': {'region': 0.0},
     'coup_discount=1': {'coup_discount': 1.0},
-    'scoring_hand=1': {'scoring_hand': 1.0},
 }
 
 

@@ -1,16 +1,13 @@
 """The whole-board scoring potential: one number per board, one rule.
 
-DIAGNOSTIC ONLY as of 2026-09-17: the potential-delta rewrite was descoped
-off the ranking path because the per-delta DP cost (~11-23 ms per
-`expected_payout`, recomputed per candidate placement with no
-cross-candidate reuse -- the fit's features change continuously) made
-full games unfinishable. The ranking path reads the pre-rebuild shape in
-`evaluator`; this module and `StrategicPlayer.scoring_potential` survive
-as the probe the buy-back -- incremental per-member-removed DP, or a fast
-tier kernel -- would build on. See
-docs/notes/codex/2026-09-17-potential-delta-design.md for the options and
-the verified-exactness record (delta == potential-minus == value-diff to
-1e-6 on seeds 4000/4001).
+OFF THE RANKING PATH. The potential was descoped from it on 2026-09-17 for
+cost, bought back as linear weight tables behind `StrategicWeights.potential`,
+measured at 1024 seeds (+0.021 [-0.000, +0.042], the rule said stop) and the
+in-ranking wiring deleted on 2026-09-26. This module is what
+`scripts/fit_country_weights.py` fits the shipped country weights against:
+the exact target the ranking's fixed per-country weights approximate. See
+docs/notes/codex/2026-09-17-potential-delta-design.md for the exactness
+record and docs/notes/pi/2026-09-23-the-potential-verdict.md for the verdict.
 
 The contract this module carries, preserved for that buy-back:
 
@@ -37,7 +34,7 @@ Shape (see docs/notes/codex/2026-09-17-potential-delta-design.md):
   reply/tempo stay separate.
 
 Both seats read the same potential signed for their seat; the holder
-shaping (`scoring_hand`, `scoring_rival`) is the only deliberately
+shaping (`scoring_rival`, and a held card left unshaped) is the only deliberately
 asymmetric part, the asymmetry the deck-tracking gate accepted.
 """
 from __future__ import annotations
@@ -54,17 +51,15 @@ def shaped_mass(obs: Observation, card: str, opp: sch.Opportunity, w) -> float:
     """One opportunity's mass with the holder shaping the consumer applies.
 
     The same rule as the urgency consumer (`_scoring_weight_uncached`):
-    this cycle's term is shaped by who picks the moment (held: flat
-    `scoring_hand`, no rival factor -- we hold it, they cannot) and by the
+    this cycle's term is shaped by who picks the moment (held: unshaped,
+    no rival factor -- we hold it, they cannot) and by the
     amplified holder odds otherwise; final scoring rides `scoring_final`.
     Bucket 3+ is unshaped: the shaping is holder timing, and by the
     recycle every live scoring is played.
     """
     mass = opp.occurrence
     if opp.bucket in (1, 2):
-        if card in obs.hand:
-            mass *= w.scoring_hand
-        elif w.scoring_rival:
+        if card not in obs.hand and w.scoring_rival:
             mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
     elif opp.bucket == 5:
         mass *= w.scoring_final

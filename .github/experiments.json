@@ -198,15 +198,6 @@
       "compare_to": "fitted-matched"
     },
     {
-      "slug": "europe-curve-k10",
-      "weights": {
-        "europe_curve": 10.0
-      },
-      "seeds": "32000-33023",
-      "title": "Europe as 20*tanh(net VP / 10), Control = +20 (auto win), fit off",
-      "context": "Europe alone: the tiers' step from domination to Control replaced by one continuous curve reaching exactly the +20 of an automatic victory (maintainer, 2026-09-18). Isolated -- the fitted country weights are off -- against this branch's defaults on the same seeds as the fitted-* arms, so it reads beside fitted-matched though not paired with it. k=10 is a judgment: the exact potential cannot fit it, since self-play never approaches Europe Control (scripts/fit_europe_curve.py: 0 Control rows in 2130 positions). docs/notes/claude/2026-09-18-fitted-country-weights.md."
-    },
-    {
       "slug": "guard-on-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "30000-31023",
@@ -292,68 +283,11 @@
       "compare_to": "restore-base"
     },
     {
-      "slug": "restore-chain04",
-      "anchor": "07d553a",
-      "seeds": "46000-47023",
-      "title": "restore: access_chain 0.4 (the term 52bb329 dropped)",
-      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
-      "weights": {
-        "access_chain": 0.4
-      },
-      "compare_to": "restore-base"
-    },
-    {
-      "slug": "restore-chain02",
-      "anchor": "07d553a",
-      "seeds": "46000-47023",
-      "title": "restore: access_chain 0.2, half of it",
-      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
-      "weights": {
-        "access_chain": 0.2
-      },
-      "compare_to": "restore-base"
-    },
-    {
-      "slug": "restore-chain08",
-      "anchor": "07d553a",
-      "seeds": "46000-47023",
-      "title": "restore: access_chain 0.8, double it",
-      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
-      "weights": {
-        "access_chain": 0.8
-      },
-      "compare_to": "restore-base"
-    },
-    {
-      "slug": "restore-both",
-      "anchor": "07d553a",
-      "seeds": "46000-47023",
-      "title": "restore: both, as 52bb329 found them",
-      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
-      "weights": {
-        "vp_swing": 2.0,
-        "access_chain": 0.4
-      },
-      "compare_to": "restore-base"
-    },
-    {
       "slug": "restore-base-bc",
       "anchor": "bc5ef93",
       "seeds": "46000-47023",
       "title": "restore: main as it is vs bc5ef93, the strongest anchor",
       "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md"
-    },
-    {
-      "slug": "restore-both-bc",
-      "anchor": "bc5ef93",
-      "seeds": "46000-47023",
-      "title": "restore: both vs bc5ef93 -- does it close the 0.034?",
-      "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
-      "weights": {
-        "vp_swing": 2.0,
-        "access_chain": 0.4
-      },
-      "compare_to": "restore-base-bc"
     },
     {
       "slug": "fit-clean-base",
@@ -538,19 +472,6 @@
       "context": "The pair for potential-round-on, on the same seeds and the same opponent. Also records what the flat-lattice DP and the memoised control forecast (both exact) leave the default bot reading against the anchor. RESULT (run 35531902621): 0.541 [0.518, 0.564] over 512 seeds."
     },
     {
-      "slug": "potential-round-on",
-      "anchor": "07d553a",
-      "seeds": "56000-56511",
-      "shard": 48,
-      "weights": {
-        "potential": 1.0,
-        "potential_refresh": 1.0
-      },
-      "compare_to": "potential-round-base",
-      "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
-      "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. ANSWERED (run 35531902621): 0.562 [0.538, 0.586], paired +0.021 [-0.009, +0.052] over 512 seeds -- the interval contains zero, so the term is not measured to help and not measured not to. It ships at 0.0. docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
-    },
-    {
       "slug": "fit-bc-base",
       "weights": {
         "country_vp_scale": 0.0
@@ -636,18 +557,6 @@
       "context": "Step 5 of docs/notes/claude/2026-09-20-finishing-the-vp-rebuild.md, the base half. The country layer is finished and shipped; this is the region layer and the last open question in that plan."
     },
     {
-      "slug": "potential-verdict-on",
-      "weights": {
-        "potential": 1.0,
-        "potential_refresh": 1.0
-      },
-      "anchor": "bc5ef93",
-      "seeds": "72000-73023",
-      "compare_to": "potential-verdict-base",
-      "title": "potential verdict: the VP rebuild in the ranking vs bc5ef93, 1024 seeds",
-      "context": "The 1024-seed verdict the term has never had. `potential-round-on` read +0.021 [-0.009, +0.052] over 512 seeds against 07d553a (run 35531902621): not measured to help, not measured not to, at half the registry's own default for a question worth asking. At 1024 the interval roughly halves and separates +0.021 from zero if it is real. TWO THINGS CHANGED SINCE THAT READING and both matter. The opponent is bc5ef93, the strongest anchor, not 07d553a. And 15caae4 closed the gap where `_resolve_sandbox` never priced the potential at all, so events were mispriced against placements by the whole term (2.9075 VP on a 43 VP Fidel) -- the 512-seed reading was taken on a bot with events and placements on different scoring halves, and is NOT comparable to this one. PRE-REGISTERED: paired lower bound above 0 means the term earns its place and the refresh approximation is the next question; at or below 0 means it does not, at a sample size that can say so. Cannot separate the term from its `potential_refresh` round-level tables, which are on in both arms of the pair as they were in the 512-seed one."
-    },
-    {
       "slug": "hold-option-base",
       "anchor": "bc5ef93",
       "seeds": "74000-75023",
@@ -655,39 +564,6 @@
       "context": "Step 1 of docs/notes/claude/2026-09-20-the-whole-hand-planner.md, ruling 3: a hold deserves option value for the flexibility of keeping it, and no measurement here says what it should be -- so `hold_option` ships at 0 and the hold-option-* arms price it over a small grid, the same shape as `vp_swing`, which is how that one was finally settled. The term is stated once in `hold_value`, so every live hold pricing reads it (Ask Not, the hand attacks, the Missile Envy and Aldrich picks); `value_as_held`, the planner's hold-slot price, delegates there and is what step 3 will read. The base half: the shipped bot, no premium, vs bc5ef93 -- the reference the three grid arms are paired against on identical machinery."
     },
     {
-      "slug": "hold-option-025",
-      "weights": {
-        "hold_option": 0.25
-      },
-      "anchor": "bc5ef93",
-      "seeds": "74000-75023",
-      "compare_to": "hold-option-base",
-      "title": "hold option value 0.25: a quarter of the card's Ops vs bc5ef93",
-      "context": "The low end of the grid: a hold carries a quarter of its own Ops value on top of what it will be worth when played -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. Cannot separate 'the premium is wrong' from 'the premium belongs in the planner's hold-slot demand and not in the live hold terms' -- only the assignment planner (step 3) moves the latter."
-    },
-    {
-      "slug": "hold-option-05",
-      "weights": {
-        "hold_option": 0.5
-      },
-      "anchor": "bc5ef93",
-      "seeds": "74000-75023",
-      "compare_to": "hold-option-base",
-      "title": "hold option value 0.5: half the card's Ops vs bc5ef93",
-      "context": "The middle of the grid: a hold carries half its own Ops value of flexibility. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. This is where a peak is most likely to sit if keeping a card is worth about a small card's Ops. Cannot separate a peak at 0.5 from one at 0.4 or 0.6 -- three points is a direction and a bracket, not a fit."
-    },
-    {
-      "slug": "hold-option-10",
-      "weights": {
-        "hold_option": 1.0
-      },
-      "anchor": "bc5ef93",
-      "seeds": "74000-75023",
-      "compare_to": "hold-option-base",
-      "title": "hold option value 1.0: the card's whole Ops value again vs bc5ef93",
-      "context": "The top of the grid: a held card carries as much again as its Ops value -- the flexibility priced at everything the card can buy. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. A win here with 025 and 05 flat says the flexibility is worth pricing but this grid has not found the peak, and the next question is above 1.0. Cannot separate 'worth about 1.0' from 'worth more': 1.0 is the boundary of this grid."
-      },
-      {
         "slug": "hand-assignment-base",
         "anchor": "bc5ef93",
         "seeds": "78000-79023",
@@ -750,18 +626,6 @@
         "compare_to": "ablate-base",
         "title": "ablate progress: the partial-control credit off (2.8 -> 0)",
         "context": "progress scales credit toward a first controlled country where a side has none (presence races), ships at an uncalibrated 2.8 (provenance: guess). progress-half (1.4) split its halves violently (0.547 / 0.434) at 128+64 -- no conclusion. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot see the early presence fights the credit is for except as they occur in the sample."
-      },
-      {
-        "slug": "ablate-scoring-discount",
-        "weights": {
-          "scoring_discount": 1.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
-        "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
       },
       {
         "slug": "ablate-scoring-rival",
@@ -1171,6 +1035,142 @@
         "compare_to": "space-race-base",
         "title": "space race at 2 VP -- the abilities under-priced?",
         "context": "All four boxes at 2.0: the high side of the maintainer's 0/1/2 scale. THE RULE, frozen in the sweep note: LB above 0 vs base = nominated; multiple clearances -> highest estimate wins (0/1/2 are ordered); none -> the shipped mix stands or the family is unimportant, per the tree in the note."
+      },
+      {
+        "slug": "europe-curve-k10",
+        "weights": {
+          "europe_curve": 10.0
+        },
+        "seeds": "32000-33023",
+        "title": "Europe as 20*tanh(net VP / 10), Control = +20 (auto win), fit off",
+        "context": "Europe alone: the tiers' step from domination to Control replaced by one continuous curve reaching exactly the +20 of an automatic victory (maintainer, 2026-09-18). Isolated -- the fitted country weights are off -- against this branch's defaults on the same seeds as the fitted-* arms, so it reads beside fitted-matched though not paired with it. k=10 is a judgment: the exact potential cannot fit it, since self-play never approaches Europe Control (scripts/fit_europe_curve.py: 0 Control rows in 2130 positions). docs/notes/claude/2026-09-18-fitted-country-weights.md."
+      },
+      {
+        "slug": "restore-chain04",
+        "anchor": "07d553a",
+        "seeds": "46000-47023",
+        "title": "restore: access_chain 0.4 (the term 52bb329 dropped)",
+        "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+        "weights": {
+          "access_chain": 0.4
+        },
+        "compare_to": "restore-base"
+      },
+      {
+        "slug": "restore-chain02",
+        "anchor": "07d553a",
+        "seeds": "46000-47023",
+        "title": "restore: access_chain 0.2, half of it",
+        "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+        "weights": {
+          "access_chain": 0.2
+        },
+        "compare_to": "restore-base"
+      },
+      {
+        "slug": "restore-chain08",
+        "anchor": "07d553a",
+        "seeds": "46000-47023",
+        "title": "restore: access_chain 0.8, double it",
+        "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+        "weights": {
+          "access_chain": 0.8
+        },
+        "compare_to": "restore-base"
+      },
+      {
+        "slug": "restore-both",
+        "anchor": "07d553a",
+        "seeds": "46000-47023",
+        "title": "restore: both, as 52bb329 found them",
+        "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+        "weights": {
+          "vp_swing": 2.0,
+          "access_chain": 0.4
+        },
+        "compare_to": "restore-base"
+      },
+      {
+        "slug": "restore-both-bc",
+        "anchor": "bc5ef93",
+        "seeds": "46000-47023",
+        "title": "restore: both vs bc5ef93 -- does it close the 0.034?",
+        "context": "The 2026-09-19 bisect put a 0.050 step at 52bb329, which zeroed both weights on readings of 78-256 seeds. This measures each at 1024. docs/notes/claude/2026-09-19-bisect-v0.2.1.md",
+        "weights": {
+          "vp_swing": 2.0,
+          "access_chain": 0.4
+        },
+        "compare_to": "restore-base-bc"
+      },
+      {
+        "slug": "potential-round-on",
+        "anchor": "07d553a",
+        "seeds": "56000-56511",
+        "shard": 48,
+        "weights": {
+          "potential": 1.0,
+          "potential_refresh": 1.0
+        },
+        "compare_to": "potential-round-base",
+        "title": "potential round tables: the VP rebuild in the ranking vs 07d553a",
+        "context": "The VP rebuild in the ranking, with the linear weight tables rebuilt once per ACTION ROUND instead of once per position. Exact per position is 282.6 ms a decision against 10.5 ms with the term off; round tables are 31.8 ms, a whole game 2.75x. The approximation was measured by pricing every potential_delta both ways: median 0 and p99 0.06 VP in the middle game, but max 3.73 VP at turn 1. The known gap stands: the event sandbox does not price the potential, so a placement and an event making the same board change are valued on slightly different scoring halves. ANSWERED (run 35531902621): 0.562 [0.538, 0.586], paired +0.021 [-0.009, +0.052] over 512 seeds -- the interval contains zero, so the term is not measured to help and not measured not to. It ships at 0.0. docs/notes/claude/2026-09-20-potential-in-the-ranking.md"
+      },
+      {
+        "slug": "potential-verdict-on",
+        "weights": {
+          "potential": 1.0,
+          "potential_refresh": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "72000-73023",
+        "compare_to": "potential-verdict-base",
+        "title": "potential verdict: the VP rebuild in the ranking vs bc5ef93, 1024 seeds",
+        "context": "The 1024-seed verdict the term has never had. `potential-round-on` read +0.021 [-0.009, +0.052] over 512 seeds against 07d553a (run 35531902621): not measured to help, not measured not to, at half the registry's own default for a question worth asking. At 1024 the interval roughly halves and separates +0.021 from zero if it is real. TWO THINGS CHANGED SINCE THAT READING and both matter. The opponent is bc5ef93, the strongest anchor, not 07d553a. And 15caae4 closed the gap where `_resolve_sandbox` never priced the potential at all, so events were mispriced against placements by the whole term (2.9075 VP on a 43 VP Fidel) -- the 512-seed reading was taken on a bot with events and placements on different scoring halves, and is NOT comparable to this one. PRE-REGISTERED: paired lower bound above 0 means the term earns its place and the refresh approximation is the next question; at or below 0 means it does not, at a sample size that can say so. Cannot separate the term from its `potential_refresh` round-level tables, which are on in both arms of the pair as they were in the 512-seed one."
+      },
+      {
+        "slug": "hold-option-025",
+        "weights": {
+          "hold_option": 0.25
+        },
+        "anchor": "bc5ef93",
+        "seeds": "74000-75023",
+        "compare_to": "hold-option-base",
+        "title": "hold option value 0.25: a quarter of the card's Ops vs bc5ef93",
+        "context": "The low end of the grid: a hold carries a quarter of its own Ops value on top of what it will be worth when played -- what a hold defers is the spending of its Ops, so the flexibility of choosing the moment is priced in those units. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. Cannot separate 'the premium is wrong' from 'the premium belongs in the planner's hold-slot demand and not in the live hold terms' -- only the assignment planner (step 3) moves the latter."
+      },
+      {
+        "slug": "hold-option-05",
+        "weights": {
+          "hold_option": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "74000-75023",
+        "compare_to": "hold-option-base",
+        "title": "hold option value 0.5: half the card's Ops vs bc5ef93",
+        "context": "The middle of the grid: a hold carries half its own Ops value of flexibility. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. This is where a peak is most likely to sit if keeping a card is worth about a small card's Ops. Cannot separate a peak at 0.5 from one at 0.4 or 0.6 -- three points is a direction and a bracket, not a fit."
+      },
+      {
+        "slug": "hold-option-10",
+        "weights": {
+          "hold_option": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "74000-75023",
+        "compare_to": "hold-option-base",
+        "title": "hold option value 1.0: the card's whole Ops value again vs bc5ef93",
+        "context": "The top of the grid: a held card carries as much again as its Ops value -- the flexibility priced at everything the card can buy. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. A win here with 025 and 05 flat says the flexibility is worth pricing but this grid has not found the peak, and the next question is above 1.0. Cannot separate 'worth about 1.0' from 'worth more': 1.0 is the boundary of this grid."
+      },
+      {
+        "slug": "ablate-scoring-discount",
+        "weights": {
+          "scoring_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
+        "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
       }
     ]
   }

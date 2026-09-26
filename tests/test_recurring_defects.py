@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from struggler.bots.strategic import StrategicPlayer, StrategicWeights
+from struggler.bots.strategic import StrategicPlayer
 from struggler.bots.strategic.policy import LOSS, Certain, is_certain, priced
 from struggler.engine import Engine, Side
 from struggler.engine.rules import RULES
@@ -161,17 +161,13 @@ def test_a_certain_outcome_still_orders():
     assert priced(LOSS, 40.) == -40. and not isinstance(priced(LOSS, 40.), Certain)
 
 
-@pytest.mark.parametrize('hold_option', [0., 50.])
-def test_the_value_terms_bound_the_sentinel_before_returning_it(hold_option):
+def test_the_value_terms_bound_the_sentinel_before_returning_it():
     """The escapes were all one step: a value term handing the flag to a
     caller that averages. `hold_value` is where it bit hardest -- a hand
     holding one unplayable card priced at -999,904, and the mean of that
-    hand is not a number. The hold option premium is one more way to
-    inflate the same number, so the sweep runs at the shipped 0 and at a
-    weight large enough to blow past the game unclamped: the bound is the
-    last step before return and must hold at any setting."""
+    hand is not a number. The bound is the last step before return."""
     engine = Engine.new_game(seed=4000, setup_bonus=True)
-    bot = StrategicPlayer(StrategicWeights(hold_option=hold_option))
+    bot = StrategicPlayer()
     obs = engine.observe(Side.USSR)
     bot.rank_actions(obs)
     cap = bot.game_value(obs)
