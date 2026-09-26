@@ -34,6 +34,12 @@
       "determination": "bounded",
       "note": "Removing it measured -0.055 [-0.071, -0.039] paired over 2048 seeds (4096 games, run 36253272931, vs bc5ef93): the term is load-bearing. The 2026-09-24 sweep's -0.011 [-0.032, +0.011] at 1152 games had it as a deletion candidate; the larger sample on the post-sweep bot (region 2.6, military 2.0) says otherwise. 1.5 itself is not pinned -- only 'nonzero'. docs/notes/claude/2026-09-26-deleting-access.md"
     },
+    "event_exposure": {
+      "value": 0.0,
+      "source": "expert",
+      "determination": "inert",
+      "note": "OFF as shipped, 2026-09-26. The maintainer's rule: a country an event still to come is aimed at is worth less (Vietnam < Laos while Vietnam Revolts is live, South Korea < North Korea, Egypt < Libya), Mid and Late War cards counted before they enter. The shares are derived from the engine's own events (scripts/probe_event_exposure.py -> event_exposure.json); the weight is unmeasured until its arm."
+    },
     "region": {
       "value": 2.6,
       "source": "gate",
@@ -241,20 +247,44 @@
       "source": "measured",
       "determination": "determined",
       "note": "P(control now is still control at the region's next scoring), by stability 1-4, pooled over contested and uncontested holdings. Measured 2026-09-12 by scripts/measure_access_conversion.py alongside CONVERSION_P (same games, condition flipped): keep rates over n 1103/3573/2952/540, censored (game ended first) 404/1305/1011/198. Contested holdings retain less at every stability (stability 2: 0.773 contested against 0.840 uncontested), so pooling is a documented choice, not a finding. The flip half of the audit's two-state model; prices what current control banks in the retention-discount urgency."
+    },
+    "FIXED_TARGET_SHARE": {
+      "value": 0.9,
+      "source": "guess",
+      "determination": "bounded",
+      "note": "The aimed-event cut for the events-still-to-come discount (evaluator.aimed_countries), chosen 2026-09-26 by reading the probed table: it keeps every fixed target and the two/three-country choices and drops free-Ops noise. A judgement on the table, not a measurement; the list it selects is in docs/notes/claude/2026-09-26-events-still-to-come.md and was put to the maintainer."
+    },
+    "SPLIT_TARGET_SHARE": {
+      "value": 0.4,
+      "source": "guess",
+      "determination": "bounded",
+      "note": "The aimed-event cut for the events-still-to-come discount (evaluator.aimed_countries), chosen 2026-09-26 by reading the probed table: it keeps every fixed target and the two/three-country choices and drops free-Ops noise. A judgement on the table, not a measurement; the list it selects is in docs/notes/claude/2026-09-26-events-still-to-come.md and was put to the maintainer."
+    },
+    "SPLIT_TARGET_REACH": {
+      "value": 0.1,
+      "source": "guess",
+      "determination": "bounded",
+      "note": "The aimed-event cut for the events-still-to-come discount (evaluator.aimed_countries), chosen 2026-09-26 by reading the probed table: it keeps every fixed target and the two/three-country choices and drops free-Ops noise. A judgement on the table, not a measurement; the list it selects is in docs/notes/claude/2026-09-26-events-still-to-come.md and was put to the maintainer."
+    },
+    "SPLIT_TARGET_MAX": {
+      "value": 3,
+      "source": "guess",
+      "determination": "bounded",
+      "note": "The aimed-event cut for the events-still-to-come discount (evaluator.aimed_countries), chosen 2026-09-26 by reading the probed table: it keeps every fixed target and the two/three-country choices and drops free-Ops noise. A judgement on the table, not a measurement; the list it selects is in docs/notes/claude/2026-09-26-events-still-to-come.md and was put to the maintainer."
     }
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 10,
+      "guess": 14,
       "gate": 10,
       "measured": 9,
       "derived": 3,
-      "expert": 4
+      "expert": 5
     },
     "counts_by_determination": {
       "underdetermined": 6,
-      "bounded": 13,
-      "inert": 3,
+      "bounded": 17,
+      "inert": 4,
       "overdetermined": 2,
       "determined": 11,
       "known-wrong": 1

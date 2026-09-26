@@ -19,6 +19,50 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "ee-base",
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "reserve": "148100-148227",
+      "title": "events still to come: the shipped bot (event_exposure 0) vs bc5ef93",
+      "context": "docs/notes/claude/2026-09-26-events-still-to-come.md"
+    },
+    {
+      "slug": "ee-01",
+      "weights": {
+        "event_exposure": 0.1
+      },
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "reserve": "148100-148227",
+      "compare_to": "ee-base",
+      "title": "events still to come: event_exposure 0.1 vs bc5ef93",
+      "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+    },
+    {
+      "slug": "ee-025",
+      "weights": {
+        "event_exposure": 0.25
+      },
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "reserve": "148100-148227",
+      "compare_to": "ee-base",
+      "title": "events still to come: event_exposure 0.25 vs bc5ef93",
+      "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+    },
+    {
+      "slug": "ee-05",
+      "weights": {
+        "event_exposure": 0.5
+      },
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "reserve": "148100-148227",
+      "compare_to": "ee-base",
+      "title": "events still to come: event_exposure 0.5 vs bc5ef93",
+      "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",

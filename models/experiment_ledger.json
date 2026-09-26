@@ -2619,6 +2619,76 @@
       "notes": [
         "docs/notes/claude/2026-09-26-deleting-access.md"
       ]
+    },
+    {
+      "id": "ee-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-01",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.1
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-025",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.25
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
     }
   ]
 }

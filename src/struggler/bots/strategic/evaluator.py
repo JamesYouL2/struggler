@@ -369,7 +369,7 @@ def ones(t: Terrain) -> tuple[float, ...]:
     return (1.0,) * len(t.ids)
 
 
-def importance(t: Terrain, w, urgency, i: int, s: int) -> float:
+def importance(t: Terrain, w, urgency, i: int, s: int, discount=None) -> float:
     """A country's fitted per-side weight times what its region will still
     score, scaled into board units by `w.country_vp_scale`.
 
@@ -380,8 +380,13 @@ def importance(t: Terrain, w, urgency, i: int, s: int) -> float:
     fitted VP. The tiers are deleted
     (docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md);
     making `s` mandatory is what stops a caller silently asking for a
-    scale that no longer exists."""
-    return w.country_vp_scale * fitted_importance(t, urgency, i, s)
+    scale that no longer exists.
+
+    `discount` is `event_discount`'s per-country multiplier, or None for
+    none: the country an event still to come is aimed at is worth less to
+    fight over. None multiplies by nothing, so the default is exact."""
+    value = w.country_vp_scale * fitted_importance(t, urgency, i, s)
+    return value if discount is None else value * discount[i]
 
 
 # Beside this module, inside the bots package: a gate's baseline is that
@@ -403,6 +408,72 @@ def _fitted_table(ids: tuple[str, ...]) -> tuple[tuple[float, ...], tuple[float,
     if missing:
         raise KeyError(f'fitted_country_weights.json has no weight for {missing}')
     return (tuple(data[c]['US'] for c in ids), tuple(data[c]['USSR'] for c in ids))
+
+
+# Beside this module for the same reason as the fitted weights: a baseline
+# snapshot is the bots package alone.
+EVENT_EXPOSURE_PATH = Path(__file__).resolve().parent / 'event_exposure.json'
+
+
+# Which of an event's countries it is AIMED at. The maintainer's rule is
+# about events aimed at a country (Vietnam Revolts at Vietnam), and summing
+# every share saturated the map: the choice and free-Ops events (Marshall
+# Plan, De-Stalinization, Voice of America...) each touch dozens of
+# countries a little, and those small shares added past 1 almost
+# everywhere. A diffuse event lands where its player likes, which is no
+# reason to avoid a country. So a country counts for a card if it takes
+# nearly every landing (a fixed target: Vietnam Revolts, Korean War,
+# Nasser), or if the card reaches at most `SPLIT_TARGET_MAX` countries and
+# this one takes a real share of them (the two-country wars, South African
+# Unrest's Angola/Botswana branch). Reach counts shares of at least
+# `SPLIT_TARGET_REACH`; smaller ones are free-Ops noise.
+FIXED_TARGET_SHARE = 0.9
+SPLIT_TARGET_SHARE = 0.4
+SPLIT_TARGET_REACH = 0.1
+SPLIT_TARGET_MAX = 3
+
+
+def aimed_countries(exposure: dict[str, float]) -> dict[str, float]:
+    """The countries of one card's measured exposure it is aimed at."""
+    reach = sum(1 for share in exposure.values() if share >= SPLIT_TARGET_REACH)
+    return {c: share for c, share in exposure.items()
+            if share >= FIXED_TARGET_SHARE
+            or (reach <= SPLIT_TARGET_MAX and share >= SPLIT_TARGET_SHARE)}
+
+
+@functools.lru_cache(maxsize=None)
+def _exposure_rows(ids: tuple[str, ...]) -> tuple[tuple[str, tuple[tuple[int, float], ...]], ...]:
+    """Per card, the countries its event is aimed at (`aimed_countries`)
+    and each one's share, as terrain indices, from `event_exposure.json` --
+    derived from the engine's own events by
+    scripts/probe_event_exposure.py. Cards aimed nowhere are left out."""
+    cards = json.loads(EVENT_EXPOSURE_PATH.read_text())['cards']
+    index = {c: i for i, c in enumerate(ids)}
+    rows = ((card, aimed_countries(row['exposure'])) for card, row in cards.items())
+    return tuple((card, tuple((index[c], share) for c, share in aimed.items()))
+                 for card, aimed in rows if aimed)
+
+
+def event_discount(t: Terrain, weight: float, fires) -> tuple[float, ...] | None:
+    """The per-country importance multiplier for events still to come:
+    `1 - weight * min(1, sum over cards of share * P(the card fires))`.
+
+    The maintainer's rule (2026-09-26): Vietnam is worth less than Laos
+    while Vietnam Revolts is live, South Korea less than North Korea
+    (Korean War), Egypt less than Libya (Nasser) -- a country an event will
+    take or strip is a poor place to invest, for either side, so both sides'
+    importance there is discounted alike. `fires` maps a card to
+    `public_cards.p_event_fires`, which counts Mid and Late War cards before
+    they enter the deck. None at weight 0, so the shipped path is exact."""
+    if not weight:
+        return None
+    exposed = [0.0] * len(t.ids)
+    for card, rows in _exposure_rows(t.ids):
+        p = fires.get(card, 0.0)
+        if p:
+            for i, share in rows:
+                exposed[i] += share * p
+    return tuple(1.0 - weight * min(1.0, x) for x in exposed)
 
 
 def fitted_importance(t: Terrain, urgency, i: int, s: int) -> float:
@@ -582,7 +653,7 @@ def route_weight(stability: int, base: float, routes: int) -> float:
     return aggregate / routes
 
 
-def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
+def access(t: Terrain, pos: Position, i: int, s: int, w, urgency, discount=None) -> float:
     """Reach a holding in country `i` gives side `s`.
 
     Summed over EVERY adjacent battleground it does not control -- France pays
@@ -655,7 +726,7 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
             if inf_s[n] > 0:
                 routes += 1      # already standing in it, not merely reaching
             weight = route_w(stability[n], access_decay, routes)
-            total += weight * importance_fn(t, w, urgency, n, s) / stability[n]
+            total += weight * importance_fn(t, w, urgency, n, s, discount) / stability[n]
     return total
 
 
@@ -707,7 +778,7 @@ def others_moved_by(t: Terrain, i: int) -> tuple[int, ...]:
     return tuple(sorted(dependents(t, {i}) - {i}))
 
 
-def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
+def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency, discount=None) -> float:
     """What country `i` is worth to side `s` on this board.
 
     Four terms multiplying the country's importance: control, progress
@@ -732,8 +803,8 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # Control is worth what the region will still score (a battleground in an
     # unscored Early War region >> one in a region just scored, or one whose
     # scoring is turns away). That is what `urgency` carries.
-    mine = importance(t, w, urgency, i, s)
-    theirs = importance(t, w, urgency, i, 1 - s)
+    mine = importance(t, w, urgency, i, s, discount)
+    theirs = importance(t, w, urgency, i, 1 - s, discount)
     value = mine if margin >= stability else -theirs if margin <= -stability else 0.0
     # Progress toward control is convex: control is worth VP, a lone point is
     # not (it can only lead there), so a half-built country is worth well
@@ -753,8 +824,8 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # stake is worth the uncontrolled battlegrounds it alone lets us reach.
     # Nothing for ground we already reach (a fourth point in Eastern Europe
     # opens nothing), and nothing for ground we hold.
-    access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
-    access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
+    access_own = access(t, pos, i, s, w, urgency, discount) if own > 0 else 0.0
+    access_opp = access(t, pos, i, 1 - s, w, urgency, discount) if opp > 0 else 0.0
     return value + w.access * (access_own - access_opp)
 
 
@@ -855,7 +926,7 @@ def region_potential(t: Terrain, w, urgency, nets) -> float:
     return w.region * sum(region_urgency(t, r, urgency) * net for r, net in nets)
 
 
-def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -> float:
+def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None, discount=None) -> float:
     """Every country and every region score, for side `s`.
 
     `overrides` maps a region to its `scoring_overrides` pair; regions absent
@@ -870,7 +941,7 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     # global lookups over ~100 countries plus 12 region walks per board.
     country_value_fn = country_value
     region_vp_fn = region_vp
-    return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
+    return (sum(country_value_fn(t, pos, i, s, w, urgency, discount) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
                                ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp))
                                 for region in Region)))
