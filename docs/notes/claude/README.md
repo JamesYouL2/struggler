@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [A newer anchor: v0.6.0 in place of bc5ef93](2026-09-26-a-newer-anchor.md) — 2026-09-26
 - [The first annotated positions: 2 of 6 agree](2026-09-26-the-first-annotated-positions.md) — 2026-09-26
 - [Deleting `access`: measured, and kept](2026-09-26-deleting-access.md) — 2026-09-26
 - [The hand planner stays off](2026-09-26-the-hand-planner-stays-off.md) — 2026-09-26

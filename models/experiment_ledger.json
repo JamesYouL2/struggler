@@ -2619,6 +2619,38 @@
       "notes": [
         "docs/notes/claude/2026-09-26-deleting-access.md"
       ]
+    },
+    {
+      "id": "v0.6.0-vs-bc5ef93",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": "v0.6.0",
+      "anchor": "bc5ef93",
+      "seeds": "143000-144023",
+      "compare_to": null,
+      "run": 36261552485,
+      "reading": "0.556 [0.539, 0.573] over 1024 (complete; 3 bc5ef93-hang seeds backfilled); bc5ef93 nuked 216 times as opponent",
+      "verdict": "v0.6.0 is stronger than bc5ef93: switch criterion 1 met",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-a-newer-anchor.md"
+      ]
+    },
+    {
+      "id": "main-vs-v0.6.0",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "143000-144023",
+      "compare_to": null,
+      "run": 36261552485,
+      "reading": "0.509 [0.497, 0.521] over 1024 (complete, no stalled game)",
+      "verdict": "main level with v0.6.0, and v0.6.0 runs clean as a baseline: switch criterion 2 met; v0.6.0 is the anchor for new arms",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-a-newer-anchor.md"
+      ]
     }
   ]
 }
