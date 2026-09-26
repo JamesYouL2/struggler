@@ -148,6 +148,122 @@ as written above, before the number:
 | `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
 | `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
 
+### The tie-break: the reads (run 36057325196, read 2026-09-25)
+
+The run finished on 2026-09-24 and sat unread for a day -- the ledger
+still said `planned`. Read against the rule below, unmoved:
+
+| arm | reading | pairs |
+| --- | --- | ---: |
+| `scoring-final-tb-base` (1.0) | 0.560 [0.544, 0.576] | -- |
+| `scoring-final-tb-05` - base | +0.010 [-0.009, +0.029] | 1020 |
+| `scoring-final-tb-20` - base | -0.003 [-0.022, +0.016] | 1148 |
+
+**Branch 4 fires: neither beat replicates.** The phase-2 U was that
+block's noise, `scoring_final` stays 1.0, the nomination is withdrawn,
+and the two phase-2 clearances join the false-positive arithmetic.
+
+One defect seen live: `scoring-final-tb-05` shard 6 was killed by a
+runner shutdown signal at 35 minutes (a whole job, which no seed-level
+reserve can backfill), and the pooled report says `shards: 8, missing:
+[]` against a plan of 9 -- the Codex 2026-09-25 audit's F2 on a real
+run. It does not move this verdict (both intervals cover 0 by a margin
+four pairs cannot close); the accounting fix is queued.
+
+The four `space-race-*` arms move to `_retired`: PR #52 deleted the
+fields they name, so live they would fail the registry test.
+
+### Space race as one knob: the reads (run 36057974080, 2026-09-24)
+
+1152 counted pairs an arm, 9 ok shards a piece -- the declared tail
+reserve's second use and its cleanest yet: one shard's report reads
+`counted_pairs 128, stop: satisfied, backfilled [], spare_games 1` --
+the straggler was absorbed as a spare and dropped from the reading
+instead of stalling the shard, and the run concluded SUCCESS where
+phases 1 and 2 flaked failed shards.
+
+| level | paired (level - base) | rule |
+| --- | --- | --- |
+| 0 VP | -0.008 [-0.016, +0.000] | no clearance |
+| 1 VP | -0.000 [-0.002, +0.001] | no clearance -- dead heat |
+| 2 VP | +0.002 [-0.008, +0.012] | no clearance |
+
+The tree's branch 4 (none beats the shipped mix) fires. Branch (a)
+requires 0's UB BELOW 0; it prints **+0.000** -- not below 0 -- so on the
+letter (b) applies: the family reads unimportant at this sample and the
+four fields join the deletion question. The boundary case is stated
+rather than sorted: the (a)/(b) split rests on a rounding digit. What
+both branches agree on: NOTHING IS NOMINATED, nothing ships, and the
+family's bound is tighter than the old claim -- +/-0.016 at 1152 games,
+not +/-0.02-0.04. Two side answers: the shipped box-6 premium (1.5 vs
+1.0) does nothing measurable (1 vs base: -0.000 [-0.002, +0.001]), and
+if the deletion question IS pursued the lean says keep -- removing the
+prices is the worst point estimate of the three (-0.008), which is
+consistent with the pricing earning its keep in spirit where the letter
+of the rule said "unimportant".
+
+### Space race as one knob: the rule, written before the number (2026-09-24)
+
+The four `space_ability_*` prices were excluded from phase 1 as
+pre-declared unmeasurable -- box 8 fires in ~1% of games -- but that is
+four RARE variables; as one knob (every ability box at the same level)
+it is read by every Space Race attempt and every card whose alternative
+is a space play. Maintainer's framing: "measure space race as a single
+variable, do 0 vp, 1 vp, 2 vp experiment".
+
+Four arms on a fresh block (`100000-101023` + held `101500-101627`,
+reserve `101700-101717`), anchor `bc5ef93`, paired:
+`space-race-base` = the shipped mix (boxes 2/4/8 at 1.0, 6 at 1.5);
+`space-race-0` = all four at 0; `space-race-1` = all at 1;
+`space-race-2` = all at 2. The base is what makes the three levels
+paired readings -- and it also says whether uniform-1 differs from the
+shipped mix at all (only box 6 differs between them).
+
+THE RULE, not moved after the number:
+
+1. Each level's paired diff vs base: LB above 0 = that level beats the
+   shipped mix.
+2. Exactly one level beats it -> that level (uniform across the four
+   boxes) is nominated for the change gate.
+3. More than one beats it -> the HIGHEST point estimate is nominated
+   (0/1/2 are an ordered scale -- unlike the scoring_final U, a monotone
+   read makes the ordering meaningful), with the runner-up's clearance
+   recorded.
+4. None beats it: (a) if 0's UB is below 0, the ability pricing earns
+   its keep and the shipped mix stands; (b) else the whole family reads
+   unimportant at this sample -- the four fields join the deletion
+   question, and "unmeasurable" becomes "bounded at +/-0.02-0.04 over
+   1152 games".
+
+What it cannot settle: a uniform level cannot separate box 6's 1.5
+premium; single-box effects stay unresolvable; and the VP boxes 3/5/7
+are untouched -- only the ability prices move.
+
+### The tie-break's rule, written before the number (2026-09-24)
+
+The rule gap below gets THREE arms, not two, on a fresh block
+(`98000-93023` + held `99500-99627`, reserve `99700-99717` -- the tail
+reserve's first use), anchor `bc5ef93`, paired:
+`scoring-final-tb-base` (1.0, the shipped value), `scoring-final-tb-05`,
+`scoring-final-tb-20`. Three arms because the U-shape -- 1.0 worse than
+BOTH neighbours -- is phase-2's most surprising claim, three of ten
+cleared points is the false-positive arithmetic, and the first question
+is whether the U replicates at all. Read in this order:
+
+1. For each of 0.5 and 2.0 against base: LB above 0 means that beat
+   replicates.
+2. Exactly one replicates -> that value goes to the change gate.
+3. Both replicate -> **0.5** goes to the gate, UNLESS the fresh block
+   reads 2.0's paired diff strictly higher while 0.5's covers 0 (the
+   one-clearance case again).
+4. Neither replicates -> the U was the phase-2 block's noise:
+   `scoring_final` stays 1.0, the nomination is withdrawn, and the two
+   clearances join the false-positive arithmetic.
+
+The 2.0-vs-0.5 ordering is only ever a difference of paired reads on one
+block; the fallback in (3) is CONVENTION -- minimum effective dose, and
+the larger phase-2 estimate -- not measurement, and it says so.
+
 ### What the rule does NOT decide, said now rather than invented later
 
 `scoring_final` cleared at BOTH points -- 0.5 and 2.0, on opposite sides

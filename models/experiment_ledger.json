@@ -1655,6 +1655,139 @@
       ]
     },
     {
+      "id": "scoring-final-tb-base",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_final": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "98000-99023+99500-99627",
+      "compare_to": null,
+      "run": 36057325196,
+      "reading": "0.560 [0.544, 0.576]",
+      "verdict": "base: the shipped scoring_final 1.0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "scoring-final-tb-05",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_final": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "98000-99023+99500-99627",
+      "compare_to": "scoring-final-tb-base",
+      "run": 36057325196,
+      "reading": "paired +0.010 [-0.009, +0.029]",
+      "verdict": "covers 0 (1020 pairs; shard 6 lost to a runner shutdown): the phase-2 beat does not replicate",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "scoring-final-tb-20",
+      "kind": "grid-point",
+      "knobs": {
+        "scoring_final": 2.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "98000-99023+99500-99627",
+      "compare_to": "scoring-final-tb-base",
+      "run": 36057325196,
+      "reading": "paired -0.003 [-0.022, +0.016]",
+      "verdict": "covers 0: the phase-2 beat does not replicate -- branch 4, the U was noise, scoring_final stays 1.0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "space-race-base",
+      "kind": "grid-point",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": null,
+      "run": 36057974080,
+      "reading": "0.532 [0.516, 0.548]",
+      "verdict": "base: the shipped ability mix (2/4/8 at 1.0, 6 at 1.5)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "space-race-0",
+      "kind": "grid-point",
+      "knobs": {
+        "space_ability_2": 0.0,
+        "space_ability_4": 0.0,
+        "space_ability_6": 0.0,
+        "space_ability_8": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": 36057974080,
+      "reading": "paired -0.008 [-0.016, +0.000]",
+      "verdict": "no clearance; the tree's (b) on the letter (UB prints +0.000, not below 0) -- family unimportant at this sample, bound +/-0.016; the LEAN says keep (worst point estimate)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "space-race-1",
+      "kind": "grid-point",
+      "knobs": {
+        "space_ability_2": 1.0,
+        "space_ability_4": 1.0,
+        "space_ability_6": 1.0,
+        "space_ability_8": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": 36057974080,
+      "reading": "paired -0.000 [-0.002, +0.001]",
+      "verdict": "no clearance -- dead heat; the shipped box-6 premium (1.5 vs 1.0) does nothing measurable",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
+      "id": "space-race-2",
+      "kind": "grid-point",
+      "knobs": {
+        "space_ability_2": 2.0,
+        "space_ability_4": 2.0,
+        "space_ability_6": 2.0,
+        "space_ability_8": 2.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "100000-101023+101500-101627",
+      "compare_to": "space-race-base",
+      "run": 36057974080,
+      "reading": "paired +0.002 [-0.008, +0.012]",
+      "verdict": "no clearance; nothing nominated, nothing ships",
+      "status": "answered",
+      "notes": [
+        "docs/notes/pi/2026-09-23-the-ablation-sweep.md"
+      ]
+    },
+    {
       "id": "region-par-rerun",
       "kind": "grid-point",
       "knobs": {
