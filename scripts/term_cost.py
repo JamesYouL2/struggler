@@ -32,7 +32,6 @@ CORPUS = 'tests/corpus/positions.json.gz'
 
 ARMS = {
     'shipped': {},
-    'access=0': {'access': 0.0},
     'progress=0': {'progress': 0.0},
     'reply_model=0': {'reply_model': 0.0},
     'reserve=0': {'reserve': 0.0},

@@ -32,7 +32,7 @@ SCALED_CALLS = {
     'ops_value', 'vp_value', 'game_value', 'event_value', 'card_play_value',
     'hold_value', 'country_value', 'region_score', 'evaluate',
     'coup', 'realign', 'space_value', 'scoring_card_value',
-    'importance', 'seat', 'priced', '_investment', 'access', 'delta',
+    'importance', 'seat', 'priced', '_investment', 'delta',
     '_shallow_event_value', 'military_credit', 'per_card', '_resolve_sandbox',
     'final_scoring_odds',
 }

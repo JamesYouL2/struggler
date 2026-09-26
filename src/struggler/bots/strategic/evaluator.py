@@ -474,51 +474,19 @@ def coup_forbidden(t: Terrain, pos: Position, i: int, attacker: int,
 
 
 # ---------------------------------------------------------------------------
-# Conversion: how often reach becomes control.
+# Retention: how often control stays control.
 # ---------------------------------------------------------------------------
 #
-# `p(stability)` is the probability that a side which REACHES a country --
-# holds influence in a neighbour of it -- CONTROLS it by the time its region
-# next scores. Measured 2026-09-12 by scripts/measure_access_conversion.py
-# over 96 seeds and 3888 resolved opportunities:
+# (Its acquisition half, `CONVERSION_P` -- P(reach becomes control by the
+# next scoring), by stability -- and the `route_decay` / `route_weight` /
+# `access` machinery built on it were deleted 2026-09-26 with the `access`
+# term: ablated paired over 1152 games it read -0.011 [-0.032, +0.011],
+# covering 0. docs/notes/pi/2026-09-23-the-ablation-sweep.md)
 #
-#     stability   1      2      3      4      pooled
-#     p           0.406  0.303  0.304  0.154  0.287
-#     n           409    1199   1586   694    3888
-#
-# Binomial standard errors are 0.024, 0.013, 0.012, 0.014, so stability 2 and
-# 3 are one number and stability 4 is a genuine cliff, not noise. Every smooth
-# one-parameter form fits badly (linear chi2/dof = 13.2, exponential 16.7,
-# hyperbolic 25.6, all against the binomial errors), because the shape is flat
-# and then falls off rather than decaying. So the measurement IS the function:
-# fitting a curve through it would add error, not remove any.
-#
-# The stability-4 cell is exactly three countries -- West Germany, Israel and
-# Japan are the only stability-4 battlegrounds -- which is what makes the
-# number pointed rather than aggregate.
-#
-# THIS IS ALSO THE TURN DECAY. A per-scoring conversion rate is a per-horizon
-# quantity: `p` answers "by the time the region next scores", and the value
-# function's turn discount asks the same question one scoring further out.
-# Whatever prices "will we still have converted this by turn T" should come
-# from here rather than from a second constant fitted separately -- one rule,
-# one place. Not yet wired: the turn discount still uses its own weights, and
-# joining them is a change to measure on its own.
-CONVERSION_P: tuple[float, ...] = (0.406, 0.303, 0.304, 0.154)
-CONVERSION_P_POOLED = 0.287
-
-
-def conversion_p(stability: int) -> float:
-    """P(reach becomes control by the next scoring) for a country of
-    `stability`. Clamped outside the measured 1..4 -- the only stability-5
-    country is the UK, which is not a battleground, so `access` never asks."""
-    return CONVERSION_P[min(max(stability, 1), len(CONVERSION_P)) - 1]
-
-
 # P(still control at the region's next scoring | control now), pooled over
 # contested and uncontested holdings. Measured 2026-09-12 by
-# scripts/measure_access_conversion.py alongside CONVERSION_P (same games,
-# condition flipped), horizons 1 and 2; the horizon-1 pooled keep rates:
+# scripts/measure_access_conversion.py alongside the since-deleted
+# CONVERSION_P (same games, condition flipped), horizons 1 and 2; the horizon-1 pooled keep rates:
 #
 #     stability   1      2      3      4
 #     keep        0.565  0.805  0.894  0.907
@@ -532,152 +500,40 @@ def conversion_p(stability: int) -> float:
 #
 # This is the flip half of the audit's two-state model (2026-09-13
 # strategic-math follow-up): P(own next) = retention * P(own now) +
-# acquisition * (1 - P(own now)). Acquisition is conversion_p, already
-# priced in the access term; this prices what current control banks.
+# acquisition * (1 - P(own now)). Acquisition was the conversion rate the
+# deleted access term priced; this prices what current control banks.
 # Experiment branch experiment/turn-discount-two-state; the gate decides.
 RETENTION_P: tuple[float, ...] = (0.565, 0.805, 0.894, 0.907)
 
 
 def retention_p(stability: int) -> float:
     """P(control now is still control at the next scoring) for a country
-    of `stability`. Same clamping as `conversion_p`, same reason."""
+    of `stability`, clamped to the measured 1..4 (the only stability-5
+    country is the UK)."""
     return RETENTION_P[min(max(stability, 1), len(RETENTION_P)) - 1]
 
 
-@functools.lru_cache(maxsize=None)
-def route_decay(stability: int, base: float) -> float:
-    """What each redundant route into a country of `stability` is worth,
-    relative to the one before it.
-
-    `base` is the pooled decay -- `w.access_decay`, which stays the single
-    lever an A/B can pull -- and this rescales it to the stability the
-    measurement actually found, holding the pooled level fixed. At the
-    default it reproduces the measured 1/(1-p) per stability exactly:
-    1.73 at stability 1 against 1.22 at stability 4.
-
-    A redundant route is worth `1 - p` of the one before it, so a country
-    that converts rarely gains LESS from a second route, not more: the
-    second route into Israel is nearly as good as the first because neither
-    is likely to land, while the second route into a stability-1 country is
-    mostly wasted on a conversion the first already made.
-    """
-    return base * (1. - CONVERSION_P_POOLED) / (1. - conversion_p(stability))
-
-
-@functools.lru_cache(maxsize=None)
-def route_weight(stability: int, base: float, routes: int) -> float:
-    """The symmetric share of the aggregate value of ``routes`` routes.
-
-    With a per-route conversion probability ``p``, the aggregate probability
-    model is the geometric sum ``[1 - (1 - p)**k] / p`` for ``k`` routes. The
-    evaluator gives each route an equal share because no route is privileged;
-    this is that sum divided by ``k``. ``route_decay`` is ``1 / (1 - p)``
-    after the stability rescaling, so expressing the sum as powers avoids a
-    second conversion between the two parameterizations.
-    """
-    if routes < 1:
-        raise ValueError('route count must be positive')
-    decay = route_decay(stability, base)
-    aggregate = sum(decay ** -step for step in range(routes))
-    return aggregate / routes
-
-
-def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
-    """Reach a holding in country `i` gives side `s`.
-
-    Summed over EVERY adjacent battleground it does not control -- France pays
-    for both Italy and West Germany -- each worth its control value scaled by
-    1/stability, discounted by how many routes already reach it. Getting to
-    battlegrounds first is most of what a non-battleground is for.
-
-    The aggregate route value is the geometric sum of the first k route
-    contributions, and all k carry an equal share: which route you call
-    "first" is arbitrary, so the term is symmetric in them. See
-    `route_weight` for the conversion model and `conversion_p` above for why
-    the decay is a function of stability rather than one constant.
-
-    (Chains -- a battleground two steps away through a country not yet held
-    -- were a term, `access_chain`, until 2026-09-26. Restored at 0 after the
-    2026-09-19 bisect and measured at 1024 seeds: 0.2 flat, 0.4 and 0.8
-    measurably worse (docs/notes/claude/2026-09-19-bisect-v0.2.1.md), so
-    deleted with its three-hop radius.)
-    """
-    other = 1 - s
-    inf_s = pos.inf[s]
-    control, reach_them = pos.control, pos.reach[other]
-    battleground, stability, neighbors = t.battleground, t.stability, t.neighbors
-    home = t.home[s]
-    first = neighbors[i]
-    # Locals, not globals/attributes, in the neighbour loop: the same floats,
-    # fewer lookups per battleground. A native port takes these as precomputed
-    # vectors wholesale.
-    route_w = route_weight
-    # `s` is threaded into `importance` on purpose. Without it the call
-    # takes the tier path whatever `country_vp_scale` says, and `access`
-    # -- the tiebreaker -- keeps pricing the battlegrounds it reaches on
-    # the guessed tiers while control, progress and the reserve are on
-    # fitted VP. That is two scales inside one `country_value`, which is
-    # bug shape 6. With the scale at 0 the argument changes nothing.
-    importance_fn = importance
-    access_decay = w.access_decay
-    total = 0.
-    for n in first:
-        # A contested battleground -- one the opponent can already place in
-        # -- is worth nothing here. It was `weight *= access_contested` with
-        # the weight shipped at 0.0, deleted 2026-09-19; skipping is the same
-        # value without the dead multiply.
-        if battleground[n] and control[n] != s and not reach_them[n]:
-            # COUNT THE ROUTES, then share the aggregate geometric value
-            # symmetrically. With `p` the chance one route converts reach into
-            # control before `n` scores, k routes have aggregate value
-            # [1 - (1-p)^k] / p. Every route carries the same share because
-            # which one you call "first" is arbitrary.
-            #
-            # `access_decay` is x. At the measured p = 0.308 (688 resolved
-            # opportunities, scripts/measure_access_conversion.py), the
-            # matching value is 1/(1-p) = 1.445, which is the shipped default.
-            # It replaces `access_redundant`, a flat 0.35 applied to any
-            # redundant route however many there were. The geometric sum is
-            # capped as routes accumulate; it does not eventually decline.
-            # `i` counts as one route BY CONSTRUCTION -- this function prices
-            # what holding `i` would give, so it is a route whether or not the
-            # board already shows influence there. Counting only occupied
-            # neighbours made a prospective holding score the same as a sole
-            # one, and `test_access_prices_reach_first_footholds_and_chains`
-            # caught it: Venezuela's reach into Brazil did not fall when the
-            # USSR took Brazil, because routes stayed at 1 either way.
-            routes = 1
-            for m in neighbors[n]:
-                if m != i and inf_s[m] > 0:
-                    routes += 1
-            if n in home:
-                routes += 1      # the superpower reaches it without a holding
-            if inf_s[n] > 0:
-                routes += 1      # already standing in it, not merely reaching
-            weight = route_w(stability[n], access_decay, routes)
-            total += weight * importance_fn(t, w, urgency, n, s) / stability[n]
-    return total
-
-
-# How far `country_value` reads. `access` looks at a neighbour `n`, then asks
-# whether any neighbour of `n` already holds influence -- two steps out -- and
-# `reach[n]` is itself a function of influence one step from `n`, which is the
-# same two. So a country keeps its value while nothing within two steps of it
-# moved.
+# How far `country_value` reads: nowhere past the country itself. Every term
+# left -- control, progress, the reserve -- reads country `i`'s own influence
+# and the urgency vector, and nothing about any other country's influence, so
+# a country keeps its value while its own influence is unchanged.
 #
-# It was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's
-# neighbours and then asked whether *those* were reachable, one hop further
-# again. That loop went with `access_chain` (d941a5b), and the radius follows
-# it down. Narrowing this is not cosmetic -- `dependents` is what lets the
-# event sandbox reuse a basis instead of re-valuing the board per event, so a
-# smaller radius is fewer countries re-valued on every trial placement.
+# It was 2 until 2026-09-26, because `access` looked at a neighbour `n` and
+# then asked whether any neighbour of `n` held influence -- two steps out --
+# and 3 before 2026-09-12, while `access_chain` walked one hop further again.
+# Each deletion took the radius down with it; `access` itself was deleted
+# 2026-09-26 (docs/notes/pi/2026-09-23-the-ablation-sweep.md). At 0,
+# `dependents` returns the changed set alone and `others_moved_by` is empty,
+# so `_delta`'s neighbour sweep and its cache (`_base_neighbours`) are never
+# reached; removing that machinery is a follow-up simplification, not done in
+# the branch that changed the number.
 #
-# This lives next to the terms because it is a property of them: change what
-# `access` walks and this has to change with it, which
+# This lives next to the terms because it is a property of them: make
+# `country_value` read another country and this has to grow with it, which
 # `test_value_dependents_covers_every_country_a_change_can_move` enforces --
 # and it enforces it in the dangerous direction, since a radius that is too
 # SMALL silently serves stale values while one too large is merely slow.
-VALUE_RADIUS = 2
+VALUE_RADIUS = 0
 
 
 def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
@@ -710,8 +566,11 @@ def others_moved_by(t: Terrain, i: int) -> tuple[int, ...]:
 def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     """What country `i` is worth to side `s` on this board.
 
-    Four terms multiplying the country's importance: control, progress
-    toward it, the reserve past it, and `access`.
+    Three terms multiplying the country's importance: control, progress
+    toward it, and the reserve past it. (A fourth, `access` -- the reach a
+    holding gives into adjacent uncontrolled battlegrounds -- was deleted
+    2026-09-26: off, it read -0.011 [-0.032, +0.011] paired over 1152
+    games. docs/notes/pi/2026-09-23-the-ablation-sweep.md)
 
     A country is not worth the same to both sides -- the 10.1.2 adjacency
     bonus pays only the side whose enemy superpower it borders, and the
@@ -723,7 +582,7 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     `_fitted_country_value` on the fit, the same four terms written twice.
     The fit won its anchored arm (+0.054 [+0.031, +0.078] paired against
     `bc5ef93`, run 35614516089) and the tier half is gone, so there is one
-    implementation again. Keep it that way: two copies of these four terms
+    implementation again. Keep it that way: two copies of these terms
     is bug shape "a rule written down twice"."""
     us, ussr = pos.inf[US][i], pos.inf[USSR][i]
     own, opp = (us, ussr) if s == US else (ussr, us)
@@ -749,13 +608,12 @@ def country_value(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> floa
     # (A `first_mover` tempo term stood here until 2026-09-13: presence in a
     # battleground the opponent has none in but could reach. Set to 0 over
     # 256 seeds it read 0.513 [0.475, 0.550], the highest of the ablations.)
-    # First footholds open nearby battlegrounds on a later action round: a
-    # stake is worth the uncontrolled battlegrounds it alone lets us reach.
-    # Nothing for ground we already reach (a fourth point in Eastern Europe
-    # opens nothing), and nothing for ground we hold.
-    access_own = access(t, pos, i, s, w, urgency) if own > 0 else 0.0
-    access_opp = access(t, pos, i, 1 - s, w, urgency) if opp > 0 else 0.0
-    return value + w.access * (access_own - access_opp)
+    # (`access` stood here until 2026-09-26: a first foothold priced by the
+    # uncontrolled battlegrounds it alone let a side reach, times 1.5. Off it
+    # read -0.011 [-0.032, +0.011] paired over 1152 games -- covers 0, the
+    # region-margin precedent -- so it was deleted, and with it every read
+    # this function made of another country's influence.)
+    return value
 
 
 def scoring_overrides(t: Terrain, pos: Position, region: Region, *,

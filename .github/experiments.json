@@ -81,17 +81,6 @@
       "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
     },
     {
-      "slug": "access-off-vs-07d553a",
-      "weights": {
-        "access": 0.0
-      },
-      "anchor": "07d553a",
-      "seeds": "20000-21023",
-      "compare_to": "base-vs-07d553a",
-      "title": "simplification: no access term",
-      "context": "Access has been re-derived four times (chain, conversion probability, route decay by stability, the #151 cap). If deleting it outright is level against the old bot, the machinery is not paying for itself."
-    },
-    {
       "slug": "final-off-vs-07d553a",
       "weights": {
         "scoring_final": 0.0
@@ -590,18 +579,6 @@
         "held": "94000-94127",
         "title": "the ablation sweep: the shipped bot vs bc5ef93 -- the paired reference",
         "context": "Phase 1 of docs/notes/pi/2026-09-23-the-ablation-sweep.md (maintainer: every live variable shown useful and well tuned). The reference every ablate-* arm pairs against on identical machinery; fresh block 92000-93023 + held 94000-94127 because every registry block below 89000 is burned. THE RULE, written before the number and not moved after it: read the paired difference arm minus ablate-base, one-sided 95% by seed. Lower bound above 0 -> removing the variable helps: it is harmful at its shipped setting, the default faces a change gate. Upper bound below 0 -> the variable is USEFUL: keep it, phase 2 prices its grid. Covers 0 -> not measurably doing anything at this sample: a deletion candidate by the region-margin precedent (deleted at +0.001 [-0.022, +0.024]), phase 2 cancelled. A dead heat cannot separate 'does nothing' from 'does something rarer than 1152 games can see'."
-      },
-      {
-        "slug": "ablate-access",
-        "weights": {
-          "access": 0.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate access: the whole reach term off (1.5 -> 0)",
-        "context": "access scales all reach-into-battleground value, ships at a guessed 1.5 (provenance: guess), and has been re-derived four times (chain, conversion probability, route decay, the cap). Prior evidence is weak: access-half (0.75) read 0.481 pooled at 128+64 with the note 'do not shrink', and one wide anchored off arm; never paired off at scale. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the term's value from the four derivations inside it -- if it is useful, phase 2 prices access_decay too."
       },
       {
         "slug": "ablate-region",
@@ -1171,6 +1148,29 @@
         "compare_to": "ablate-base",
         "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
         "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
+      },
+      {
+        "slug": "access-off-vs-07d553a",
+        "weights": {
+          "access": 0.0
+        },
+        "anchor": "07d553a",
+        "seeds": "20000-21023",
+        "compare_to": "base-vs-07d553a",
+        "title": "simplification: no access term",
+        "context": "Access has been re-derived four times (chain, conversion probability, route decay by stability, the #151 cap). If deleting it outright is level against the old bot, the machinery is not paying for itself."
+      },
+      {
+        "slug": "ablate-access",
+        "weights": {
+          "access": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate access: the whole reach term off (1.5 -> 0)",
+        "context": "access scales all reach-into-battleground value, ships at a guessed 1.5 (provenance: guess), and has been re-derived four times (chain, conversion probability, route decay, the cap). Prior evidence is weak: access-half (0.75) read 0.481 pooled at 128+64 with the note 'do not shrink', and one wide anchored off arm; never paired off at scale. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the term's value from the four derivations inside it -- if it is useful, phase 2 prices access_decay too."
       }
     ]
   }

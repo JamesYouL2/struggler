@@ -549,6 +549,15 @@ def test_the_ops_curve_is_convex_where_a_threshold_is_crossed():
     assert four_r - two_r > two_r, 'iran: four Ops cross what two cannot, convex'
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "Broken by the `access` deletion (2026-09-26): on the opening board "
+    "De-Stalinization's event read 59.2 against 80.6 for 3 Ops, where it "
+    "beat them with access in -- the footholds it buys in Thailand, Angola, "
+    "Chile and Venezuela were priced by the reach they open. The expert "
+    "prices it at 7 Ops (models/expert_valuations.json), so this is a real "
+    "property the deletion loses, not a stale pin. Kept as a strict xfail on "
+    "the branch the paired experiment measures: if the deletion ships, this "
+    "marker says what it cost; if it does not, the branch dies with it."))
 def test_de_stalinization_is_simulated_and_beats_its_ops():
     from struggler.engine import Side
     engine = _opening_board()
@@ -574,65 +583,6 @@ def test_space_slot_goes_to_the_worst_opponent_card():
     assert bot.event_value(obs, 'Decolonization') < bot.event_value(obs, 'Fidel') < 0
 
 
-def test_access_prices_reach_first_footholds_and_chains():
-    from struggler.engine import Side
-    engine = _opening_board()
-    bot = StrategicPlayer()
-    board = bot.board
-    board.load_influence(engine.board.serialize())
-    # Hungary borders no battleground and everything two steps away is
-    # already reachable from Eastern Europe: a point there opens nothing.
-    assert bot._access(board, 'Hungary', Side.USSR) == 0
-    # Venezuela opens South American battlegrounds the USSR reaches no
-    # other way, and Brazil is worth more than Colombia (stability 2 vs 1
-    # cuts the other way, but Brazil's chain into Argentina/Chile adds).
-    alone = bot._access(board, 'Venezuela', Side.USSR)
-    assert alone > 0
-    # Once the USSR holds Brazil itself, Venezuela's reach into Brazil is
-    # redundant: worth less, not nothing (insurance, one more direction).
-    board.influence['Brazil']['USSR'] = 1
-    assert 0 < bot._access(board, 'Venezuela', Side.USSR) < alone
-    # Reach scales with what the battleground is worth: Israel's one point
-    # opens Egypt, and through it Libya; the same geometry in a region that
-    # will not score for turns is worth less.
-    obs = engine.observe(Side.US)
-    bot.rank_actions(obs)
-    israel = bot._access(bot.board, 'Israel', Side.US)
-    assert israel > 0
-    board.influence['Egypt']['US'] = 1
-    assert bot._access(board, 'Israel', Side.US) < israel
-
-
-def test_access_does_not_depend_on_an_earlier_trial_placement():
-    """`_access` reads influence up to two hops out, so the `(board, cid, side)`
-    memo it used to carry went stale as soon as a trial placement moved a
-    neighbour: the same position then scored differently depending on what had
-    been evaluated before it, which reordered 39 of the 598 corpus rankings.
-
-    The geometry is uncontested on purpose: with the contested-reach discount
-    at zero, a trial next to a country America reaches prices zero on both
-    sides of the move, and the first assertion below goes 0.0 != 0.0. Brazil
-    is reach America does not have, so taking it still moves the price."""
-    from struggler.engine import Side
-    engine = _opening_board()
-    obs = engine.observe(Side.USSR)
-    plain = StrategicPlayer()
-    plain.rank_actions(obs)
-    expected = plain._access(plain.board, 'Venezuela', Side.USSR)
-    assert expected > 0  # the trial below has something to move
-    bot = StrategicPlayer()
-    bot.rank_actions(obs)
-    board = bot.board
-    # Make and unmake a neighbouring placement, exactly as `_investment` does:
-    # two more points take Brazil, and Venezuela's reach into it is gone.
-    original = dict(board.influence['Brazil'])
-    board.influence['Brazil']['USSR'] += 2
-    on_trial = bot._access(board, 'Venezuela', Side.USSR)
-    board.influence['Brazil'].update(original)
-    assert on_trial != expected  # the trial board really does price Venezuela differently
-    assert bot._access(board, 'Venezuela', Side.USSR) == expected
-
-
 def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
     """The snapshot's control and reachability vectors are updated one country
     at a time, so any write to `board.influence` that skips `_set_influence`
@@ -656,11 +606,12 @@ def test_every_board_write_keeps_the_snapshot_in_step(monkeypatch):
 def test_event_basis_reuse_matches_a_full_board_recomputation(monkeypatch):
     """Every whitelisted event at one decision starts from the same board, so
     the basis is computed once and only the affected countries re-valued. That
-    set is not the countries the event moved: `country_value` reads access and
-    reachability two hops out, so Nasser used to price at -67.83 where a full
-    pass gives -65.89, the whole 1.94 being Israel, which the event never
-    touched. Reuse must equal the full pass for every event, or a card is
-    misranked against Ops."""
+    set was not the countries the event moved while `country_value` read access
+    and reachability two hops out: Nasser used to price at -67.83 where a full
+    pass gave -65.89, the whole 1.94 being Israel, which the event never
+    touched. (`access` was deleted 2026-09-26 and the radius is 0 now; the
+    check stands for whatever the terms read next.) Reuse must equal the full
+    pass for every event, or a card is misranked against Ops."""
     from struggler.bots import strategic
     from struggler.bots.strategic import PUBLIC_EVENTS
     engine = Engine(seed=0)
@@ -855,33 +806,6 @@ def test_ops_modifiers_are_priced_from_the_hands_they_touch():
     red = bot.event_value(obs, 'Red_Scare_Purge')
     assert red > 0 and red > ov(1)  # a whole hand at -1 each is worth more than an Op
     assert bot.event_value(obs, 'Brezhnev_Doctrine') < 0  # the USSR's hand grows
-
-
-def test_contested_reach():
-    """Reach into a battleground the opponent can already place in is worth a
-    fraction of exclusive reach. (This test also pinned the `first_mover`
-    tempo term until that term was deleted on 2026-09-13.)"""
-    from struggler.engine import Side
-    engine = _opening_board()
-    bot = StrategicPlayer()
-    board = bot.board
-    board.load_influence(engine.board.serialize())
-    # Egypt is empty; the US reaches it from Israel, the USSR does not, so a
-    # US point there is exclusive reach onward.
-    board.influence['Egypt']['US'] = 1
-    egypt = bot.country_value(board, 'Egypt', Side.US)
-    board.influence['Egypt']['US'] = 0
-    # Contested reach: USSR reach into Egypt through Israel is a race the US
-    # (already next door) can win, so `access` skips it -- it is worth less
-    # than the same geometry with no US in Israel. (It was `access_contested`
-    # times the exclusive value until 2026-09-19; the weight shipped at 0.0,
-    # so the skip is the same number.)
-    board.influence['Israel']['USSR'] = 1
-    contested = bot._access(board, 'Israel', Side.USSR)
-    board.influence['Israel']['US'] = 0
-    exclusive = bot._access(board, 'Israel', Side.USSR)
-    assert contested < exclusive
-    assert egypt > 0
 
 
 def _asia_scoring_engine(seed=4000, steps=160):
@@ -1602,84 +1526,21 @@ def test_the_china_charge_is_documented_in_the_units_it_is_actually_in():
         'the maintainer\'s number for what *playing* China costs and a gate')
 
 
-def test_redundant_routes_are_discounted_by_the_target_s_stability():
-    """The route decay is a function of stability, not one constant.
-
-    `conversion_p` is the measured chance that reaching a country converts
-    into controlling it before its region next scores: 0.406 at stability 1
-    against 0.154 at stability 4 (96 seeds, 3888 opportunities). A redundant
-    route is worth `1 - p` of the one before it, so a battleground that
-    rarely converts loses LESS to redundancy -- the second route into Israel
-    is nearly as good as the first, because neither is likely to land.
-
-    Pinned because the direction is the part that can silently invert, and
-    an inverted sign here reads as a plausible number: `access_decay` was a
-    single constant for its whole life and nothing would have noticed the
-    curve running the wrong way.
-    """
-    from struggler.bots.strategic.evaluator import conversion_p, route_decay, route_weight
-
-    base = StrategicWeights().access_decay
-    decays = [route_decay(s, base) for s in (1, 2, 3, 4)]
-    assert decays[0] > decays[3], 'redundancy must cost more where reach converts more'
-    assert decays[0] > decays[1] and decays[1] > decays[3]
-    # Stability 2 and 3 were measured as one number (0.303 vs 0.304, standard
-    # errors 0.013 and 0.012), so they must not be forced apart.
-    assert abs(decays[1] - decays[2]) < 0.01
-    # Every decay is still a discount: each route's share is positive and no
-    # larger than the first route's share.
-    assert all(d > 1. for d in decays)
-    for routes in (1, 2, 3):
-        weights = [route_weight(s, base, routes) for s in (1, 2, 3, 4)]
-        assert all(0 < w <= 1 for w in weights)
-
-    # And the second route into a stability-4 battleground keeps more of its
-    # value than the second route into a stability-1 one.
-    second = [route_weight(s, base, 2) for s in (1, 2, 3, 4)]
-    assert second[3] > second[0]
-
-    # p itself is clamped outside the measured range rather than extrapolated.
-    assert conversion_p(0) == conversion_p(1)
-    assert conversion_p(9) == conversion_p(4)
-
-
-def test_redundant_route_value_is_monotonic_and_saturates():
-    """Redundant access cannot become less valuable when another route opens.
-
-    The old symmetric ``k * decay ** (1-k)`` formula eventually declined as
-    routes accumulated. The independent-conversion model is the capped
-    geometric sum, shared equally among the routes.
-    """
-    from itertools import pairwise
-
-    from pytest import approx
-    from struggler.bots.strategic.evaluator import route_decay, route_weight
-
-    base = StrategicWeights().access_decay
-    for stability in (1, 2, 3, 4):
-        decay = route_decay(stability, base)
-        totals = [routes * route_weight(stability, base, routes)
-                  for routes in range(1, 12)]
-        assert totals[0] == approx(1.0)
-        assert all(left < right for left, right in pairwise(totals))
-        assert totals[-1] < decay / (decay - 1)
-        assert totals[-1] > totals[-2]
-
-
 def test_retention_is_measured_keep_rates_by_stability():
     """The turn discount's other half: P(still control at the next scoring |
     control now), by stability.
 
     Branch experiment/turn-discount-two-state. Measured 2026-09-12 by
-    scripts/measure_access_conversion.py alongside CONVERSION_P (same games,
-    condition flipped; pooled horizon-1 keep rates, n = 1103/3573/2952/540,
+    scripts/measure_access_conversion.py alongside the since-deleted
+    CONVERSION_P (same games, condition flipped; pooled horizon-1 keep rates, n = 1103/3573/2952/540,
     censored 404/1305/1011/198). Pinned because the direction is the part
     that can silently invert: stable ground retains better, so urgency must
     rise with stability for identical schedules -- and an inverted table
     would still read as plausible numbers.
 
-    This is the flip half of the audit's two-state model; acquisition is
-    conversion_p, already priced in the access term.
+    This is the flip half of the audit's two-state model; acquisition was
+    the conversion rate the access term priced until its deletion on
+    2026-09-26.
     """
     from struggler.bots.strategic.evaluator import RETENTION_P, retention_p
 
@@ -1687,7 +1548,7 @@ def test_retention_is_measured_keep_rates_by_stability():
     keeps = [retention_p(s) for s in (1, 2, 3, 4)]
     assert keeps == sorted(keeps), 'retention must rise with stability'
     assert all(0 < k < 1 for k in keeps)
-    # Same clamping as conversion_p, same reason.
+    # Clamped outside the measured 1..4, not extrapolated.
     assert retention_p(0) == retention_p(1)
     assert retention_p(9) == retention_p(4)
 

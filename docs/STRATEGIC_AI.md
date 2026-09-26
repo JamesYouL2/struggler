@@ -118,23 +118,20 @@ action = bot.choose_action(observation, history)
   does it has to see that. Shuttle Diplomacy is one-shot across two
   regions, so a whole-board value spends it once, on the region whose
   scoring is nearer (`_shuttle_region`); see docs/LIMITATIONS.md.
-- Access is the battlegrounds a stake lets its side reach (`_access`),
-  each worth its control value over its stability. If k routes reach a
-  battleground, their aggregate value is the capped geometric sum implied by
-  the measured conversion probability, and the value is shared equally among
-  the routes because none is privileged. Chains --
-  a battleground two steps away through a country not yet held -- counted
-  too until 2026-09-12, weighted `access_chain`. Restored at 0 for the
-  2026-09-19 bisect and measured at 1024 seeds, it read 0.2 flat and 0.4 /
-  0.8 measurably worse, so the weight and its three-hop radius were deleted
-  on 2026-09-26. Reach into a
-  battleground the opponent can already place in is a race they may win
-  first, and is worth nothing: `access` skips it. (It was
-  `access_contested` x exclusive reach, a guess at 0.25 that shipped at
-  0.0, so the weight was deleted on 2026-09-19 with the branch it guarded.)
-  Nothing for ground held. Getting to
-  battlegrounds first is most of what a non-battleground is for, and it is
-  why De-Stalinization prices so high.
+- Access (`access`, `access_decay`, `evaluator.access`): **deleted
+  2026-09-26.** The battlegrounds a stake let its side reach, each worth its
+  control value over its stability, with k routes into one battleground
+  sharing the capped geometric sum implied by a measured conversion
+  probability (`CONVERSION_P`, deleted with it). Chains (`access_chain`)
+  and contested reach (`access_contested`) had already gone. Off, the term
+  read -0.011 [-0.032, +0.011] paired over 1152 games in the ablation sweep
+  (docs/notes/pi/2026-09-23-the-ablation-sweep.md) -- covers 0, the biggest
+  machinery measured unimportant -- so it was deleted by the region-margin
+  precedent, and `country_value` now reads no country but its own
+  (`VALUE_RADIUS` 0). What it cost that the sweep could not see:
+  De-Stalinization's event no longer beats its 3 Ops on the opening board
+  (59.2 against 80.6; the expert prices it at 7 Ops), pinned as a strict
+  xfail in `test_strategic.py`.
 - Region margin (`margin_presence`, `margin_battleground`, `margin_country`,
   `region_margin`): **deleted 2026-09-19.** Partial credit toward the next
   scoring tier, on the country-importance scale: progress toward a first
@@ -177,9 +174,10 @@ action = bot.choose_action(observation, history)
   pair returned one number for every battleground on the map, and the
   flatness, not the number, was the defect. A plain country is still worth
   little of its own, since its control mostly moves the domination tally
-  the region score computes exactly; what it is for is reach, priced by the
-  access terms. The Southeast Asia tier and the realignment-leverage term
-  were removed in Sept 2026: the scoring weights and access express both.
+  the region score computes exactly; what it is for is reach, which the
+  access term priced until its deletion on 2026-09-26 and nothing prices
+  now. The Southeast Asia tier and the realignment-leverage term were
+  removed in Sept 2026, when the scoring weights and access expressed both.
 - Coups and realignments are priced on the same board change as placing
   influence (`delta`), then multiplied by `coup_discount` (0.9): they are
   the less Ops-efficient route to the same result (a coup on a
@@ -415,10 +413,11 @@ stay correct for callers that write to the board directly.
 
 **Reusing a basis.** Every whitelisted event at one decision starts from the
 same board, so the sandbox values that board once and re-values only what the
-event moved. What it moved is not the set of countries whose influence
-changed: `country_value` reads out to `evaluator.VALUE_RADIUS` hops, because
-`access` walks a neighbour's neighbours and then asks whether *those* are
-reachable. The radius lives beside the terms that set it, and
+event moved. What it moved is the set of countries whose influence changed,
+widened by `evaluator.VALUE_RADIUS` hops -- 0 since `access` was deleted on
+2026-09-26, because `country_value` now reads only its own country; it was 2
+while `access` walked a neighbour's neighbours. The radius lives beside the
+terms that set it, and
 `test_value_dependents_covers_every_country_a_change_can_move` moves one
 country and checks that nothing outside the claimed set moved with it.
 
@@ -427,15 +426,14 @@ and its contract is exactness: with the context fixed and the reply model off,
 `delta(obs, cid, own, opp)` is `value(after) - value(before)` for that one
 country's change, so that placements sum to the difference of their end
 points in any order and an event making the same change prices the same.
-Another country's `country_value` reads `cid` only through `access`, which
-asks who controls it and whether each side holds influence there. A change
-that moves none of those prices `cid`'s own terms and its region; any other
-change also re-values `evaluator.others_moved_by(cid)` -- the radius-two
-dependents, skipping those with no influence of either side, whose access is
-multiplied by zero -- with their before-values from `_base_country` under the
-same per-decision contract as the rest. Until 2026-09-13 the neighbours were
-left out (Codex M1): controlling Nigeria beside a US Cameroon booked 13.95
-where the board moved 8.44. `tests/test_board_potential.py` holds the
+No other country's `country_value` reads `cid` since `access` was deleted
+(2026-09-26), so a change prices `cid`'s own terms and its region. The
+neighbour sweep that re-valued `evaluator.others_moved_by(cid)` -- the
+radius-two dependents while `access` read them -- is still in `_delta` with
+its `_base_neighbours` cache, unreachable at radius 0; removing it is a
+follow-up. Until 2026-09-13 the neighbours were left out (Codex M1):
+controlling Nigeria beside a US Cameroon booked 13.95 where the board moved
+8.44. `tests/test_board_potential.py` holds the
 contract on generated boards.
 
 The regional term is one rule, `evaluator.region_potential`, called by

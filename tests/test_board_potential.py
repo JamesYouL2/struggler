@@ -35,10 +35,10 @@ from struggler.bots.strategic import StrategicPlayer, StrategicWeights
 from struggler.bots.strategic import evaluator as ev
 from struggler.engine import Action, Decision, DecisionKind as K, Engine, Region, Side
 
-# Weight overrides the exactness properties are asserted under.
+# Weight overrides the exactness properties are asserted under. (A
+# `{'access': 0.}` case stood here until the term was deleted, 2026-09-26.)
 POTENTIALS = (
     pytest.param({}, id='shipped-weights'),
-    pytest.param({'access': 0.}, id='no-access'),
     pytest.param({'region': 0.}, id='no-region-vp'),
 )
 
@@ -163,9 +163,11 @@ def test_delta_is_the_board_difference_on_random_boards(overrides):
             seen['southeast asia'] += southeast
             seen['other asia'] += asia and not southeast
             seen['warm cache'] += warm
-    # With access off no neighbour's value can move, so that one count is
-    # only required where the weights give it something to count.
-    required = {k: n for k, n in seen.items() if k != 'neighbour moved' or bot.weights.access}
+    # No neighbour's value can move since `access` was deleted (2026-09-26):
+    # `country_value` reads only its own country, so `dependents` claims
+    # nothing past `i` and that count stays 0. It is kept, and not required,
+    # so a term that reads a neighbour again shows up here as a count.
+    required = {k: n for k, n in seen.items() if k != 'neighbour moved'}
     assert all(n >= 15 for n in required.values()), seen
 
 
@@ -189,13 +191,13 @@ def test_a_repeated_delta_from_warm_caches_is_still_exact(overrides):
 
 
 def _cameroon_then_nigeria():
-    """Codex's M1 weights: region VP off, so what is left of the gap is
-    access alone. (The margin terms this also switched off were deleted on
+    """Codex's M1 weights: region VP off, so what was left of the gap was
+    access alone (itself deleted 2026-09-26). (The margin terms this also switched off were deleted on
     2026-09-19; there is nothing left to switch.)"""
     return _player(region=0)
 
 
-def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
+def test_controlling_nigeria_next_to_cameroon_is_the_board_difference():
     """Codex M1, reproduced: US Cameroon 1 on an empty turn-1 board, US +1
     Nigeria. At M1's dating `delta` returned 13.9502222222 against a board
     difference of 8.4435555556; the missing -5.5066666667 was Cameroon's
@@ -208,14 +210,21 @@ def test_controlling_nigeria_charges_cameroon_the_access_it_consumes():
     was still calling `importance` without a side then, so the reach half
     of this very gap was priced on the tiers while the rest was on fitted
     VP. The property -- delta equals the board difference exactly -- is
-    what carries, not the number."""
+    what carries, not the number.
+
+    Renamed and re-pinned 2026-09-26 from 14.957940227388889 to
+    24.713118636555556 when `access` was deleted: there is no Cameroon
+    access left for Nigeria to consume (the test was
+    `..._charges_cameroon_the_access_it_consumes`), and Nigeria's own reach
+    is gone with it, so the number is Nigeria's own terms. The exactness
+    it checks still holds; it no longer has a spillover to catch."""
     engine = _empty_engine()
     engine.board.influence['Cameroon']['US'] = 1
     obs = engine.observe(Side.US)
     bot = _cameroon_then_nigeria()
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Nigeria', 1, 0)
-    assert expected == pytest.approx(14.957940227388889, abs=1e-9)
+    assert expected == pytest.approx(24.713118636555556, abs=1e-9)
     assert bot.delta(obs, 'Nigeria', own=1) == pytest.approx(expected, rel=0, abs=1e-9)
 
 
@@ -244,20 +253,16 @@ def test_cameroon_and_nigeria_sum_to_the_same_board_in_either_order(first, secon
     11.569636205555554; under the fitted country weights, 37.69155245288889,
     2026-09-18; and 38.20352451788889 from 2026-09-21, when those weights
     became the only weights and `access` had been put on the same scale as
-    the rest of the country layer). The order-invariance is the property;
-    the level follows the urgency and the country weights."""
+    the rest of the country layer; 28.52488578622222 from 2026-09-26, when
+    `access` was deleted and neither country's reach counts any more). The
+    order-invariance is the property; the level follows the urgency and the
+    country weights."""
     total, board = _placements_in_order(_cameroon_then_nigeria, [(first, 1), (second, 1)])
-    assert board == pytest.approx(38.20352451788889, abs=1e-9)
+    assert board == pytest.approx(28.52488578622222, abs=1e-9)
     assert total == pytest.approx(board, rel=0, abs=1e-9)
 
 
-def _no_access():
-    """Codex's M2 weights: access off, so what is left of any gap is the
-    regional term."""
-    return _player(access=0)
-
-
-@pytest.mark.parametrize('make_bot', [_no_access, _player], ids=['no-access', 'shipped-weights'])
+@pytest.mark.parametrize('make_bot', [_player], ids=['shipped-weights'])
 @pytest.mark.parametrize('placements', [
     (('Thailand', 2), ('Pakistan', 2)), (('Pakistan', 2), ('Thailand', 2)),
     (('Cameroon', 1), ('Nigeria', 1)), (('Nigeria', 1), ('Cameroon', 1)),
@@ -272,7 +277,7 @@ def test_placements_sum_to_the_same_board_in_either_order(make_bot, placements):
     assert total == pytest.approx(board, rel=0, abs=1e-9)
 
 
-@pytest.mark.parametrize('make_bot', [_no_access, _player], ids=['no-access', 'shipped-weights'])
+@pytest.mark.parametrize('make_bot', [_player], ids=['shipped-weights'])
 def test_fidel_is_worth_the_placement_that_makes_the_same_change(make_bot):
     """Codex M2: on an empty board Fidel is exactly USSR +3 Cuba -- no VP,
     no Military Ops -- yet the event sandbox and `delta` priced it
@@ -317,7 +322,7 @@ def test_the_regional_term_is_weighted_by_its_own_regions_urgency():
     Asia's tiers are weighted by neither alone -- by Asia's own."""
     engine = _empty_engine()
     obs = engine.observe(Side.US)
-    bot = _no_access()
+    bot = _player()   # access off was `_no_access` until the term was deleted
     bot.prepare(obs)
     expected = _board_difference(bot, Side.US, 'Iran', 2, 0)
     # Re-pinned 2026-09-24 from 19.57277167772727 when `region` doubled to

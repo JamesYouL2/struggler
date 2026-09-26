@@ -417,17 +417,13 @@ class StrategicWeights:
     # term the ablations found to be doing nothing, so it was deleted rather
     # than kept as a weight at zero. docs/notes/claude/
     # 2026-09-19-delete-the-region-margin.md.)
-    access: float = 1.5
-    # The per-route share of the capped geometric aggregate for k routes into
-    # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
-    # redundant route however many there were.
-    #
-    # 1.445 is MEASURED, not guessed: 1/(1-p) with p = 0.308, the rate at
-    # which a holding converts an adjacent battleground into control before
-    # that battleground's region next scores (688 resolved opportunities over
-    # 16 self-play games, scripts/measure_access_conversion.py). The old 0.35
-    # encoded p ~ 0.65, roughly the inverse.
-    access_decay: float = 1.445
+    # (`access`, 1.5 -- the reach a holding gives into adjacent uncontrolled
+    # battlegrounds -- and `access_decay`, 1.445, its measured per-route
+    # discount, stood here until 2026-09-26. Off, the term read -0.011
+    # [-0.032, +0.011] paired over 1152 games (the ablation sweep): covers
+    # 0, the biggest machinery measured unimportant, so it was deleted by
+    # the region-margin precedent, and `country_value` now reads no country
+    # but its own. docs/notes/pi/2026-09-23-the-ablation-sweep.md)
     # (`access_chain`, the battleground two steps out through a country
     # nobody holds, stood here at 0 until 2026-09-26: restored for the
     # 2026-09-19 bisect, it read 0.2 flat and 0.4 / 0.8 measurably worse
@@ -437,8 +433,8 @@ class StrategicWeights:
     # the USSR, with the US already next door -- priced at a fraction of
     # exclusive reach. It was 0.25, a guess; the off arm read 0.512 +/-0.043
     # over 192 seeds and it shipped at 0.0, which left the branch it guarded
-    # dead as shipped. `access` now skips a contested neighbour outright:
-    # the same value, one fewer multiply, one fewer weight.)
+    # dead as shipped. `access` then skipped a contested neighbour outright,
+    # until it was itself deleted 2026-09-26.)
     # The region tier term: the tier VP the board is in now, times the
     # region's scoring urgency. 1.3 until 2026-09-24, when the phase-2
     # grid of the ablation sweep read the double at +0.031 [+0.011,
@@ -1310,12 +1306,6 @@ class StrategicPlayer:
         return ev.country_value(t, self._position_for(board, snapshot), t.index[cid],
                                 ev.SIDE_INDEX[side], self.weights, self._urgency_vector())
 
-    def _access(self, board: Board, cid: str, side: Side) -> float:
-        """The reach a holding in `cid` gives `side` (see `evaluator.access`)."""
-        t = self._terrain
-        return ev.access(t, self._position_for(board), t.index[cid], ev.SIDE_INDEX[side],
-                         self.weights, self._urgency_vector())
-
     def evaluate(self, observation: Observation, board: Board | None = None) -> float:
         """The board value for `observation`'s side in that observation's own
         context: scoring weights from its turn, hand and discards, DEFCON
@@ -1428,8 +1418,7 @@ class StrategicPlayer:
 
     def _delta(self, obs: Observation, cid: str, own: int = 0, opp: int = 0) -> float:
         """What adding `own` of our influence and `opp` of theirs to `cid` is
-        worth: the country, its region's score, and the access every
-        *other* country loses or gains by it, after minus before.
+        worth: the country and its region's score, after minus before.
 
         The contract is exactness: with the context fixed, this is
         `value(after) - value(before)` for the one-country change, so that a
@@ -1437,17 +1426,15 @@ class StrategicPlayer:
         whatever order it is taken in, and an event that makes the same
         change (priced by `_resolve_sandbox`) is worth the same.
 
-        Another country's `country_value` reads `cid` only through
-        `evaluator.access`, and `access` reads three things about it: who
-        controls it, and whether each side holds any influence there (routes,
-        standing in it, and the opponent's reach, which is presence one hop
-        out). So a change that moves none of those -- overprotection, a
-        point short of control in a country both sides already stand in --
-        moves only `cid`'s own terms; any other change also moves up to
-        `evaluator.VALUE_RADIUS` hops of neighbours. Until 2026-09-13 those
-        were left out, and controlling Nigeria next to a US Cameroon booked
-        13.95 where the board moved 8.44: Cameroon's access to an
-        uncontrolled Nigeria was consumed and nobody was charged for it."""
+        No other country's `country_value` reads `cid` since `access` was
+        deleted (2026-09-26), so `evaluator.VALUE_RADIUS` is 0 and the
+        neighbour sweep below -- `others_moved_by`, empty at radius 0, and
+        its cache `_base_neighbours` -- is never reached. It is left in place
+        for this branch; removing it is a follow-up simplification. While
+        `access` read up to two hops of influence the sweep was what kept
+        this exact: until 2026-09-13 the neighbours were left out, and
+        controlling Nigeria next to a US Cameroon booked 13.95 where the
+        board moved 8.44."""
         if own == 0 and opp == 0:
             return 0.
         if self._base_regions is None:
@@ -1523,6 +1510,9 @@ class StrategicPlayer:
         self._set_influence(cid, new_us if new_us > 0 else 0,
                             new_ussr if new_ussr > 0 else 0)
         neighbours_after = ()
+        # (Unreachable since 2026-09-26: with `access` deleted,
+        # `VALUE_RADIUS` is 0 and `others_moved_by` is empty. What follows
+        # describes the sweep as it was; removing it is a follow-up.)
         # WHAT THE NEIGHBOURS ARE WORTH AFTER, SHARED ACROSS TRIALS THAT LOOK
         # THE SAME TO THEM. `_investment` asks for one country at one, two,
         # three and four points, and every neighbour's value reads `cid`

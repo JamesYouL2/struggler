@@ -28,11 +28,6 @@
       "determination": "bounded",
       "note": "Removing it with `wipe` at 0 lost the gate outright, 0.328 with a nuclear loss. So it is nonzero; 0.35 specifically is not pinned."
     },
-    "access": {
-      "value": 1.5,
-      "source": "guess",
-      "determination": "underdetermined"
-    },
     "region": {
       "value": 2.6,
       "source": "gate",
@@ -91,12 +86,6 @@
       "source": "expert",
       "determination": "bounded",
       "note": "The price, in VP, of each Space Race ability box (2/4/6/8 -- the boxes the rules pay 0 VP for; the reward boxes 3/5/7 carry their printed 2/3/4). ONE variable since 2026-09-24, folded from four by the maintainer with measurement behind it: the knob experiment read 0/1/2 VP at -0.008 [-0.016, +0.000] / -0.000 [-0.002, +0.001] / +0.002 [-0.008, +0.012] against the shipped mix (run 36057974080, 1152 paired games a level) -- the family bounded at +/-0.016 and the old box-6 premium (1.5 vs 1.0) a dead heat. The per-box lore survives here because the boxes differ in fact: 6's discard is the near-mirror of 8's extra action round and dominates it (the extra round forces out the card you would have held -- your worst, an opponent event 'negative more than half the time'), and 8 fires in ~1% of games. Bounded: the maintainer's price at par, with a measurement saying any of 0/1/2 is within noise. Priced for correctness, not strength."
-    },
-    "access_decay": {
-      "value": 1.445,
-      "source": "measured",
-      "determination": "determined",
-      "note": "x in `x ** (1 - k)`, the geometric discount on the k-th route into an adjacent battleground. Replaces `access_redundant`, a flat 0.35 applied to any redundant route however many there were. MEASURED: 1/(1-p) with p = 0.308, the rate at which a holding converts an adjacent battleground into control before that battleground's region next scores -- 688 resolved opportunities over 16 self-play games, scripts/measure_access_conversion.py. The old 0.35 encoded p ~ 0.65, roughly the inverse. All k routes carry the same weight: which one is 'first' is arbitrary, so the term is symmetric in them. Caveat: p is measured from this bot playing itself, so it is a descriptive rate used prescriptively; a stronger bot would convert more. See docs/notes/claude/2026-09-12-access-wants-a-conversion-probability.md."
     },
     "country_vp_scale": {
       "value": 2.795,
@@ -202,33 +191,16 @@
       "note": "Face value priced Grain Sales at 8.2 and Missile Envy at 6.0 against the expert's 4 and 3, and the gate rejected it at 0.428; at half they price 4.1 and 3.0 and scored 0.539. Both an expert fixture and a gate agree."
     },
     "VALUE_RADIUS": {
-      "value": 2,
+      "value": 0,
       "source": "derived",
       "determination": "overdetermined",
-      "note": "A property of what `access` walks, not a choice, and a test enforces that it matches. Was 3 until 2026-09-12, correctly: the chain loop walked a neighbour's neighbours and then asked whether THOSE were reachable, one hop further again. That loop went with `access_chain` (d941a5b) and the radius followed it down. At 2 the reads are: a neighbour `n`, then whether any neighbour of `n` holds influence, and `reach[n]`, which is itself a function of influence one step from `n` -- the same two hops. Verified exhaustively rather than by the sampled test: 420 placements over all 84 countries, zero countries moved outside the claimed set. Worth 37% fewer country_value calls per trial placement (mean 7.4 countries re-valued against 11.8), which lands on the event sandbox's hot path. Narrowing this is the dangerous direction -- too small serves stale values silently, too large is merely slow -- which is why it was checked over every country and not the six the test samples."
+      "note": "A property of what `country_value` reads, not a choice, and a test enforces that it matches. 0 since 2026-09-26: with `access` deleted, control, progress and the reserve read only the country's own influence and the urgency vector, so a change moves no other country's value. Verified exhaustively: 420 placements over all 84 countries (five influence pairs each, both sides), zero countries moved outside the changed one. It was 2 while `access` read a neighbour and whether any neighbour of that held influence, and 3 before 2026-09-12 while `access_chain` walked one hop further. At 0 `_delta`'s neighbour sweep and its `_base_neighbours` cache are unreachable; removing them is a follow-up. Narrowing this is the dangerous direction -- too small serves stale values silently, too large is merely slow -- which is why it was checked over every country and not the six the test samples."
     },
     "RISK_WARNING": {
       "value": 0.5,
       "source": "guess",
       "determination": "inert",
       "note": "A logging threshold."
-    },
-    "CONVERSION_P": {
-      "value": [
-        0.406,
-        0.303,
-        0.304,
-        0.154
-      ],
-      "source": "measured",
-      "determination": "determined",
-      "note": "P(a side reaching a country controls it by the time its region next scores), by stability 1-4. 96 seeds, 3888 resolved opportunities, scripts/measure_access_conversion.py, 2026-09-12. Binomial standard errors 0.024/0.013/0.012/0.014, so stability 2 and 3 are one number and stability 4 is a cliff rather than noise. No smooth one-parameter form fits it (linear chi2/dof 13.2, exponential 16.7, hyperbolic 25.6), so the measurement is used directly. The stability-4 cell is West Germany, Israel and Japan -- the only stability-4 battlegrounds."
-    },
-    "CONVERSION_P_POOLED": {
-      "value": 0.287,
-      "source": "measured",
-      "determination": "determined",
-      "note": "The same 3888 observations pooled. Used only to hold the LEVEL of `route_decay` fixed while its SHAPE varies with stability, so `access_decay` stays the single lever an A/B can pull. Implies a pooled decay of 1.403 against the shipped access_decay of 1.445 -- close enough that the constant's value was never the error; its being constant was."
     },
     "RETENTION_P": {
       "value": [
@@ -244,21 +216,21 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 11,
+      "guess": 10,
       "gate": 9,
-      "measured": 9,
+      "measured": 6,
       "derived": 3,
       "expert": 4
     },
     "counts_by_determination": {
-      "underdetermined": 7,
+      "underdetermined": 6,
       "bounded": 12,
       "inert": 3,
       "overdetermined": 2,
-      "determined": 11,
+      "determined": 8,
       "known-wrong": 1
     },
-    "_reading": "Recounted 2026-09-26, after `hold_option`, `potential`, `potential_refresh`, `access_chain`, `europe_curve` and `VALUE_RADIUS_CHAIN` were deleted -- off, measured, and each verdict 'stays off' -- and with them `scoring_discount` (read by nothing) and `scoring_hand` (at its neutral 1.0): 36 entries, 11 guesses, 7 underdetermined. The 2026-09-21 reading follows. Recounted 2026-09-21, after `battleground` and `control` were deleted and `hold_option` added: 47 entries, of which 16 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones were `access_chain` and `CHINA_HOLD_RAW`; `access_chain` was deleted 2026-09-26, so `CHINA_HOLD_RAW` is the one left. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to. `hold_option` is the second term after `potential` to arrive deliberately at 0 with an arm to price it (2026-09-21): a hold's option value for the flexibility of keeping it, per ruling 3 of the hand planner plan -- a guess in the size, with the hold-option-* grid (0.25 / 0.5 / 1.0) to say what it should be. `reply_ops` was deleted 2026-09-24 with its model-1 scaffolding: dead at the shipped `reply_model` 3 (`_reply_budgets` reads it only at model 1, which nothing selects), so gone rather than re-measured -- 47 entries, 16 guesses: the same headline as the 2026-09-21 recount, because `hand_assignment`'s at-zero entry arrived in between and this inert one went here. Recounted again with `region` doubled to 2.6 on the phase-2 grid's paired read (run 35978271735): guess 15, gate 10 -- a guess retired by measurement and a gate, which is the promotion this file exists to count. Recounted once more with `military` at 2.0 (run 35978271735's double, gated): derived 4, gate 11; overdetermined 3, bounded 15 -- rule-exact units carrying a multiplier measured above the principled value, which is exactly what a bounded entry means. Recounted with the four space_ability_* fields folded into one space_ability (run 36057974080 plus the maintainer's call): expert 4, bounded 13, inert 6, total 44 -- four variables retired into one, three of them by folding rather than by measurement.",
-    "total": 44
+    "_reading": "Recounted 2026-09-26 again, after the `access` term was deleted -- off, it read -0.011 [-0.032, +0.011] paired over 1152 games -- and with it `access_decay`, `CONVERSION_P` and `CONVERSION_P_POOLED`, while `VALUE_RADIUS` fell from 2 to 0: 32 entries, 10 guesses, 6 underdetermined. Recounted 2026-09-26, after `hold_option`, `potential`, `potential_refresh`, `access_chain`, `europe_curve` and `VALUE_RADIUS_CHAIN` were deleted -- off, measured, and each verdict 'stays off' -- and with them `scoring_discount` (read by nothing) and `scoring_hand` (at its neutral 1.0): 36 entries, 11 guesses, 7 underdetermined. The 2026-09-21 reading follows. Recounted 2026-09-21, after `battleground` and `control` were deleted and `hold_option` added: 47 entries, of which 16 are guesses -- no recorded basis, a plausible number nobody has tested -- and 10 are underdetermined: able to be wrong by a large factor without anything noticing. (The previous reading here said 24 of 44 and 16; it dated from 2026-09-12 and no test pins these counts, so it had drifted on its own before this deletion moved it. If you change the ledger, recount.) The known-wrong ones were `access_chain` and `CHINA_HOLD_RAW`; `access_chain` was deleted 2026-09-26, so `CHINA_HOLD_RAW` is the one left. `battleground` was a third and it is gone: the flat 5.0 tier that returned the same importance for Iraq, South Korea, Saudi Arabia and Israel alike was deleted 2026-09-21, together with `control` and the un-fitted half of `country_value`, in favour of the fitted per-country weights behind `country_vp_scale`. That is the first known-wrong entry closed by replacing the quantity rather than by re-measuring the number. The 4 overdetermined ones cluster where the rules leave nothing to estimate (military, VALUE_RADIUS) or where independent lines happened to converge (AUTO_VICTORY_VP). The era VP rates used to be among them and are not any more: they were replaced by the two-parameter curve (`vp_base`, `vp_swing`), and the three-way agreement that overdetermined them was agreement about a step function nobody had tested against a smooth one. As of 2026-09-12 `vp_swing` is gone too -- measured inert at 4.0 and at 1.0 -- so per_vp is the single constant `vp_base`, and the expert era rule (1 Op = 2 VP Early, 2 Ops = 1 VP Late) is not encoded anywhere at present. `access_chain` was the first of the access family ever tested -- ablated alone over 128 seeds on 2026-09-12, not measurably worse, and removed; nothing else in the access or margin families has been tested against anything. `reply_model` is the one constant whose *behaviour* is pinned by a fixture rather than its value by a measurement: the gate says only that it is not a regression. `CONVERSION_P` and `CONVERSION_P_POOLED`, added 2026-09-12, are the first entries here that came from a measurement built to answer the question rather than from a gate verdict or a reading of the rules -- and the test that requires an entry could not see either of them until it was taught to read annotated assignments and sequences, so a measured curve is exactly the shape this ledger was blind to. `hold_option` is the second term after `potential` to arrive deliberately at 0 with an arm to price it (2026-09-21): a hold's option value for the flexibility of keeping it, per ruling 3 of the hand planner plan -- a guess in the size, with the hold-option-* grid (0.25 / 0.5 / 1.0) to say what it should be. `reply_ops` was deleted 2026-09-24 with its model-1 scaffolding: dead at the shipped `reply_model` 3 (`_reply_budgets` reads it only at model 1, which nothing selects), so gone rather than re-measured -- 47 entries, 16 guesses: the same headline as the 2026-09-21 recount, because `hand_assignment`'s at-zero entry arrived in between and this inert one went here. Recounted again with `region` doubled to 2.6 on the phase-2 grid's paired read (run 35978271735): guess 15, gate 10 -- a guess retired by measurement and a gate, which is the promotion this file exists to count. Recounted once more with `military` at 2.0 (run 35978271735's double, gated): derived 4, gate 11; overdetermined 3, bounded 15 -- rule-exact units carrying a multiplier measured above the principled value, which is exactly what a bounded entry means. Recounted with the four space_ability_* fields folded into one space_ability (run 36057974080 plus the maintainer's call): expert 4, bounded 13, inert 6, total 44 -- four variables retired into one, three of them by folding rather than by measurement.",
+    "total": 32
   }
 }

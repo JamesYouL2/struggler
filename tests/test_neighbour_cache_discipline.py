@@ -18,6 +18,14 @@ Three facts, and they are the three in the key -- the same three the skip
 above the cache has always turned on. So this file checks the property
 rather than the code: if `access` ever starts reading a fourth thing about
 a country, the key is too small and these tests must fail.
+
+**Since 2026-09-26 the cache is unreachable.** `access` was deleted, no
+country's `country_value` reads another's influence, `VALUE_RADIUS` is 0 and
+`others_moved_by` is empty, so `_delta` never sweeps a neighbour. The three
+tests that need a neighbour to move are skipped while the radius is 0 -- a
+`skipif` on the radius rather than a deletion, so they re-arm by themselves
+if a term that reads a neighbour ever comes back. Deleting the cache, and
+these tests with it, is the follow-up simplification.
 """
 from __future__ import annotations
 
@@ -26,10 +34,18 @@ import pathlib
 import subprocess
 import sys
 
+import pytest
+
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic.policy import StrategicWeights
 
+_UNREACHABLE = pytest.mark.skipif(
+    ev.VALUE_RADIUS == 0,
+    reason='VALUE_RADIUS is 0 since `access` was deleted (2026-09-26): no '
+           'neighbour value can move, so the neighbour cache is never reached')
 
+
+@_UNREACHABLE
 def test_a_neighbours_value_moves_only_on_the_three_facts_in_the_key():
     """The key's premise, checked directly against `country_value`.
 
@@ -71,6 +87,7 @@ def test_a_neighbours_value_moves_only_on_the_three_facts_in_the_key():
     assert len(by_key) > 1, 'the sweep never changed the triple; nothing was tested'
 
 
+@_UNREACHABLE
 def test_distinct_triples_really_do_move_a_neighbour():
     """The negative control. If every triple gave the same neighbour values
     the test above would pass on a key of nothing at all."""
@@ -147,6 +164,7 @@ else:
 """
 
 
+@_UNREACHABLE
 def test_the_checker_is_on_and_the_real_path_does_not_trip_its_own_guard():
     """With `STRUGGLER_CHECK_SNAPSHOT=1` every cache hit is recomputed and
     compared, so a real ranking exercising the cache is itself the check that
