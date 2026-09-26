@@ -552,19 +552,13 @@ class StrategicWeights:
     # over is not the whole cost -- and 1.0 under-priced the requirement.
     # Gated on this branch before landing.
     military: float = 2.0
-    # A country is worth what its region will still score: the sum over its
-    # scoring cards' expected future plays of scoring_discount ** (turns
-    # away), from the static period schedule and where each card is now
-    # (bots/public_cards.scoring_schedule). Control in a region that scores
-    # this cycle and again after the reshuffle is worth about 1.6; in one
-    # just scored, 0.6; in a Mid War region on turn 1, 0.5. Holding the
-    # card ourselves multiplies this cycle's buckets 1+2 by scoring_hand: we
-    # pick the moment. Was 1.2, a guess; the flat arm (1.0) read a dead heat
-    # (0.503 +/-0.038 over 192 seeds, old model), so the bonus prices at
-    # zero pending the gate on this branch. Factor 2 re-derives what holding
-    # is worth anyway.
-    scoring_hand: float = 1.0
-    scoring_discount: float = 0.8
+    # (`scoring_hand` and `scoring_discount` stood here until 2026-09-26.
+    # `scoring_hand` multiplied a held scoring card's this-cycle mass and sat
+    # at its neutral 1.0: 1.2 read a dead heat against it and 1.25 nothing
+    # above it, so a held card's mass is its occurrence, unshaped.
+    # `scoring_discount` (0.8) was read by nothing since the schedule's real
+    # masses replaced the per-turn discount. docs/notes/pi/
+    # 2026-09-24-the-weights-what-each-one-is-worth.md, rows 14 and 15.)
     # Experiment experiment/deck-tracking: how much more this cycle's term
     # is worth when the opponent likely holds the scoring card
     # (`public_cards.p_opponent_holds`, from public counts alone). They
@@ -1378,8 +1372,8 @@ class StrategicPlayer:
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score: each future
         scoring's REAL occurrence mass from the schedule (see
-        `_scoring_weight_uncached`; `StrategicWeights.scoring_discount` and
-        the retention compounding are superseded here -- the forecast's
+        `_scoring_weight_uncached`; the old per-turn discount and the
+        retention compounding are superseded here -- the forecast's
         fitted horizons carry the control drift).
 
         Answered from the prepared vector when `obs` is the observation this
@@ -1398,8 +1392,8 @@ class StrategicPlayer:
         # lives in the forecast's fitted horizons -- compounding
         # `retention_p` on top of it would charge the same uncertainty
         # twice (the rebuild README's explicit warning), so this cycle's
-        # shape is only holder shaping: we pick the moment (scoring_hand)
-        # and they score at theirs (scoring_rival). No residual discount
+        # shape is only holder shaping: a held card fires at our moment,
+        # unshaped, and theirs at their moment (scoring_rival). No residual discount
         # yet: 1.0 is the documented baseline until a measurement asks
         # for one. Final scoring rides bucket 5's measured odds times
         # `scoring_final`, the knob's meaning kept: what the end-of-game
@@ -1410,9 +1404,7 @@ class StrategicPlayer:
             for opp in sch.opportunities(obs, card):
                 mass = opp.occurrence
                 if opp.bucket in (1, 2):
-                    if card in obs.hand:
-                        mass *= w.scoring_hand
-                    elif w.scoring_rival:
+                    if card not in obs.hand and w.scoring_rival:
                         mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
                 elif opp.bucket == 5:
                     mass *= w.scoring_final

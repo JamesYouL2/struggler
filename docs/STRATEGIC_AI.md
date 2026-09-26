@@ -36,19 +36,18 @@ action = bot.choose_action(observation, history)
   card now) or 1.0 when we hold it, bucket 2 the pile share times the
   cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
   recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
-  Holding the card multiplies this cycle's term by `scoring_hand`, and
-  `scoring_rival` raises it by `scoring_rival * P(the opponent holds it)`:
-  we pick the moment, and they score at *their* best moment, so control
-  banked before they do is worth more. **Both ship at 1.0**, which means the
-  hand premium is currently OFF (a multiplier of one) while the rival
-  shaping is at full strength (up to 2x for a card they certainly hold).
-  This paragraph said 1.2 for a while after the value moved.
+  A card we hold is unshaped; one we do not is raised by
+  `scoring_rival * P(the opponent holds it)` (shipped 1.0, up to 2x for a
+  card they certainly hold): they score at *their* best moment, so control
+  banked before they do is worth more. (A hand premium, `scoring_hand`,
+  multiplied the held case and sat at its neutral 1.0 after 1.2 read a dead
+  heat against it; it was deleted on 2026-09-26.)
 
   Two things this sum no longer reads, both replaced by the factor-2
   masses: `evaluator.retention_p` (the CONTROL drift between now and a
   scoring lives in the forecast's fitted horizons instead -- compounding
   retention on top would charge the same uncertainty twice), and the scalar
-  `scoring_discount`. Because it reads neither, the sum is a function of the
+  per-turn discount (`scoring_discount`, deleted 2026-09-26). Because it reads neither, the sum is a function of the
   region and South East Asia membership alone -- **not** of stability --
   which is exactly the key `policy._urgency_for` memoises on, and
   `test_the_urgency_memo_is_keyed_on_everything_the_weight_reads` is what
@@ -539,7 +538,7 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1
 
 python -m struggler.bots.train train --seed 200 --pairs 8 \
   --generations 4 --population 4 --workers 8 \
-  --fields scoring_discount,scoring_hand --output my-model.json
+  --fields scoring_rival,scoring_final --output my-model.json
 python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
   --seed 4000 --model my-model.json --workers 8
 ```

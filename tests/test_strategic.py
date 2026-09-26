@@ -205,8 +205,8 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     this turn with probability 1 (the engine forbids holding it), a live
     card of unknown holder fires this cycle with probability P(theirs) +
     P(pile and dealt), and a scored one waits for the recycle. Whether
-    held or live prices higher is then a shape question (scoring_hand vs
-    the rival-shaped real mass), so the test pins the two GAPS to the dead
+    held or live prices higher is then a shape question (the flat held
+    mass vs the rival-shaped real mass), so the test pins the two GAPS to the dead
     card -- the shaped this-cycle mass and the flat held P=1 -- instead of
     an ordering the knobs could legally move.
 
@@ -249,7 +249,7 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     # in the draw pile when the exhausting deal comes is played on the
     # reshuffle turn, after that pile was built, and so belongs to reshuffle
     # 2. For a held card there is no such gap and no rival factor (P=1, we
-    # hold it, they cannot), so it is exactly the flat scoring_hand.
+    # hold it, they cannot), so it is exactly 1.
     theirs, pile = unseen_split(live)
     pool = theirs + pile
     masses = cycle_deal_masses(live)
@@ -265,7 +265,7 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     shortfall = (pile / pool) * exhausting_deal_share(live) * (1.0 - recycled)
     assert shortfall > 0.0, 'the fixture needs a reshuffle inside the horizon'
     assert live_iran - dead_iran == pytest.approx(shaped - shortfall)
-    assert held_iran - dead_iran == pytest.approx(bot.weights.scoring_hand)
+    assert held_iran - dead_iran == pytest.approx(1.0)
     turn1 = dataclasses.replace(live, turn=1)
     # South America Scoring has not entered the deck at turn 1 (Mid War
     # period): its one scoring opportunity is its entry, conditioned on
@@ -378,9 +378,9 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
 def test_mutation_can_be_restricted_to_named_weights():
     base = StrategicWeights()
     rng = random.Random(5)
-    only = mutate(base, rng, ('scoring_discount', 'scoring_hand'))
+    only = mutate(base, rng, ('scoring_rival', 'scoring_final'))
     changed = {k for k, v in dataclasses.asdict(only).items() if v != getattr(base, k)}
-    assert changed == {'scoring_discount', 'scoring_hand'}
+    assert changed == {'scoring_rival', 'scoring_final'}
     everything = mutate(base, rng)
     changed_by_default = {k for k, v in dataclasses.asdict(everything).items()
                           if v != getattr(base, k)}

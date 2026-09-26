@@ -628,18 +628,6 @@
         "context": "progress scales credit toward a first controlled country where a side has none (presence races), ships at an uncalibrated 2.8 (provenance: guess). progress-half (1.4) split its halves violently (0.547 / 0.434) at 128+64 -- no conclusion. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot see the early presence fights the credit is for except as they occur in the sample."
       },
       {
-        "slug": "ablate-scoring-discount",
-        "weights": {
-          "scoring_discount": 1.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
-        "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
-      },
-      {
         "slug": "ablate-scoring-rival",
         "weights": {
           "scoring_rival": 0.0
@@ -1171,6 +1159,18 @@
         "compare_to": "hold-option-base",
         "title": "hold option value 1.0: the card's whole Ops value again vs bc5ef93",
         "context": "The top of the grid: a held card carries as much again as its Ops value -- the flexibility priced at everything the card can buy. PRE-REGISTERED, read across the grid (025 / 05 / 10 paired against hold-option-base on one block): a peak anywhere with its paired lower bound above 0 means the flexibility is worth pricing and the peak value ships (gate first, then a MINOR bump); monotone rising through 1.0 means the peak is at or above 1.0 and the next question is a grid above it; every arm at or below 0 means ruling 3's term does not go into the live hold pricings at any size tested. A win here with 025 and 05 flat says the flexibility is worth pricing but this grid has not found the peak, and the next question is above 1.0. Cannot separate 'worth about 1.0' from 'worth more': 1.0 is the boundary of this grid."
+      },
+      {
+        "slug": "ablate-scoring-discount",
+        "weights": {
+          "scoring_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
+        "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
       }
     ]
   }

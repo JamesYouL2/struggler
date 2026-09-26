@@ -34,7 +34,7 @@ Shape (see docs/notes/codex/2026-09-17-potential-delta-design.md):
   reply/tempo stay separate.
 
 Both seats read the same potential signed for their seat; the holder
-shaping (`scoring_hand`, `scoring_rival`) is the only deliberately
+shaping (`scoring_rival`, and a held card left unshaped) is the only deliberately
 asymmetric part, the asymmetry the deck-tracking gate accepted.
 """
 from __future__ import annotations
@@ -51,17 +51,15 @@ def shaped_mass(obs: Observation, card: str, opp: sch.Opportunity, w) -> float:
     """One opportunity's mass with the holder shaping the consumer applies.
 
     The same rule as the urgency consumer (`_scoring_weight_uncached`):
-    this cycle's term is shaped by who picks the moment (held: flat
-    `scoring_hand`, no rival factor -- we hold it, they cannot) and by the
+    this cycle's term is shaped by who picks the moment (held: unshaped,
+    no rival factor -- we hold it, they cannot) and by the
     amplified holder odds otherwise; final scoring rides `scoring_final`.
     Bucket 3+ is unshaped: the shaping is holder timing, and by the
     recycle every live scoring is played.
     """
     mass = opp.occurrence
     if opp.bucket in (1, 2):
-        if card in obs.hand:
-            mass *= w.scoring_hand
-        elif w.scoring_rival:
+        if card not in obs.hand and w.scoring_rival:
             mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
     elif opp.bucket == 5:
         mass *= w.scoring_final
