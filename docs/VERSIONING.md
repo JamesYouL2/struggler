@@ -33,6 +33,16 @@ that the bot improved.
 | --- | --- | --- |
 | `v0.1.0` | `3c31254` | The flat-40 state: the last revision the maintainer ruled on directly ("a flat 40 is what the maintainer wants"), and the last before any forward-search work. Verified to still run as a gate baseline against today's engine. |
 | `v0.2.0` | see `git tag` | The forward search on (`reply_model=3`), gated at `01de83f` as a dead heat on strength and carried by the poke rate falling 6.27 -> 0.08 a seat a game. Plus the named opening books, which are a no-op at the default. |
+| `v0.2.1`-`v0.3.4` | see `git tag -n` | Tagged 2026-09-11..19; each tag's message says what it is. |
+| `v0.4.0` | `cec39ca` | The fitted country layer owns the country value (+0.054 [+0.031, +0.078] against the tiers, #36/#37), the VP turn curve at 3.0 (#20), and the survival search's F1/F2 fixes (#38/#39). |
+| `v0.5.0` | `e1994cf` | Region 2.6 and military 2.0, both gate ACCEPTED (#50/#51); `reply_ops` deleted (#48). |
+| `v0.6.0` | `9c59650` | The four `space_ability_*` prices folded into one at 1 VP (#52). |
+
+The three 2026-09-26 tags were set after the fact at the merges that
+changed play. Each was checked to run as a baseline against that day's
+engine (one game each, as an opponent snapshot) before it was tagged.
+The tooling, docs and speedup merges between them are PATCH-level and
+carry no tag of their own.
 
 Still `0.x`: the bot's strength against a human has never been measured,
 and every gate so far has returned a dead heat. There is no basis for a
