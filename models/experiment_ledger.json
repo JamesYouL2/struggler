@@ -2574,9 +2574,9 @@
       "seeds": "132000-133023+133500-133627",
       "compare_to": null,
       "run": 36225640116,
-      "reading": null,
-      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
-      "status": "planned",
+      "reading": "0.546 [0.530, 0.562] over 1152 (final bar 1.678)",
+      "verdict": "base: the shipped bot; bot nuked 22+32",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
       ]
@@ -2592,9 +2592,9 @@
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
       "run": 36225640116,
-      "reading": null,
-      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
-      "status": "planned",
+      "reading": "paired -0.008 [-0.019, +0.003] over 1152",
+      "verdict": "covers 0: rule branch 4 -- no nomination; bot nuked 55 vs 54, veto not triggered",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
       ]
@@ -2610,9 +2610,9 @@
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
       "run": 36225640116,
-      "reading": null,
-      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
-      "status": "planned",
+      "reading": "paired -0.009 [-0.027, +0.010] over 1152",
+      "verdict": "covers 0: rule branch 4 -- no nomination; bot nuked 44 vs 54",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
       ]
@@ -2628,9 +2628,9 @@
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
       "run": 36225640116,
-      "reading": null,
-      "verdict": "in flight (run 36225640116; the first dispatch, 36219501188, died on every on-arm shard -- a sentinel-arithmetic bug in _plan_band, fixed): rule frozen in the note before dispatch",
-      "status": "planned",
+      "reading": "paired +0.004 [-0.016, +0.024] over 1152",
+      "verdict": "covers 0: rule branch 4 -- the planner stays off until a hold has its own price; bot nuked 51 vs 54",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
       ]

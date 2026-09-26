@@ -281,6 +281,36 @@ priced the same, so the plan's only strict preferences are the headline
 and the space and UN units. This reads the plan as a tie-breaker, which
 is all it can honestly be until a hold has its own price.
 
+## The near-tie band: the reading (run 36225640116, 2026-09-26)
+
+1152 paired seeds per arm, all four complete. The interim failed open,
+correctly: base lost one wave-1 game (575 of 576), so every arm played
+wave 2 and its spares. Five shards were partial, and the spare shards
+backfilled every lost core seed (listed in `pooled.json` as `dropped` /
+`backfilled`). This is the first full run on the 64-seed, spare-shard
+pooling. The final bar is 1.678.
+
+| arm | paired diff vs base | bot nuked (US + USSR) | USSR seat |
+| --- | ---: | ---: | ---: |
+| `planner-band-base` (0) | 0.546 [0.530, 0.562] (level) | 22 + 32 = 54 | 0.499 |
+| `planner-band-01` (0.1 Op) | **-0.008 [-0.019, +0.003]** | 55 | 0.484 |
+| `planner-band-05` (0.5 Op) | **-0.009 [-0.027, +0.010]** | 44 | 0.475 |
+| `planner-band-10` (1 Op) | **+0.004 [-0.016, +0.024]** | 51 | 0.503 |
+
+**By the rule, branch 4.** No lower bound is above 0, so nothing is
+nominated. The veto has nothing to catch. All three cover 0, so the
+tie-break is not measurable at this sample, **`hand_assignment` stays 0**,
+and the planner line waits for a real hold price (EXPERT_ASKS 6a).
+
+What it does settle: **the band closed the nuclear failure.** Every
+earlier variant raised USSR-seat nuclear losses (7 -> 26, 25 -> 55). Inside
+the band they are flat or lower (44-55 against 54), and the losses of
+-0.061 and -0.240 are gone: the worst band reads -0.009. So the override
+itself was what cost. As a tie-breaker the plan is harmless, and at
++/-0.02 it is not measurably useful. The first dispatch (36219501188) died
+on every on-arm shard: arithmetic on a certain-win sentinel in
+`_plan_band`, fixed, with a regression test.
+
 ## Reproduction
 
     git worktree add ../planner origin/feat/hand-planner-assignment
