@@ -63,8 +63,8 @@ on:
       # v0.3.2 (hand safety, +0.043 against 07d553a), v0.3.3 (the guard at
       # its measured 0.43, the fitted weights measured and off) and v0.3.4
       # (the region margin deleted) were tagged 2026-09-19 so this week's
-      # states are anchors and not only history. 13 anchors x 8 shards is
-      # 104 jobs, which is why this is weekly and not per-merge.
+      # states are anchors and not only history. 13 anchors x 16 shards is
+      # 208 jobs (64-seed shards), which is why this is weekly and not per-merge.
       #
       # v0.1.0 predates the opening books and plays its own default rather
       # than the canary's italy/austria. Its reading is therefore on a
@@ -77,7 +77,7 @@ on:
       # It extends the old 128-seed canary block (6000-6127), which is its
       # first shard.
       seeds:
-        description: 'Seed range, the same for every anchor (1024 = 8 shards of 128)'
+        description: 'Seed range, the same for every anchor (1024 = 16 shards of 64)'
         default: '6000-7023'
       # Both arms must play the SAME opening or the reading is confounded by
       # the board rather than by the code. Blank keeps italy/austria, which is

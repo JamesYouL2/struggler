@@ -312,3 +312,32 @@ def test_a_negative_ceiling_is_refused(tmp_path, monkeypatch):
     import pytest
     with pytest.raises(SystemExit):
         _run(tmp_path, monkeypatch, _Results([]), '--max-seconds', '-1')
+
+
+def test_an_exhausted_reserve_writes_an_incomplete_report(tmp_path, monkeypatch):
+    """Audit 2026-09-25, F1, its reproduction: core 4000-4001, reserve
+    5000-5001, only seed 4000 finishes and the pool stalls. The run exited 6
+    and the report said `stop_reason: None`, `planned 2 / finished 2`,
+    `unfinished: []` -- because the target was rebuilt from what arrived.
+    The target is what was asked for, and the lost core pair is named."""
+    status, report = _run_reserve(tmp_path, monkeypatch,
+                                  _Results([_game(4000, 'US'), _game(4000, 'USSR')]),
+                                  '4000-4001', '5000-5001')
+    s = report['summary']
+    assert status == 6
+    assert s['stop_reason'] == 'stalled'
+    assert (s['planned_games'], s['finished_games']) == (4, 2)
+    assert s['unfinished'] == [[4001, 'US'], [4001, 'USSR']]
+    assert (s['counted_pairs'], s['target_pairs'], s['dropped_pairs']) == (1, 2, [4001])
+
+
+def test_a_backfill_keeps_the_seed_it_stood_in_for(tmp_path, monkeypatch):
+    """A delivered count is complete, but the censoring stays on the record:
+    which core seed was lost is evidence a backfill must not erase."""
+    games = [_game(4000, 'US'), _game(4000, 'USSR'), _game(4001, 'US'),
+             _game(5000, 'US'), _game(5000, 'USSR')]
+    status, report = _run_reserve(tmp_path, monkeypatch, _Results(games),
+                                  '4000-4001', '5000-5001')
+    assert status is None and report['summary']['stop_reason'] is None
+    assert report['summary']['dropped_pairs'] == [4001]
+    assert report['summary']['unfinished'] == []

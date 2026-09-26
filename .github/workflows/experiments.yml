@@ -12,13 +12,24 @@
 #
 # SHARDED, SO AN ARM CAN BE AS BIG AS THE QUESTION. Each arm's seeds (and
 # `held`, if given -- both are just seeds here) are cut into shards of
-# `shard` seeds (default 128), one job per shard, and the `collect` job pools
+# `shard` seeds (default 64), one job per shard, and the `collect` job pools
 # them with scripts/pool_reports.py, which reuses `benchmark.summarize` so a
 # pooled reading is computed the way a single run's is. One 128-seed shard
-# is 30-65 minutes on a 4 vCPU runner; 1024 seeds in one job would be 4-9
-# hours against GitHub's 6-hour ceiling, which is why the old per-arm job
-# capped arms at 256 and read +/-0.06 on questions that needed +/-0.02.
-# 1024 seeds reads about +/-0.016 one-sided.
+# was 30-65 minutes on a 4 vCPU runner, and a slow runner took one past two
+# hours against the 180-minute job ceiling -- so shards are 64 seeds now
+# (docs/notes/claude/2026-09-21-the-slow-shard-is-the-runner.md). 1024 seeds
+# in one job would be 4-9 hours against GitHub's 6-hour ceiling, which is why
+# the old per-arm job capped arms at 256 and read +/-0.06 on questions that
+# needed +/-0.02. 1024 seeds reads about +/-0.016 one-sided.
+#
+# SPARE SHARDS, AND A MANIFEST. An arm's `reserve` is cut into up to two
+# spare shards (scripts/shard_plan.py) played in its last wave, and `plan`
+# uploads the list of every shard the run is owed. Pooling reads against
+# that list: each shard is complete, partial, missing or skipped, and a
+# reading counts the first N seeds in plan order that finished in every
+# compared arm -- so one or two lost shards are backfilled whole, and a
+# reading that still falls short says SHORT instead of passing as complete
+# (audit 2026-09-25, F1/F2).
 #
 # No early stopping. `--decide` saved wall time on a box that runs one thing
 # at a time; on shards it saves nothing (every shard still has to finish for
@@ -179,66 +190,27 @@ jobs:
                       f"{a['slug']}: compare_to {a['compare_to']!r} is not in this "
                       f"run; dispatch them together "
                       f"(-f only={a['compare_to']},{a['slug']})")
-          def span(text):
-              lo, hi = (int(x) for x in text.split('-'))
-              return list(range(lo, hi + 1))
           # Reserve ranges are part of the seed space a run claims: a
-          # backfill must never land in another block's core.
+          # spare shard must never land in another block's core.
           shard_plan.assert_disjoint(arms)
-          shards = []
           for a in arms:
-              blocks = [span(a['seeds'])] + ([span(a['held'])] if a.get('held') else [])
+              blocks = [shard_plan.span(a['seeds'])] + (
+                  [shard_plan.span(a['held'])] if a.get('held') else [])
               flat = [x for b in blocks for x in b]
               assert len(set(flat)) == len(flat), f"{a['slug']}: seeds and held overlap"
-              size = int(a.get('shard', 128))
-              # Cut each block separately so no shard straddles a gap; the
-              # arm's reserve is split across every shard it produces, and a
-              # shard counts only its core pairs (benchmark's
-              # `counted_pairs`) -- the spares are backfill for a lost game.
-              specs = shard_plan.cut(
-                  [a['seeds']] + ([a['held']] if a.get('held') else []),
-                  a.get('reserve') or '', size)
-              openings = a.get('openings') or (
-                  'US=italy,USSR=austria' if (a.get('anchor') or a.get('bot_ref')) else '')
-              # "default": each side plays its own revision's default book --
-              # for an anchor that does not know the requested ones (drift.yml
-              # asks gate_common.sh's `opening_args`, as drift_check.sh does).
-              if openings == 'default':
-                  openings = ''
-              for i, spec in enumerate(specs):
-                  shards.append({
-                      'slug': a['slug'], 'shard': i, 'of': len(specs),
-                      'seeds': spec['seeds'],
-                      # Only when present: the shard object IS the cache key
-                      # (run-shard -> arm_identity), so an empty field on
-                      # every old arm would move every identity once.
-                      **({'reserve': spec['reserve']} if spec['reserve'] else {}),
-                      'weights': a.get('weights') or {},
-                      'anchor': a.get('anchor', ''), 'bot_ref': a.get('bot_ref', ''),
-                      'openings': openings, 'compare_to': a.get('compare_to', ''),
-                      'logs': bool(a.get('logs')),
-                  })
-          assert len(shards) <= 256, f'{len(shards)} shards; a matrix holds 256'
-          # WAVES. Half the shards of each arm now, the rest only where the
-          # interim look does not settle the question. The split is by arm
-          # and in shard order, so two arms on the same block and the same
-          # shard size play the SAME seeds in wave 1 -- which is what the
-          # paired interim reads. `ceil` puts the odd shard in wave 1: the
-          # look is the thing being paid for, so it gets the extra seeds.
-          #
-          # `waves: false` runs everything at once, which is what a LEVEL
-          # reading wants (drift.yml): halving the seeds doubles the
-          # interval, and a canary's number is quoted, not compared.
-          wave1, wave2 = shards, []
-          if WAVES:
-              by_arm = {}
-              for s in shards:
-                  by_arm.setdefault(s['slug'], []).append(s)
-              wave1, wave2 = [], []
-              for arm_shards in by_arm.values():
-                  cut = -(-len(arm_shards) // 2)
-                  wave1 += arm_shards[:cut]
-                  wave2 += arm_shards[cut:]
+          # THE CUT, THE SPARES AND THE WAVES are shard_plan's, one statement
+          # the tests read too: 64-seed core shards, up to two spare shards
+          # from the arm's `reserve`, wave 1 the first half of each arm's
+          # core, spares in the arm's last wave. See its docstring.
+          wave1, wave2 = shard_plan.split_waves(shard_plan.build(arms), WAVES)
+          # A matrix holds 256 jobs; each wave is its own matrix.
+          for name, wave in (('wave 1', wave1), ('wave 2', wave2)):
+              assert len(wave) <= 256, f'{len(wave)} shards in {name}; a matrix holds 256'
+          # THE MANIFEST: what this run is owed. `interim` and `collect`
+          # pool against it, so a shard that never uploaded is MISSING
+          # rather than invisible (audit 2026-09-25, F2).
+          with open('plan.json', 'w') as f:
+              json.dump({'waves': WAVES, 'shards': wave1 + wave2}, f, indent=1)
           print(f'shards={json.dumps(wave1)}')
           print(f'count={len(wave1)}')
           print(f'wave2={json.dumps(wave2)}')
@@ -251,6 +223,11 @@ jobs:
           INLINE: ${{ inputs.inline }}
           ONLY: ${{ inputs.only }}
           ARMS: ${{ inputs.arms }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan
+          path: plan.json
+          retention-days: 90
 
   run:
     needs: plan
@@ -259,8 +236,9 @@ jobs:
     # unfindable in a list of sixty.
     name: ${{ matrix.s.slug }} [${{ matrix.s.shard }}/${{ matrix.s.of }}]
     runs-on: ubuntu-latest
-    # One 128-seed shard measured 30-65 minutes; this leaves room for a slow
-    # runner without letting a hang eat the 6-hour ceiling.
+    # One 128-seed shard measured 30-65 minutes, so a 64-seed one ~15-35; this
+    # leaves room for a slow runner (one ran 4.5x its siblings) without
+    # letting a hang eat the 6-hour ceiling.
     timeout-minutes: 180
     strategy:
       # An arm coming back surprising is a RESULT. Cancelling its siblings
@@ -333,6 +311,10 @@ jobs:
         with:
           pattern: experiment-*
           path: shards
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: plan
       - id: look
         run: |
           # `set -u`, NOT `set -e`. THE LOOK MUST NEVER ABORT THE STEP.
@@ -345,7 +327,8 @@ jobs:
           # design says must not happen. Each stage below degrades instead.
           set -uo pipefail
           echo "$WAVE2" > wave2.json
-          uv run python scripts/pool_reports.py shards --json interim.json > interim.md \
+          uv run python scripts/pool_reports.py shards --json interim.json \
+            --plan plan/plan.json --stage interim > interim.md \
             || echo 'POOLING WAVE 1 FAILED; the look will fail open.' | tee -a "$GITHUB_STEP_SUMMARY"
           { echo '## Interim (wave 1)'; cat interim.md 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY"
           if ! uv run python scripts/wave_verdict.py interim.json \
@@ -440,9 +423,23 @@ jobs:
         with:
           pattern: experiment-*
           path: shards
+      - uses: actions/download-artifact@v4
+        with:
+          name: plan
+          path: plan
+      # The interim's selection, when there was a look. Absent (no waves,
+      # or a look that never ran) means all of wave 2 was owed -- which is
+      # what `run2` played -- and pool_reports reads a missing file that way.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: interim
+          path: interim
       - name: pool
         run: |
-          uv run python scripts/pool_reports.py shards --json pooled.json | tee -a "$GITHUB_STEP_SUMMARY"
+          uv run python scripts/pool_reports.py shards --json pooled.json \
+            --plan plan/plan.json --selected interim/next.json --stage final \
+            | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: pooled

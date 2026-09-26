@@ -28,6 +28,11 @@ def verdict(pooled: dict) -> tuple[int, list[str]]:
             continue
         reading = (f'{anchor}: score {arm["score"]:.3f} [{arm["lower"]:.3f}, {arm["upper"]:.3f}] '
                    f'over {arm["seeds"]} seeds')
+        # Short of its plan with nothing missing: a partial shard's lost games.
+        # Still a level worth quoting, but never quoted as the full sample --
+        # pool_reports says what it was owed (audit 2026-09-25, F2).
+        if arm.get('complete') is False:
+            reading += f' (SHORT: {arm["seeds"]} of {arm.get("target")} planned)'
         if arm['upper'] < 0.5:
             lines.append(f'DRIFT {reading}')
             status = max(status, 1)

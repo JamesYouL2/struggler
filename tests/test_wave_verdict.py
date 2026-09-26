@@ -264,3 +264,74 @@ def test_the_real_pooled_file_reaches_the_paired_verdict(tmp_path):
     assert verdicts['flat']['proceed'] is True and verdicts['flat-base']['proceed'] is True
     assert verdicts['flat']['z'] is not None, 'readable, just not decisive'
     assert verdicts['orphan']['proceed'] is True and verdicts['orphan']['z'] is None
+
+
+# --- the audit's 2026-09-25 findings -----------------------------------
+
+def test_an_unreadable_edge_still_holds_its_group_open():
+    """Audit F6, its reproduction: B and C both compare to A; B's paired
+    statistic is absent, C's is decisive. B's unreadable edge was never
+    added to the graph, so C's decisive edge overwrote A to stop and nothing
+    carried B's continue back. A group stops only if EVERY declared
+    comparison in it is readable and decisive."""
+    arms = {**pooled('A', score=0.50, se=0.01),
+            **pooled('B', score=0.52, se=0.01, compare_to='A'),
+            **pooled('C', score=0.75, se=0.01, compare_to='A')}
+    pairs = [{'arm': 'C', 'minus': 'A', 'diff_exact': 0.25, 'se': 0.04, 'seeds': 512}]
+    out = W.decide({'arms': arms, 'paired': pairs})
+    assert {slug: v['proceed'] for slug, v in out.items()} == {'A': True, 'B': True, 'C': True}
+
+
+def test_the_group_verdict_does_not_depend_on_arm_order():
+    import itertools
+    arms = {**pooled('A', score=0.50, se=0.01),
+            **pooled('B', score=0.52, se=0.01, compare_to='A'),
+            **pooled('C', score=0.75, se=0.01, compare_to='A')}
+    decisive_c = {'arm': 'C', 'minus': 'A', 'diff_exact': 0.25, 'se': 0.04, 'seeds': 512}
+    flat_b = {'arm': 'B', 'minus': 'A', 'diff_exact': 0.01, 'se': 0.04, 'seeds': 512}
+    # B readable and flat, then B unreadable: both hold the group open.
+    for pairs in ([decisive_c, flat_b], [decisive_c]):
+        seen = set()
+        for order in itertools.permutations(arms):
+            for pair_order in itertools.permutations(pairs):
+                out = W.decide({'arms': {k: arms[k] for k in order}, 'paired': list(pair_order)})
+                seen.add(tuple(sorted((k, v['proceed']) for k, v in out.items())))
+        assert seen == {(('A', True), ('B', True), ('C', True))}
+
+
+def test_a_short_reading_or_pair_plays_the_second_wave():
+    """`complete: false` is pool_reports' word that the reading is not the
+    sample it was planned as. Decisive or not, it is not a stop."""
+    short = pooled(score=0.60, se=0.01, complete=False, target=512, seeds=448)
+    assert W.decide({'arms': short, 'paired': []})['on']['proceed'] is True
+    arms = {**pooled('on', score=0.60, se=0.01, compare_to='base'),
+            **pooled('base', score=0.50, se=0.01)}
+    pairs = [{'arm': 'on', 'minus': 'base', 'diff_exact': 0.10, 'se': 0.01, 'seeds': 500,
+              'complete': False}]
+    out = W.decide({'arms': arms, 'paired': pairs})
+    assert out['on']['proceed'] is True and out['base']['proceed'] is True
+
+
+@pytest.mark.parametrize('fraction', [0.4, 0.5, 0.6, 9 / 16])
+def test_the_boundary_for_any_fraction_spends_the_alpha_it_was_given(fraction):
+    """Audit F5: an arm whose core cuts oddly looks at more (or less) than
+    half its information, and the half-information pair would spend alpha
+    it was not given."""
+    interim, final = W.boundaries(fraction)
+    assert W.alpha_spent(interim, final, fraction=fraction) == pytest.approx(0.10, abs=1e-6)
+    assert interim > final > W.SINGLE_LOOK
+
+
+def test_half_information_is_still_the_published_pair():
+    assert W.boundaries(0.5) == pytest.approx((W.INTERIM_BOUNDARY, W.FINAL_BOUNDARY))
+
+
+def test_each_arm_is_judged_at_its_own_fraction():
+    """z = 2.30: short of the half-information bar (2.373), past the bar at
+    60% information (O'Brien-Fleming's interim bar falls as the look sees
+    more)."""
+    assert W.boundaries(0.6)[0] < 2.30 < W.INTERIM_BOUNDARY
+    at_half = pooled(score=0.523, se=0.01)
+    at_sixty = pooled(score=0.523, se=0.01, fraction=0.6)
+    assert W.decide({'arms': at_half, 'paired': []})['on']['proceed'] is True
+    assert W.decide({'arms': at_sixty, 'paired': []})['on']['proceed'] is False

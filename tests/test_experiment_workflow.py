@@ -72,15 +72,40 @@ def test_the_shard_cut_is_one_rule_in_shard_plan():
     drift from the tests' and only ever be exercised on a runner."""
     body = WORKFLOW.read_text()
     assert 'import shard_plan' in body
-    assert 'shard_plan.cut' in body
+    assert 'shard_plan.split_waves(shard_plan.build(arms)' in body
     assert 'shard_plan.assert_disjoint' in body
+    # The wave split used to be spelled inline here; it is shard_plan's now.
+    assert '-(-len(' not in body, 'a second copy of the wave split in the workflow'
 
 
-def test_the_shard_hands_its_reserve_to_the_benchmark():
+def test_the_reserve_is_spare_shards_and_never_reaches_a_shard():
+    """An arm's reserve is its spare SHARDS, counted by pool_reports against
+    the plan. A per-shard reserve as well would count spares twice over --
+    once inside the shard, once in the pool."""
     action = ACTION.read_text()
-    assert action.count('--reserve-seeds') == 1, (
-        'the reserve reaches the benchmark exactly once')
-    assert 'RESERVE: ${{ fromJSON(inputs.shard).reserve }}' in action
+    assert '--reserve-seeds' not in action
+    assert 'fromJSON(inputs.shard).reserve' not in action
+
+
+def test_both_pools_read_the_plan_manifest():
+    """Audit 2026-09-25, F2: pooling by the directories that arrived made a
+    shard that never uploaded invisible. `plan` uploads what the run is
+    owed and both the interim look and the final collect pool against it --
+    the collect with the interim's selection, so a skipped shard is the
+    design and not a loss."""
+    jobs = _load(WORKFLOW)['jobs']
+    assert any(s.get('with', {}).get('name') == 'plan' and 'upload-artifact' in s.get('uses', '')
+               for s in jobs['plan']['steps'])
+    for job, extra in (('interim', '--stage interim'), ('collect', '--selected interim/next.json')):
+        steps = jobs[job]['steps']
+        assert any(s.get('with', {}).get('name') == 'plan' and 'download-artifact' in s.get('uses', '')
+                   for s in steps), f'{job} never downloads the manifest'
+        run = ' '.join(s.get('run', '') for s in steps)
+        assert '--plan plan/plan.json' in run and extra in run, f'{job} pools without the manifest'
+    # The interim artifact is absent whenever the look did not run; the
+    # collect must survive that, and pool_reports reads it as all of wave 2.
+    fetch = [s for s in jobs['collect']['steps'] if s.get('with', {}).get('name') == 'interim']
+    assert fetch and fetch[0].get('continue-on-error') is True
 
 
 def test_the_shard_is_played_in_one_place_only():
