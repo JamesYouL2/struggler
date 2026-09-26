@@ -51,10 +51,15 @@ not among the bot's options.
    as possible while it does not hold the China Card. p5's own card was a
    forced Missile Envy play, so that point is for an earlier round.
 
-A side question the maintainer raised: "why is AWACS in the USSR hand at
-T7?" It is legal. The card entered the deck at turn 4, was dealt to the
-USSR at turn 7, and was played for Ops (firing the US event, then removed)
-at T7 AR2. The engine is right here.
+The maintainer's side question, "why is AWACS in the USSR hand at T7?",
+found an ENGINE DEFECT. AWACS Sale to Saudis (#110) is a Late War card,
+but `cards.json` had it in MID_WAR, so it was shuffled in at turn 4. I
+first answered that the engine was right, having checked only that the
+card moved as the data said. Fixed in PR #67, gated by a test pinning all
+110 printed periods. These positions were captured on the wrong deck, and
+p1's USSR hand would not hold AWACS on the right one. The maintainer's
+answers are about the board and the other cards, so they stand, but the
+fixture positions should be recaptured once #67 merges.
 
 ## What this instrument is worth, now measured
 
