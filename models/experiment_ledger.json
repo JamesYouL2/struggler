@@ -2651,6 +2651,97 @@
       "notes": [
         "docs/notes/claude/2026-09-26-a-newer-anchor.md"
       ]
+    },
+    {
+      "id": "oldw-base",
+      "kind": "ablation",
+      "knobs": {
+        "region": 1.3,
+        "military": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": null,
+      "run": 36263138793,
+      "reading": "0.555 [0.543, 0.567] over 2048 (sweep-era weights region 1.3 / military 1.0, access on)",
+      "verdict": "base for the old-weights access effect",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-why-access-moved.md"
+      ]
+    },
+    {
+      "id": "oldw-access-off",
+      "kind": "ablation",
+      "knobs": {
+        "region": 1.3,
+        "military": 1.0,
+        "access": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": "oldw-base",
+      "run": 36263138793,
+      "reading": "paired -0.027 [-0.044, -0.011] over 2048; seed-level interaction with the deletion run -0.027 [-0.049, -0.006]",
+      "verdict": "access matters at the old weights and twice as much at the new: the region/military re-weighting pays only through access (+0.026 with it, -0.002 without)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-why-access-moved.md"
+      ]
+    },
+    {
+      "id": "rc-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": null,
+      "run": 36263308113,
+      "reading": "0.558 [0.541, 0.575] over 1024; bot nuked 46",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "rival-off",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_rival": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": 36263308113,
+      "reading": "paired +0.007 [-0.014, +0.028] over 1024; bot nuked 53 vs 46",
+      "verdict": "rule 1: covers 0, veto clear -- scoring_rival is DELETED (chore/delete-scoring-rival through its gate)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "coup-flat",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": 36263308113,
+      "reading": "paired -0.028 [-0.048, -0.008] over 1024",
+      "verdict": "rule 2: upper bound below 0 -- coup_discount is KEPT; the sweep's -0.005 [-0.025, +0.015] missed it",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
     }
   ]
 }

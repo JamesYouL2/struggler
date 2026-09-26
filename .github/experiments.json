@@ -1268,6 +1268,64 @@
         "reserve": "144100-144227",
         "title": "main vs the candidate anchor v0.6.0",
         "context": "Where main sits against v0.6.0 (expected near 0.5: only #61 changed play since), and whether v0.6.0 runs clean as a baseline (VERSIONING: check a tag runs as a baseline before relying on it). A level reading: waves off."
+      },
+      {
+        "slug": "oldw-base",
+        "weights": {
+          "region": 1.3,
+          "military": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "140000-142047",
+        "reserve": "142100-142227",
+        "title": "access interaction: current code at the sweep-era weights (region 1.3, military 1.0) vs bc5ef93",
+        "context": "The base for the old-weights access effect, on the access deletion run's seeds. docs/notes/claude/2026-09-26-why-access-moved.md"
+      },
+      {
+        "slug": "oldw-access-off",
+        "weights": {
+          "region": 1.3,
+          "military": 1.0,
+          "access": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "140000-142047",
+        "reserve": "142100-142227",
+        "compare_to": "oldw-base",
+        "title": "access interaction: sweep-era weights with access off vs bc5ef93",
+        "context": "Is access only load-bearing at region 2.6 / military 2.0? Rule frozen in the note: old-weights effect near -0.011 = the re-weighting made access matter; near -0.055 = bisect #52/#61. docs/notes/claude/2026-09-26-why-access-moved.md"
+      },
+      {
+        "slug": "rc-base",
+        "anchor": "bc5ef93",
+        "seeds": "145000-146023",
+        "reserve": "146100-146227",
+        "title": "rival/coup deletions: the shipped bot vs bc5ef93, the paired reference",
+        "context": "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      },
+      {
+        "slug": "rival-off",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "145000-146023",
+        "reserve": "146100-146227",
+        "compare_to": "rc-base",
+        "title": "delete scoring_rival: rival urgency off (1.0 -> 0), exact deletion",
+        "context": "Rule frozen in the note: delete if the paired interval covers 0 or better and the nuclear veto holds; keep if the upper bound is below 0. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      },
+      {
+        "slug": "coup-flat",
+        "weights": {
+          "coup_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "145000-146023",
+        "reserve": "146100-146227",
+        "compare_to": "rc-base",
+        "title": "delete coup_discount: coups and realignments undiscounted (0.9 -> 1.0), exact deletion",
+        "context": "Rule frozen in the note: delete if the paired interval covers 0 or better and the nuclear veto holds; keep if the upper bound is below 0. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
       }
     ]
   }

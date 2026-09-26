@@ -26,8 +26,8 @@ is the importance: what the bot loses without it.
 | 9 | `last_window_guard` | 0.43 | -0.001 on strength; USSR nukes 37 -> 42 | kept for behaviour |
 | 10 | `vp_base` | 0.5 | 0.35 and 0.75 both cover 0 | expert rate, first measured support |
 | 11 | `access` (+`access_decay`) | 1.5 / 1.445 | **-0.055 [-0.071, -0.039]** at 2048 seeds (2026-09-26, run 36253272931); the sweep's -0.011 covered 0 | load-bearing: deletion measured and refused ([the note](../claude/2026-09-26-deleting-access.md)) |
-| 12 | `scoring_rival` | 1.0 | **+0.006 [-0.014, +0.026] -- covers 0** | deletion candidate (was -0.025 on the tiers bot) |
-| 13 | `coup_discount` | 0.9 | **-0.005 [-0.025, +0.015] -- covers 0** | deletion candidate |
+| 12 | `scoring_rival` | 1.0 | +0.007 [-0.014, +0.028] at 1024 (2026-09-26, run 36263308113) | deleted: measured not to earn its place ([the note](../claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md)) |
+| 13 | `coup_discount` | 0.9 | **-0.028 [-0.048, -0.008]** at 1024 (2026-09-26, run 36263308113); the sweep's -0.005 covered 0 | load-bearing: deletion measured and refused |
 | 14 | `scoring_hand` | 1.0 | at its neutral already (bonus = 0) | inert by construction |
 | 15 | `scoring_discount` | 0.8 | **dead code** -- nothing reads it | delete; the 0.8 describes a bot that does not exist |
 
