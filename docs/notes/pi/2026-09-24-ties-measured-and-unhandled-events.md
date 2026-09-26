@@ -9,6 +9,18 @@
 > worker, and some events listed as unpriced (Independent Reds, Junta,
 > Ortega, Tear Down This Wall) do have scorers. See the Codex audit
 > 2026-09-25, F3. The live-only instrument replaces this measurement.
+>
+> **Remeasured live (2026-09-25, `fix/event-measurement`, seeds
+> 42000-42001, 2 games):** 41 live EVENT_CHOICEs, of which **6 unpriced**
+> (South African Unrest 3, Warsaw Pact 2, Chernobyl 1) -- about 3 blind
+> picks a game, not 66 -- plus 3 priced-but-all-equal (Our Man in Tehran 2,
+> Independent Reds 1) and 5 top ties. The three unpriced events are exactly
+> the ones the maintainer answered on 2026-09-25 (EXPERT_ASKS 5: price by
+> board value before and after). Card plays are the live tie: 40 of 228
+> real ACTION_ROUND_PLAY choices (17.5%) had tied tops, which is where the
+> planner's near-tie band acts. War targets: 2 of 7 all-equal, which the
+> maintainer calls inconsequential. Two games: rates, not verdicts.
+> `logs/event-measurement/ties-42000.json`.
 
 The companion measurement to [the ties catalogue](2026-09-24-ties-and-what-breaks-them.md):
 which tie actually fires, how often, and how many event choices the bot

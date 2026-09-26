@@ -1,25 +1,34 @@
-"""Count ties in live rankings: where the sort has nothing left to say.
+"""Count ties in LIVE rankings: where the sort has nothing left to say.
 
 Every option ranking is `sorted(..., reverse=True)` over a key tuple and
 the sort is STABLE, so an exact tie is resolved by `legal_actions()`
 order -- the ENGINE's listing, not a rule of the bot's
 (docs/notes/pi/2026-09-24-ties-and-what-breaks-them.md catalogues the
 sites). This measures which of them actually fire, how often, in live
-play. For EVENT_CHOICE it answers the sharper question too: how many
-decisions are ALL-options-tie -- the unhandled-event shape, where the
-policy has no opinion (every option prices 0.0) and the first legal
-option wins.
+play, and for EVENT_CHOICE separates the unhandled shape (the scorer had
+no opinion on any option) from options that were priced and happen to
+tie.
 
-The instrument wraps `rank_actions` and re-derives each option's sort
-key -- `(k0, _plan_pref) + k[1:]`, the same tuple the sort uses -- then
-records how the top was decided:
+LIVE ONLY. The first version patched `rank_actions` onto the class, and
+the event helpers that price an option are StrategicPlayers too, so it
+counted every SIMULATED decision as a live one -- one headline ranking
+recorded seven EVENT_INFLUENCE rankings with no action applied. Its
+counts were also cumulative across the games a worker played, and its
+"without the planner's preference" slice kept the preference (Codex audit
+2026-09-25, F3). This reads each live decision's own ranking from
+`StrategicPlayer.last_ranking`, in the game loop, once per engine step,
+with fresh counts per game.
 
-    engine order   the top key tied; `legal_actions()` order picked
-    plan_pref      keys tied without the planner's preference
-    key            the risk/score key separated them
+Each live decision is one of (`benchmark.event_choice_kind`):
 
-Per decision kind, and per event name for the all-tie EVENT_CHOICEs.
-The bots play the shipped weights: this is what the bot does today.
+    single      one legal option -- no choice was made
+    unpriced    the scorer had no opinion on any option; first legal won
+    all_equal   every option priced, all the same
+    top_tie     the best options tied; engine order split them
+    decided     the key separated the winner
+
+The bots play the shipped weights, where the planner is off, so the sort
+key is the safety key alone.
 
     uv run python scripts/measure_ties.py --seeds 42000-42003
 """
@@ -33,83 +42,34 @@ import logging
 import os
 import sys
 
-from struggler.engine import Engine, Side
+from struggler.bots.benchmark import event_choice_kind
 from struggler.bots.strategic import StrategicPlayer
-
-_Rank = StrategicPlayer.rank_actions
-_Key = StrategicPlayer.safety_key
-
-
-def _sort_key(player, obs, action, k):
-    return (k[0], player._plan_pref(obs, action)) + k[1:]
-
-
-def _rank_actions(self, observation):
-    self._tie_buf = []
-    out = _Rank(self, observation)
-    buf = self._tie_buf
-    if buf:
-        _record(observation, self, buf, out)
-    return out
-
-
-def _safety_key(self, obs, action):
-    k = _Key(self, obs, action)
-    self._tie_buf.append(k)
-    return k
-
-
-# Install the wrappers (the buffer rides on the instance, so both bots in
-# a game keep their own counts).
-StrategicPlayer.rank_actions = _rank_actions
-StrategicPlayer.safety_key = _safety_key
-
-
-def _record(observation, player, keys, out):
-    d = observation.pending_decision
-    if d is None:
-        return
-    kind = d.kind.name
-    full = [_sort_key(player, observation, a, k) for a, k in zip(d.options, keys)]
-    top = out[0][0]
-    winner_key = _sort_key(player, observation, out[0][1], top)
-    group = sum(1 for k in full if k == winner_key)
-    no_pref = [(k[0],) + k[1:] for k in full]
-    winner_no_pref = (winner_key[0],) + winner_key[2:]
-    if group > 1:
-        how = 'engine order'
-    else:
-        how = 'plan_pref' if sum(1 for k in no_pref if k == winner_no_pref) > 1 else 'key'
-    row = STAT.setdefault(kind, collections.Counter())
-    row['rankings'] += 1
-    row['options'] += len(full)
-    row[how] += 1
-    if group > 1:
-        row['top_group'] += group
-    if kind == 'K.EVENT_CHOICE' or kind == 'EVENT_CHOICE':
-        if len(set(full)) == 1:
-            event = (d.context or {}).get('event', '?')
-            row = STAT.setdefault('UNTIED_EVENTS', collections.Counter())
-            row[event] += 1
-
-
-STAT: dict = {}
+from struggler.engine import Engine, Side
 
 
 def play(seed: int) -> dict:
+    """One self-play game; the counts of its live decisions only."""
     logging.getLogger('struggler').setLevel(logging.ERROR)
+    stat: dict = {}
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     bots = {s: StrategicPlayer() for s in (Side.US, Side.USSR)}
-    for bot in bots.values():
-        bot._tie_buf = []
     while not engine.is_terminal and engine.pending_decision is not None:
         d = engine.pending_decision
         if d.actor is Side.CHANCE:
             engine.step(d.options[0])
             continue
-        action = bots[d.actor].choose_action(engine.observe(d.actor), [])
+        bot = bots[d.actor]
+        action = bot.choose_action(engine.observe(d.actor), [])
+        how = event_choice_kind(d.options, bot.last_ranking)
+        row = stat.setdefault(d.kind.name, collections.Counter())
+        row['decisions'] += 1
+        row['options'] += len(d.options)
+        row[how] += 1
+        if d.kind.name == 'EVENT_CHOICE' and how in ('unpriced', 'all_equal', 'top_tie'):
+            event = (d.context or {}).get('event', '?')
+            stat.setdefault(f'EVENT|{how}', collections.Counter())[event] += 1
         engine.step(action)
-    return STAT
+    return stat
 
 
 def main(argv=None):
@@ -124,27 +84,26 @@ def main(argv=None):
         for stat in pool.map(play, seeds):
             for key, row in stat.items():
                 merged.setdefault(key, collections.Counter()).update(row)
-    print(f'{len(seeds)} seeds played\n')
-    for kind, row in sorted(merged.items(), key=lambda kv: -kv[1]['rankings']):
-        if kind == 'UNTIED_EVENTS':
-            continue
-        n = row['rankings']
-        if not n:
-            continue
-        print(f'{kind:22} rankings {n:5d}  mean options {row["options"] / n:4.1f}  '
-              f'decided by: key {row["key"]:5d}  plan_pref {row["plan_pref"]:4d}  '
-              f'ENGINE ORDER {row["engine order"]:5d} '
-              f'({100 * row["engine order"] / n:4.1f}%)')
-    untied = merged.get('UNTIED_EVENTS')
-    if untied:
-        print('\nEVENT_CHOICEs where EVERY option tied (unhandled -- first legal option won):')
-        for event, n in untied.most_common():
-            print(f'  {n:4d}  {event}')
-    else:
-        print('\nno all-tied EVENT_CHOICEs in this sample')
+    print(f'{len(seeds)} seeds played; live decisions only\n')
+    kinds = {k: v for k, v in merged.items() if not k.startswith('EVENT|')}
+    for kind, row in sorted(kinds.items(), key=lambda kv: -kv[1]['decisions']):
+        n = row['decisions']
+        choices = n - row['single']
+        tied = row['unpriced'] + row['all_equal'] + row['top_tie']
+        share = f'{100 * tied / choices:4.1f}% of {choices} real choices' if choices else 'no real choices'
+        print(f'{kind:22} decisions {n:5d}  single {row["single"]:5d}  unpriced {row["unpriced"]:4d}  '
+              f'all_equal {row["all_equal"]:4d}  top_tie {row["top_tie"]:4d}  '
+              f'decided {row["decided"]:5d}  -> engine order {share}')
+    for how in ('unpriced', 'all_equal', 'top_tie'):
+        events = merged.get(f'EVENT|{how}')
+        if events:
+            print(f'\nEVENT_CHOICE {how}:')
+            for event, n in events.most_common():
+                print(f'  {n:4d}  {event}')
     if args.out:
         os.makedirs(os.path.dirname(args.out) or '.', exist_ok=True)
-        json.dump({k: dict(v) for k, v in merged.items()}, open(args.out, 'w'), indent=2)
+        with open(args.out, 'w') as f:
+            json.dump({k: dict(v) for k, v in merged.items()}, f, indent=2)
     return 0
 
 

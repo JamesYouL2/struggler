@@ -292,6 +292,32 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None,
     raise ValueError(f'unknown bot kind {kind!r}')
 
 
+def event_choice_kind(options, last) -> str:
+    """How a live EVENT_CHOICE was decided, from the ranking the player
+    kept (`StrategicPlayer.last_ranking`: the ranked pairs and the ids of
+    the options its scorer had no opinion on).
+
+    single      one legal option: no choice was made
+    unmeasured  the player kept no ranking for this decision
+    unpriced    the scorer had no opinion on ANY option -- the blind pick,
+                where the first legal option won
+    all_equal   every option priced, and priced the same
+    top_tie     the best options tied and engine order split them
+    decided     the key separated the winner
+    """
+    if len(options) == 1:
+        return 'single'
+    if last is None:
+        return 'unmeasured'
+    ranked, no_opinion = last
+    if len(no_opinion) == len(ranked):
+        return 'unpriced'
+    keys = [key for key, _ in ranked]
+    if len(set(keys)) == 1:
+        return 'all_equal'
+    return 'top_tie' if keys[0] == keys[1] else 'decided'
+
+
 def play(job: tuple) -> dict:
     (bot, opponent, seed, side_value, simulations, stop_turn, log_dir, model,
      vary_openings) = job
@@ -315,6 +341,12 @@ def play(job: tuple) -> dict:
     # always events and are counted apart, since picking a headline is a
     # different decision from choosing event mode in an action round.
     card_modes: collections.Counter = collections.Counter()
+    # The candidate's EVENT_CHOICEs, by event and by how the choice was
+    # made (`event_choice_kind`); `blind_picks` is the `unpriced` share --
+    # the scorer had no opinion on any option and the first legal one won
+    # (docs/notes/pi/2026-09-24-ties-measured-and-unhandled-events.md).
+    event_choices: collections.Counter = collections.Counter()
+    blind_picks: collections.Counter = collections.Counter()
     pending_card: dict = {}
     players = {side: build(bot, seed, simulations, model, books),
                side.opponent: build(opponent, seed, simulations, None, books)}
@@ -352,6 +384,7 @@ def play(job: tuple) -> dict:
             action = d.options[0]
         else:
             player = players[d.actor]
+            before = getattr(player, 'last_ranking', None)
             action = player.choose_action(engine.observe(d.actor), history.history)
             if d.kind is DecisionKind.HEADLINE_PLAY and 'card' in action.payload:
                 card_modes[f"{d.actor.value}|{action.payload['card']}|headline"] += 1
@@ -369,6 +402,18 @@ def play(job: tuple) -> dict:
                 if any(o.payload.get('mode') == 'event' for o in d.options):
                     card_modes[f"{d.actor.value}|{pending_card[d.actor]}|"
                                f"_event_offered"] += 1
+            elif d.kind is DecisionKind.EVENT_CHOICE and player is players[side]:
+                # The LIVE ranking the candidate just played from, never a
+                # re-scoring: a second evaluation doubled the cost and
+                # crashed any bot without `safety_key` (audit F4). A bot
+                # that keeps no ranking -- greedy, an anchor snapshot -- is
+                # recorded as unmeasured rather than guessed at.
+                last = getattr(player, 'last_ranking', None)
+                how = event_choice_kind(d.options, None if last is before else last)
+                event = (d.context or {}).get('event', '?')
+                event_choices[f'{event}|{how}'] += 1
+                if how == 'unpriced':
+                    blind_picks[event] += 1
             last = getattr(player, 'last_search', None)
             if player is players[side] and last:
                 searches += 1
@@ -382,6 +427,9 @@ def play(job: tuple) -> dict:
     outlook = projection(engine, side)
     return dict(seed=seed, bot_side=side_value, finished=engine.is_terminal,
                 card_modes=dict(card_modes), vp_by_turn=vp_by_turn,
+                events_fired=dict(collections.Counter(
+                    name for _, name in engine.events_fired).most_common()),
+                blind_picks=dict(blind_picks), event_choices=dict(event_choices),
                 reshuffle_turns=reshuffle_turns, removed_cards=len(engine.removed_cards),
                 **outlook,
                 total=round(sign * engine.vp + outlook['projected_vp'], 2),
@@ -881,6 +929,20 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
         summary['mean_end_turn'] = round(statistics.fmean(g['turn'] for g in finished), 2)
         summary['reached_late_war'] = round(
             sum(1 for g in finished if g['turn'] >= 8) / len(finished), 3)
+        # EVENT MEASUREMENT (2026-09-24): what fired, and how often an
+        # event choice was made with no opinion behind it. The second is
+        # the exposure number for the unhandled branches; the impact is
+        # what measure_event_gaps-style counterfactuals price next.
+        evs: collections.Counter = collections.Counter()
+        blinds: collections.Counter = collections.Counter()
+        choices: collections.Counter = collections.Counter()
+        for g in finished:
+            evs.update(g.get('events_fired') or {})
+            blinds.update(g.get('blind_picks') or {})
+            choices.update(g.get('event_choices') or {})
+        summary['events_fired'] = dict(evs.most_common())
+        summary['blind_picks'] = dict(blinds.most_common())
+        summary['event_choices'] = dict(choices.most_common())
     # Which cards each side chooses to *event*, ranked. Revealed
     # preference rather than valuation: it never reads what the bot thinks
     # a card is worth, only what it did with it. Most useful where it

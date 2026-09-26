@@ -184,6 +184,8 @@ def pooled(arms: dict[str, dict], plan: dict | None = None,
                 'seats': seat_scores(paired), 'nuclear': nuclear_split(paired),
                 'mean_signed_vp': s['mean_signed_vp'], 'endings': s.get('endings'),
                 'mean_end_turn': s.get('mean_end_turn'),
+                'events_fired': s.get('events_fired'), 'blind_picks': s.get('blind_picks'),
+                'event_choices': s.get('event_choices'),
             })
         out[slug] = entry
     return out
@@ -284,6 +286,26 @@ def markdown(result: dict[str, dict], pairs: list[dict] | None = None) -> str:
                 count += ' **SHORT**'
             lines.append(f'| `{p["arm"]}` | `{p["minus"]}` | {p["diff"]:+.3f} | '
                          f'[{p["lower"]:+.3f}, {p["upper"]:+.3f}] | {count} |')
+    # EVENT MEASUREMENT: what fired, and how the candidate's live event
+    # choices were made (benchmark.event_choice_kind) -- `blind` is the
+    # unpriced share, where the scorer had no opinion and the first legal
+    # option won. Exposure only; what a blind pick costs is a separate
+    # counterfactual.
+    ev_rows = [(slug, e) for slug, e in result.items() if e.get('events_fired') or e.get('event_choices')]
+    if ev_rows:
+        lines += ['', '**Event measurement** (the candidate\'s live event choices; blind = unpriced, '
+                  'the first legal option won):', '',
+                  '| arm | events fired | top events | event choices | blind | blind events | unmeasured |',
+                  '| --- | ---: | --- | ---: | ---: | --- | ---: |']
+        for slug, e in ev_rows:
+            ev = e.get('events_fired') or {}
+            bl = e.get('blind_picks') or {}
+            ch = e.get('event_choices') or {}
+            top = ', '.join(f'{k} {v}' for k, v in list(ev.items())[:3]) or '--'
+            btop = ', '.join(f'{k} {v}' for k, v in list(bl.items())[:3]) or '--'
+            unmeasured = sum(v for k, v in ch.items() if k.endswith('|unmeasured'))
+            lines.append(f'| `{slug}` | {sum(ev.values())} | {top} | {sum(ch.values())} | '
+                         f'{sum(bl.values())} | {btop} | {unmeasured} |')
     dropped = {slug: e['dropped'] for slug, e in result.items() if e.get('dropped')}
     if dropped:
         lines += ['', '**Core seeds not counted** (censored; a backfill restores the size, not the seeds):', '']

@@ -146,6 +146,11 @@ class Engine:
         self._winner: Side | None = None
         self._game_over_reason: str | None = None
         self._final_scoring_ran = False
+        # Measurement only: every event that RESOLVED, as (phasing side,
+        # card id). Not serialized -- the parity corpus pins the game
+        # state and this pins nothing about it; it exists so benchmark
+        # reports can say what fired (2026-09-24, the event measurement).
+        self.events_fired: list[tuple[str, str]] = []
         # Swap for SANDBOX_LOG on a simulation engine (see bots.strategic.public_engine).
         self.log = log
         self.cards: dict[str, Card] = load_cards()
@@ -1715,6 +1720,7 @@ class Engine:
         Marshall Plan/Warsaw Pact) also does nothing."""
         ev = EVENTS.get(cid)
         if ev is not None and ev.eligible(self, side):
+            self.events_fired.append((side.value, cid))
             self.log.info(
                 "T%d AR%d event %s resolves for %s (phasing=%s, DEFCON %d)",
                 self.turn, self.action_round, cid, side.value,

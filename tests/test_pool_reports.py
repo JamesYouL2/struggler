@@ -166,3 +166,18 @@ def test_the_cli_reads_the_manifest_and_a_missing_selection_as_all_of_wave_two(t
     arm = json.loads(out.read_text())['arms']['on']
     # No selection arrived, so wave 2 was owed -- and never played.
     assert len(arm['missing']) == 3 and arm['complete'] is False
+
+
+def test_the_pooled_table_carries_the_event_measurement(tmp_path, monkeypatch):
+    """The maintainer's 2026-09-24 ask: every experiment's collect table
+    says what fired and how many event choices were blind."""
+    plan = _plan([{'slug': 'on', 'seeds': '100-101', 'shard': 2}], waves=False)
+    _play(tmp_path, monkeypatch, plan['shards'][0])
+    arms = P.load(tmp_path)
+    for g in arms['on']['games']:
+        g.update(events_fired={'Fidel': 1}, blind_picks={'Chernobyl': 1},
+                 event_choices={'Chernobyl|unpriced': 1, 'Blockade|decided': 1})
+    result = P.pooled(arms, plan)
+    assert result['on']['blind_picks'] == {'Chernobyl': 4}
+    table = P.markdown(result)
+    assert '**Event measurement**' in table and 'Chernobyl 4' in table
