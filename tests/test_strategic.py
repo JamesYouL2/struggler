@@ -239,32 +239,32 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     # region also has the end of the game to play for, at its measured odds,
     # so a scored region is not worth nothing.
     from struggler.bots.strategic.public_cards import (final_scoring_odds, cycle_deal_masses,
-                                                      exhausting_deal_share, p_opponent_holds,
+                                                      exhausting_deal_share,
                                                       post_reshuffle_deal_masses, unseen_split)
     dead_iran, live_iran, held_iran = weights  # weights ran (dead, live, held)
     # The rebuild's consumer: the gap to a dead card is the REAL this-cycle
-    # mass, holder-shaped -- less what the live card gives up in bucket 3.
+    # mass, unshaped -- less what the live card gives up in bucket 3.
     # The two are not comparable there: a DISCARDED card is certainly in the
     # pile the reshuffle builds, while the part of a live one that is still
     # in the draw pile when the exhausting deal comes is played on the
     # reshuffle turn, after that pile was built, and so belongs to reshuffle
-    # 2. For a held card there is no such gap and no rival factor (P=1, we
-    # hold it, they cannot), so it is exactly 1.
+    # 2. For a held card there is no such gap, so it is exactly 1. (Until
+    # 2026-09-26 the live card's this-cycle mass was also raised by
+    # `scoring_rival * P(the opponent holds it)`; that weight is deleted, and
+    # the mass is the deck math alone.)
     theirs, pile = unseen_split(live)
     pool = theirs + pile
     masses = cycle_deal_masses(live)
     surv = 1.0
     for m in masses:
         surv *= 1.0 - m
-    p_opp = p_opponent_holds(live, 'Middle_East_Scoring')
     this_cycle = (theirs / pool) + (pile / pool) * (1.0 - surv)
-    shaped = this_cycle * (1. + bot.weights.scoring_rival * p_opp)
     recycled = 1.0
     for m in post_reshuffle_deal_masses(live):
         recycled *= 1.0 - m
     shortfall = (pile / pool) * exhausting_deal_share(live) * (1.0 - recycled)
     assert shortfall > 0.0, 'the fixture needs a reshuffle inside the horizon'
-    assert live_iran - dead_iran == pytest.approx(shaped - shortfall)
+    assert live_iran - dead_iran == pytest.approx(this_cycle - shortfall)
     assert held_iran - dead_iran == pytest.approx(1.0)
     turn1 = dataclasses.replace(live, turn=1)
     # South America Scoring has not entered the deck at turn 1 (Mid War
@@ -286,18 +286,18 @@ def test_live_scoring_card_raises_regional_urgency_between_hand_and_dead():
     assert bot.delta(dead, 'Iran', own=3) < live_value
 
 
-def test_rival_tracking_raises_urgency_only_where_they_may_hold_the_scoring():
-    """Experiment experiment/deck-tracking: this cycle's urgency rises with
-    P(the opponent holds the scoring card), from public counts alone.
+def test_this_cycle_urgency_follows_the_holder_odds_unshaped():
+    """This cycle's urgency rises with P(the opponent holds the scoring
+    card), from public counts alone -- through the deck math, not a knob.
 
     The drained pile is the instrument: one card left to draw and eight in
-    their hand means every unseen card is likely theirs. The arm's own
-    claim is the SHAPING, not the raw mass (bucket 1's mass is the holder
-    probability by deck math now, not a knob): so the arm's off-position
-    still prices the split, and the discard state shows the factor's
-    boundary -- a scoring already in the discard pile carries no
-    this-cycle term, so two discard states with the SAME reshuffle timing
-    price identically however differently their unseen pool is split."""
+    their hand means every unseen card is likely theirs. Until 2026-09-26
+    `scoring_rival` AMPLIFIED that split by (1 + scoring_rival * p) on
+    buckets 1 and 2, and this test pinned the amplification; the weight is
+    deleted, so what is left to hold is that the split is still priced
+    (bucket 1's mass IS the holder probability) and that nothing shapes it:
+    the urgency is exactly the occurrence masses, with only bucket 5 riding
+    `scoring_final`, in every deck state including a discarded card's."""
     engine = Engine(seed=0)
     engine.turn = 2
     engine.board.influence['Iran']['USSR'] = 1
@@ -306,23 +306,17 @@ def test_rival_tracking_raises_urgency_only_where_they_may_hold_the_scoring():
     drained = dataclasses.replace(live, draw_pile_size=1, opponent_hand_size=8)
     other = dataclasses.replace(live, draw_pile_size=8, opponent_hand_size=1)
     from struggler.bots.strategic.public_cards import p_opponent_holds
+    from struggler.bots.strategic import schedule as sch
     assert p_opponent_holds(drained, 'Middle_East_Scoring') > 0.8
     assert p_opponent_holds(live, 'Middle_East_Scoring') < 0.2  # control: full pile
     assert p_opponent_holds(other, 'Middle_East_Scoring') < 0.2
-    on = StrategicPlayer()
-    assert on.weights.scoring_rival == 1.0  # the arm ships on
-    assert on.scoring_weight(drained, 'Iran') > on.scoring_weight(live, 'Iran')
-    off = StrategicPlayer(dataclasses.replace(StrategicWeights(), scoring_rival=0.))
-    # Off still prices the split (bucket 1's mass IS the holder odds now);
-    # what the arm owns is the AMPLIFICATION of it: the on-arm widens the
-    # drained-vs-full gap by more than the raw masses do.
-    drained_on, live_on = on.scoring_weight(drained, 'Iran'), on.scoring_weight(live, 'Iran')
-    drained_off, live_off = off.scoring_weight(drained, 'Iran'), off.scoring_weight(live, 'Iran')
-    assert drained_on - live_on > drained_off - live_off
-    # The factor's boundary: a discarded scoring carries no this-cycle
-    # term to shape, so the arm is bit-for-bit off there.
+    bot = StrategicPlayer()
+    assert bot.scoring_weight(drained, 'Iran') > bot.scoring_weight(live, 'Iran')
     dead_drained = dataclasses.replace(drained, discard_pile=('Middle_East_Scoring',))
-    assert on.scoring_weight(dead_drained, 'Iran') == off.scoring_weight(dead_drained, 'Iran')
+    for obs in (live, drained, other, dead_drained):
+        unshaped = sum(opp.occurrence * (bot.weights.scoring_final if opp.bucket == 5 else 1.)
+                       for opp in sch.opportunities(obs, 'Middle_East_Scoring'))
+        assert bot.scoring_weight(obs, 'Iran') == pytest.approx(unshaped)
 
 
 def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring():
@@ -378,9 +372,9 @@ def test_scoring_urgency_stops_at_the_end_of_the_game_and_counts_final_scoring()
 def test_mutation_can_be_restricted_to_named_weights():
     base = StrategicWeights()
     rng = random.Random(5)
-    only = mutate(base, rng, ('scoring_rival', 'scoring_final'))
+    only = mutate(base, rng, ('scoring_final', 'vp_swing'))
     changed = {k for k, v in dataclasses.asdict(only).items() if v != getattr(base, k)}
-    assert changed == {'scoring_rival', 'scoring_final'}
+    assert changed == {'scoring_final', 'vp_swing'}
     everything = mutate(base, rng)
     changed_by_default = {k for k, v in dataclasses.asdict(everything).items()
                           if v != getattr(base, k)}

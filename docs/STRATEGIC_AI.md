@@ -36,12 +36,15 @@ action = bot.choose_action(observation, history)
   card now) or 1.0 when we hold it, bucket 2 the pile share times the
   cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
   recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
-  A card we hold is unshaped; one we do not is raised by
-  `scoring_rival * P(the opponent holds it)` (shipped 1.0, up to 2x for a
-  card they certainly hold): they score at *their* best moment, so control
-  banked before they do is worth more. (A hand premium, `scoring_hand`,
-  multiplied the held case and sat at its neutral 1.0 after 1.2 read a dead
-  heat against it; it was deleted on 2026-09-26.)
+  No holder shaping: a scoring card's mass is its occurrence whoever holds
+  it. (A hand premium, `scoring_hand`, multiplied the held case and sat at
+  its neutral 1.0 after 1.2 read a dead heat against it; a rival premium,
+  `scoring_rival`, raised an unheld card by
+  `1 + scoring_rival * P(the opponent holds it)` on the argument that they
+  score at *their* best moment, shipped at 1.0 as a guess and read
+  +0.006 [-0.014, +0.026] on the pi weights scorecard. Both were deleted on
+  2026-09-26; `scoring_rival`'s deletion is measured by the `rival-off`
+  arms, docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md.)
 
   Two things this sum no longer reads, both replaced by the factor-2
   masses: `evaluator.retention_p` (the CONTROL drift between now and a
@@ -538,7 +541,7 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1
 
 python -m struggler.bots.train train --seed 200 --pairs 8 \
   --generations 4 --population 4 --workers 8 \
-  --fields scoring_rival,scoring_final --output my-model.json
+  --fields region,scoring_final --output my-model.json
 python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
   --seed 4000 --model my-model.json --workers 8
 ```

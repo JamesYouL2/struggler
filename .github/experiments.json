@@ -70,17 +70,6 @@
       "context": "Simplification. The look-ahead shipped on a dead heat (0.497 +/-0.032) for its behaviour (poke rate 6.27 -> 0.08 a seat), never for strength. Its legality fix (#154) and Coup answers (#167) are in the interval. test_poke_rate will fail with it off; this measures strength only."
     },
     {
-      "slug": "rival-off-vs-07d553a",
-      "weights": {
-        "scoring_rival": 0.0
-      },
-      "anchor": "07d553a",
-      "seeds": "20000-21023",
-      "compare_to": "base-vs-07d553a",
-      "title": "ablate deck-tracking rival urgency (#183) against the old bot",
-      "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
-    },
-    {
       "slug": "access-off-vs-07d553a",
       "weights": {
         "access": 0.0
@@ -626,18 +615,6 @@
         "compare_to": "ablate-base",
         "title": "ablate progress: the partial-control credit off (2.8 -> 0)",
         "context": "progress scales credit toward a first controlled country where a side has none (presence races), ships at an uncalibrated 2.8 (provenance: guess). progress-half (1.4) split its halves violently (0.547 / 0.434) at 128+64 -- no conclusion. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot see the early presence fights the credit is for except as they occur in the sample."
-      },
-      {
-        "slug": "ablate-scoring-rival",
-        "weights": {
-          "scoring_rival": 0.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate scoring_rival: deck-tracking rival urgency off (1.0 -> 0)",
-        "context": "scoring_rival multiplies this cycle's buckets by (1 + r x P(the opponent holds the scoring card)), shipped at 1.0 on symmetry with the holding bonus (provenance: guess). Prior evidence is three weak reads: 0.5 and 0.25 leans and one wide anchored off arm; the 2026-09-15 note calls the half an inconclusive lean. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot price p_opponent_holds itself, only this weight on it."
       },
       {
         "slug": "ablate-scoring-final",
@@ -1232,6 +1209,29 @@
         "compare_to": "planner-band-base",
         "title": "planner as a pure tie-breaker (hand_assignment 1e-9: exact ties only) vs bc5ef93",
         "context": "The plan arbitrates only card plays whose scores tie to ~1e-9 Op -- the choices engine order decides today (17.5% of real card-play choices, remeasured 2026-09-25). PRE-REGISTERED 2026-09-26, before any number (full text in the note's 'exact-tie arm' section): read paired against planner-band-base. SHIP through the change gate if the paired interval covers 0 or lies above it AND the bot's DEFCON-1 losses (both seats) do not exceed base's by more than half; STAY at 0 if the upper bound is below 0 or the nuclear veto fires. A tie-break replaces an arbitrary engine-order pick, so the bar is 'not measurably worse', and the ship is a convention, not a measured gain."
+      },
+      {
+        "slug": "rival-off-vs-07d553a",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "07d553a",
+        "seeds": "20000-21023",
+        "compare_to": "base-vs-07d553a",
+        "title": "ablate deck-tracking rival urgency (#183) against the old bot",
+        "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
+      },
+      {
+        "slug": "ablate-scoring-rival",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_rival: deck-tracking rival urgency off (1.0 -> 0)",
+        "context": "scoring_rival multiplies this cycle's buckets by (1 + r x P(the opponent holds the scoring card)), shipped at 1.0 on symmetry with the holding bonus (provenance: guess). Prior evidence is three weak reads: 0.5 and 0.25 leans and one wide anchored off arm; the 2026-09-15 note calls the half an inconclusive lean. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot price p_opponent_holds itself, only this weight on it."
       }
     ]
   }

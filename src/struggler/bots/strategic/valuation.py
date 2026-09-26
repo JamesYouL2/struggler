@@ -33,9 +33,10 @@ Shape (see docs/notes/codex/2026-09-17-potential-delta-design.md):
   amounts at par are later work), banked VP is untouched, access and
   reply/tempo stay separate.
 
-Both seats read the same potential signed for their seat; the holder
-shaping (`scoring_rival`, and a held card left unshaped) is the only deliberately
-asymmetric part, the asymmetry the deck-tracking gate accepted.
+Both seats read the same potential signed for their seat. There is no
+holder shaping any more: `scoring_rival`, the one deliberately asymmetric
+part (the asymmetry the deck-tracking gate accepted), was deleted on
+2026-09-26, so a scoring card's mass is the same whoever holds it.
 """
 from __future__ import annotations
 
@@ -44,24 +45,20 @@ from struggler.engine.core import SCORING_CARD_REGION
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import forecast as fcst
 from struggler.bots.strategic import schedule as sch
-from struggler.bots.strategic import public_cards as pc
 
 
 def shaped_mass(obs: Observation, card: str, opp: sch.Opportunity, w) -> float:
-    """One opportunity's mass with the holder shaping the consumer applies.
+    """One opportunity's mass with the shaping the consumer applies.
 
     The same rule as the urgency consumer (`_scoring_weight_uncached`):
-    this cycle's term is shaped by who picks the moment (held: unshaped,
-    no rival factor -- we hold it, they cannot) and by the
-    amplified holder odds otherwise; final scoring rides `scoring_final`.
-    Bucket 3+ is unshaped: the shaping is holder timing, and by the
-    recycle every live scoring is played.
+    final scoring rides `scoring_final`; every other bucket is its
+    occurrence, unshaped. (This cycle's buckets were shaped by holder odds
+    through `scoring_rival` until it was deleted on 2026-09-26.) `obs` and
+    `card` stay in the signature for the callers and for a shaping that
+    returns.
     """
     mass = opp.occurrence
-    if opp.bucket in (1, 2):
-        if card not in obs.hand and w.scoring_rival:
-            mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
-    elif opp.bucket == 5:
+    if opp.bucket == 5:
         mass *= w.scoring_final
     return mass
 
@@ -71,7 +68,7 @@ def region_expected(t: ev.Terrain, pos: ev.Position, obs: Observation, seat: Sid
                     overrides: tuple[frozenset[int], frozenset[int]] | None = None) -> float:
     """The mass-weighted expected payout for `region` across every future
     opportunity of its scoring card: U.S-signed for the US seat, negated
-    for the USSR, holder-shaped on the this-cycle terms.
+    for the USSR, each opportunity weighed by `shaped_mass`.
 
     Bucket 1/2 are the region's NEXT scoring (fit horizon 1); bucket 3
     and 5 are the one after (the fit's only measured tables; the clamp is
