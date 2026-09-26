@@ -53,4 +53,24 @@ run are.
 
 ## The readings
 
-(Filled in at read time.)
+**Faster: yes, 3.2x** (local, idle 6-core box, 2026-09-26, nothing else
+running).
+
+- **Identical work.** The same 133 parity-corpus positions (every 4th
+  record) were ranked by each snapshot, each in its own process so two
+  snapshots never share module state, alternating A, B, A, B:
+  - `v0.6.0`: 4.98 s and 4.95 s;
+  - `bc5ef93`: 16.05 s and 16.18 s.
+
+  That is `bc5ef93` / `v0.6.0` = **3.24**, repeatable to 1%. It is the
+  number to quote.
+- **Self-play games**, seeds 4100-4107, one game per snapshot per seed:
+  94.1 s against 192.7 s. The two play different games of different
+  lengths, so this is confounded; per turn played it is 1.7 s against
+  3.1 s. It is shown only because it agrees in direction. One pair ran
+  while a pre-push hook held the cores for about 40 s.
+
+An anchor is half of every experiment game, so a bot near `v0.6.0`'s cost
+should play its shards in roughly half the time against it.
+
+**Better** (run 36261552485): (filled in at read time).
