@@ -2587,6 +2587,58 @@
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md",
         "docs/notes/claude/2026-09-26-the-hand-planner-stays-off.md"
       ]
+    },
+    {
+      "id": "rc-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "rival-off",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_rival": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "coup-flat",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
     }
   ]
 }

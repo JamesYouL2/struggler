@@ -19,6 +19,38 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "rc-base",
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "reserve": "146100-146227",
+      "title": "rival/coup deletions: the shipped bot vs bc5ef93, the paired reference",
+      "context": "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+    },
+    {
+      "slug": "rival-off",
+      "weights": {
+        "scoring_rival": 0.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "reserve": "146100-146227",
+      "compare_to": "rc-base",
+      "title": "delete scoring_rival: rival urgency off (1.0 -> 0), exact deletion",
+      "context": "Rule frozen in the note: delete if the paired interval covers 0 or better and the nuclear veto holds; keep if the upper bound is below 0. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+    },
+    {
+      "slug": "coup-flat",
+      "weights": {
+        "coup_discount": 1.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "reserve": "146100-146227",
+      "compare_to": "rc-base",
+      "title": "delete coup_discount: coups and realignments undiscounted (0.9 -> 1.0), exact deletion",
+      "context": "Rule frozen in the note: delete if the paired interval covers 0 or better and the nuclear veto holds; keep if the upper bound is below 0. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",
