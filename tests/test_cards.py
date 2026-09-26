@@ -85,3 +85,35 @@ def test_every_shuffleable_card_belongs_to_exactly_one_period_bucket():
 def test_hand_limit_and_action_rounds_by_turn():
     assert [hand_limit(t) for t in (1, 3, 4, 10)] == [8, 8, 9, 9]
     assert [action_rounds(t) for t in (1, 3, 4, 10)] == [6, 6, 7, 7]
+
+
+# The printed period of every card, by number (Deluxe edition card faces;
+# docs/RULES_SOURCES.md). Base game: Early War 1-35 plus 103 Defectors, Mid
+# War 36-81, Late War 82-102; the optional cards 104-106 are Early War,
+# 107-108 Mid War, 109-110 Late War.
+#
+# Pinned card by card because a period is data nothing else checks: AWACS
+# Sale to Saudis (110) sat in MID_WAR, so it was shuffled in at turn 4
+# instead of turn 8, and a bot-strength sweep, the parity corpus and a
+# position review all ran on that deck before the maintainer spotted a US
+# Late War card in a turn-7 USSR hand (2026-09-26).
+PERIOD_BY_NUMBER = {
+    **{n: Period.EARLY_WAR for n in (*range(1, 36), 103, 104, 105, 106)},
+    **{n: Period.MID_WAR for n in (*range(36, 82), 107, 108)},
+    **{n: Period.LATE_WAR for n in (*range(82, 103), 109, 110)},
+}
+
+
+def test_every_card_is_in_its_printed_period():
+    cards = load_cards()
+    assert len(PERIOD_BY_NUMBER) == 110
+    wrong = sorted((c.number, cid, c.period.name, PERIOD_BY_NUMBER[c.number].name)
+                   for cid, c in cards.items() if c.period is not PERIOD_BY_NUMBER[c.number])
+    assert not wrong, f'(number, card, data says, printed period): {wrong}'
+
+
+def test_awacs_enters_with_the_late_war():
+    cards = load_cards()
+    late = cards_entering(cards, Period.LATE_WAR, include_optional=True)
+    mid = cards_entering(cards, Period.MID_WAR, include_optional=True)
+    assert "AWACS_Sale_to_Saudis" in late and "AWACS_Sale_to_Saudis" not in mid

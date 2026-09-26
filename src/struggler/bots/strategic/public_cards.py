@@ -151,7 +151,7 @@ def turns_to_reshuffle(obs: Observation) -> int:
     """Turns until the draw pile runs out and the discards come back.
 
     Walked forward turn by turn rather than divided, because the pile is
-    refilled twice on a fixed schedule -- 49 Mid War cards at turn 4 and 22
+    refilled twice on a fixed schedule -- 48 Mid War cards at turn 4 and 23
     Late War at turn 8, the counts `ENTERING` derives -- and dividing
     today's pile by the draw rate
     silently assumes neither happens.
@@ -329,6 +329,13 @@ def post_reshuffle_deal_masses(obs: Observation) -> tuple[float, ...]:
             break  # an exhausting deal before the last one: reshuffle 2's
         masses.append(min(deal, pile) / pile)
         pile -= deal
+        if pile <= 0:
+            # A deal that empties the recycled pile exactly deals every
+            # recycled card: mass 1.0, and the walk is over. Carrying on
+            # walked a second pile made only of the next period's entries
+            # (seen once AWACS moved to the Late War and the counts fell on
+            # an exact exhaust).
+            break
     return tuple(masses)
 
 

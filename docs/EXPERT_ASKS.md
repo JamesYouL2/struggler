@@ -241,3 +241,11 @@ This should cost you almost nothing to produce: the positions come from
 real games with the legal moves and the bot's own choice already laid out,
 and the job is to mark the better move and one line of why. Seed 4015 turn
 7 is the first entry. Ask for the pack.
+
+**Started 2026-09-26:** the first five positions are answered
+(`tests/fixtures/positions/annotated-01.json`, gated by
+`tests/test_annotated_positions.py`). The bot agrees on 2 of 6 decisions;
+the four misses are four missing ideas -- the China Card's value held,
+opponent events aimed at a country, own-hand event overlap, and an
+opponent's likely scoring card -- in
+`docs/notes/claude/2026-09-26-the-first-annotated-positions.md`.

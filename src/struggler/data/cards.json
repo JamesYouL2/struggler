@@ -1326,7 +1326,7 @@
       "name": "AWACS Sale to Saudis",
       "ops": 3,
       "side": "US",
-      "period": "MID_WAR",
+      "period": "LATE_WAR",
       "scoring": false,
       "remove_after_event": true,
       "optional": true,
