@@ -128,7 +128,13 @@ They judge it a constant rather than a parameter.
 these is **price each branch by the country/board value before and after**
 -- the sandbox's own measure -- rather than a per-card constant:
 
-- **Chernobyl** -- (no separate rule; board value before and after.)
+**Implemented 2026-09-26** (Chernobyl, Warsaw Pact, South African Unrest;
+`feat/event-board-choices`). The Warsaw rule falls out of board value and
+is pinned as a test rather than coded. The Debt Crisis rule and the war
+targets are not changed.
+
+- **Chernobyl** -- the region with the **highest swing per Op**: where one
+  Soviet Op would move the most board value (2026-09-26).
 - **Warsaw Pact Formed** -- **add**, unless removing swings control of
   East Germany or Poland and adding cannot. Otherwise board value before
   and after.
