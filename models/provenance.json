@@ -66,8 +66,9 @@
     },
     "coup_discount": {
       "value": 0.9,
-      "source": "guess",
-      "determination": "underdetermined"
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Setting it to 1.0 (deleting the discount) measured -0.028 [-0.048, -0.008] paired over 1024 seeds (run 36263308113, vs bc5ef93): the discount is load-bearing. The 2026-09-24 sweep's -0.005 [-0.025, +0.015] had it as a deletion candidate. 0.9 itself is not pinned, only 'below 1'. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
     },
     "reply_model": {
       "value": 3.0,
@@ -245,15 +246,15 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 10,
-      "gate": 10,
+      "guess": 9,
+      "gate": 11,
       "measured": 9,
       "derived": 3,
       "expert": 4
     },
     "counts_by_determination": {
-      "underdetermined": 6,
-      "bounded": 13,
+      "underdetermined": 5,
+      "bounded": 14,
       "inert": 3,
       "overdetermined": 2,
       "determined": 11,
