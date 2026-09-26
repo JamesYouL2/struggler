@@ -2645,9 +2645,9 @@
       "anchor": "bc5ef93",
       "seeds": "132000-133023+133500-133627",
       "compare_to": "planner-band-base",
-      "run": null,
+      "run": 36240012615,
       "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
+      "verdict": "in flight (run 36240012615): rule frozen in the note before dispatch",
       "status": "planned",
       "notes": [
         "docs/notes/claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md"
