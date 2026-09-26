@@ -7,7 +7,7 @@
     "held": "optional second block, disjoint from seeds; pooled with them (there is no early stopping to hold it out for any more)",
     "title": "one line for the generated note",
     "context": "why this arm, what it should show, and what it cannot -- the runner will not interpret the result for you",
-    "anchor": "optional git ref: play against that revision's bot instead of HEAD with default weights",
+    "anchor": "optional git ref: play against that revision's bot instead of HEAD with default weights. New arms use v0.6.0 (since 2026-09-26: stronger than bc5ef93 at 0.556, 3.2x faster, and it has the helper-chain fix bc5ef93 hangs without; docs/notes/claude/2026-09-26-a-newer-anchor.md). Arms already read against another anchor keep it",
     "bot_ref": "optional git ref: the challenger is that revision instead of HEAD. Cannot be combined with weights",
     "openings": "optional US=x,USSR=y; defaults to italy/austria whenever a ref is involved",
     "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference. It must be dispatched TOGETHER with its target -- the pairing is collected within one run -- so `only=` both slugs in one call (`-f only=<target>,<arm>`). One dispatch per arm is the natural reading of this file and fails at plan time (2026-09-22: three dispatches, 15 s each)",
@@ -18,23 +18,6 @@
   "_sizing": "1024 seeds is the default for a question worth asking: +/-0.016 one-sided, against +/-0.045 at 128. The old 256-seed ceiling was one job's 6-hour limit, not a statistical choice; sharding removed it. Arms that share a seed block and an opponent are paired, so give every ablation of one question the same block and a compare_to.",
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
-    {
-      "slug": "v0.6.0-vs-bc5ef93",
-      "bot_ref": "v0.6.0",
-      "anchor": "bc5ef93",
-      "seeds": "143000-144023",
-      "reserve": "144100-144227",
-      "title": "candidate anchor v0.6.0 vs the current anchor bc5ef93",
-      "context": "Is v0.6.0 a stronger baseline than bc5ef93? bc5ef93 (2026-09-12) predates the sandbox helper-chain fix (48007da) and hangs about one game in 700, and it lacks the exact speedups. A level reading: waves off."
-    },
-    {
-      "slug": "main-vs-v0.6.0",
-      "anchor": "v0.6.0",
-      "seeds": "143000-144023",
-      "reserve": "144100-144227",
-      "title": "main vs the candidate anchor v0.6.0",
-      "context": "Where main sits against v0.6.0 (expected near 0.5: only #61 changed play since), and whether v0.6.0 runs clean as a baseline (VERSIONING: check a tag runs as a baseline before relying on it). A level reading: waves off."
-    },
     {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
@@ -1249,6 +1232,42 @@
         "compare_to": "planner-band-base",
         "title": "planner as a pure tie-breaker (hand_assignment 1e-9: exact ties only) vs bc5ef93",
         "context": "The plan arbitrates only card plays whose scores tie to ~1e-9 Op -- the choices engine order decides today (17.5% of real card-play choices, remeasured 2026-09-25). PRE-REGISTERED 2026-09-26, before any number (full text in the note's 'exact-tie arm' section): read paired against planner-band-base. SHIP through the change gate if the paired interval covers 0 or lies above it AND the bot's DEFCON-1 losses (both seats) do not exceed base's by more than half; STAY at 0 if the upper bound is below 0 or the nuclear veto fires. A tie-break replaces an arbitrary engine-order pick, so the bar is 'not measurably worse', and the ship is a convention, not a measured gain."
+      },
+      {
+        "slug": "access-base-vs-bc5ef93",
+        "anchor": "bc5ef93",
+        "bot_ref": "e434b93",
+        "seeds": "140000-142047",
+        "reserve": "142100-142227",
+        "title": "access deletion: the parent (access on, e434b93) vs bc5ef93, 2048 seeds",
+        "context": "The paired baseline for the access deletion: the same code with the term in, pinned by SHA; plays identically to main after #61 (the parity corpus is the proof). docs/notes/claude/2026-09-26-deleting-access.md"
+      },
+      {
+        "slug": "access-deleted-vs-bc5ef93",
+        "anchor": "bc5ef93",
+        "bot_ref": "4eaeed5",
+        "seeds": "140000-142047",
+        "reserve": "142100-142227",
+        "compare_to": "access-base-vs-bc5ef93",
+        "title": "access deletion: the branch (access deleted, 4eaeed5) vs bc5ef93, 2048 seeds",
+        "context": "The deletion measured against the anchor, paired with the parent on the same seeds. THE RULE (frozen in the note): delete if the paired interval covers 0 or lies above it and bot DEFCON-1 losses do not exceed the base's by more than half; keep if the upper bound is below 0 or the veto fires. Evidence it rests on: ablate-access -0.011 [-0.032, +0.011] over 1152 games. docs/notes/claude/2026-09-26-deleting-access.md"
+      },
+      {
+        "slug": "v0.6.0-vs-bc5ef93",
+        "bot_ref": "v0.6.0",
+        "anchor": "bc5ef93",
+        "seeds": "143000-144023",
+        "reserve": "144100-144227",
+        "title": "candidate anchor v0.6.0 vs the current anchor bc5ef93",
+        "context": "Is v0.6.0 a stronger baseline than bc5ef93? bc5ef93 (2026-09-12) predates the sandbox helper-chain fix (48007da) and hangs about one game in 700, and it lacks the exact speedups. A level reading: waves off."
+      },
+      {
+        "slug": "main-vs-v0.6.0",
+        "anchor": "v0.6.0",
+        "seeds": "143000-144023",
+        "reserve": "144100-144227",
+        "title": "main vs the candidate anchor v0.6.0",
+        "context": "Where main sits against v0.6.0 (expected near 0.5: only #61 changed play since), and whether v0.6.0 runs clean as a baseline (VERSIONING: check a tag runs as a baseline before relying on it). A level reading: waves off."
       }
     ]
   }

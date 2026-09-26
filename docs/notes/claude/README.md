@@ -14,6 +14,8 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [A newer anchor: v0.6.0 in place of bc5ef93](2026-09-26-a-newer-anchor.md) — 2026-09-26
+- [The first annotated positions: 2 of 6 agree](2026-09-26-the-first-annotated-positions.md) — 2026-09-26
+- [Deleting `access`: measured, and kept](2026-09-26-deleting-access.md) — 2026-09-26
 - [The hand planner stays off](2026-09-26-the-hand-planner-stays-off.md) — 2026-09-26
 - [Drift panel on a fresh block: region 2.6 and military 2.0 hold up](2026-09-26-drift-panel-fresh-block.md) — 2026-09-26
 - [Event strength: is the bot's event price scaled too low?](2026-09-23-event-scale.md) — 2026-09-23 (event_scale 1.5 / 2.0 against 1.0, both signs, block 82000-83023; the rule is written before the number; prompted by own events priced far below their Ops -- East European Unrest 11 against 63)

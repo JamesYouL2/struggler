@@ -73,4 +73,23 @@ running).
 An anchor is half of every experiment game, so a bot near `v0.6.0`'s cost
 should play its shards in roughly half the time against it.
 
-**Better** (run 36261552485): (filled in at read time).
+**Better: yes** (run 36261552485, 1024 seeds each, both complete).
+
+| arm | score | stalled games |
+| --- | --- | --- |
+| `v0.6.0-vs-bc5ef93` | **0.556 [0.539, 0.573]** | 3 (all bc5ef93's helper-chain hang; backfilled) |
+| `main-vs-v0.6.0` | **0.509 [0.497, 0.521]** | **none** |
+
+- v0.6.0 is clearly stronger than `bc5ef93`, and main plays level with it
+  (only #61 changed play in between).
+- The old anchor lost **216 games to DEFCON 1 as the opponent in 2048**;
+  v0.6.0 lost 59. `bc5ef93` destroys itself about 3.7 times as often, and
+  that accounts for part of every "main beats bc5ef93" margin.
+
+**All three criteria are met, so the switch is made.**
+
+- New arms play `v0.6.0`. The registry's `_schema.anchor` says so.
+- `v0.6.0` joins the drift panel's default anchors (`drift.yml`), and
+  `bc5ef93` stays there for continuity.
+- The arms already in flight or read against `bc5ef93` keep it:
+  `oldw-*`, `rc-*` and `ee-*`, dispatched before this reading.

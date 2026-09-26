@@ -2589,6 +2589,38 @@
       ]
     },
     {
+      "id": "access-base-vs-bc5ef93",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "e434b93",
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": null,
+      "run": 36253272931,
+      "reading": "0.581 [0.569, 0.593] over 2048 (4096 games); bot nuked 43+55",
+      "verdict": "base: access on (e434b93)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-access.md"
+      ]
+    },
+    {
+      "id": "access-deleted-vs-bc5ef93",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": "4eaeed5",
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": "access-base-vs-bc5ef93",
+      "run": 36253272931,
+      "reading": "paired -0.055 [-0.071, -0.039] over 2048 (complete; 5 anchor-hang seeds backfilled); bot nuked 37+52",
+      "verdict": "rule branch 2: upper bound below 0 -- access is KEPT, PR #64 closed unmerged",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-access.md"
+      ]
+    },
+    {
       "id": "v0.6.0-vs-bc5ef93",
       "kind": "anchor",
       "knobs": {},
@@ -2596,10 +2628,10 @@
       "anchor": "bc5ef93",
       "seeds": "143000-144023",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: choosing a new default anchor",
-      "status": "planned",
+      "run": 36261552485,
+      "reading": "0.556 [0.539, 0.573] over 1024 (complete; 3 bc5ef93-hang seeds backfilled); bc5ef93 nuked 216 times as opponent",
+      "verdict": "v0.6.0 is stronger than bc5ef93: switch criterion 1 met",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-a-newer-anchor.md"
       ]
@@ -2612,10 +2644,10 @@
       "anchor": "v0.6.0",
       "seeds": "143000-144023",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: choosing a new default anchor",
-      "status": "planned",
+      "run": 36261552485,
+      "reading": "0.509 [0.497, 0.521] over 1024 (complete, no stalled game)",
+      "verdict": "main level with v0.6.0, and v0.6.0 runs clean as a baseline: switch criterion 2 met; v0.6.0 is the anchor for new arms",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-a-newer-anchor.md"
       ]
