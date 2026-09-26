@@ -44,7 +44,8 @@ the tests.
   `experiments.yml` arm, 1024 seeds sharded, with the canary's verdict on
   the pooled readings) and
   `experiments.yml` (arms from `.github/experiments.json`, cut into
-  128-seed shards so an arm can be 1024+ seeds, played against HEAD's
+  64-seed shards plus up to two spare shards from the arm's `reserve`, so
+  an arm can be 1024+ seeds and a lost shard is backfilled, played against HEAD's
   defaults or an `anchor` revision, pooled by `scripts/pool_reports.py`).
   Two things make a dispatch cheaper than it looks and both change what a
   reading means, so read them before quoting one: shards are **cached** on

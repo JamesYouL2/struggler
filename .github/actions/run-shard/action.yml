@@ -130,9 +130,10 @@ runs:
           OPP="strategic@$PWD/snap-opp/strategic/policy.py"
         fi
         if [ -n "$OPENINGS" ]; then ARGS+=(--openings "$OPENINGS"); fi
-        # Tail reserve: spare seeds counted only as backfill
-        # (scripts/shard_plan.py) -- the 255-of-256 fix.
-        if [ -n "$RESERVE" ]; then ARGS+=(--reserve-seeds "$RESERVE"); fi
+        # No per-shard reserve: an arm's reserve is its SPARE SHARDS now,
+        # played as shards of their own and counted by pool_reports.py
+        # against the plan (scripts/shard_plan.py) -- a lost shard is the
+        # loss that happens, and spare seeds inside it died with it.
         # `"logs": true` keeps every game's INFO log, for diagnosing HOW a
         # result happened (which play took DEFCON to 1) rather than only
         # what it scored. Tens of MB a shard; leave it off for A/Bs.
@@ -156,7 +157,6 @@ runs:
         ANCHOR: ${{ fromJSON(inputs.shard).anchor }}
         BOT_REF: ${{ fromJSON(inputs.shard).bot_ref }}
         OPENINGS: ${{ fromJSON(inputs.shard).openings }}
-        RESERVE: ${{ fromJSON(inputs.shard).reserve }}
         LOGS: ${{ fromJSON(inputs.shard).logs }}
 
     # WHATEVER HAPPENED, SAY WHAT IT WAS DOING. `if: always()` runs on a

@@ -1405,14 +1405,27 @@ def main(argv=None):
     # a run that stalled wrote a report indistinguishable from a complete one,
     # and acceptance judged it as if it were (audit F4 -- it happened on two
     # gate-ladder rungs on 2026-09-12, 255 of 256 games, silently).
+    # THE CORE SEEDS THE RESERVE STOOD IN FOR. A backfill restores the
+    # sample's size, not its seeds: which core pairs were lost is censoring
+    # evidence and the report keeps it even when the count was met.
+    dropped = sorted(seed for seed in seeds if seed not in counted) if reserve_seeds else []
     for index, (path, subset) in enumerate(reports):
         if not path:
             continue
         mine = [(seed, side) for _, _, seed, side, *_ in jobs if sample_of.get(seed) == index]
         if reserve_seeds:
-            mine = [(seed, side) for seed in counted for side in ('US', 'USSR')]
+            # THE TARGET IS WHAT WAS ASKED FOR, NOT WHAT ARRIVED. This used
+            # to be rebuilt from the counted pairs, so a reserve that ran
+            # out wrote `planned == finished`, `unfinished: []` and no stop
+            # reason -- a complete-looking report from a run that exited 6
+            # (audit 2026-09-25, F1). Short of the target, the lost core
+            # games are what is unfinished; met, nothing is.
+            mine = [(seed, side) for seed in seeds for side in ('US', 'USSR')]
         report_summary = summarize(subset, args.stop_turn) if subset else {}
-        unfinished = [[seed, side] for seed, side in mine if (seed, side) not in done]
+        if reserve_seeds and len(counted) >= len(seeds):
+            unfinished = []
+        else:
+            unfinished = [[seed, side] for seed, side in mine if (seed, side) not in done]
         # A stall belongs to the sample that lost games, not to every report
         # the run wrote: a verdict sample that finished before the held-out
         # arm hung is complete. `decided` does curtail both, so it stays shared.
@@ -1424,7 +1437,8 @@ def main(argv=None):
             openings=args.openings, vary_openings=args.vary_openings)
         if reserve_seeds:
             report_summary.update(
-                counted_pairs=len(counted), backfilled_pairs=backfilled,
+                counted_pairs=len(counted), target_pairs=len(seeds),
+                backfilled_pairs=backfilled, dropped_pairs=dropped,
                 spare_games=len(games) - len(counted_games))
         with open(path, 'w') as f:
             json.dump({'summary': report_summary, 'games': subset}, f, indent=1)
