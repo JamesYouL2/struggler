@@ -1,0 +1,2167 @@
+{
+ "_what": "Which countries each card's event moves, measured by firing it.",
+ "trials": 200,
+ "seed": 1,
+ "cards": {
+  "Duck_and_Cover": {
+   "number": 4,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Five_Year_Plan": {
+   "number": 5,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Socialist_Governments": {
+   "number": 7,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Greece": 0.255,
+    "Italy": 0.25,
+    "Canada": 0.235,
+    "Denmark": 0.23,
+    "France": 0.225,
+    "Norway": 0.22,
+    "Turkey": 0.215,
+    "Sweden": 0.2,
+    "UK": 0.2,
+    "Finland": 0.185,
+    "Austria": 0.175,
+    "Spain_Portugal": 0.17,
+    "West_Germany": 0.17,
+    "Benelux": 0.16
+   }
+  },
+  "Fidel": {
+   "number": 8,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Cuba": 1.0
+   }
+  },
+  "Vietnam_Revolts": {
+   "number": 9,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Vietnam": 1.0
+   }
+  },
+  "Blockade": {
+   "number": 10,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "West_Germany": 1.0
+   }
+  },
+  "Korean_War": {
+   "number": 11,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 98,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "South_Korea": 1.0
+   }
+  },
+  "Romanian_Abdication": {
+   "number": 12,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Romania": 1.0
+   }
+  },
+  "Arab_Israeli_War": {
+   "number": 13,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 65,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Israel": 1.0
+   }
+  },
+  "COMECON": {
+   "number": 14,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Austria": 0.505,
+    "Poland": 0.48,
+    "Finland": 0.475,
+    "East_Germany": 0.45,
+    "Bulgaria": 0.43,
+    "Czechoslovakia": 0.43,
+    "Romania": 0.415,
+    "Hungary": 0.415,
+    "Yugoslavia": 0.4
+   }
+  },
+  "Nasser": {
+   "number": 15,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Egypt": 1.0
+   }
+  },
+  "Warsaw_Pact_Formed": {
+   "number": 16,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Hungary": 0.485,
+    "Czechoslovakia": 0.485,
+    "Austria": 0.46,
+    "Poland": 0.46,
+    "East_Germany": 0.455,
+    "Finland": 0.455,
+    "Yugoslavia": 0.45,
+    "Bulgaria": 0.405,
+    "Romania": 0.395
+   }
+  },
+  "De_Gaulle_Leads_France": {
+   "number": 17,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "France": 1.0
+   }
+  },
+  "Captured_Nazi_Scientist": {
+   "number": 18,
+   "side": "NEUTRAL",
+   "period": "EARLY_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Truman_Doctrine": {
+   "number": 19,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "UK": 0.075,
+    "Sweden": 0.07,
+    "East_Germany": 0.065,
+    "Bulgaria": 0.065,
+    "Hungary": 0.065,
+    "Yugoslavia": 0.06,
+    "Denmark": 0.055,
+    "Norway": 0.055,
+    "West_Germany": 0.055,
+    "Benelux": 0.055,
+    "Canada": 0.05,
+    "Austria": 0.05,
+    "Greece": 0.045,
+    "Romania": 0.04,
+    "Finland": 0.035,
+    "Poland": 0.03,
+    "Italy": 0.03,
+    "France": 0.03,
+    "Czechoslovakia": 0.025,
+    "Turkey": 0.025,
+    "Spain_Portugal": 0.02
+   }
+  },
+  "Olympic_Games": {
+   "number": 20,
+   "side": "NEUTRAL",
+   "period": "EARLY_WAR",
+   "fired": 400,
+   "moved": 160,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "Mexico": 0.125,
+    "Uruguay": 0.1,
+    "Malaysia": 0.087,
+    "Nicaragua": 0.075,
+    "Angola": 0.062,
+    "Costa_Rica": 0.062,
+    "Haiti": 0.062,
+    "Peru": 0.062,
+    "El_Salvador": 0.062,
+    "South_Africa": 0.062,
+    "Sudan": 0.062,
+    "Saharan_States": 0.056,
+    "Brazil": 0.056,
+    "Kenya": 0.056,
+    "Dominican_Republic": 0.056,
+    "Ecuador": 0.05,
+    "Paraguay": 0.05,
+    "Tunisia": 0.05,
+    "Venezuela": 0.05,
+    "India": 0.044,
+    "Thailand": 0.044,
+    "Libya": 0.044,
+    "Zimbabwe": 0.044,
+    "Colombia": 0.037,
+    "Zaire": 0.037,
+    "Nigeria": 0.037,
+    "Botswana": 0.037,
+    "Saudi_Arabia": 0.037,
+    "Guatemala": 0.037,
+    "Israel": 0.037,
+    "Bolivia": 0.037,
+    "Panama": 0.031,
+    "Morocco": 0.031,
+    "Bulgaria": 0.031,
+    "Cuba": 0.031,
+    "Turkey": 0.031,
+    "Cameroon": 0.031,
+    "Iraq": 0.031,
+    "Chile": 0.031,
+    "Algeria": 0.031,
+    "Gulf_States": 0.031,
+    "Ethiopia": 0.031,
+    "Taiwan": 0.031,
+    "East_Germany": 0.025,
+    "Benelux": 0.025,
+    "Indonesia": 0.025,
+    "UK": 0.025,
+    "Austria": 0.025,
+    "Philippines": 0.025,
+    "North_Korea": 0.025,
+    "West_African_States": 0.025,
+    "Lebanon": 0.019,
+    "Canada": 0.019,
+    "Ivory_Coast": 0.019,
+    "Argentina": 0.019,
+    "France": 0.019,
+    "Somalia": 0.019,
+    "Sweden": 0.019,
+    "Pakistan": 0.019,
+    "Vietnam": 0.019,
+    "Japan": 0.013,
+    "Norway": 0.013,
+    "Spain_Portugal": 0.013,
+    "Jordan": 0.013,
+    "Burma": 0.013,
+    "Italy": 0.013,
+    "Egypt": 0.013,
+    "Finland": 0.013,
+    "Iran": 0.013,
+    "Czechoslovakia": 0.013,
+    "SE_African_States": 0.006,
+    "Australia": 0.006,
+    "Honduras": 0.006,
+    "Laos_Cambodia": 0.006,
+    "Romania": 0.006
+   }
+  },
+  "NATO": {
+   "number": 21,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Independent_Reds": {
+   "number": 22,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 72,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Bulgaria": 0.278,
+    "Romania": 0.236,
+    "Yugoslavia": 0.236,
+    "Czechoslovakia": 0.125,
+    "Hungary": 0.125
+   }
+  },
+  "Marshall_Plan": {
+   "number": 23,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "UK": 0.565,
+    "Austria": 0.56,
+    "Sweden": 0.555,
+    "Canada": 0.55,
+    "Finland": 0.545,
+    "Benelux": 0.535,
+    "Norway": 0.535,
+    "West_Germany": 0.525,
+    "Turkey": 0.465,
+    "Greece": 0.45,
+    "Denmark": 0.44,
+    "Italy": 0.43,
+    "France": 0.425,
+    "Spain_Portugal": 0.42
+   }
+  },
+  "Indo_Pakistani_War": {
+   "number": 24,
+   "side": "NEUTRAL",
+   "period": "EARLY_WAR",
+   "fired": 400,
+   "moved": 169,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "India": 0.568,
+    "Pakistan": 0.432
+   }
+  },
+  "Containment": {
+   "number": 25,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "CIA_Created": {
+   "number": 26,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 146,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Venezuela": 0.041,
+    "Paraguay": 0.041,
+    "Afghanistan": 0.034,
+    "SE_African_States": 0.027,
+    "Guatemala": 0.027,
+    "West_African_States": 0.027,
+    "Ethiopia": 0.027,
+    "Sudan": 0.027,
+    "Cameroon": 0.027,
+    "Lebanon": 0.027,
+    "Morocco": 0.021,
+    "Mexico": 0.021,
+    "Taiwan": 0.021,
+    "Chile": 0.021,
+    "South_Africa": 0.021,
+    "Zimbabwe": 0.021,
+    "Peru": 0.021,
+    "Gulf_States": 0.021,
+    "Bolivia": 0.021,
+    "Saudi_Arabia": 0.021,
+    "Kenya": 0.014,
+    "Syria": 0.014,
+    "Turkey": 0.014,
+    "Benelux": 0.014,
+    "Zaire": 0.014,
+    "Burma": 0.014,
+    "Australia": 0.014,
+    "Costa_Rica": 0.014,
+    "Colombia": 0.014,
+    "Vietnam": 0.014,
+    "Haiti": 0.014,
+    "Angola": 0.014,
+    "El_Salvador": 0.014,
+    "Israel": 0.014,
+    "Egypt": 0.014,
+    "Greece": 0.014,
+    "Cuba": 0.014,
+    "Argentina": 0.014,
+    "Algeria": 0.014,
+    "Saharan_States": 0.014,
+    "Ecuador": 0.014,
+    "Panama": 0.014,
+    "India": 0.007,
+    "France": 0.007,
+    "West_Germany": 0.007,
+    "Nicaragua": 0.007,
+    "Ivory_Coast": 0.007,
+    "Pakistan": 0.007,
+    "Japan": 0.007,
+    "Norway": 0.007,
+    "Spain_Portugal": 0.007,
+    "Honduras": 0.007,
+    "Finland": 0.007,
+    "Laos_Cambodia": 0.007,
+    "Iran": 0.007,
+    "Sweden": 0.007,
+    "Romania": 0.007,
+    "North_Korea": 0.007,
+    "Libya": 0.007,
+    "Somalia": 0.007,
+    "Tunisia": 0.007,
+    "Malaysia": 0.007,
+    "East_Germany": 0.007,
+    "Uruguay": 0.007,
+    "Jordan": 0.007,
+    "South_Korea": 0.007,
+    "Austria": 0.007,
+    "Bulgaria": 0.007,
+    "Thailand": 0.007
+   }
+  },
+  "US_Japan_Mutual_Defense_Pact": {
+   "number": 27,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Japan": 1.0
+   }
+  },
+  "Suez_Crisis": {
+   "number": 28,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Israel": 0.935,
+    "France": 0.93,
+    "UK": 0.92
+   }
+  },
+  "East_European_Unrest": {
+   "number": 29,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Hungary": 0.46,
+    "Czechoslovakia": 0.365,
+    "Finland": 0.355,
+    "Romania": 0.335,
+    "East_Germany": 0.32,
+    "Yugoslavia": 0.31,
+    "Bulgaria": 0.31,
+    "Poland": 0.28,
+    "Austria": 0.265
+   }
+  },
+  "Decolonization": {
+   "number": 30,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Burma": 0.245,
+    "Algeria": 0.205,
+    "Saharan_States": 0.195,
+    "Indonesia": 0.19,
+    "Morocco": 0.19,
+    "Cameroon": 0.19,
+    "Thailand": 0.17,
+    "Vietnam": 0.17,
+    "South_Africa": 0.165,
+    "Philippines": 0.165,
+    "Angola": 0.165,
+    "SE_African_States": 0.16,
+    "Malaysia": 0.16,
+    "West_African_States": 0.16,
+    "Ethiopia": 0.155,
+    "Ivory_Coast": 0.15,
+    "Somalia": 0.15,
+    "Zaire": 0.15,
+    "Tunisia": 0.145,
+    "Sudan": 0.14,
+    "Botswana": 0.135,
+    "Nigeria": 0.13,
+    "Laos_Cambodia": 0.115,
+    "Zimbabwe": 0.11,
+    "Kenya": 0.09
+   }
+  },
+  "Red_Scare_Purge": {
+   "number": 31,
+   "side": "NEUTRAL",
+   "period": "EARLY_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "De_Stalinization": {
+   "number": 33,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 197,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "France": 0.157,
+    "Poland": 0.147,
+    "East_Germany": 0.132,
+    "Canada": 0.127,
+    "Afghanistan": 0.122,
+    "Iraq": 0.117,
+    "Denmark": 0.117,
+    "Norway": 0.117,
+    "North_Korea": 0.112,
+    "Philippines": 0.112,
+    "Kenya": 0.112,
+    "West_African_States": 0.112,
+    "Laos_Cambodia": 0.112,
+    "Saudi_Arabia": 0.112,
+    "Romania": 0.112,
+    "Vietnam": 0.112,
+    "South_Korea": 0.112,
+    "Mexico": 0.112,
+    "Bolivia": 0.107,
+    "Zimbabwe": 0.107,
+    "Gulf_States": 0.107,
+    "Israel": 0.107,
+    "Australia": 0.107,
+    "Algeria": 0.107,
+    "Finland": 0.107,
+    "Libya": 0.102,
+    "Pakistan": 0.102,
+    "Cuba": 0.102,
+    "Egypt": 0.102,
+    "Morocco": 0.102,
+    "Venezuela": 0.096,
+    "Peru": 0.096,
+    "Uruguay": 0.096,
+    "Somalia": 0.091,
+    "Cameroon": 0.091,
+    "Costa_Rica": 0.091,
+    "Austria": 0.091,
+    "Nicaragua": 0.086,
+    "India": 0.086,
+    "Greece": 0.086,
+    "Malaysia": 0.086,
+    "West_Germany": 0.086,
+    "Dominican_Republic": 0.086,
+    "Honduras": 0.086,
+    "Italy": 0.081,
+    "Czechoslovakia": 0.081,
+    "Sudan": 0.081,
+    "Hungary": 0.081,
+    "Ivory_Coast": 0.081,
+    "Thailand": 0.081,
+    "Indonesia": 0.081,
+    "Paraguay": 0.081,
+    "Chile": 0.081,
+    "Tunisia": 0.076,
+    "Spain_Portugal": 0.076,
+    "Haiti": 0.076,
+    "Angola": 0.071,
+    "Bulgaria": 0.071,
+    "Jordan": 0.071,
+    "Colombia": 0.071,
+    "Benelux": 0.071,
+    "Burma": 0.071,
+    "Ecuador": 0.071,
+    "Brazil": 0.071,
+    "South_Africa": 0.071,
+    "Botswana": 0.071,
+    "Sweden": 0.066,
+    "SE_African_States": 0.066,
+    "Syria": 0.066,
+    "Ethiopia": 0.066,
+    "Taiwan": 0.066,
+    "Saharan_States": 0.061,
+    "UK": 0.061,
+    "Turkey": 0.061,
+    "Iran": 0.061,
+    "Zaire": 0.061,
+    "Japan": 0.061,
+    "Yugoslavia": 0.061,
+    "Lebanon": 0.061,
+    "Guatemala": 0.056,
+    "El_Salvador": 0.056,
+    "Argentina": 0.056,
+    "Nigeria": 0.056,
+    "Panama": 0.051
+   }
+  },
+  "Nuclear_Test_Ban": {
+   "number": 34,
+   "side": "NEUTRAL",
+   "period": "EARLY_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Formosan_Resolution": {
+   "number": 35,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Brush_War": {
+   "number": 36,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 209,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "Ecuador": 0.048,
+    "Jordan": 0.048,
+    "Syria": 0.048,
+    "El_Salvador": 0.043,
+    "Philippines": 0.038,
+    "Libya": 0.033,
+    "Dominican_Republic": 0.033,
+    "Colombia": 0.029,
+    "Nigeria": 0.029,
+    "Kenya": 0.029,
+    "Algeria": 0.029,
+    "Haiti": 0.029,
+    "West_African_States": 0.029,
+    "Tunisia": 0.029,
+    "Uruguay": 0.029,
+    "Spain_Portugal": 0.029,
+    "Laos_Cambodia": 0.029,
+    "Argentina": 0.029,
+    "Saharan_States": 0.024,
+    "Panama": 0.024,
+    "SE_African_States": 0.019,
+    "Nicaragua": 0.019,
+    "Peru": 0.019,
+    "Somalia": 0.019,
+    "Lebanon": 0.019,
+    "Cameroon": 0.019,
+    "Egypt": 0.019,
+    "Pakistan": 0.019,
+    "Afghanistan": 0.019,
+    "Turkey": 0.014,
+    "Malaysia": 0.014,
+    "Sudan": 0.014,
+    "Iran": 0.014,
+    "Indonesia": 0.01,
+    "Paraguay": 0.01,
+    "Greece": 0.01,
+    "Angola": 0.01,
+    "Vietnam": 0.01,
+    "Bolivia": 0.01,
+    "Ivory_Coast": 0.01,
+    "Zaire": 0.01,
+    "Botswana": 0.01,
+    "Brazil": 0.01,
+    "Italy": 0.01,
+    "Ethiopia": 0.005,
+    "Zimbabwe": 0.005
+   }
+  },
+  "Arms_Race": {
+   "number": 39,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Cuban_Missile_Crisis": {
+   "number": 40,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Nuclear_Subs": {
+   "number": 41,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Quagmire": {
+   "number": 42,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Salt_Negotiations": {
+   "number": 43,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Bear_Trap": {
+   "number": 44,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Summit": {
+   "number": 45,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "How_I_Learned_to_Stop_Worrying": {
+   "number": 46,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Junta": {
+   "number": 47,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 400,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "Colombia": 0.115,
+    "Peru": 0.11,
+    "Dominican_Republic": 0.105,
+    "Panama": 0.105,
+    "Argentina": 0.102,
+    "Mexico": 0.1,
+    "Paraguay": 0.095,
+    "Haiti": 0.09,
+    "Honduras": 0.09,
+    "Nicaragua": 0.09,
+    "Brazil": 0.083,
+    "Ecuador": 0.08,
+    "Chile": 0.075,
+    "Guatemala": 0.07,
+    "Cuba": 0.065,
+    "El_Salvador": 0.065,
+    "Bolivia": 0.05,
+    "Venezuela": 0.045,
+    "Costa_Rica": 0.043,
+    "Uruguay": 0.035,
+    "Zimbabwe": 0.01,
+    "Malaysia": 0.01,
+    "Botswana": 0.01,
+    "Kenya": 0.01,
+    "Somalia": 0.01,
+    "Angola": 0.007,
+    "Australia": 0.007,
+    "Cameroon": 0.007,
+    "West_African_States": 0.007,
+    "Sudan": 0.005,
+    "Israel": 0.005,
+    "Syria": 0.005,
+    "Tunisia": 0.005,
+    "SE_African_States": 0.005,
+    "Thailand": 0.005,
+    "Bulgaria": 0.005,
+    "South_Africa": 0.005,
+    "Poland": 0.005,
+    "North_Korea": 0.005,
+    "Iraq": 0.005,
+    "Sweden": 0.005,
+    "Pakistan": 0.005,
+    "Nigeria": 0.005,
+    "Denmark": 0.005,
+    "Vietnam": 0.003,
+    "Iran": 0.003
+   }
+  },
+  "Kitchen_Debates": {
+   "number": 48,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Missile_Envy": {
+   "number": 49,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "We_Will_Bury_You": {
+   "number": 50,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Brezhnev_Doctrine": {
+   "number": 51,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Portuguese_Empire_Crumbles": {
+   "number": 52,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Angola": 1.0,
+    "SE_African_States": 1.0
+   }
+  },
+  "South_African_Unrest": {
+   "number": 53,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "South_Africa": 1.0,
+    "Angola": 0.425,
+    "Botswana": 0.405
+   }
+  },
+  "Allende": {
+   "number": 54,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Chile": 1.0
+   }
+  },
+  "Willy_Brandt": {
+   "number": 55,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "West_Germany": 1.0
+   }
+  },
+  "Muslim_Revolution": {
+   "number": 56,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Jordan": 0.3,
+    "Egypt": 0.29,
+    "Saudi_Arabia": 0.27,
+    "Iran": 0.255,
+    "Sudan": 0.25,
+    "Iraq": 0.225,
+    "Syria": 0.205,
+    "Libya": 0.205
+   }
+  },
+  "ABM_Treaty": {
+   "number": 57,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 380,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "Saharan_States": 0.084,
+    "South_Africa": 0.053,
+    "Kenya": 0.053,
+    "Bolivia": 0.053,
+    "Egypt": 0.05,
+    "Nigeria": 0.05,
+    "Mexico": 0.05,
+    "Venezuela": 0.05,
+    "Gulf_States": 0.05,
+    "Somalia": 0.047,
+    "Pakistan": 0.047,
+    "Paraguay": 0.047,
+    "India": 0.045,
+    "North_Korea": 0.045,
+    "Zimbabwe": 0.042,
+    "Zaire": 0.042,
+    "Angola": 0.042,
+    "Saudi_Arabia": 0.042,
+    "Tunisia": 0.039,
+    "Brazil": 0.039,
+    "Uruguay": 0.037,
+    "Guatemala": 0.037,
+    "Thailand": 0.037,
+    "Costa_Rica": 0.037,
+    "Algeria": 0.037,
+    "El_Salvador": 0.037,
+    "Argentina": 0.037,
+    "Colombia": 0.037,
+    "Haiti": 0.034,
+    "Lebanon": 0.034,
+    "Syria": 0.034,
+    "Libya": 0.034,
+    "Panama": 0.034,
+    "Chile": 0.034,
+    "Honduras": 0.034,
+    "Taiwan": 0.032,
+    "Spain_Portugal": 0.032,
+    "SE_African_States": 0.032,
+    "Philippines": 0.032,
+    "Ethiopia": 0.032,
+    "Ecuador": 0.032,
+    "Afghanistan": 0.032,
+    "UK": 0.032,
+    "Jordan": 0.029,
+    "Peru": 0.029,
+    "Japan": 0.029,
+    "Italy": 0.029,
+    "Romania": 0.029,
+    "Cuba": 0.029,
+    "Burma": 0.029,
+    "South_Korea": 0.026,
+    "Laos_Cambodia": 0.026,
+    "Ivory_Coast": 0.026,
+    "Iraq": 0.026,
+    "Denmark": 0.026,
+    "Nicaragua": 0.024,
+    "Morocco": 0.024,
+    "Sweden": 0.024,
+    "Greece": 0.024,
+    "West_African_States": 0.024,
+    "Cameroon": 0.024,
+    "Israel": 0.024,
+    "Malaysia": 0.021,
+    "Hungary": 0.021,
+    "Australia": 0.021,
+    "Benelux": 0.021,
+    "Dominican_Republic": 0.021,
+    "Iran": 0.021,
+    "Indonesia": 0.018,
+    "Norway": 0.018,
+    "Austria": 0.018,
+    "Poland": 0.018,
+    "Botswana": 0.018,
+    "Bulgaria": 0.016,
+    "Canada": 0.016,
+    "Sudan": 0.016,
+    "Turkey": 0.016,
+    "Yugoslavia": 0.013,
+    "Finland": 0.013,
+    "Vietnam": 0.011,
+    "West_Germany": 0.011,
+    "Czechoslovakia": 0.008,
+    "France": 0.005
+   }
+  },
+  "Cultural_Revolution": {
+   "number": 58,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Flower_Power": {
+   "number": 59,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "U2_Incident": {
+   "number": 60,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "OPEC": {
+   "number": 61,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Lone_Gunman": {
+   "number": 62,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 158,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Saharan_States": 0.038,
+    "Peru": 0.038,
+    "Iraq": 0.032,
+    "Costa_Rica": 0.032,
+    "Argentina": 0.032,
+    "Sudan": 0.032,
+    "Paraguay": 0.025,
+    "Tunisia": 0.025,
+    "West_African_States": 0.025,
+    "Ecuador": 0.025,
+    "Colombia": 0.025,
+    "Dominican_Republic": 0.025,
+    "Japan": 0.025,
+    "Cameroon": 0.019,
+    "Finland": 0.019,
+    "UK": 0.019,
+    "Haiti": 0.019,
+    "Syria": 0.019,
+    "Ethiopia": 0.019,
+    "Gulf_States": 0.019,
+    "Ivory_Coast": 0.019,
+    "Somalia": 0.019,
+    "Malaysia": 0.019,
+    "Zaire": 0.013,
+    "Vietnam": 0.013,
+    "Venezuela": 0.013,
+    "Spain_Portugal": 0.013,
+    "Mexico": 0.013,
+    "Saudi_Arabia": 0.013,
+    "Botswana": 0.013,
+    "Algeria": 0.013,
+    "Denmark": 0.013,
+    "North_Korea": 0.013,
+    "Greece": 0.013,
+    "Iran": 0.013,
+    "Guatemala": 0.013,
+    "South_Korea": 0.013,
+    "Nigeria": 0.013,
+    "Uruguay": 0.013,
+    "Honduras": 0.013,
+    "Australia": 0.013,
+    "India": 0.013,
+    "Kenya": 0.013,
+    "Zimbabwe": 0.006,
+    "Angola": 0.006,
+    "Benelux": 0.006,
+    "Nicaragua": 0.006,
+    "Romania": 0.006,
+    "Libya": 0.006,
+    "Bulgaria": 0.006,
+    "Jordan": 0.006,
+    "Morocco": 0.006,
+    "Austria": 0.006,
+    "Turkey": 0.006,
+    "Indonesia": 0.006,
+    "Poland": 0.006,
+    "Israel": 0.006,
+    "Philippines": 0.006,
+    "Sweden": 0.006,
+    "Burma": 0.006,
+    "Italy": 0.006,
+    "Panama": 0.006,
+    "Lebanon": 0.006,
+    "Bolivia": 0.006,
+    "East_Germany": 0.006,
+    "Afghanistan": 0.006,
+    "Czechoslovakia": 0.006,
+    "Cuba": 0.006,
+    "Thailand": 0.006,
+    "SE_African_States": 0.006,
+    "Hungary": 0.006
+   }
+  },
+  "Colonial_Rear_Guards": {
+   "number": 63,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Malaysia": 0.215,
+    "Laos_Cambodia": 0.2,
+    "Algeria": 0.2,
+    "SE_African_States": 0.19,
+    "Philippines": 0.19,
+    "Saharan_States": 0.18,
+    "Thailand": 0.18,
+    "Botswana": 0.17,
+    "Vietnam": 0.165,
+    "Ivory_Coast": 0.16,
+    "Somalia": 0.16,
+    "Angola": 0.16,
+    "South_Africa": 0.16,
+    "West_African_States": 0.16,
+    "Kenya": 0.145,
+    "Tunisia": 0.145,
+    "Ethiopia": 0.145,
+    "Burma": 0.14,
+    "Cameroon": 0.14,
+    "Sudan": 0.14,
+    "Zaire": 0.14,
+    "Nigeria": 0.135,
+    "Indonesia": 0.13,
+    "Zimbabwe": 0.13,
+    "Morocco": 0.12
+   }
+  },
+  "Panama_Canal_Returned": {
+   "number": 64,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Panama": 1.0,
+    "Venezuela": 1.0,
+    "Costa_Rica": 1.0
+   }
+  },
+  "Camp_David_Accords": {
+   "number": 65,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Jordan": 1.0,
+    "Egypt": 1.0,
+    "Israel": 1.0
+   }
+  },
+  "Puppet_Governments": {
+   "number": 66,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Grain_Sales_to_Soviets": {
+   "number": 67,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 178,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "South_Africa": 0.051,
+    "Kenya": 0.051,
+    "Chile": 0.039,
+    "SE_African_States": 0.039,
+    "Paraguay": 0.034,
+    "Peru": 0.034,
+    "Cameroon": 0.034,
+    "Tunisia": 0.034,
+    "Brazil": 0.034,
+    "Ecuador": 0.028,
+    "Thailand": 0.028,
+    "West_African_States": 0.028,
+    "South_Korea": 0.028,
+    "Sudan": 0.028,
+    "Honduras": 0.028,
+    "Iraq": 0.028,
+    "Gulf_States": 0.028,
+    "Haiti": 0.028,
+    "Panama": 0.028,
+    "Norway": 0.028,
+    "Yugoslavia": 0.028,
+    "Ethiopia": 0.028,
+    "Czechoslovakia": 0.022,
+    "Colombia": 0.022,
+    "Syria": 0.022,
+    "Nigeria": 0.022,
+    "Nicaragua": 0.022,
+    "Burma": 0.022,
+    "Angola": 0.022,
+    "Mexico": 0.022,
+    "Afghanistan": 0.022,
+    "Israel": 0.022,
+    "Guatemala": 0.022,
+    "Taiwan": 0.022,
+    "El_Salvador": 0.022,
+    "Bolivia": 0.022,
+    "Zaire": 0.022,
+    "Uruguay": 0.017,
+    "Ivory_Coast": 0.017,
+    "Pakistan": 0.017,
+    "UK": 0.017,
+    "Venezuela": 0.017,
+    "Argentina": 0.017,
+    "Japan": 0.017,
+    "Algeria": 0.017,
+    "Costa_Rica": 0.017,
+    "Botswana": 0.017,
+    "Turkey": 0.017,
+    "Benelux": 0.017,
+    "Australia": 0.017,
+    "West_Germany": 0.017,
+    "Lebanon": 0.017,
+    "Finland": 0.017,
+    "Somalia": 0.017,
+    "Iran": 0.011,
+    "Philippines": 0.011,
+    "Saharan_States": 0.011,
+    "Spain_Portugal": 0.011,
+    "France": 0.011,
+    "Denmark": 0.011,
+    "Laos_Cambodia": 0.011,
+    "Malaysia": 0.011,
+    "Zimbabwe": 0.011,
+    "Greece": 0.011,
+    "Romania": 0.011,
+    "Sweden": 0.011,
+    "Jordan": 0.011,
+    "Libya": 0.011,
+    "Canada": 0.011,
+    "Egypt": 0.011,
+    "North_Korea": 0.006,
+    "Cuba": 0.006,
+    "Morocco": 0.006,
+    "Austria": 0.006,
+    "East_Germany": 0.006,
+    "Poland": 0.006,
+    "Italy": 0.006,
+    "Hungary": 0.006,
+    "Indonesia": 0.006,
+    "Saudi_Arabia": 0.006,
+    "Dominican_Republic": 0.006
+   }
+  },
+  "John_Paul_II_Elected_Pope": {
+   "number": 68,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Poland": 1.0
+   }
+  },
+  "Latin_American_Death_Squads": {
+   "number": 69,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "OAS_Founded": {
+   "number": 70,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Bolivia": 0.13,
+    "Panama": 0.13,
+    "Peru": 0.125,
+    "Colombia": 0.12,
+    "Guatemala": 0.115,
+    "Dominican_Republic": 0.115,
+    "Costa_Rica": 0.11,
+    "Ecuador": 0.1,
+    "Argentina": 0.095,
+    "Venezuela": 0.09,
+    "Nicaragua": 0.09,
+    "Paraguay": 0.09,
+    "Brazil": 0.09,
+    "Haiti": 0.09,
+    "El_Salvador": 0.09,
+    "Chile": 0.085,
+    "Uruguay": 0.085,
+    "Cuba": 0.08,
+    "Honduras": 0.075,
+    "Mexico": 0.055
+   }
+  },
+  "Nixon_Plays_The_China_Card": {
+   "number": 71,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Sadat_Expels_Soviets": {
+   "number": 72,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Egypt": 1.0
+   }
+  },
+  "Shuttle_Diplomacy": {
+   "number": 73,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "The_Voice_Of_America": {
+   "number": 74,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Saudi_Arabia": 0.11,
+    "Taiwan": 0.1,
+    "Argentina": 0.095,
+    "Brazil": 0.095,
+    "Syria": 0.095,
+    "Honduras": 0.09,
+    "Dominican_Republic": 0.085,
+    "Ivory_Coast": 0.085,
+    "Uruguay": 0.085,
+    "Colombia": 0.085,
+    "Indonesia": 0.08,
+    "Venezuela": 0.08,
+    "Chile": 0.08,
+    "Costa_Rica": 0.075,
+    "Egypt": 0.075,
+    "Vietnam": 0.075,
+    "North_Korea": 0.07,
+    "Iraq": 0.07,
+    "Thailand": 0.07,
+    "Jordan": 0.065,
+    "Australia": 0.065,
+    "Nigeria": 0.065,
+    "Nicaragua": 0.065,
+    "Israel": 0.065,
+    "Bolivia": 0.065,
+    "Cuba": 0.065,
+    "Saharan_States": 0.065,
+    "Cameroon": 0.065,
+    "India": 0.06,
+    "Panama": 0.06,
+    "West_African_States": 0.06,
+    "Ethiopia": 0.06,
+    "South_Korea": 0.06,
+    "Afghanistan": 0.06,
+    "Burma": 0.06,
+    "Libya": 0.06,
+    "Philippines": 0.055,
+    "South_Africa": 0.055,
+    "SE_African_States": 0.055,
+    "Paraguay": 0.055,
+    "Peru": 0.055,
+    "El_Salvador": 0.055,
+    "Lebanon": 0.05,
+    "Mexico": 0.05,
+    "Gulf_States": 0.05,
+    "Somalia": 0.05,
+    "Laos_Cambodia": 0.05,
+    "Sudan": 0.05,
+    "Japan": 0.045,
+    "Guatemala": 0.045,
+    "Angola": 0.045,
+    "Malaysia": 0.045,
+    "Haiti": 0.045,
+    "Pakistan": 0.045,
+    "Ecuador": 0.045,
+    "Zaire": 0.045,
+    "Botswana": 0.045,
+    "Algeria": 0.045,
+    "Kenya": 0.04,
+    "Iran": 0.04,
+    "Tunisia": 0.035,
+    "Zimbabwe": 0.035,
+    "Morocco": 0.035
+   }
+  },
+  "Liberation_Theology": {
+   "number": 75,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Panama": 0.34,
+    "Mexico": 0.33,
+    "Dominican_Republic": 0.305,
+    "Cuba": 0.295,
+    "Nicaragua": 0.28,
+    "Haiti": 0.26,
+    "El_Salvador": 0.255,
+    "Honduras": 0.24,
+    "Costa_Rica": 0.24,
+    "Guatemala": 0.19
+   }
+  },
+  "Ussuri_River_Skirmish": {
+   "number": 76,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Ask_Not_What_Your_Country_Can_Do_For_You": {
+   "number": 77,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Alliance_for_Progress": {
+   "number": 78,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "One_Small_Step": {
+   "number": 80,
+   "side": "NEUTRAL",
+   "period": "MID_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Iranian_Hostage_Crisis": {
+   "number": 82,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Iran": 1.0
+   }
+  },
+  "The_Iron_Lady": {
+   "number": 83,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Argentina": 1.0,
+    "UK": 1.0
+   }
+  },
+  "Reagan_Bombs_Libya": {
+   "number": 84,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Star_Wars": {
+   "number": 85,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "North_Sea_Oil": {
+   "number": 86,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "The_Reformer": {
+   "number": 87,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Benelux": 0.22,
+    "East_Germany": 0.205,
+    "Hungary": 0.2,
+    "Greece": 0.2,
+    "West_Germany": 0.195,
+    "Poland": 0.195,
+    "Yugoslavia": 0.19,
+    "Canada": 0.185,
+    "Spain_Portugal": 0.185,
+    "Norway": 0.185,
+    "Sweden": 0.18,
+    "Italy": 0.18,
+    "UK": 0.175,
+    "Finland": 0.165,
+    "Denmark": 0.165,
+    "Turkey": 0.16,
+    "Austria": 0.16,
+    "France": 0.155,
+    "Czechoslovakia": 0.155,
+    "Bulgaria": 0.145,
+    "Romania": 0.135
+   }
+  },
+  "Marine_Barracks_Bombing": {
+   "number": 88,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Lebanon": 1.0,
+    "Iran": 0.25,
+    "Israel": 0.24,
+    "Egypt": 0.235,
+    "Gulf_States": 0.23,
+    "Syria": 0.225,
+    "Libya": 0.215,
+    "Saudi_Arabia": 0.2,
+    "Jordan": 0.175,
+    "Iraq": 0.17
+   }
+  },
+  "Soviets_Shoot_Down_KAL_007": {
+   "number": 89,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 8,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Bulgaria": 0.25,
+    "South_Korea": 0.25,
+    "Benelux": 0.25,
+    "Lebanon": 0.25,
+    "Indonesia": 0.125,
+    "Iraq": 0.125,
+    "Romania": 0.125,
+    "Bolivia": 0.125,
+    "West_African_States": 0.125,
+    "Spain_Portugal": 0.125,
+    "UK": 0.125,
+    "Jordan": 0.125,
+    "Libya": 0.125,
+    "Dominican_Republic": 0.125,
+    "Sweden": 0.125,
+    "Ecuador": 0.125,
+    "Syria": 0.125,
+    "Tunisia": 0.125,
+    "Zimbabwe": 0.125,
+    "Australia": 0.125,
+    "Laos_Cambodia": 0.125,
+    "Mexico": 0.125
+   }
+  },
+  "Glasnost": {
+   "number": 90,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Ortega_Elected_in_Nicaragua": {
+   "number": 91,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Nicaragua": 1.0,
+    "Honduras": 0.11,
+    "Costa_Rica": 0.055,
+    "Cuba": 0.035
+   }
+  },
+  "Terrorism": {
+   "number": 92,
+   "side": "NEUTRAL",
+   "period": "LATE_WAR",
+   "fired": 400,
+   "moved": 0,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {}
+  },
+  "Iran_Contra_Scandal": {
+   "number": 93,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Chernobyl": {
+   "number": 94,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Latin_American_Debt_Crisis": {
+   "number": 95,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Ecuador": 0.275,
+    "Paraguay": 0.23,
+    "Uruguay": 0.23,
+    "Brazil": 0.22,
+    "Peru": 0.205,
+    "Argentina": 0.2,
+    "Bolivia": 0.18,
+    "Venezuela": 0.175,
+    "Chile": 0.145,
+    "Colombia": 0.14
+   }
+  },
+  "Tear_Down_This_Wall": {
+   "number": 96,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "East_Germany": 1.0,
+    "Italy": 0.06,
+    "Poland": 0.035,
+    "Greece": 0.035,
+    "Finland": 0.035,
+    "Benelux": 0.03,
+    "Turkey": 0.03,
+    "Sweden": 0.025,
+    "Spain_Portugal": 0.025,
+    "Brazil": 0.025,
+    "Bulgaria": 0.025,
+    "West_African_States": 0.02,
+    "Algeria": 0.02,
+    "France": 0.02,
+    "Tunisia": 0.02,
+    "Norway": 0.02,
+    "Thailand": 0.02,
+    "Zaire": 0.02,
+    "Ivory_Coast": 0.02,
+    "UK": 0.015,
+    "Costa_Rica": 0.015,
+    "Austria": 0.015,
+    "Kenya": 0.015,
+    "Yugoslavia": 0.015,
+    "Czechoslovakia": 0.015,
+    "Denmark": 0.015,
+    "Honduras": 0.015,
+    "Romania": 0.015,
+    "El_Salvador": 0.01,
+    "Chile": 0.01,
+    "Canada": 0.01,
+    "Morocco": 0.01,
+    "Peru": 0.01,
+    "Taiwan": 0.01,
+    "Saudi_Arabia": 0.01,
+    "Japan": 0.01,
+    "Sudan": 0.01,
+    "Hungary": 0.01,
+    "Nigeria": 0.01,
+    "Botswana": 0.01,
+    "Libya": 0.01,
+    "Syria": 0.01,
+    "Venezuela": 0.01,
+    "Zimbabwe": 0.01,
+    "Colombia": 0.01,
+    "Haiti": 0.01,
+    "Argentina": 0.01,
+    "Saharan_States": 0.01,
+    "Israel": 0.01,
+    "Iraq": 0.01,
+    "Cuba": 0.01,
+    "Ecuador": 0.005,
+    "Cameroon": 0.005,
+    "Egypt": 0.005,
+    "Paraguay": 0.005,
+    "South_Korea": 0.005,
+    "Malaysia": 0.005,
+    "Dominican_Republic": 0.005,
+    "Guatemala": 0.005,
+    "Vietnam": 0.005,
+    "Philippines": 0.005,
+    "West_Germany": 0.005,
+    "Uruguay": 0.005,
+    "Afghanistan": 0.005,
+    "Jordan": 0.005,
+    "Somalia": 0.005,
+    "SE_African_States": 0.005,
+    "Ethiopia": 0.005,
+    "Panama": 0.005,
+    "Pakistan": 0.005,
+    "Iran": 0.005
+   }
+  },
+  "An_Evil_Empire": {
+   "number": 97,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Aldrich_Ames_Remix": {
+   "number": 98,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Pershing_II_Deployed": {
+   "number": 99,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "UK": 0.26,
+    "Finland": 0.245,
+    "Sweden": 0.245,
+    "Benelux": 0.235,
+    "Denmark": 0.23,
+    "France": 0.225,
+    "Turkey": 0.22,
+    "Norway": 0.22,
+    "Canada": 0.215,
+    "West_Germany": 0.205,
+    "Austria": 0.205,
+    "Spain_Portugal": 0.205,
+    "Greece": 0.15,
+    "Italy": 0.14
+   }
+  },
+  "Wargames": {
+   "number": 100,
+   "side": "NEUTRAL",
+   "period": "LATE_WAR",
+   "fired": 100,
+   "moved": 0,
+   "outcomes": {
+    "ok": 100,
+    "ineligible": 300
+   },
+   "exposure": {}
+  },
+  "Solidarity": {
+   "number": 101,
+   "side": "US",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Poland": 1.0
+   }
+  },
+  "Iran_Iraq_War": {
+   "number": 102,
+   "side": "NEUTRAL",
+   "period": "LATE_WAR",
+   "fired": 400,
+   "moved": 140,
+   "outcomes": {
+    "ok": 400
+   },
+   "exposure": {
+    "Iran": 0.55,
+    "Iraq": 0.45
+   }
+  },
+  "The_Cambridge_Five": {
+   "number": 104,
+   "side": "USSR",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Special_Relationship": {
+   "number": 105,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Benelux": 0.285,
+    "France": 0.275,
+    "Canada": 0.245,
+    "Norway": 0.195
+   }
+  },
+  "NORAD": {
+   "number": 106,
+   "side": "US",
+   "period": "EARLY_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Che": {
+   "number": 107,
+   "side": "USSR",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 173,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Haiti": 0.116,
+    "Zimbabwe": 0.098,
+    "Kenya": 0.098,
+    "Nicaragua": 0.098,
+    "Dominican_Republic": 0.092,
+    "Bolivia": 0.092,
+    "Paraguay": 0.087,
+    "Sudan": 0.087,
+    "Ecuador": 0.075,
+    "Somalia": 0.075,
+    "Saharan_States": 0.069,
+    "Guatemala": 0.069,
+    "El_Salvador": 0.069,
+    "Ivory_Coast": 0.069,
+    "Colombia": 0.069,
+    "Ethiopia": 0.064,
+    "Botswana": 0.064,
+    "Honduras": 0.064,
+    "West_African_States": 0.064,
+    "SE_African_States": 0.058,
+    "Cameroon": 0.058,
+    "Costa_Rica": 0.052,
+    "Peru": 0.046,
+    "Tunisia": 0.046,
+    "Uruguay": 0.046,
+    "Morocco": 0.029
+   }
+  },
+  "Our_Man_In_Tehran": {
+   "number": 108,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "Yuri_and_Samantha": {
+   "number": 109,
+   "side": "USSR",
+   "period": "LATE_WAR",
+   "fired": 200,
+   "moved": 0,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {}
+  },
+  "AWACS_Sale_to_Saudis": {
+   "number": 110,
+   "side": "US",
+   "period": "MID_WAR",
+   "fired": 200,
+   "moved": 200,
+   "outcomes": {
+    "ok": 200
+   },
+   "exposure": {
+    "Saudi_Arabia": 1.0
+   }
+  }
+ }
+}

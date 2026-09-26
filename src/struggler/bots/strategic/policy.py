@@ -418,6 +418,17 @@ class StrategicWeights:
     # than kept as a weight at zero. docs/notes/claude/
     # 2026-09-19-delete-the-region-margin.md.)
     access: float = 1.5
+    # EVENTS STILL TO COME, behind a weight (maintainer, 2026-09-26): a
+    # country an event is aimed at is worth less to fight over while the
+    # card is live -- Vietnam less than Laos (Vietnam Revolts), South Korea
+    # less than North Korea (Korean War), Egypt less than Libya (Nasser) --
+    # and Mid and Late War cards count before they enter the deck. Each
+    # country's importance, both sides', is multiplied by
+    # `1 - event_exposure * min(1, sum of share * P(the card fires))`
+    # (`evaluator.event_discount`; the shares are derived from the engine's
+    # own events by scripts/probe_event_exposure.py). 0 as shipped: nothing
+    # is computed and the path is exact. An arm prices it.
+    event_exposure: float = 0.0
     # The per-route share of the capped geometric aggregate for k routes into
     # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
     # redundant route however many there were.
@@ -687,10 +698,12 @@ class StrategicWeights:
 #                chosen per card as it always has been; at a positive
 #                value `hand_plan` allocates the whole hand and its pick
 #                leads the ranking for the slot
+#   event_exposure  the events-still-to-come discount, shipped at 0 until
+#                an arm prices it; the trainer must not switch it on
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hand_assignment')
+UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hand_assignment', 'event_exposure')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -756,6 +769,9 @@ class StrategicPlayer:
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
         self._urgency = None
+        # `evaluator.event_discount` for `self._obs`, or None (weight 0, or a
+        # bare evaluation): the importance multiplier for events still to come.
+        self._discount = None
         self._shuttle_pick = None   # a function of `_urgency`, cached with it
         self._delta_cache = None
         # The card-pick and hand-planner caches, with the same reason as
@@ -885,6 +901,7 @@ class StrategicPlayer:
         self._position.sync(self.board)
         self._obs = observation
         self._urgency = self._urgency_for(observation)
+        self._discount = self._discount_for(observation)
         self._shuttle_pick = None
         self._scoring_flags = scoring_flags(observation.game_effects)
         self._coup_bans = coup_bans(observation.game_effects)
@@ -928,6 +945,19 @@ class StrategicPlayer:
         influence = self.board.influence[cid]
         self._set_influence(cid, influence['US'] + points * (side is Side.US),
                             influence['USSR'] + points * (side is Side.USSR))
+
+    def _discount_for(self, obs: Observation) -> tuple[float, ...] | None:
+        """`evaluator.event_discount` for `obs`: each exposed country's
+        importance multiplier, from every card's chance to fire
+        (`public_cards.p_event_fires`, Mid and Late War cards counted before
+        they enter). None at `event_exposure` 0 -- nothing computed, nothing
+        multiplied, the shipped path exactly."""
+        weight = self.weights.event_exposure
+        if not weight:
+            return None
+        cards = {card for card, _ in ev._exposure_rows(self._terrain.ids)}
+        return ev.event_discount(self._terrain, weight,
+                                 {card: pc.p_event_fires(obs, card) for card in cards})
 
     def _urgency_vector(self) -> tuple[float, ...]:
         """The prepared scoring weights, or all ones for a bare evaluation
@@ -1308,13 +1338,14 @@ class StrategicPlayer:
         """What `cid` is worth to `side` on this board."""
         t = self._terrain
         return ev.country_value(t, self._position_for(board, snapshot), t.index[cid],
-                                ev.SIDE_INDEX[side], self.weights, self._urgency_vector())
+                                ev.SIDE_INDEX[side], self.weights, self._urgency_vector(),
+                                self._discount)
 
     def _access(self, board: Board, cid: str, side: Side) -> float:
         """The reach a holding in `cid` gives `side` (see `evaluator.access`)."""
         t = self._terrain
         return ev.access(t, self._position_for(board), t.index[cid], ev.SIDE_INDEX[side],
-                         self.weights, self._urgency_vector())
+                         self.weights, self._urgency_vector(), self._discount)
 
     def evaluate(self, observation: Observation, board: Board | None = None) -> float:
         """The board value for `observation`'s side in that observation's own
@@ -1330,7 +1361,7 @@ class StrategicPlayer:
         # `_scoring_flags` and `_coup_bans` from the observation's
         # game_effects, and a leaf evaluated under Formosan Resolution left
         # the caller scoring Taiwan as a Battleground afterwards.
-        saved = (self._obs, self._urgency, self.__dict__.get('_ops_values'),
+        saved = (self._obs, self._urgency, self.__dict__.get('_discount'), self.__dict__.get('_ops_values'),
                  self.__dict__.get('_vp_price'),
                  self.__dict__.get('_placement_values'),
                  self.__dict__.get('_unseen_hold_values'),
@@ -1345,7 +1376,7 @@ class StrategicPlayer:
         try:
             return self.value(self.board, observation.side)
         finally:
-            (self._obs, self._urgency, ops_values, vp_price, placements, unseen,
+            (self._obs, self._urgency, self._discount, ops_values, vp_price, placements, unseen,
              flags, bans, influence) = saved
             self._vp_price = vp_price
             for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
@@ -1371,7 +1402,7 @@ class StrategicPlayer:
         pos = self._position_for(board)
         return ev.board_value(self._terrain, pos, ev.SIDE_INDEX[side],
                               self.weights, self._urgency_vector(),
-                              self._overrides_map(pos))
+                              self._overrides_map(pos), self._discount)
 
     def scoring_weight(self, obs: Observation, cid: str) -> float:
         """How much the area around `cid` will still score: each future
@@ -1482,11 +1513,11 @@ class StrategicPlayer:
         key = (i, s)
         own_before = None if cache is None else cache.get(key)
         if own_before is None:
-            own_before = ev.country_value(t, pos, i, s, w, vector)
+            own_before = ev.country_value(t, pos, i, s, w, vector, self._discount)
             if cache is not None:
                 cache[key] = own_before
         elif CHECK_SNAPSHOT:
-            assert own_before == ev.country_value(t, pos, i, s, w, vector), \
+            assert own_before == ev.country_value(t, pos, i, s, w, vector, self._discount), \
                 f'base country value for {cid} moved while cached'
         # While rank_actions runs, every caller enters with the board as it
         # was synced (each restores its own trial changes first), so the
@@ -1555,7 +1586,7 @@ class StrategicPlayer:
                             else sign * ev.region_vp(
                                 t, pos, region, *self._overrides_for(region, pos),
                                 w.europe_control_vp))
-            change = (ev.country_value(t, pos, i, s, w, vector)
+            change = (ev.country_value(t, pos, i, s, w, vector, self._discount)
                       + ev.region_potential(t, w, vector, ((region, region_after),))
                       - before)
             if (pos.control[i] != controller or (inf_us[i] > 0) != (was_us > 0)
@@ -1571,7 +1602,7 @@ class StrategicPlayer:
                     cached_neighbours = neighbour_cache.get(neighbour_key)
                 if cached_neighbours is None or CHECK_SNAPSHOT:
                     neighbours_after = [
-                        (j, ev.country_value(t, pos, j, s, w, vector))
+                        (j, ev.country_value(t, pos, j, s, w, vector, self._discount))
                         for j in ev.others_moved_by(t, i) if inf_us[j] or inf_ussr[j]]
         finally:
             self._set_influence(cid, was_us, was_ussr)
@@ -1592,11 +1623,11 @@ class StrategicPlayer:
                 key = (j, s)
                 then = None if cache is None else cache.get(key)
                 if then is None:
-                    then = ev.country_value(t, pos, j, s, w, vector)
+                    then = ev.country_value(t, pos, j, s, w, vector, self._discount)
                     if cache is not None:
                         cache[key] = then
                 elif CHECK_SNAPSHOT:
-                    assert then == ev.country_value(t, pos, j, s, w, vector), \
+                    assert then == ev.country_value(t, pos, j, s, w, vector, self._discount), \
                         f'base country value for {t.ids[j]} moved while cached'
                 diffs.append(after - then)
             if neighbour_key is not None:
@@ -1606,7 +1637,7 @@ class StrategicPlayer:
             if CHECK_SNAPSHOT:
                 fresh = tuple(
                     after - (cache[(j, s)] if cache is not None and (j, s) in cache
-                             else ev.country_value(t, pos, j, s, w, vector))
+                             else ev.country_value(t, pos, j, s, w, vector, self._discount))
                     for j, after in neighbours_after)
                 assert fresh == cached_neighbours, (
                     f'the neighbour diffs for {cid} at {neighbour_key} moved while '
@@ -2308,7 +2339,7 @@ class StrategicPlayer:
         changed_regions |= {r for r in Region
                             if self._overrides_for(r, position, flags)
                             != self._overrides_for(r, position, self._scoring_flags)}
-        after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
+        after = sum(ev.country_value(t, position, t.index[c], side, w, vector, self._discount)
                     if c in affected else v for c, v in countries.items())
         after += ev.region_potential(t, w, vector, (
             (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags),

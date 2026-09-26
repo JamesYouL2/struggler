@@ -333,6 +333,54 @@ def post_reshuffle_deal_masses(obs: Observation) -> tuple[float, ...]:
 
 
 
+def p_event_fires(obs: Observation, card: str) -> float:
+    """P(`card` is played -- so its event fires -- before the game ends),
+    from public information alone: the same deck arithmetic the scoring
+    schedule uses (`schedule.opportunities`), for any card.
+
+    A card is played once it is in a hand: the holder plays it for its
+    event or its Ops, and an opponent's event fires either way (the few
+    exits -- a Space Race attempt, holding it to the end -- are ignored,
+    which overstates a little). So the question is only whether it is
+    DEALT in time:
+
+    - 'removed' and the China Card: 0 (the China Card has no event).
+    - 'hand' (ours): 1.
+    - 'unseen': in the opponent's hand now (`p_opponent_holds`), or in the
+      pile and dealt this cycle (`cycle_deal_masses`), or failing both,
+      recycled and dealt after the reshuffle (`post_reshuffle_deal_masses`).
+    - 'discard': recycled and dealt after the reshuffle.
+    - 'future' -- a Mid or Late War card before its period enters: 1 if it
+      enters before the game ends, the scoring schedule's flat convention
+      for a card not yet in any deck. The maintainer's rule (2026-09-26) is
+      that such cards count BEFORE they enter; this is how.
+    """
+    state = card_state(obs, card)
+    if state in ('removed', 'china'):
+        return 0.0
+    if state == 'hand':
+        return 1.0
+    horizon = turns_to_final_scoring(obs)
+    if state == 'future':
+        return 1.0 if entry_turn(CARDS[card]) - obs.turn <= horizon else 0.0
+    later = 0.0
+    if turns_to_reshuffle(obs) <= horizon:
+        survive = 1.0
+        for m in post_reshuffle_deal_masses(obs):
+            survive *= 1.0 - m
+        later = 1.0 - survive
+    if state == 'discard':
+        return later
+    theirs, pile = unseen_split(obs)
+    pool = theirs + pile
+    survive = 1.0
+    for m in cycle_deal_masses(obs):
+        survive *= 1.0 - m
+    now = p_opponent_holds(obs, card) + ((pile / pool) if pool else 0.0) * (1.0 - survive)
+    now = min(1.0, now)
+    return now + (1.0 - now) * later
+
+
 def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:
     """When `card` is expected to score again, as turns from now, from the
     static period schedule and where the card is now. A live card (in a
