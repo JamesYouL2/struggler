@@ -52,7 +52,13 @@ is the importance: what the bot loses without it.
 - **`hand_assignment` (0)** -- the whole-hand allocation planner's gate.
   -0.240 [-0.262, -0.218]; the loss is a tie-break defect, not
   allocation ([the diagnosis](../claude/2026-09-23-the-planner-plays-its-hand-in-alphabetical-order.md)).
-  Measured-off; the defect is diagnosed and unremedied.
+  Measured-off. A tie-break BAND version (the plan reorders only card
+  plays within `hand_assignment` Ops of the scorer's best) read 0.1 / 0.5
+  / 1.0 at -0.008 / -0.009 / +0.004 and the exact-tie 1e-9 at -0.002
+  [-0.006, +0.003], all covering 0, nuclear rise gone (runs 36225640116,
+  36240012615). Not measurably useful; the maintainer left it off and the
+  band branch (PR #57) was closed unmerged, so on main a positive value is
+  still the original override. [Close-out](../claude/2026-09-26-the-hand-planner-stays-off.md).
 - **`space_ability` (1.0)** -- the price of each Space Race ability box
   (0 VP in the rules; the reward boxes keep their printed 2/3/4). Was
   FOUR variables (2/4/8 at 1.0, 6 at 1.5) until 2026-09-24: the knob

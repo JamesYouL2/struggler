@@ -1171,6 +1171,67 @@
         "compare_to": "ablate-base",
         "title": "ablate scoring_discount: future scoring cycles count as much as this one (0.8 -> 1.0)",
         "context": "scoring_discount is the per-turn decay on a region's future scoring mass (0.8, provenance: guess) -- the only scoring-bucket parameter never varied by any arm. Neutral here is 1.0 (no decay, every future cycle counts equally), not 0. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.6 / 0.8 / 1.0 bracket); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot separate the decay rate from the schedule it discounts -- 1.0 tests flatness, not the value of the future."
+      },
+      {
+        "slug": "planner-band-base",
+        "anchor": "bc5ef93",
+        "seeds": "132000-133023",
+        "held": "133500-133627",
+        "reserve": "133700-133827",
+        "title": "planner band: the shipped bot (hand_assignment 0) vs bc5ef93 -- the base the band arms pair against",
+        "context": "The paired base for the near-tie planner arms. At 0 the planner is not consulted and the ranking is the shipped one (parity corpus). PRE-REGISTERED 2026-09-25, before any number (full text in the note's 'near-tie band' section): each band arm is read paired against planner-band-base. (1) LB above 0 = that band beats the shipped bot. (2) Exactly one beats it -> it goes to a change gate; more than one -> the highest point estimate (the widths are an ordered scale), runner-up recorded. (3) VETO: an arm whose bot DEFCON-1 losses (both seats summed) exceed base's by more than half is not nominated whatever its score -- the failure every earlier planner variant showed. (4) None beats it: an arm with UB below 0 costs, and the planner stays off; all covering 0 means the tie-break is not measurable at this sample and the planner line waits for a real hold price (EXPERT_ASKS 6a)."
+      },
+      {
+        "slug": "planner-band-01",
+        "weights": {
+          "hand_assignment": 0.1
+        },
+        "anchor": "bc5ef93",
+        "seeds": "132000-133023",
+        "held": "133500-133627",
+        "reserve": "133700-133827",
+        "compare_to": "planner-band-base",
+        "title": "planner band 0.1 Op: near-exact ties only -- the plan breaks ties among card plays within 0.1 Op of the best",
+        "context": "The maintainer's 2026-09-25 shape: the whole-hand plan's strict preferences reorder only the card plays the scorer rates within this many Ops of its best (_plan_band); outside the band the scorer's order stands. PRE-REGISTERED 2026-09-25, before any number (full text in the note's 'near-tie band' section): each band arm is read paired against planner-band-base. (1) LB above 0 = that band beats the shipped bot. (2) Exactly one beats it -> it goes to a change gate; more than one -> the highest point estimate (the widths are an ordered scale), runner-up recorded. (3) VETO: an arm whose bot DEFCON-1 losses (both seats summed) exceed base's by more than half is not nominated whatever its score -- the failure every earlier planner variant showed. (4) None beats it: an arm with UB below 0 costs, and the planner stays off; all covering 0 means the tie-break is not measurable at this sample and the planner line waits for a real hold price (EXPERT_ASKS 6a)."
+      },
+      {
+        "slug": "planner-band-05",
+        "weights": {
+          "hand_assignment": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "132000-133023",
+        "held": "133500-133627",
+        "reserve": "133700-133827",
+        "compare_to": "planner-band-base",
+        "title": "planner band 0.5 Op: close calls -- the plan breaks ties among card plays within 0.5 Op of the best",
+        "context": "The maintainer's 2026-09-25 shape: the whole-hand plan's strict preferences reorder only the card plays the scorer rates within this many Ops of its best (_plan_band); outside the band the scorer's order stands. PRE-REGISTERED 2026-09-25, before any number (full text in the note's 'near-tie band' section): each band arm is read paired against planner-band-base. (1) LB above 0 = that band beats the shipped bot. (2) Exactly one beats it -> it goes to a change gate; more than one -> the highest point estimate (the widths are an ordered scale), runner-up recorded. (3) VETO: an arm whose bot DEFCON-1 losses (both seats summed) exceed base's by more than half is not nominated whatever its score -- the failure every earlier planner variant showed. (4) None beats it: an arm with UB below 0 costs, and the planner stays off; all covering 0 means the tie-break is not measurable at this sample and the planner line waits for a real hold price (EXPERT_ASKS 6a)."
+      },
+      {
+        "slug": "planner-band-10",
+        "weights": {
+          "hand_assignment": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "132000-133023",
+        "held": "133500-133627",
+        "reserve": "133700-133827",
+        "compare_to": "planner-band-base",
+        "title": "planner band 1 Op: a full Op of slack -- the plan breaks ties among card plays within 1.0 Op of the best",
+        "context": "The maintainer's 2026-09-25 shape: the whole-hand plan's strict preferences reorder only the card plays the scorer rates within this many Ops of its best (_plan_band); outside the band the scorer's order stands. PRE-REGISTERED 2026-09-25, before any number (full text in the note's 'near-tie band' section): each band arm is read paired against planner-band-base. (1) LB above 0 = that band beats the shipped bot. (2) Exactly one beats it -> it goes to a change gate; more than one -> the highest point estimate (the widths are an ordered scale), runner-up recorded. (3) VETO: an arm whose bot DEFCON-1 losses (both seats summed) exceed base's by more than half is not nominated whatever its score -- the failure every earlier planner variant showed. (4) None beats it: an arm with UB below 0 costs, and the planner stays off; all covering 0 means the tie-break is not measurable at this sample and the planner line waits for a real hold price (EXPERT_ASKS 6a)."
+      },
+      {
+        "slug": "planner-band-tie",
+        "weights": {
+          "hand_assignment": 1e-09
+        },
+        "anchor": "bc5ef93",
+        "seeds": "132000-133023",
+        "held": "133500-133627",
+        "reserve": "133700-133827",
+        "compare_to": "planner-band-base",
+        "title": "planner as a pure tie-breaker (hand_assignment 1e-9: exact ties only) vs bc5ef93",
+        "context": "The plan arbitrates only card plays whose scores tie to ~1e-9 Op -- the choices engine order decides today (17.5% of real card-play choices, remeasured 2026-09-25). PRE-REGISTERED 2026-09-26, before any number (full text in the note's 'exact-tie arm' section): read paired against planner-band-base. SHIP through the change gate if the paired interval covers 0 or lies above it AND the bot's DEFCON-1 losses (both seats) do not exceed base's by more than half; STAY at 0 if the upper bound is below 0 or the nuclear veto fires. A tie-break replaces an arbitrary engine-order pick, so the bar is 'not measurably worse', and the ship is a convention, not a measured gain."
       }
     ]
   }
