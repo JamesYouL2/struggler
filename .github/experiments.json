@@ -19,6 +19,32 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "oldw-base",
+      "weights": {
+        "region": 1.3,
+        "military": 1.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "reserve": "142100-142227",
+      "title": "access interaction: current code at the sweep-era weights (region 1.3, military 1.0) vs bc5ef93",
+      "context": "The base for the old-weights access effect, on the access deletion run's seeds. docs/notes/claude/2026-09-26-why-access-moved.md"
+    },
+    {
+      "slug": "oldw-access-off",
+      "weights": {
+        "region": 1.3,
+        "military": 1.0,
+        "access": 0.0
+      },
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "reserve": "142100-142227",
+      "compare_to": "oldw-base",
+      "title": "access interaction: sweep-era weights with access off vs bc5ef93",
+      "context": "Is access only load-bearing at region 2.6 / military 2.0? Rule frozen in the note: old-weights effect near -0.011 = the re-weighting made access matter; near -0.055 = bisect #52/#61. docs/notes/claude/2026-09-26-why-access-moved.md"
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",
