@@ -237,6 +237,128 @@ nothing either way about the allocation hypothesis. The tail read in
 to 3/32 at 0.25) was also taken under this defect and should not be
 quoted.
 
+## The near-tie band: the rule, written before the number (2026-09-25)
+
+Both measured failures share one mechanism, stated as a hypothesis above
+twice: `pref` sorted above the whole risk/score blend, so demoting a card
+promoted the next one whatever it cost, and USSR-seat nuclear losses
+rose with every variant. The maintainer's 2026-09-25 shape closes exactly
+that: **"consider only doing planner if strategic bot's normal decision
+is tied or close to tied."**
+
+Built on `exp/planner-near-tie` (the strict-preference lead of `935872b`,
+ported onto main, plus `_plan_band`): the plan's strict preferences
+reorder only the card plays whose safety key matches the best one's
+`certain` and risk slots and whose score is within `hand_assignment` Ops
+(at this turn's `ops_value`) of it. Outside the band the scorer's order
+stands. A band holding fewer than two options asks the planner nothing,
+which should also end the planner arms' stalls. At 0 the planner is not
+consulted and the parity corpus is unchanged.
+
+Arms, on a fresh block, anchor `bc5ef93`, paired: `planner-band-base`
+(0), `planner-band-01` (0.1 Op), `planner-band-05` (0.5 Op),
+`planner-band-10` (1 Op). Seeds `132000-133023` + held `133500-133627`,
+reserve `133700-133827` (two full spare shards an arm).
+
+THE RULE, not moved after the number:
+
+1. Each band arm's paired difference against `planner-band-base`: lower
+   bound above 0 means that band beats the shipped bot.
+2. Exactly one beats it: that width goes to a change gate. More than one:
+   the highest point estimate (the widths are an ordered scale), with the
+   runner-up's reading recorded.
+3. **Veto:** an arm whose bot DEFCON-1 losses (both seats summed) exceed
+   the base's by more than half is not nominated, whatever its score.
+   That is the failure every earlier planner variant showed.
+4. None beats it: an arm whose upper bound is below 0 costs, and the
+   planner stays off. If all cover 0, the tie-break is not measurable at
+   this sample, and the planner line waits for a real hold price
+   (EXPERT_ASKS 6a: timing an event, or sitting out a negative card past
+   the reshuffle, with `vp_swing` as the per-turn decline).
+
+What it cannot settle: whole-hand allocation. Play and hold are still
+priced the same, so the plan's only strict preferences are the headline
+and the space and UN units. This reads the plan as a tie-breaker, which
+is all it can honestly be until a hold has its own price.
+
+## The near-tie band: the reading (run 36225640116, 2026-09-26)
+
+1152 paired seeds per arm, all four complete. The interim failed open,
+correctly: base lost one wave-1 game (575 of 576), so every arm played
+wave 2 and its spares. Five shards were partial, and the spare shards
+backfilled every lost core seed (listed in `pooled.json` as `dropped` /
+`backfilled`). This is the first full run on the 64-seed, spare-shard
+pooling. The final bar is 1.678.
+
+| arm | paired diff vs base | bot nuked (US + USSR) | USSR seat |
+| --- | ---: | ---: | ---: |
+| `planner-band-base` (0) | 0.546 [0.530, 0.562] (level) | 22 + 32 = 54 | 0.499 |
+| `planner-band-01` (0.1 Op) | **-0.008 [-0.019, +0.003]** | 55 | 0.484 |
+| `planner-band-05` (0.5 Op) | **-0.009 [-0.027, +0.010]** | 44 | 0.475 |
+| `planner-band-10` (1 Op) | **+0.004 [-0.016, +0.024]** | 51 | 0.503 |
+
+**By the rule, branch 4.** No lower bound is above 0, so nothing is
+nominated. The veto has nothing to catch. All three cover 0, so the
+tie-break is not measurable at this sample, **`hand_assignment` stays 0**,
+and the planner line waits for a real hold price (EXPERT_ASKS 6a).
+
+What it does settle: **the band closed the nuclear failure.** Every
+earlier variant raised USSR-seat nuclear losses (7 -> 26, 25 -> 55). Inside
+the band they are flat or lower (44-55 against 54), and the losses of
+-0.061 and -0.240 are gone: the worst band reads -0.009. So the override
+itself was what cost. As a tie-breaker the plan is harmless, and at
++/-0.02 it is not measurably useful. The first dispatch (36219501188) died
+on every on-arm shard: arithmetic on a certain-win sentinel in
+`_plan_band`, fixed, with a regression test.
+
+## The exact-tie arm: the rule, written before the number (2026-09-26)
+
+The maintainer asked for the band as a pure tie-breaker. `hand_assignment`
+1e-9 makes the band hold only options whose scores tie to about 1e-9 Op.
+Those are the choices engine order decides today: 17.5% of real
+card-play choices in the live remeasurement. This needs no code change,
+and the base arm's shards are cached, so only `planner-band-tie` plays.
+Timed on 221 identical card-play positions, the band costs +1% per
+card-play decision at 0.1 Op and nothing at 0; an exact-tie band sits
+below that.
+
+THE RULE, not moved after the number: read `planner-band-tie` paired
+against `planner-band-base`.
+
+1. **Ship** (through the change gate) if the paired interval covers 0 or
+   lies above it, AND the bot's DEFCON-1 losses (both seats summed) do not
+   exceed the base's by more than half.
+2. **Stay at 0** if the upper bound is below 0, or if the nuclear veto
+   fires.
+
+Why the bar is "not measurably worse" rather than a gain: a tie-break
+replaces an arbitrary pick (the engine's listing order), so a principled
+preference in its place needs only to do no measurable harm. That is a
+convention, and a ship under (1) is not a measured improvement. The
+nearest measured band (0.1 Op) leaned -0.008 [-0.019, +0.003].
+
+## The exact-tie arm: the reading (run 36240012615, 2026-09-26)
+
+1152 paired seeds, complete. Seeds 132008 and 132709 never finished in
+EITHER arm (a stall in the base too, so not the planner's), and the
+spare shards backfilled both -- the pooling doing what it was built for.
+
+| arm | paired diff vs base | bot nuked (US + USSR) |
+| --- | ---: | ---: |
+| `planner-band-base` (0) | 0.546 [0.530, 0.562] (level) | 22 + 32 = 54 |
+| `planner-band-tie` (1e-9) | **-0.002 [-0.006, +0.003]** | 23 + 33 = 56 |
+
+**By the rule, branch 1**: the interval covers 0 and the veto does not
+fire, so the rule said ship through a change gate. **The maintainer
+decided otherwise on 2026-09-26: leave the planner off and close PR #57
+unmerged.** The rule's bar was "not measurably worse", a convention for
+replacing an arbitrary pick; the reading is a dead heat to +/-0.005, so
+shipping would have added a code path and a per-decision cost for no
+measured gain. `hand_assignment` stays 0 on main, where a positive value
+still means the ORIGINAL override (the band and the strict-lead fix lived
+only on `exp/planner-near-tie`). The close-out is
+[the hand planner stays off](2026-09-26-the-hand-planner-stays-off.md).
+
 ## Reproduction
 
     git worktree add ../planner origin/feat/hand-planner-assignment
