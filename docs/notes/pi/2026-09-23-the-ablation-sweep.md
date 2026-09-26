@@ -148,6 +148,31 @@ as written above, before the number:
 | `vp_base` 0.35 | -0.015 [-0.034, +0.004] | covers 0 | no move |
 | `vp_base` 0.75 | +0.001 [-0.019, +0.022] | covers 0 | no move: **the expert 0.5 stands, its first measured support** |
 
+### The tie-break: the reads (run 36057325196, read 2026-09-25)
+
+The run finished on 2026-09-24 and sat unread for a day -- the ledger
+still said `planned`. Read against the rule below, unmoved:
+
+| arm | reading | pairs |
+| --- | --- | ---: |
+| `scoring-final-tb-base` (1.0) | 0.560 [0.544, 0.576] | -- |
+| `scoring-final-tb-05` - base | +0.010 [-0.009, +0.029] | 1020 |
+| `scoring-final-tb-20` - base | -0.003 [-0.022, +0.016] | 1148 |
+
+**Branch 4 fires: neither beat replicates.** The phase-2 U was that
+block's noise, `scoring_final` stays 1.0, the nomination is withdrawn,
+and the two phase-2 clearances join the false-positive arithmetic.
+
+One defect seen live: `scoring-final-tb-05` shard 6 was killed by a
+runner shutdown signal at 35 minutes (a whole job, which no seed-level
+reserve can backfill), and the pooled report says `shards: 8, missing:
+[]` against a plan of 9 -- the Codex 2026-09-25 audit's F2 on a real
+run. It does not move this verdict (both intervals cover 0 by a margin
+four pairs cannot close); the accounting fix is queued.
+
+The four `space-race-*` arms move to `_retired`: PR #52 deleted the
+fields they name, so live they would fail the registry test.
+
 ### Space race as one knob: the reads (run 36057974080, 2026-09-24)
 
 1152 counted pairs an arm, 9 ok shards a piece -- the declared tail
