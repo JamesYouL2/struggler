@@ -14,6 +14,7 @@ One file per topic. Recent entries sit here; older ones are in
 path because `tests/test_recurring_defects.py` parses it.
 
 - [Events still to come: discount the country an event is aimed at](2026-09-26-events-still-to-come.md) — 2026-09-26
+- [The first annotated positions: 2 of 6 agree](2026-09-26-the-first-annotated-positions.md) — 2026-09-26
 - [Deleting `access`: measured, and kept](2026-09-26-deleting-access.md) — 2026-09-26
 - [The hand planner stays off](2026-09-26-the-hand-planner-stays-off.md) — 2026-09-26
 - [Drift panel on a fresh block: region 2.6 and military 2.0 hold up](2026-09-26-drift-panel-fresh-block.md) — 2026-09-26

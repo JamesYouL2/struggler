@@ -73,7 +73,7 @@ the deck**.
 | 96 | Tear Down This Wall | Late | East Germany 1.00 |
 | 101 | Solidarity | Late | Poland 1.00 |
 | 102 | Iran Iraq War | Late | Iran 0.55, Iraq 0.45 |
-| 110 | AWACS Sale to Saudis | Mid | Saudi Arabia 1.00 |
+| 110 | AWACS Sale to Saudis | Late | Saudi Arabia 1.00 |
 
 Left out by the cut: every free-Ops or choice event whose reach is wide:
 - Decolonization, Marshall Plan, Warsaw Pact, COMECON, East European
