@@ -311,6 +311,32 @@ itself was what cost. As a tie-breaker the plan is harmless, and at
 on every on-arm shard: arithmetic on a certain-win sentinel in
 `_plan_band`, fixed, with a regression test.
 
+## The exact-tie arm: the rule, written before the number (2026-09-26)
+
+The maintainer asked for the band as a pure tie-breaker. `hand_assignment`
+1e-9 makes the band hold only options whose scores tie to about 1e-9 Op.
+Those are the choices engine order decides today: 17.5% of real
+card-play choices in the live remeasurement. This needs no code change,
+and the base arm's shards are cached, so only `planner-band-tie` plays.
+Timed on 221 identical card-play positions, the band costs +1% per
+card-play decision at 0.1 Op and nothing at 0; an exact-tie band sits
+below that.
+
+THE RULE, not moved after the number: read `planner-band-tie` paired
+against `planner-band-base`.
+
+1. **Ship** (through the change gate) if the paired interval covers 0 or
+   lies above it, AND the bot's DEFCON-1 losses (both seats summed) do not
+   exceed the base's by more than half.
+2. **Stay at 0** if the upper bound is below 0, or if the nuclear veto
+   fires.
+
+Why the bar is "not measurably worse" rather than a gain: a tie-break
+replaces an arbitrary pick (the engine's listing order), so a principled
+preference in its place needs only to do no measurable harm. That is a
+convention, and a ship under (1) is not a measured improvement. The
+nearest measured band (0.1 Op) leaned -0.008 [-0.019, +0.003].
+
 ## Reproduction
 
     git worktree add ../planner origin/feat/hand-planner-assignment
