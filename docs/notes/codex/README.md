@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-25 — Correctness, next steps, and speed](2026-09-25-correctness-next-steps-speed.md) — experiment completeness, live measurement defects, active branches, and measured priorities
 - [2026-09-22 — Current state and experiment boundaries](2026-09-22-current-state-and-experiment-boundaries.md) — safety fixes verified, country rebuild shipped, pooling/stopping defects and next-step sequence
 - [2026-09-20 — Strategic bot experiment plan](2026-09-20-experiment-plan.md) — safety baseline, VP activation, runtime, hand allocation, and paired measurement protocol
 - [2026-09-20 — Technical correctness: hand-survival boundaries](2026-09-20-technical-correctness.md) — reproduced restricted-coup hazard omission and duplicate post-event transition
