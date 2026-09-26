@@ -125,9 +125,10 @@ action = bot.choose_action(observation, history)
   the measured conversion probability, and the value is shared equally among
   the routes because none is privileged. Chains --
   a battleground two steps away through a country not yet held -- counted
-  too until 2026-09-12, weighted `access_chain`; ablated alone over 128
-  seeds it was not measurably worse (0.491 +/-0.063), while being 92% of
-  the traversal `access` can do, so it was removed. Reach into a
+  too until 2026-09-12, weighted `access_chain`. Restored at 0 for the
+  2026-09-19 bisect and measured at 1024 seeds, it read 0.2 flat and 0.4 /
+  0.8 measurably worse, so the weight and its three-hop radius were deleted
+  on 2026-09-26. Reach into a
   battleground the opponent can already place in is a race they may win
   first, and is worth nothing: `access` skips it. (It was
   `access_contested` x exclusive reach, a guess at 0.25 that shipped at
@@ -317,18 +318,13 @@ action = bot.choose_action(observation, history)
 - Prices the hidden-information cards from what a card in a hand is worth
   (`hold_value`: a scoring card scores its region, anything else is played,
   so an opponent event carries its harm and a card you would rather not
-  hold is *negative*). A hold also carries its option value for the
-  flexibility of choosing its moment -- ruling 3 of
-  [the hand planner plan](notes/claude/2026-09-20-the-whole-hand-planner.md)
-  -- `weights.hold_option` times the card's Ops value, because what a hold
-  defers is the spending of its Ops. It is 0 as shipped and **stays 0**:
-  the `hold-option-*` grid (run 35753235236, 1024 paired seeds) read
-  nothing above 0 at 0.25 / 0.5 / 1.0 and a measurable loss at 1.0
-  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)). The term is stated
-  once in `hold_value`, so `value_as_held` (the planner's hold-slot price)
-  and every live hold pricing read one number; the ops-only proxies
-  (`_unseen_holds`, Ask Not's replacement draw) carry the same premium so
-  a swap compares like with like. Ask Not is the sum of the chosen
+  hold is *negative*). A hold is worth exactly its next-turn price: an
+  option premium, `hold_option` times the card's Ops, read nothing above 0
+  over the `hold-option-*` grid (run 35753235236, 1024 paired seeds) and a
+  measurable loss at 1.0
+  ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)), and was
+  deleted on 2026-09-26. `value_as_held` (the planner's hold-slot price)
+  and every live hold pricing read `hold_value`. Ask Not is the sum of the chosen
   upgrades over our hand, capped at the Action Rounds left
   (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,

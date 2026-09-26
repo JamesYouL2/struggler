@@ -955,11 +955,7 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
     bot.rank_actions(obs)
     expected = bot.event_value(obs, 'Arab_Israeli_War')
     # Force each face on a fresh sandbox and value the outcome.
-    # `potential_before` is the fifth slot, added 2026-09-21 when
-    # `_resolve_sandbox` started pricing the potential's half too. It is
-    # None at the shipped `potential` of 0, which is this bot.
-    _, countries, regions, before, potential_before = bot._event_basis
-    assert potential_before is None
+    _, countries, regions, before = bot._event_basis
     outcomes = []
     for face in range(1, 7):
         sandbox = bot.public_engine(obs)
@@ -971,8 +967,7 @@ def test_sandbox_prices_a_die_event_at_its_expectation():
         sandbox._decision_stack[-1] = replace(d, options=faces)
         sandbox.step(faces[face - 1])
         outcomes.append(bot._resolve_sandbox(sandbox, obs, 'Arab_Israeli_War', countries, regions,
-                                             before, bot._event_helper(), rolls=9,
-                                             potential_before=potential_before))
+                                             before, bot._event_helper(), rolls=9))
     assert min(outcomes) < expected < max(outcomes)
     assert abs(expected - sum(outcomes) / 6) < 1e-6
 

@@ -44,9 +44,8 @@ from typing import NamedTuple
 
 from struggler.engine import Region, Side, Subregion
 from struggler.engine.board import Board
-import math
 
-from struggler.bots.strategic.stakes import AUTO_VICTORY_VP, EUROPE_CONTROL_VP
+from struggler.bots.strategic.stakes import EUROPE_CONTROL_VP
 from struggler.engine.rules import RULES
 
 US, USSR = 0, 1
@@ -391,25 +390,6 @@ def importance(t: Terrain, w, urgency, i: int, s: int) -> float:
 FITTED_WEIGHTS_PATH = Path(__file__).resolve().parent / 'fitted_country_weights.json'
 
 
-def europe_curve_vp(us_value, ussr_value, k: float) -> float:
-    """Europe, US-signed, as `20 * tanh(x / k)`: `x` the net VP Europe would
-    score now, Control the automatic victory at exactly +/-20
-    (`AUTO_VICTORY_VP`, the maintainer's "+20, auto win"). `value_for`'s
-    None is Control. `k` (VP) is fitted to the exact potential by
-    scripts/fit_europe_curve.py: small k saturates early, so domination
-    already reads most of the way to the win.
-
-    The tiers jump from domination (7 + bonuses) to Control (40) with
-    nothing between. That is the one region a fixed country weight could
-    not describe (held-out R^2 0.63, docs/notes/claude/
-    2026-09-18-fitted-country-weights.md)."""
-    if us_value is None:
-        return AUTO_VICTORY_VP
-    if ussr_value is None:
-        return -AUTO_VICTORY_VP
-    return AUTO_VICTORY_VP * math.tanh((us_value - ussr_value) / k)
-
-
 @functools.lru_cache(maxsize=None)
 def _fitted_table(ids: tuple[str, ...]) -> tuple[tuple[float, ...], tuple[float, ...]]:
     """`a[s][i]`, from `fitted_country_weights.json` (beside this module): VP of future
@@ -616,19 +596,11 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     `route_weight` for the conversion model and `conversion_p` above for why
     the decay is a function of stability rather than one constant.
 
-    Chains -- a battleground two steps away through a country not yet held
-    (Israel -> Egypt -> Libya, Iran -> Pakistan -> India) -- count when
-    `access_chain` is set, discounted by it. The term was removed on
-    2026-09-12 as "not measurably worse" at 109 seeds, and the 2026-09-19
-    bisect put a step of 0.050 at exactly the commit that did it
-    (docs/notes/claude/2026-09-19-bisect-v0.2.1.md). It is restored here as a
-    weight at 0.0 -- bit-identical to the shipped path, since the loop does
-    not run -- so an arm can measure it at 1024 seeds instead of 109.
-
-    The chain reads influence three hops from `i`, so a bot that sets it must
-    widen the dependents radius to match: `value_radius(w)`, not
-    `VALUE_RADIUS`. That coupling is the reason the term was expensive, and
-    it is bug shape 1 if it is ever forgotten.
+    (Chains -- a battleground two steps away through a country not yet held
+    -- were a term, `access_chain`, until 2026-09-26. Restored at 0 after the
+    2026-09-19 bisect and measured at 1024 seeds: 0.2 flat, 0.4 and 0.8
+    measurably worse (docs/notes/claude/2026-09-19-bisect-v0.2.1.md), so
+    deleted with its three-hop radius.)
     """
     other = 1 - s
     inf_s = pos.inf[s]
@@ -636,7 +608,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     battleground, stability, neighbors = t.battleground, t.stability, t.neighbors
     home = t.home[s]
     first = neighbors[i]
-    first_set = t.neighbor_set[i]
     # Locals, not globals/attributes, in the neighbour loop: the same floats,
     # fewer lookups per battleground. A native port takes these as precomputed
     # vectors wholesale.
@@ -649,7 +620,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
     # bug shape 6. With the scale at 0 the argument changes nothing.
     importance_fn = importance
     access_decay = w.access_decay
-    access_chain = w.access_chain
     total = 0.
     for n in first:
         # A contested battleground -- one the opponent can already place in
@@ -686,23 +656,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
                 routes += 1      # already standing in it, not merely reaching
             weight = route_w(stability[n], access_decay, routes)
             total += weight * importance_fn(t, w, urgency, n, s) / stability[n]
-        if not access_chain:
-            continue
-        # THE CHAIN, one step further: a battleground reachable only through
-        # `n`, which nobody holds yet. Skipped when it is already reachable
-        # from somewhere we stand, when the opponent can already place in it
-        # (the same rule the first loop applies), and when it is a neighbour
-        # of `i` -- the first loop priced that one exactly.
-        if inf_s[n] > 0 or control[n] == other:
-            continue  # already ours to build from, or not a step we take
-        for m in neighbors[n]:
-            if (not battleground[m] or m == i or m in first_set
-                    or control[m] == s or inf_s[m] > 0 or m in home
-                    or reach_them[m]):
-                continue
-            if any(inf_s[k] > 0 for k in neighbors[m]):
-                continue  # reachable directly from somewhere already
-            total += access_chain * importance_fn(t, w, urgency, m, s) / stability[m]
     return total
 
 
@@ -725,17 +678,6 @@ def access(t: Terrain, pos: Position, i: int, s: int, w, urgency) -> float:
 # and it enforces it in the dangerous direction, since a radius that is too
 # SMALL silently serves stale values while one too large is merely slow.
 VALUE_RADIUS = 2
-
-# The chain restored on 2026-09-19 walks one hop further, so a bot that sets
-# `access_chain` reads three steps out and must say so. Ask this, never the
-# constant, wherever a weights object is in hand.
-VALUE_RADIUS_CHAIN = 3
-
-
-def value_radius(w) -> int:
-    """How far `country_value` reads under these weights: three steps with
-    the `access_chain` loop on, two without it."""
-    return VALUE_RADIUS_CHAIN if w.access_chain else VALUE_RADIUS
 
 
 def dependents(t: Terrain, changed, radius: int = VALUE_RADIUS) -> set[int]:
@@ -843,8 +785,7 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
               ignored: frozenset[int] = frozenset(),
-              europe_control_vp: float = EUROPE_CONTROL_VP,
-              europe_curve: float = 0.0) -> float:
+              europe_control_vp: float = EUROPE_CONTROL_VP) -> float:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
@@ -853,9 +794,6 @@ def region_vp(t: Terrain, pos: Position, region: Region,
     is an immediate win, not a card outcome -- so it stands in as
     `europe_control_vp`, the game's 40 VP swing unless a caller prices it
     otherwise (`StrategicWeights.europe_control_vp`, for experiments).
-
-    `europe_curve` > 0 prices Europe as one continuous curve instead
-    (`europe_curve_vp`): the tiers' step to Control becomes a slope.
     """
     presence_vp, domination_vp, control_vp = t.scoring_vp[region]
     control, battleground, home = pos.control, t.battleground, t.home
@@ -886,8 +824,6 @@ def region_vp(t: Terrain, pos: Position, region: Region,
             return presence_vp + bonus
         return bonus
 
-    if europe_curve and region is Region.EUROPE:
-        return europe_curve_vp(value_for(US), value_for(USSR), europe_curve)
     us_value = value_for(US)
     if us_value is None:
         return europe_control_vp
@@ -936,5 +872,5 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     region_vp_fn = region_vp
     return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
-                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp, w.europe_curve))
+                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp))
                                 for region in Region)))

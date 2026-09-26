@@ -10,7 +10,6 @@ tests pin what the fit means, and that the tiers cannot come back.
 """
 import dataclasses
 import json
-import math
 import pathlib
 import re
 
@@ -135,33 +134,6 @@ def test_europe_control_is_priced_at_the_weight(price):
     assert StrategicWeights().europe_control_vp == 40.0
     fields = {f.name for f in dataclasses.fields(StrategicWeights)}
     assert {'country_vp_scale', 'europe_control_vp'} <= fields
-
-
-def test_the_europe_curve_is_continuous_monotone_and_reaches_the_auto_win_only_at_control():
-    # 20*tanh(x/k): odd, increasing, strictly inside +/-20 for any score
-    # short of Control, and exactly +/-20 at Control (value_for's None).
-    k = 10.0
-    xs = [x / 2 for x in range(-30, 31)]
-    ys = [ev.europe_curve_vp(x, 0, k) for x in xs]
-    assert all(b > a for a, b in zip(ys, ys[1:], strict=False))
-    assert all(abs(y) < ev.AUTO_VICTORY_VP for y in ys)
-    assert ev.europe_curve_vp(3, 3, k) == 0
-    assert ev.europe_curve_vp(None, 5, k) == ev.AUTO_VICTORY_VP == 20.0
-    assert ev.europe_curve_vp(4, None, k) == -20.0
-
-
-def test_the_europe_curve_prices_only_europe_and_off_is_the_tiers():
-    engine = bare_engine()
-    t = ev.terrain()
-    for c in ('France', 'Italy', 'West_Germany', 'Panama', 'Iran'):
-        engine.board.influence[c]['US'] = 5
-    pos = ev.Position(t).sync(engine.board)
-    tiers = ev.region_vp(t, pos, Region.EUROPE)
-    assert ev.region_vp(t, pos, Region.EUROPE, europe_curve=10.0) == pytest.approx(
-        20 * math.tanh(tiers / 10.0))
-    for region in (Region.CENTRAL_AMERICA, Region.MIDDLE_EAST):
-        assert ev.region_vp(t, pos, region, europe_curve=10.0) == ev.region_vp(t, pos, region)
-    assert StrategicWeights().europe_curve == 0.0
 
 
 def test_the_guessed_tiers_are_gone_and_cannot_come_back():
