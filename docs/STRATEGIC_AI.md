@@ -181,11 +181,14 @@ action = bot.choose_action(observation, history)
   access terms. The Southeast Asia tier and the realignment-leverage term
   were removed in Sept 2026: the scoring weights and access express both.
 - Coups and realignments are priced on the same board change as placing
-  influence (`delta`), then multiplied by `coup_discount` (0.9): they are
-  the less Ops-efficient route to the same result (a coup on a
-  2-stability country gives up a point of margin to the roll) and random
-  where placement is certain, so placement is generally preferred.
-  Military Ops are still credited to a coup.
+  influence (`delta`), averaged over every roll: that expectation already
+  carries their costs -- a coup on a 2-stability country gives up a point
+  of margin to the roll, and a failed roll prices at what it changes.
+  Military Ops are still credited to a coup. (`coup_discount`, a further
+  0.9 on both for the roll and the Ops efficiency, was a guess the pi
+  weights scorecard read at -0.005 [-0.025, +0.015]; it was deleted on
+  2026-09-26 and its deletion is measured by the `coup-flat` arms,
+  docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md.)
 - VP per Op is the quantity the influence search maximises (`influence`
   returns gain per Op spent, including the doubled cost under enemy
   control), so 1- and 2-stability countries, which reach control for the

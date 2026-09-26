@@ -652,18 +652,6 @@
         "context": "bucket 5 prices every region at its measured odds of appearing in final scoring; 0 restores the old behaviour, which priced the last turns as if the game ran for ever. Games end before turn 10 about 70% of the time here. Prior evidence is one wide anchored off arm. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep; covers 0 -> deletion candidate by the region-margin precedent. Cannot separate the odds (measured) from the bucket structure (a design)."
       },
       {
-        "slug": "ablate-coup-discount",
-        "weights": {
-          "coup_discount": 1.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate coup_discount: coups and realignments undiscounted (0.9 -> 1.0)",
-        "context": "coup_discount prices a coup or realignment against the same board change as placing, then discounts it for the roll and the poorer Ops efficiency (0.9, provenance: guess). coup-discount-flat (1.0) split its halves 0.516 / 0.422 at 128+64 and the note says a re-run could settle it. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.8 / 0.9 / 1.0); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot distinguish a useless discount from coups mispriced elsewhere in the coup term."
-      },
-      {
         "slug": "ablate-military",
         "weights": {
           "military": 0.0
@@ -1232,6 +1220,18 @@
         "compare_to": "planner-band-base",
         "title": "planner as a pure tie-breaker (hand_assignment 1e-9: exact ties only) vs bc5ef93",
         "context": "The plan arbitrates only card plays whose scores tie to ~1e-9 Op -- the choices engine order decides today (17.5% of real card-play choices, remeasured 2026-09-25). PRE-REGISTERED 2026-09-26, before any number (full text in the note's 'exact-tie arm' section): read paired against planner-band-base. SHIP through the change gate if the paired interval covers 0 or lies above it AND the bot's DEFCON-1 losses (both seats) do not exceed base's by more than half; STAY at 0 if the upper bound is below 0 or the nuclear veto fires. A tie-break replaces an arbitrary engine-order pick, so the bar is 'not measurably worse', and the ship is a convention, not a measured gain."
+      },
+      {
+        "slug": "ablate-coup-discount",
+        "weights": {
+          "coup_discount": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate coup_discount: coups and realignments undiscounted (0.9 -> 1.0)",
+        "context": "coup_discount prices a coup or realignment against the same board change as placing, then discounts it for the roll and the poorer Ops efficiency (0.9, provenance: guess). coup-discount-flat (1.0) split its halves 0.516 / 0.422 at 128+64 and the note says a re-run could settle it. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it (0.8 / 0.9 / 1.0); covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot distinguish a useless discount from coups mispriced elsewhere in the coup term."
       }
     ]
   }

@@ -595,11 +595,15 @@ class StrategicWeights:
     # `Engine._grant_space_ability` pops the effect when the opponent
     # draws level, so a box they have already reached grants nothing.
     space_ability: float = 1.0
-    # A coup or realignment is priced on the same board change as placing
-    # influence, then discounted: it is the less Ops-efficient route to the
-    # same result (a coup on a 2-stability country loses a point of margin
-    # to the roll), and it is random where placement is certain.
-    coup_discount: float = 0.9
+    # (`coup_discount` stood here until 2026-09-26. It multiplied a coup's
+    # or realignment's expected board change by 0.9 for the roll and the
+    # poorer Ops efficiency -- a guess, and one both of those already
+    # price: the dice enumerate every outcome, including a failed or
+    # inefficient coup, and the pi weights scorecard read it at -0.005
+    # [-0.025, +0.015], covering zero. A coup or realignment is now worth
+    # its expected board change, undiscounted. Its deletion is measured by
+    # the `coup-flat` arms; docs/notes/claude/
+    # 2026-09-26-deleting-scoring-rival-and-coup-discount.md.)
     # Half-action-round forward search: whether the opponent is assumed to
     # answer a placement plan at all, and how their answer's budget is
     # chosen. See `_survives_reply` -- a break that does not take control
@@ -2172,7 +2176,6 @@ class StrategicPlayer:
         gain = 0.0
         for removed, gained in coup_outcomes(ops, info.stability, enemy, mod):
             gain += self.delta(obs, cid, own=gained, opp=-removed) / 6
-        gain *= self.weights.coup_discount
         if military:
             gain += self.military_credit(obs, ops, obs.military_ops.get(obs.side.key, 0), obs.defcon)
         # Yuri and Samantha pays the USSR 1 VP per US Coup attempt for the
@@ -2198,7 +2201,7 @@ class StrategicPlayer:
                     outcomes[margin] = self.delta(obs, cid, own=min(0, margin), opp=-max(0, margin)) / 36
                 # Keep the original addition order (and floating-point ties).
                 total += outcomes[margin]
-        return total * self.weights.coup_discount
+        return total
 
     def _public_event_value(self, obs: Observation, cid: str) -> float:
         """Simulate a whitelisted event in an idle sandbox and value the change.
