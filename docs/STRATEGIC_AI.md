@@ -325,8 +325,13 @@ action = bot.choose_action(observation, history)
   over the `hold-option-*` grid (run 35753235236, 1024 paired seeds) and a
   measurable loss at 1.0
   ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)), and was
-  deleted on 2026-09-26. `value_as_held` (the planner's hold-slot price)
-  and every live hold pricing read `hold_value`. Ask Not is the sum of the chosen
+  deleted on 2026-09-26. Every live hold pricing reads `hold_value`. (The
+  turn-assignment hand planner -- `hand_planner.py`, gated by
+  `hand_assignment` and off since it was measured six ways -- was deleted
+  on 2026-09-27 with its hooks: `hand_plan`, `hand_prices`, `_plan_pref`,
+  `space_picks` and `value_as_held`, its hold-slot price.
+  [Why it stayed off](notes/claude/2026-09-26-the-hand-planner-stays-off.md);
+  PR #57's branch `exp/planner-near-tie` keeps the fixed version.) Ask Not is the sum of the chosen
   upgrades over our hand, capped at the Action Rounds left
   (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,
@@ -473,8 +478,10 @@ neighbour left it stale, and the same position scored differently depending
 on what had been evaluated first: 39 of 598 corpus rankings changed when the
 memo was bypassed. A function that owns no state cannot do that.
 
-**Factor 1 prototype.** `bots/strategic/forecast.py` is the rebuild's first
-deliverable and is not wired into any ranking: one region's expected scoring
+**Factor 1 prototype.** `fitting/forecast.py` is the rebuild's first
+deliverable and is not wired into any ranking (with `fitting/valuation.py`
+it moved out of `bots/strategic/` on 2026-09-27: offline fitting tooling
+the bot never imports, gated by `tests/test_fitting_boundary.py`): one region's expected scoring
 payout (Africa first) as country bonuses plus a tier term computed once per
 region, with per-country values derived as potential differences. Its
 docstring answers the rebuild README's five questions; `tests/test_forecast.py`
@@ -622,8 +629,11 @@ The shipped scale is **2.795, not the file's `matched_scale`**
 (2.7949857573867254): 2.795 is the truncation every arm was dispatched
 with, and rankings are decided by strict comparison.
 
-`europe_control_vp` (40, the whole track) is Europe Control's price in the
-region term. The board fact `Terrain.battleground` is a rule and is
+`stakes.EUROPE_CONTROL_VP` (40, the whole track) is Europe Control's price
+in the region term. It was also a weight, `europe_control_vp`, until
+2026-09-27, when it was folded into the constant: rules-exact, and 20 and 60
+both measured worse. (`space_ability`, the 1 VP price of a Space Race ability
+box, was folded into `_space_expected_vp` the same day.) The board fact `Terrain.battleground` is a rule and is
 untouched by any of this. See
 `docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md` and
 `docs/notes/claude/2026-09-18-fitted-country-weights.md`.

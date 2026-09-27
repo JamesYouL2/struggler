@@ -129,7 +129,8 @@ have been right: on the last action round, holding a scoring card, where
 playing some *other* card wins outright. The rules let you play the winner
 and win before the check; here the scoring card is the only option offered.
 
-The bot carries the loss value regardless (`value_as_held` returns the
-certain-loss flag for a scoring card), so a hand planner's objective and
-the engine's legality agree rather than the objective relying on the
-engine to refuse.
+The bot does not price a hold of a scoring card at all: nothing in the
+live ranking plans past the turn end. (`value_as_held` carried the
+certain-loss flag for one, so the hand planner's objective and the
+engine's legality agreed; both were deleted on 2026-09-27, and a future
+planner that reasons about holds must restore that flag.)

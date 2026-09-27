@@ -4,8 +4,8 @@ The rebuild's schedule half: from the public deck state (`public_cards`),
 every future scoring opportunity as a reporting category -- this turn, later
 this cycle, later cycles, final scoring -- with explicit timing and an
 explicit occurrence mass. A scoring opportunity is (region payout, bucket) or
-the Southeast Asia card; the payout half (`forecast`) prices the board if it
-pays, this module says when it can pay and how likely that is.
+the Southeast Asia card; the payout half (`struggler.fitting.forecast`)
+prices the board if it pays, this module says when it can pay and how likely that is.
 
 Occurrence mass, deck-math version -- every number below is documented where
 it is assumed, because the September proposal's failure mode was silent means

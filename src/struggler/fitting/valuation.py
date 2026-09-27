@@ -43,7 +43,7 @@ from __future__ import annotations
 from struggler.engine import Observation, Region, Side
 from struggler.engine.core import SCORING_CARD_REGION
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic import forecast as fcst
+from struggler.fitting import forecast as fcst
 from struggler.bots.strategic import schedule as sch
 
 

@@ -784,16 +784,16 @@ def scoring_overrides(t: Terrain, pos: Position, region: Region, *,
 
 def region_vp(t: Terrain, pos: Position, region: Region,
               extra_battlegrounds: frozenset[int] = frozenset(),
-              ignored: frozenset[int] = frozenset(),
-              europe_control_vp: float = EUROPE_CONTROL_VP) -> float:
+              ignored: frozenset[int] = frozenset()) -> float:
     """Net VP for the US from scoring `region` now: `Board.score_region` over
     the snapshot's control vector, with the same scoring overrides (as country
     indices rather than names).
 
     Europe's Control tier has no scoring value -- controlling all of Europe
     is an immediate win, not a card outcome -- so it stands in as
-    `europe_control_vp`, the game's 40 VP swing unless a caller prices it
-    otherwise (`StrategicWeights.europe_control_vp`, for experiments).
+    `EUROPE_CONTROL_VP`, the game's 40 VP swing. (It was a parameter fed by
+    `StrategicWeights.europe_control_vp` until 2026-09-27, so experiments
+    could price it otherwise; 20 and 60 both measured worse.)
     """
     presence_vp, domination_vp, control_vp = t.scoring_vp[region]
     control, battleground, home = pos.control, t.battleground, t.home
@@ -826,10 +826,10 @@ def region_vp(t: Terrain, pos: Position, region: Region,
 
     us_value = value_for(US)
     if us_value is None:
-        return europe_control_vp
+        return EUROPE_CONTROL_VP
     ussr_value = value_for(USSR)
     if ussr_value is None:
-        return -europe_control_vp
+        return -EUROPE_CONTROL_VP
     return us_value - ussr_value
 
 
@@ -872,5 +872,5 @@ def board_value(t: Terrain, pos: Position, s: int, w, urgency, overrides=None) -
     region_vp_fn = region_vp
     return (sum(country_value_fn(t, pos, i, s, w, urgency) for i in range(len(t.ids)))
             + region_potential(t, w, urgency,
-                               ((region, sign * region_vp_fn(t, pos, region, *ov(region), w.europe_control_vp))
+                               ((region, sign * region_vp_fn(t, pos, region, *ov(region)))
                                 for region in Region)))
