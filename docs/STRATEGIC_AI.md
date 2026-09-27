@@ -325,8 +325,13 @@ action = bot.choose_action(observation, history)
   over the `hold-option-*` grid (run 35753235236, 1024 paired seeds) and a
   measurable loss at 1.0
   ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)), and was
-  deleted on 2026-09-26. `value_as_held` (the planner's hold-slot price)
-  and every live hold pricing read `hold_value`. Ask Not is the sum of the chosen
+  deleted on 2026-09-26. Every live hold pricing reads `hold_value`. (The
+  turn-assignment hand planner -- `hand_planner.py`, gated by
+  `hand_assignment` and off since it was measured six ways -- was deleted
+  on 2026-09-27 with its hooks: `hand_plan`, `hand_prices`, `_plan_pref`,
+  `space_picks` and `value_as_held`, its hold-slot price.
+  [Why it stayed off](notes/claude/2026-09-26-the-hand-planner-stays-off.md);
+  PR #57's branch `exp/planner-near-tie` keeps the fixed version.) Ask Not is the sum of the chosen
   upgrades over our hand, capped at the Action Rounds left
   (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,

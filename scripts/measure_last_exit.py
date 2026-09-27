@@ -96,7 +96,7 @@ def main(argv=None) -> int:
                         help='whole-hand risk that counts as no exit (default 1.0, certain)')
     parser.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) // 2))
     parser.add_argument('--bot-weights', default='',
-                        help='StrategicWeights fields as JSON, e.g. \'{"hand_assignment": 1.0}\' '
+                        help='StrategicWeights fields as JSON, e.g. \'{"reply_coup": 0.0}\' '
                              '-- the before/after of a gate. Strict: an unknown field is an error, '
                              'not a silent copy of the base.')
     args = parser.parse_args(argv)
