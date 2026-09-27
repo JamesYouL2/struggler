@@ -2812,6 +2812,97 @@
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
+    },
+    {
+      "id": "ed-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d07",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.7
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d04",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.4
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-025-d07",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.25,
+        "event_decay": 0.7
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
     }
   ]
 }

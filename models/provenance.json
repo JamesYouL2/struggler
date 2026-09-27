@@ -40,6 +40,12 @@
       "determination": "bounded",
       "note": "OFF as shipped, 2026-09-26. The maintainer's rule: a country an event still to come is aimed at is worth less (Vietnam < Laos while Vietnam Revolts is live, South Korea < North Korea, Egypt < Libya), Mid and Late War cards counted before they enter. The shares are derived from the engine's own events (scripts/probe_event_exposure.py -> event_exposure.json); the weight is unmeasured until its arm. Measured 2026-09-26 (run 36270091127, 1024 seeds vs bc5ef93): 0.1 -0.005 [-0.026, +0.017], 0.25 -0.021 [-0.044, +0.001], 0.5 -0.058 [-0.082, -0.035] -- monotone worse with weight; stays 0 unless the maintainer takes 0.1 on the position-suite evidence."
     },
+    "event_decay": {
+      "value": 1.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Per-turn weight on how soon an event still to come fires, for the event_exposure discount (public_cards.p_event_fires). 1.0 = undecayed, the path event_exposure was measured on; inert while event_exposure is 0. Added 2026-09-26 (maintainer: weigh distant events less) for its arm."
+    },
     "region": {
       "value": 2.6,
       "source": "gate",
@@ -276,7 +282,7 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 13,
+      "guess": 14,
       "gate": 12,
       "measured": 9,
       "derived": 3,
@@ -285,7 +291,7 @@
     "counts_by_determination": {
       "underdetermined": 5,
       "bounded": 19,
-      "inert": 3,
+      "inert": 4,
       "overdetermined": 2,
       "determined": 11,
       "known-wrong": 1

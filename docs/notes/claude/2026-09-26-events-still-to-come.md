@@ -183,3 +183,41 @@ play, not noise at this size, and it does not buy strength.
 (1) and (2) are each a small code change, and each can be tested on the
 annotated positions first, which cost seconds, before an arm. The suite
 now reads 4 of 6 with the term on; any variant must keep that.
+
+## Weighing distant events less: the rule, before the number (2026-09-26)
+
+The maintainer chose hypothesis 2 to test first. `StrategicWeights.event_decay`
+weighs each route by which a card can first reach a hand by `decay ** turns
+from now` (`public_cards.p_event_fires`). A card in a hand now is weighed at
+decay^0; pile deal k at decay^(k+1); recycled deals from the reshuffle turn;
+a future-war card from its war's entry. So a Late War target on turn 1 weighs
+decay^7. 1.0 is the undecayed path, and the parity corpus is exact at it. On
+the annotated positions every weight and decay tried (0.25-1.0 x 1.0-0.4)
+keeps the 4 of 6: their events are near, and decay strips only the distant
+part.
+
+Arms against **`v0.6.0`** (the anchor for new arms since #69), 1024 seeds
+on the fresh block 149000-150023, reserve 150100-150227, waves off, each
+`compare_to` `ed-base`:
+
+- `ed-base`: `event_exposure` 0;
+- `ed-05-d10`: 0.5, undecayed (the reference, remeasured here: -0.058 on
+  bc5ef93);
+- `ed-05-d07`: 0.5, decay 0.7;
+- `ed-05-d04`: 0.5, decay 0.4;
+- `ed-025-d07`: 0.25, decay 0.7.
+
+THE RULE, not moved after the number:
+
+1. **Nomination**, as before. A decayed arm whose paired lower bound
+   against `ed-base` is above 0 goes to a change gate (the highest
+   estimate if several clear). An arm whose bot DEFCON-1 losses exceed the
+   base's by more than half is vetoed.
+2. **The hypothesis**, read seed by seed across arms, the way the access
+   interaction was: `ed-05-d07 - ed-05-d10` and `ed-05-d04 - ed-05-d10`.
+   If either interval lies above 0, distance is part of the cost
+   (hypothesis 2 supported). If both cover 0, decay does not explain it,
+   and hypothesis 1 (discount holding, not just investing) is next.
+3. **No nomination, but the cost is recovered** (decayed arms cover 0 while
+   `ed-05-d10` is below 0): the term is safe at that setting and still
+   flips the positions, which makes it the maintainer's call, as 0.1 was.

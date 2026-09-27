@@ -340,7 +340,7 @@ def post_reshuffle_deal_masses(obs: Observation) -> tuple[float, ...]:
 
 
 
-def p_event_fires(obs: Observation, card: str) -> float:
+def p_event_fires(obs: Observation, card: str, decay: float = 1.0) -> float:
     """P(`card` is played -- so its event fires -- before the game ends),
     from public information alone: the same deck arithmetic the scoring
     schedule uses (`schedule.opportunities`), for any card.
@@ -361,7 +361,16 @@ def p_event_fires(obs: Observation, card: str) -> float:
       enters before the game ends, the scoring schedule's flat convention
       for a card not yet in any deck. The maintainer's rule (2026-09-26) is
       that such cards count BEFORE they enter; this is how.
+
+    `decay` below 1 weighs a firing by how soon it comes: each way the card
+    can first reach a hand is weighted by `decay ** turns-from-now` -- in
+    their hand or ours now, 0; pile deal k, k + 1 (`deck_walk`); a recycled
+    deal, the reshuffle turn onward; a future card, its war's entry turn.
+    A Late War event on turn 1 is seven turns off and weighs `decay ** 7`.
+    At 1.0 (the default) this is the undecayed probability, exactly.
     """
+    if decay != 1.0:
+        return _p_event_fires_decayed(obs, card, decay)
     state = card_state(obs, card)
     if state in ('removed', 'china'):
         return 0.0
@@ -386,6 +395,39 @@ def p_event_fires(obs: Observation, card: str) -> float:
     now = p_opponent_holds(obs, card) + ((pile / pool) if pool else 0.0) * (1.0 - survive)
     now = min(1.0, now)
     return now + (1.0 - now) * later
+
+
+def _p_event_fires_decayed(obs: Observation, card: str, decay: float) -> float:
+    """`p_event_fires` with each route weighted by `decay ** turns-from-now`;
+    see there. Same deck arithmetic, walked per deal instead of summed."""
+    state = card_state(obs, card)
+    if state in ('removed', 'china'):
+        return 0.0
+    if state == 'hand':
+        return 1.0
+    horizon = turns_to_final_scoring(obs)
+    if state == 'future':
+        entry = entry_turn(CARDS[card]) - obs.turn
+        return decay ** entry if entry <= horizon else 0.0
+    reshuffle = turns_to_reshuffle(obs)
+    later = 0.0  # the recycled deals, weighted, conditional on the discard
+    if reshuffle <= horizon:
+        survive = 1.0
+        for j, m in enumerate(post_reshuffle_deal_masses(obs)):
+            later += survive * m * decay ** (reshuffle + j)
+            survive *= 1.0 - m
+    if state == 'discard':
+        return later
+    theirs, pile = unseen_split(obs)
+    pool = theirs + pile
+    p_opp = p_opponent_holds(obs, card)
+    p_pile = (pile / pool) if pool else 0.0
+    dealt, survive = 0.0, 1.0
+    for k, m in enumerate(cycle_deal_masses(obs)):
+        dealt += survive * m * decay ** (k + 1)
+        survive *= 1.0 - m
+    now = min(1.0, p_opp + p_pile * (1.0 - survive))  # undecayed: what did land this cycle
+    return min(1.0, p_opp + p_pile * dealt) + (1.0 - now) * later
 
 
 def scoring_schedule(obs: Observation, card: str) -> tuple[int, ...]:

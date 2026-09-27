@@ -429,6 +429,14 @@ class StrategicWeights:
     # own events by scripts/probe_event_exposure.py). 0 as shipped: nothing
     # is computed and the path is exact. An arm prices it.
     event_exposure: float = 0.0
+    # How much a distant event counts toward that discount: each way a card
+    # can first reach a hand is weighted by `event_decay ** turns-from-now`
+    # (`public_cards.p_event_fires`), so a Late War event on turn 1 -- seven
+    # turns off -- weighs `event_decay ** 7`. At 0 exposure 0.5 cost -0.058
+    # while its Early War discounts of Late War targets ran all game; this
+    # asks whether nearer events are the part worth pricing (maintainer,
+    # 2026-09-26). 1.0 is undecayed: the path `event_exposure` was measured on.
+    event_decay: float = 1.0
     # The per-route share of the capped geometric aggregate for k routes into
     # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
     # redundant route however many there were.
@@ -703,7 +711,8 @@ class StrategicWeights:
 #
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
-UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hand_assignment', 'event_exposure')
+UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hand_assignment', 'event_exposure',
+                   'event_decay')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -956,8 +965,9 @@ class StrategicPlayer:
         if not weight:
             return None
         cards = {card for card, _ in ev._exposure_rows(self._terrain.ids)}
+        decay = self.weights.event_decay
         return ev.event_discount(self._terrain, weight,
-                                 {card: pc.p_event_fires(obs, card) for card in cards})
+                                 {card: pc.p_event_fires(obs, card, decay) for card in cards})
 
     def _urgency_vector(self) -> tuple[float, ...]:
         """The prepared scoring weights, or all ones for a bare evaluation
