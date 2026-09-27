@@ -800,6 +800,45 @@
         "compare_to": "scoring-final-tb-base",
         "title": "scoring_final tie-break: the high side (2.0 vs 1.0)",
         "context": "The double-price -- phase 2's other clearance (+0.023 [+0.004, +0.043]), and the more balanced seat split (0.610/0.487 against 0.5's 0.634/0.470). THE RULE is the three-arm tree in docs/notes/pi/2026-09-23-the-ablation-sweep.md, frozen: LB above 0 vs base means the beat replicates; only one replicates -> it ships to the gate; both -> 0.5 by convention unless THIS arm reads strictly higher while 0.5 covers 0; neither -> 1.0 stays and the nomination is withdrawn."
+      },
+      {
+        "slug": "mcts-leaf100",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0,
+          "leaf_scale": 100.0
+        },
+        "seeds": "152000-152511",
+        "reserve": "152600-152663",
+        "shard": 32,
+        "title": "MCTS h1 AR1 guarded, leaf tanh(x/100) (the shipped temperature), vs HEAD's strategic bot",
+        "context": "Leaf temperature (maintainer, 2026-09-27): the win-probability fit on 1500 held-out self-play games found tanh(leaf/100) about five times too steep; tanh(leaf/500) fits (docs/notes/claude/2026-09-27-win-probability-fit-held-out.md). THE RULE, written before the number: read mcts-leaf500 minus mcts-leaf100, paired by seed, one-sided 95%. LB above 0 -> the fitted temperature plays better; 500 becomes the MCTS default. UB below 0 -> it plays worse; the fit's calibration does not transfer to search. Covers 0 -> no measured effect at 512. Veto either way: DEFCON-1 losses for the searching side more than 1.5x mcts-leaf100's."
+      },
+      {
+        "slug": "mcts-leaf500",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0,
+          "leaf_scale": 500.0
+        },
+        "seeds": "152000-152511",
+        "reserve": "152600-152663",
+        "shard": 32,
+        "compare_to": "mcts-leaf100",
+        "title": "MCTS h1 AR1 guarded, leaf tanh(x/500) (the fitted temperature), vs HEAD's strategic bot",
+        "context": "Leaf temperature (maintainer, 2026-09-27): the win-probability fit on 1500 held-out self-play games found tanh(leaf/100) about five times too steep; tanh(leaf/500) fits (docs/notes/claude/2026-09-27-win-probability-fit-held-out.md). THE RULE, written before the number: read mcts-leaf500 minus mcts-leaf100, paired by seed, one-sided 95%. LB above 0 -> the fitted temperature plays better; 500 becomes the MCTS default. UB below 0 -> it plays worse; the fit's calibration does not transfer to search. Covers 0 -> no measured effect at 512. Veto either way: DEFCON-1 losses for the searching side more than 1.5x mcts-leaf100's."
       }
     ],
   "_retired": {
@@ -1604,45 +1643,6 @@
         "shard": 32,
         "title": "MCTS h1 AR1, safe root + leaf risk + confidence 2, vs HEAD's strategic bot",
         "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
-      },
-      {
-        "slug": "mcts-leaf100",
-        "search": {
-          "simulations": 96,
-          "horizon": 1,
-          "rounds": [
-            1
-          ],
-          "safe_root": true,
-          "leaf_risk": true,
-          "confidence": 2.0,
-          "leaf_scale": 100.0
-        },
-        "seeds": "152000-152511",
-        "reserve": "152600-152663",
-        "shard": 32,
-        "title": "MCTS h1 AR1 guarded, leaf tanh(x/100) (the shipped temperature), vs HEAD's strategic bot",
-        "context": "Leaf temperature (maintainer, 2026-09-27): the win-probability fit on 1500 held-out self-play games found tanh(leaf/100) about five times too steep; tanh(leaf/500) fits (docs/notes/claude/2026-09-27-win-probability-fit-held-out.md). THE RULE, written before the number: read mcts-leaf500 minus mcts-leaf100, paired by seed, one-sided 95%. LB above 0 -> the fitted temperature plays better; 500 becomes the MCTS default. UB below 0 -> it plays worse; the fit's calibration does not transfer to search. Covers 0 -> no measured effect at 512. Veto either way: DEFCON-1 losses for the searching side more than 1.5x mcts-leaf100's."
-      },
-      {
-        "slug": "mcts-leaf500",
-        "search": {
-          "simulations": 96,
-          "horizon": 1,
-          "rounds": [
-            1
-          ],
-          "safe_root": true,
-          "leaf_risk": true,
-          "confidence": 2.0,
-          "leaf_scale": 500.0
-        },
-        "seeds": "152000-152511",
-        "reserve": "152600-152663",
-        "shard": 32,
-        "compare_to": "mcts-leaf100",
-        "title": "MCTS h1 AR1 guarded, leaf tanh(x/500) (the fitted temperature), vs HEAD's strategic bot",
-        "context": "Leaf temperature (maintainer, 2026-09-27): the win-probability fit on 1500 held-out self-play games found tanh(leaf/100) about five times too steep; tanh(leaf/500) fits (docs/notes/claude/2026-09-27-win-probability-fit-held-out.md). THE RULE, written before the number: read mcts-leaf500 minus mcts-leaf100, paired by seed, one-sided 95%. LB above 0 -> the fitted temperature plays better; 500 becomes the MCTS default. UB below 0 -> it plays worse; the fit's calibration does not transfer to search. Covers 0 -> no measured effect at 512. Veto either way: DEFCON-1 losses for the searching side more than 1.5x mcts-leaf100's."
       }
     ]
   }
