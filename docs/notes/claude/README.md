@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Handoff: cleanup and routine experiments for a weaker model](2026-09-27-handoff-for-a-weaker-model.md) — 2026-09-27
 - [A fresh profile, and the placement memo (-19% a game, exact)](2026-09-27-fresh-profile-and-the-placement-memo.md) — 2026-09-27
 - [Events still to come: discount the country an event is aimed at -- measured, off](2026-09-26-events-still-to-come.md) — 2026-09-26
 - [Headline, then AR1: the USSR's two moves in a row](2026-09-27-headline-then-ar1.md) — 2026-09-27
