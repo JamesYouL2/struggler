@@ -23,6 +23,10 @@ import ast
 import pathlib
 
 STRATEGIC = pathlib.Path(__file__).parent.parent / 'src' / 'struggler' / 'bots' / 'strategic'
+# The offline fitting modules (`forecast`, `valuation`) moved out of the bot
+# package on 2026-09-27; their arithmetic is still on the VP scale the fitted
+# weights inherit, so the scan still covers them.
+FITTING = pathlib.Path(__file__).parent.parent / 'src' / 'struggler' / 'fitting'
 
 # Local names that hold a board-scale quantity.
 BOARD = {'value', 'score', 'v', 'total', 'loss', 'gain', 'worth', 'best', 'harm',
@@ -99,7 +103,7 @@ def _carries_scale(node: ast.AST) -> bool:
 
 def _unscaled_sites() -> set[tuple[str, str, int]]:
     found = set()
-    for path in sorted(STRATEGIC.glob('*.py')):
+    for path in sorted([*STRATEGIC.glob('*.py'), *FITTING.glob('*.py')]):
         source = path.read_text()
         lines = source.splitlines()
         for node in ast.walk(ast.parse(source)):

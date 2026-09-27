@@ -396,7 +396,8 @@ class StrategicWeights:
     # at every future scoring, priced by linear weight tables -- stood here
     # at 0 until 2026-09-26. Its verdict arm read +0.021 [-0.000, +0.042]
     # paired over 1023 seeds, the pre-registered rule said stop, and it
-    # was deleted. The forecast and valuation modules stay: they are what
+    # was deleted. The forecast and valuation modules stay, in
+    # `struggler.fitting` since 2026-09-27: they are what
     # `scripts/fit_country_weights.py` fits the shipped country weights
     # against. docs/notes/pi/2026-09-23-the-potential-verdict.md)
     # (A hold option value -- `hold_option` times the card's Ops, on top of

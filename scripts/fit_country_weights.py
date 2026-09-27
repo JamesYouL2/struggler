@@ -46,7 +46,8 @@ from pathlib import Path
 
 from struggler.engine import Engine, Region, Side
 from struggler.bots.strategic import StrategicPlayer, StrategicWeights
-from struggler.bots.strategic import evaluator as ev, forecast as fcst, valuation
+from struggler.bots.strategic import evaluator as ev
+from struggler.fitting import forecast as fcst, valuation
 from struggler.bots.strategic.public_cards import SCORING_CARD_REGION
 
 SEA = 'Southeast_Asia_Scoring'

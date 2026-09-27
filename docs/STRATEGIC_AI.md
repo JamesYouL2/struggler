@@ -478,8 +478,10 @@ neighbour left it stale, and the same position scored differently depending
 on what had been evaluated first: 39 of 598 corpus rankings changed when the
 memo was bypassed. A function that owns no state cannot do that.
 
-**Factor 1 prototype.** `bots/strategic/forecast.py` is the rebuild's first
-deliverable and is not wired into any ranking: one region's expected scoring
+**Factor 1 prototype.** `fitting/forecast.py` is the rebuild's first
+deliverable and is not wired into any ranking (with `fitting/valuation.py`
+it moved out of `bots/strategic/` on 2026-09-27: offline fitting tooling
+the bot never imports, gated by `tests/test_fitting_boundary.py`): one region's expected scoring
 payout (Africa first) as country bonuses plus a tier term computed once per
 region, with per-country values derived as potential differences. Its
 docstring answers the rebuild README's five questions; `tests/test_forecast.py`
