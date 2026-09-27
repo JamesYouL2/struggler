@@ -284,8 +284,18 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None,
         from struggler.bots.mcts import MCTSPlayer
         # STRUGGLER_ROLLOUT_OPTIONS='{"full_planner": true}' switches RolloutPolicy ablations.
         options = json.loads(os.environ.get('STRUGGLER_ROLLOUT_OPTIONS', '{}'))
+        # STRUGGLER_MCTS_HORIZON=<n> stops each simulation n action rounds past the root.
+        # STRUGGLER_MCTS_ROUNDS=1,2 searches only those action rounds.
+        horizon = os.environ.get('STRUGGLER_MCTS_HORIZON')
+        rounds = os.environ.get('STRUGGLER_MCTS_ROUNDS')
         return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options,
-                          search_all=os.environ.get('STRUGGLER_MCTS_SEARCH_ALL') == '1')
+                          search_all=os.environ.get('STRUGGLER_MCTS_SEARCH_ALL') == '1',
+                          horizon=int(horizon) if horizon else None,
+                          rounds=tuple(int(r) for r in rounds.split(',')) if rounds else None,
+                          safe_root=os.environ.get('STRUGGLER_MCTS_SAFE_ROOT') == '1',
+                          leaf_risk=os.environ.get('STRUGGLER_MCTS_LEAF_RISK') == '1',
+                          confidence=float(os.environ['STRUGGLER_MCTS_CONFIDENCE'])
+                          if os.environ.get('STRUGGLER_MCTS_CONFIDENCE') else None)
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()
@@ -354,6 +364,7 @@ def play(job: tuple) -> dict:
     history = HistoryBuilder()
     start = time.time()
     searches = search_seconds = 0.
+    overrides = 0  # searches that played a card the strategic policy would not have
     # VP on the track at the first decision of each turn. The value function
     # prices a VP at `per_vp(turn)`, which under `P(win) = F(v_eff / s)` is
     # `1 / s(turn)` -- the spread of VP still to be swung. `vp_swing` is
@@ -418,6 +429,7 @@ def play(job: tuple) -> dict:
             if player is players[side] and last:
                 searches += 1
                 search_seconds += last['seconds']
+                overrides += int(last.get('chosen', last.get('policy_card')) != last.get('policy_card'))
                 player.last_search = None
         engine.step(action)
         history.record(d, action, engine)
@@ -437,6 +449,7 @@ def play(job: tuple) -> dict:
                 final_scoring=engine.final_scoring_ran, turn=engine.turn, vp=engine.vp, signed_vp=sign * engine.vp, defcon=engine.defcon,
                 value=round(value, 2), seconds=round(time.time() - start, 1),
                 searches=int(searches), search_seconds=round(search_seconds, 1),
+                search_overrides=overrides,
                 result=None if not engine.is_terminal else 0.5 if winner is None else float(winner is side))
 
 
@@ -1015,6 +1028,10 @@ def summarize(games: list[dict], stop_turn: int) -> dict:
     total = sum(g['searches'] for g in games)
     if total:
         summary['mean_search_seconds'] = round(sum(g['search_seconds'] for g in games) / total, 2)
+        # What search bought in decisions: how often it played a card the
+        # strategic policy would not have.
+        summary['search_override_rate'] = round(
+            sum(g.get('search_overrides', 0) for g in games) / total, 3)
     return summary
 
 

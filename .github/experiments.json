@@ -13,7 +13,8 @@
     "compare_to": "optional slug of another arm on the same seeds and opponent: collect reports the seed-by-seed paired difference. It must be dispatched TOGETHER with its target -- the pairing is collected within one run -- so `only=` both slugs in one call (`-f only=<target>,<arm>`). One dispatch per arm is the natural reading of this file and fails at plan time (2026-09-22: three dispatches, 15 s each)",
     "shard": "optional shard size in seeds (default 64, ~15-35 min on a runner; scripts/shard_plan.py)",
     "reserve": "optional spare-shard seeds (scripts/shard_plan.py): cut into up to two spare shards of the arm's shard size, played in its last wave, and counted by pool_reports.py only to backfill core seeds that did not finish -- in plan order, in every compared arm, so a lost shard costs a backfill and not a sample. Declare 2 x shard seeds for full cover. Disjoint from every block; an arm without it plays exactly its core",
-    "logs": "optional true: upload every game's INFO log"
+    "logs": "optional true: upload every game's INFO log",
+    "search": "optional MCTS settings, e.g. {\"simulations\": 96, \"horizon\": 1, \"rounds\": [1]}: the challenger is HEAD's MCTS player (the strategic policy wherever it does not search) searching those action rounds, each simulation stopping `horizon` rounds past the root. Cannot be combined with bot_ref. In the cache key only when set"
   },
   "_sizing": "1024 seeds is the default for a question worth asking: +/-0.016 one-sided, against +/-0.045 at 128. The old 256-seed ceiling was one job's 6-hour limit, not a statistical choice; sharding removed it. Arms that share a seed block and an opponent are paired, so give every ablation of one question the same block and a compare_to.",
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
@@ -1538,6 +1539,71 @@
         "compare_to": "ed2-base",
         "title": "events still to come: event_exposure 0.5, decay 0.2 vs v0.6.0",
         "context": "Rule frozen in the note (decay 0.2): LB>0 vs base nominates; seed by seed vs ed-05-d04 decides 0.2 vs 0.4. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "mcts-h1-ar1",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ]
+        },
+        "seeds": "151000-151255",
+        "reserve": "151300-151363",
+        "shard": 32,
+        "title": "MCTS, horizon 1, 96 simulations, AR1 only, vs HEAD's strategic bot",
+        "context": "What searching AR1 buys: the challenger is the strategic policy everywhere but AR1, where it searches one action round ahead. Mirror is 0.5. Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      },
+      {
+        "slug": "mcts-h1-conf2",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 2.0
+        },
+        "seeds": "151000-151255",
+        "reserve": "151300-151363",
+        "shard": 32,
+        "title": "MCTS h1 AR1, confidence 2, vs HEAD's strategic bot",
+        "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      },
+      {
+        "slug": "mcts-h1-conf1",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 1.0
+        },
+        "seeds": "151000-151255",
+        "reserve": "151300-151363",
+        "shard": 32,
+        "title": "MCTS h1 AR1, confidence 1, vs HEAD's strategic bot",
+        "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      },
+      {
+        "slug": "mcts-h1-guarded",
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0
+        },
+        "seeds": "151000-151255",
+        "reserve": "151300-151363",
+        "shard": 32,
+        "title": "MCTS h1 AR1, safe root + leaf risk + confidence 2, vs HEAD's strategic bot",
+        "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
       }
     ]
   }
