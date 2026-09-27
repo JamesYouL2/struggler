@@ -2903,6 +2903,138 @@
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
+    },
+    {
+      "id": "ew-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew1-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_window": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew1-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_window": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew2-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_window": 2
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew2-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_window": 2
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ei-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.4,
+        "event_scope": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ei-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_decay": 0.4,
+        "event_scope": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
     }
   ]
 }

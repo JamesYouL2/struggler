@@ -46,6 +46,18 @@
       "determination": "bounded",
       "note": "Per-turn weight on how soon an event still to come fires, for the event_exposure discount (public_cards.p_event_fires). 1.0 = undecayed, the path event_exposure was measured on; inert while event_exposure is 0. Added 2026-09-26 (maintainer: weigh distant events less) for its arm. Measured 2026-09-27 (run 36289814099, vs v0.6.0): at exposure 0.5, decay 0.7 -0.021, decay 0.4 +0.005 [-0.016, +0.025] vs off, recovering +0.048 [+0.025, +0.070] of the undecayed -0.043 -- distant events were the cost."
     },
+    "event_window": {
+      "value": 0.0,
+      "source": "expert",
+      "determination": "inert",
+      "note": "Selector for which events count toward the event_exposure discount: 0 the whole game at event_decay; 1 only cards possibly in the opponent's hand this turn; 2 this turn or the next deal. Windows 1-2 exclude our own hand (the maintainer, 2026-09-27: don't make your own events weaker). Inert while event_exposure is 0."
+    },
+    "event_scope": {
+      "value": 0.0,
+      "source": "guess",
+      "determination": "inert",
+      "note": "Selector for where the event_exposure discount applies: 0 each country's importance in the board value; 1 only the scores of Ops targets (placement, Coup, Realignment). Hypothesis 1 of the events-still-to-come note; the maintainer doubts it (2026-09-27) and asked for it measured. Inert while event_exposure is 0."
+    },
     "region": {
       "value": 2.6,
       "source": "gate",
@@ -282,16 +294,16 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 13,
+      "guess": 14,
       "gate": 13,
       "measured": 9,
       "derived": 3,
-      "expert": 4
+      "expert": 5
     },
     "counts_by_determination": {
       "underdetermined": 5,
       "bounded": 20,
-      "inert": 3,
+      "inert": 5,
       "overdetermined": 2,
       "determined": 11,
       "known-wrong": 1

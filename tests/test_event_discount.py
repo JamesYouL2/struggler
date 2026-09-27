@@ -123,3 +123,33 @@ def test_decay_shrinks_the_discount_on_distant_targets_more_than_near_ones():
         return bot._discount[t.index['Vietnam']], bot._discount[t.index['Iran']]
     (viet1, iran1), (viet7, iran7) = discount(1.0), discount(0.7)
     assert iran7 - iran1 > viet7 - viet1 >= 0.0
+
+
+# -- near windows and investment scope (maintainer, 2026-09-27) --------------
+
+def test_the_near_windows_count_our_own_hand_as_certain_and_drop_the_far_future():
+    obs = _obs(turn=3)
+    held = dataclasses.replace(obs, hand=tuple(obs.hand) + ('Vietnam_Revolts',))
+    assert pc.p_event_near(held, 'Vietnam_Revolts', 1) == 1.0      # ours: certain to fire
+    assert pc.p_event_near(held, 'Vietnam_Revolts', 2) == 1.0
+    assert pc.p_event_near(obs, 'Iranian_Hostage_Crisis', 2) == 0.0  # Late War, turns off
+    this = pc.p_event_near(obs, 'Vietnam_Revolts', 1)
+    assert this == pytest.approx(pc.p_opponent_holds(obs, 'Vietnam_Revolts'))
+    assert this <= pc.p_event_near(obs, 'Vietnam_Revolts', 2) <= 1.0
+
+
+def test_a_mid_war_card_entering_next_turn_counts_only_in_the_two_turn_window():
+    obs = _obs(turn=3)
+    assert pc.card_state(obs, 'Allende') == 'future'
+    assert pc.p_event_near(obs, 'Allende', 1) == 0.0
+    assert pc.p_event_near(obs, 'Allende', 2) > 0.0
+
+
+def test_investment_scope_leaves_the_board_value_alone():
+    obs = _obs(turn=3)
+    plain = StrategicPlayer()
+    scoped = StrategicPlayer(StrategicWeights(event_exposure=0.5, event_scope=1))
+    for bot in (plain, scoped):
+        bot.prepare(obs)
+    assert scoped._discount is None and scoped._invest_mult is not None
+    assert scoped.value(scoped.board, Side.US) == plain.value(plain.board, Side.US)

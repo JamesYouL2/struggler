@@ -258,3 +258,60 @@ natural next point is decay 0.2 or lower, which in the limit counts only
 cards already in a hand. Whether a near-only discount turns positive is
 the open question. Hypothesis 1 (discount investing, not holding) is
 still untested and is independent of this one.
+
+## Near windows and investment scope: the rule, before the number (2026-09-27)
+
+The maintainer asked for three variants (2026-09-27):
+
+- **This turn** (`event_window` 1): only cards possibly in the opponent's
+  hand now count toward the discount.
+- **This or next turn** (`event_window` 2): also the next deal.
+- **Where to invest** (`event_scope` 1): the discount scales only the
+  scores of Ops targets (placement, Coup, Realignment). The maintainer
+  doubts this one and asked for it measured.
+
+**Our own hand counts as certain to fire** in every window, as it does in
+the whole-game path. The maintainer (2026-09-27): "keep the current events
+as always certain to fire". A first draft excluded our own hand, reading
+"don't make events in your hand weaker" as "don't count them"; the
+maintainer corrected that before dispatch.
+
+**What the positions already say.** With our own hand counted as certain,
+every variant agrees on 4 of 6, at weights 0.5 and 1.0: the near windows,
+decay 0.4 and investment scope alike. (With our own hand excluded, the near
+windows fell to 3 of 6. p1's USSR holds Portuguese Empire Crumbles and
+South African Unrest itself, and the maintainer's reason at p4 -- "don't
+make Portuguese and South Africa free" -- is about the USSR's own cards.)
+The case for investment scope stands on a different point. With our own
+hand certain, a board-value discount also lowers the value of our own
+event's target. Investment scope discounts only where Ops are spent, so our
+own events keep their full value while our own hand still steers where we
+invest.
+
+Arms against `v0.6.0` on THE SAME seeds as run 36289814099
+(149000-150023, reserve 150100-150227), waves off, so every arm pairs
+seed by seed with that run's `ed-base` and `ed-05-d04`:
+
+- `ew-base`: off. It is the same bot on the same seeds as `ed-base`, so it
+  must reproduce it game for game (a determinism check);
+- `ew1-05` and `ew1-10`: window 1 (this turn), weights 0.5 and 1.0;
+- `ew2-05` and `ew2-10`: window 2 (this or next turn), weights 0.5 and 1.0;
+- `ei-05` and `ei-10`: investment scope, decay 0.4, weights 0.5 and 1.0.
+
+THE RULE, not moved after the number:
+
+1. **Nomination:** lower bound above 0 against `ew-base` sends that
+   setting to a change gate (the highest estimate if several clear). The
+   veto applies at +50% bot DEFCON-1 losses.
+2. **Window against decay:** seed by seed, each `ew*` arm against
+   `ed-05-d04`. Above 0 means the near window beats decay 0.4; below 0
+   means it loses to it; covering 0 is a tie. In a tie, decay 0.4 keeps the
+   place, because it agrees on more positions (4 against 3).
+3. **Scope:** seed by seed, `ei-05` against `ed-05-d04`. That is the same
+   weight and decay, board against investment. Above 0 supports
+   hypothesis 1; below 0 refutes it; covering 0 means scope does not
+   matter at this size, and investment scope still keeps our own events
+   whole.
+4. **Determinism:** `ew-base` must match `ed-base` game for game. If it
+   does not, the run is not comparable across runs, rules 2-3 are read
+   in-run only, and the non-determinism is itself the finding.

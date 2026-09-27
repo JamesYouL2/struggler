@@ -397,6 +397,41 @@ def p_event_fires(obs: Observation, card: str, decay: float = 1.0) -> float:
     return now + (1.0 - now) * later
 
 
+def p_event_near(obs: Observation, card: str, turns: int) -> float:
+    """P(`card` can be played against us within `turns` turns), for the
+    events-still-to-come discount's near windows (maintainer, 2026-09-27):
+
+    - `turns` 1: this turn -- the card is in the opponent's hand now
+      (`p_opponent_holds`). Pile, discard and future cards count 0.
+    - `turns` 2: this turn or next -- also a card the next deal can deliver:
+      an unseen card in the pile at that deal's mass
+      (`cycle_deal_masses[0]`), a future card whose war enters next turn,
+      and a discarded one if the reshuffle comes next turn.
+
+    Our own hand counts 1: those events are certain to fire, as in
+    `p_event_fires` (the maintainer, 2026-09-27: "keep the current events
+    as always certain to fire")."""
+    state = card_state(obs, card)
+    if state in ('removed', 'china'):
+        return 0.0
+    if state == 'hand':
+        return 1.0
+    masses = cycle_deal_masses(obs) if turns >= 2 else ()
+    if state == 'unseen':
+        p = p_opponent_holds(obs, card)
+        if masses:
+            theirs, pile = unseen_split(obs)
+            pool = theirs + pile
+            p += ((pile / pool) if pool else 0.0) * masses[0]
+        return min(1.0, p)
+    if turns >= 2 and state == 'future' and entry_turn(CARDS[card]) - obs.turn == 1:
+        return masses[0] if masses else 0.0
+    if turns >= 2 and state == 'discard' and turns_to_reshuffle(obs) == 1:
+        recycled = post_reshuffle_deal_masses(obs)
+        return recycled[0] if recycled else 0.0
+    return 0.0
+
+
 def _p_event_fires_decayed(obs: Observation, card: str, decay: float) -> float:
     """`p_event_fires` with each route weighted by `decay ** turns-from-now`;
     see there. Same deck arithmetic, walked per deal instead of summed."""

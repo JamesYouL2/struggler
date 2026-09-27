@@ -147,6 +147,8 @@ _RAW_SCORE_KINDS = (K.ACTION_ROUND_PLAY, K.HEADLINE_PLAY, K.PLAY_MODE,
 # Placements that can hand the opponent its first Coup target for a
 # borrowed-Coup card in our hand: the planner is built for them only then.
 _PLACEMENT_KINDS = (K.PLACE_INFLUENCE, K.EVENT_INFLUENCE)
+# Where Ops are spent on a country: `event_scope` 1 discounts only these.
+_INVEST_KINDS = (K.PLACE_INFLUENCE, K.EVENT_INFLUENCE, K.COUP_TARGET, K.REALIGNMENT_TARGET)
 
 
 def coup_bans(game_effects) -> ev.Prohibitions:
@@ -437,6 +439,21 @@ class StrategicWeights:
     # asks whether nearer events are the part worth pricing (maintainer,
     # 2026-09-26). 1.0 is undecayed: the path `event_exposure` was measured on.
     event_decay: float = 1.0
+    # WHICH events count toward the discount (maintainer, 2026-09-27). 0:
+    # every card, weighted by `event_decay` over the whole game (the path
+    # measured above). 1: only cards that can be in the opponent's hand THIS
+    # turn. 2: this turn or the next deal. Cards in our own hand count as
+    # certain to fire in every window (`public_cards.p_event_near`). A
+    # selector, as
+    # `reply_model` is, because weights must be nonnegative floats.
+    event_window: float = 0.0
+    # WHERE the discount applies. 0: to each country's importance in the
+    # whole board value (the path measured above). 1: only to choosing
+    # where to spend Ops -- a placement, Coup or Realignment target's score
+    # is scaled by its country's multiplier -- leaving what a held country
+    # is worth alone. The hypothesis that the cost was discounting HOLDING,
+    # not just investing.
+    event_scope: float = 0.0
     # The per-route share of the capped geometric aggregate for k routes into
     # a battleground. Replaces `access_redundant`, a flat 0.35 applied to any
     # redundant route however many there were.
@@ -712,7 +729,7 @@ class StrategicWeights:
 # `--fields` still names any of them explicitly, which is how a deliberate
 # ablation turns one on.
 UNTUNED_WEIGHTS = ('reply_model', 'reply_coup', 'hand_assignment', 'event_exposure',
-                   'event_decay')
+                   'event_decay', 'event_window', 'event_scope')
 TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
                         if f.name not in UNTUNED_WEIGHTS)
 
@@ -781,6 +798,8 @@ class StrategicPlayer:
         # `evaluator.event_discount` for `self._obs`, or None (weight 0, or a
         # bare evaluation): the importance multiplier for events still to come.
         self._discount = None
+        # The same multiplier when `event_scope` puts it on Ops targets only.
+        self._invest_mult = None
         self._shuttle_pick = None   # a function of `_urgency`, cached with it
         self._delta_cache = None
         # The card-pick and hand-planner caches, with the same reason as
@@ -957,17 +976,28 @@ class StrategicPlayer:
 
     def _discount_for(self, obs: Observation) -> tuple[float, ...] | None:
         """`evaluator.event_discount` for `obs`: each exposed country's
-        importance multiplier, from every card's chance to fire
-        (`public_cards.p_event_fires`, Mid and Late War cards counted before
-        they enter). None at `event_exposure` 0 -- nothing computed, nothing
-        multiplied, the shipped path exactly."""
+        importance multiplier, from every card's chance to fire in the
+        chosen window (`event_window`: the whole game at `event_decay`, or
+        `public_cards.p_event_near`'s this-turn / next-turn windows). None
+        at `event_exposure` 0 -- nothing computed, nothing multiplied, the
+        shipped path exactly. Where it applies is `event_scope`'s: the board
+        value (returned here) or the Ops targets alone (`_invest_mult`)."""
+        self._invest_mult = None
         weight = self.weights.event_exposure
         if not weight:
             return None
         cards = {card for card, _ in ev._exposure_rows(self._terrain.ids)}
-        decay = self.weights.event_decay
-        return ev.event_discount(self._terrain, weight,
-                                 {card: pc.p_event_fires(obs, card, decay) for card in cards})
+        window = round(self.weights.event_window)
+        if window:
+            fires = {card: pc.p_event_near(obs, card, window) for card in cards}
+        else:
+            decay = self.weights.event_decay
+            fires = {card: pc.p_event_fires(obs, card, decay) for card in cards}
+        mult = ev.event_discount(self._terrain, weight, fires)
+        if round(self.weights.event_scope):
+            self._invest_mult = mult
+            return None
+        return mult
 
     def _urgency_vector(self) -> tuple[float, ...]:
         """The prepared scoring weights, or all ones for a bare evaluation
@@ -1371,7 +1401,8 @@ class StrategicPlayer:
         # `_scoring_flags` and `_coup_bans` from the observation's
         # game_effects, and a leaf evaluated under Formosan Resolution left
         # the caller scoring Taiwan as a Battleground afterwards.
-        saved = (self._obs, self._urgency, self.__dict__.get('_discount'), self.__dict__.get('_ops_values'),
+        saved = (self._obs, self._urgency, self.__dict__.get('_discount'),
+                 self.__dict__.get('_invest_mult'), self.__dict__.get('_ops_values'),
                  self.__dict__.get('_vp_price'),
                  self.__dict__.get('_placement_values'),
                  self.__dict__.get('_unseen_hold_values'),
@@ -1386,7 +1417,8 @@ class StrategicPlayer:
         try:
             return self.value(self.board, observation.side)
         finally:
-            (self._obs, self._urgency, self._discount, ops_values, vp_price, placements, unseen,
+            (self._obs, self._urgency, self._discount, self._invest_mult, ops_values, vp_price,
+             placements, unseen,
              flags, bans, influence) = saved
             self._vp_price = vp_price
             for name, value in (('_ops_values', ops_values), ('_placement_values', placements),
@@ -3081,6 +3113,13 @@ class StrategicPlayer:
         if value is None:
             self._no_opinion.add(id(action))  # measurement only; see `last_ranking`
             return 0.0
+        mult = self._invest_mult
+        if (mult is not None and kind in _INVEST_KINDS and value > 0 and not is_certain(value)
+                and p.get('country') in self._terrain.index):
+            # `event_scope` 1: an exposed country is a worse place to spend
+            # Ops, and only that -- a gain there is scaled down; a loss is
+            # left alone, or discounting it would make it look better.
+            value *= mult[self._terrain.index[p['country']]]
         return value
 
     def opening_book(self, side: Side) -> dict:
