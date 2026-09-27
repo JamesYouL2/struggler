@@ -221,3 +221,40 @@ THE RULE, not moved after the number:
 3. **No nomination, but the cost is recovered** (decayed arms cover 0 while
    `ed-05-d10` is below 0): the term is safe at that setting and still
    flips the positions, which makes it the maintainer's call, as 0.1 was.
+
+## Weighing distant events less: the reading (run 36289814099, 2026-09-27)
+
+All five arms are complete at 1024 seeds against `v0.6.0`, with no stalled
+game (the new anchor has no hang).
+
+| arm | vs v0.6.0 | paired vs `ed-base` | bot DEFCON-1 losses |
+| --- | ---: | ---: | ---: |
+| `ed-base` (0) | 0.512 [0.499, 0.525] | -- | 67 |
+| `ed-05-d10` (0.5, undecayed) | 0.469 | **-0.043 [-0.064, -0.022]** | 46 |
+| `ed-05-d07` (0.5, decay 0.7) | 0.490 | -0.021 [-0.042, -0.001] | 56 |
+| `ed-05-d04` (0.5, decay 0.4) | 0.517 | **+0.005 [-0.016, +0.025]** | 62 |
+| `ed-025-d07` (0.25, decay 0.7) | 0.504 | -0.008 [-0.029, +0.014] | 43 |
+
+Read seed by seed against the undecayed arm (1024 seeds, all arms):
+
+- decay 0.7: +0.022 [-0.002, +0.045];
+- decay 0.4: **+0.048 [+0.025, +0.070]**.
+
+**By the rule:**
+
+- **Rule 1: no nomination.** No lower bound is above 0.
+- **Rule 2: hypothesis 2 is supported.** Decay 0.4's recovery lies above
+  0: most of the discount's cost was DISTANT events. The undecayed cost
+  also replicated on the new anchor (-0.043 here, -0.058 against
+  `bc5ef93`).
+- **Rule 3: the cost is recovered at (0.5, decay 0.4).** It is level with
+  no discount and still flips three annotated positions to the
+  maintainer's move, so it is the maintainer's call. At decay 0.4 a Late
+  War target on turn 1 weighs 0.4^7 = 0.002: in effect only events a
+  turn or two out count, which is what "if the card is live" meant.
+
+The trend is monotone in decay: stronger decay, better result. The
+natural next point is decay 0.2 or lower, which in the limit counts only
+cards already in a hand. Whether a near-only discount turns positive is
+the open question. Hypothesis 1 (discount investing, not holding) is
+still untested and is independent of this one.

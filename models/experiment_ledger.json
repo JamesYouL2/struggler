@@ -2821,10 +2821,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36289814099,
+      "reading": "0.512 [0.499, 0.525] over 1024 vs v0.6.0; bot nuked 67",
+      "verdict": "base: event_exposure 0",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2839,10 +2839,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ed-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36289814099,
+      "reading": "paired -0.043 [-0.064, -0.022]; bot nuked 46",
+      "verdict": "the undecayed cost, replicated on v0.6.0",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2858,10 +2858,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ed-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36289814099,
+      "reading": "paired -0.021 [-0.042, -0.001]; vs undecayed +0.022 [-0.002, +0.045]; bot nuked 56",
+      "verdict": "still costs at decay 0.7",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2877,10 +2877,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ed-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36289814099,
+      "reading": "paired +0.005 [-0.016, +0.025]; vs undecayed +0.048 [+0.025, +0.070]; bot nuked 62",
+      "verdict": "rule 2: distance is the cost; rule 3: recovered -- safe at (0.5, 0.4), the maintainer's call",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2896,10 +2896,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ed-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36289814099,
+      "reading": "paired -0.008 [-0.029, +0.014]; bot nuked 43",
+      "verdict": "covers 0",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
