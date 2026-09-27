@@ -3211,9 +3211,9 @@
       "seeds": "152000-152511",
       "compare_to": null,
       "run": 36346001240,
-      "reading": null,
-      "verdict": null,
-      "status": "in_flight",
+      "reading": "0.510 [0.487, 0.533] over 512; DEFCON-1 by the searching side 40 (25 as USSR, 15 as US)",
+      "verdict": "the reference for mcts-leaf500",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
       ]
@@ -3239,9 +3239,9 @@
       "seeds": "152000-152511",
       "compare_to": "mcts-leaf100",
       "run": 36346001240,
-      "reading": null,
-      "verdict": null,
-      "status": "in_flight",
+      "reading": "0.509 [0.486, 0.532] over 512; paired vs mcts-leaf100 -0.001 [-0.023, +0.021]; DEFCON-1 47 vs 40 (1.18x)",
+      "verdict": "covers 0: no measured effect at 512; veto clear (1.18x < 1.5x). 100 stays",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
       ]

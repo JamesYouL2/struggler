@@ -94,3 +94,27 @@ a one-sided 95% interval:
 
 Either way, the arm is vetoed if the searching side's DEFCON-1 losses are
 more than 1.5 times `mcts-leaf100`'s.
+
+### The reading (run 36346001240, 512 seeds, both waves)
+
+| arm | score vs strategic | US / USSR | DEFCON-1 losses, searching side |
+|---|---|---|---|
+| `mcts-leaf100` | 0.510 [0.487, 0.533] | 0.544 / 0.477 | 40 |
+| `mcts-leaf500` | 0.509 [0.486, 0.532] | 0.559 / 0.460 | 47 (1.18x, veto clear) |
+
+Paired by seed, leaf500 minus leaf100: **-0.001 [-0.023, +0.021]**. By
+the rule, that is no measured effect at 512, and 100 stays the default.
+
+Why a much better-calibrated leaf changes nothing in play, and why this
+should have been predicted: at horizon 1, almost every simulation ends at
+a heuristic leaf rather than a terminal result. The temperature is a
+monotone transform of each leaf. It changes the root's ranking only
+through the curvature of tanh when leaves are averaged, and through the
+weight given to terminal results and to the `leaf_risk` blend. The
+confidence gate compares a mean difference to its own standard error, and
+both scale together. **Calibration matters where the leaf is read as a
+probability** -- mixed with real terminal outcomes at longer horizons, or
+priced against a game-ending risk (Wargames, the Late War table,
+Terrorism, DEFCON shots). It does not matter where the leaf is only
+ranked. The logistic belongs in the probability role. For the search
+leaf, rescaling is neutral.
