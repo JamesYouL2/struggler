@@ -28,7 +28,6 @@ from struggler.engine.events import EVENTS
 from struggler.engine.rules import RULES
 from struggler.bots.strategic import evaluator as ev
 from struggler.bots.strategic import schedule as sch
-from struggler.bots.strategic import public_cards as pc
 from struggler.bots.strategic import hand_planner as hp
 from struggler.bots.strategic.public_cards import card_state, scoring_cards_for
 from struggler.engine.player import Event
@@ -563,16 +562,14 @@ class StrategicWeights:
     # `scoring_discount` (0.8) was read by nothing since the schedule's real
     # masses replaced the per-turn discount. docs/notes/pi/
     # 2026-09-24-the-weights-what-each-one-is-worth.md, rows 14 and 15.)
-    # Experiment experiment/deck-tracking: how much more this cycle's term
-    # is worth when the opponent likely holds the scoring card
-    # (`public_cards.p_opponent_holds`, from public counts alone). They
-    # score at their best moment, so control banked before they do is worth
-    # more: the this-cycle term is multiplied by (1 + scoring_rival * p).
-    # This deliberately breaks the side-agnostic urgency the schedule
-    # comment below defends -- holder identity predicts TIMING, not just
-    # retention. 0 is off (the pre-arm behaviour); the arm ships at 1.
-    # The gate decides.
-    scoring_rival: float = 1.0
+    # (`scoring_rival` stood here until 2026-09-26. It multiplied a scoring
+    # card's this-cycle mass (buckets 1 and 2) by (1 + scoring_rival * P(the
+    # opponent holds it)), shipped at 1.0 on symmetry with the holding bonus
+    # (a guess) and read +0.006 [-0.014, +0.026] on the pi weights scorecard,
+    # covering zero. A scoring card's this-cycle mass is now its occurrence,
+    # unshaped, whoever holds it. Its deletion is measured by the
+    # `rival-off` arms; docs/notes/claude/
+    # 2026-09-26-deleting-scoring-rival-and-coup-discount.md.)
     # What the end-of-game scoring of every region is worth, times its
     # measured odds of happening (public_cards.FINAL_SCORING_ODDS). 0 restores
     # the old behaviour, which priced the last turns as if the game ran for
@@ -1396,21 +1393,18 @@ class StrategicPlayer:
         # lives in the forecast's fitted horizons -- compounding
         # `retention_p` on top of it would charge the same uncertainty
         # twice (the rebuild README's explicit warning), so this cycle's
-        # shape is only holder shaping: a held card fires at our moment,
-        # unshaped, and theirs at their moment (scoring_rival). No residual discount
-        # yet: 1.0 is the documented baseline until a measurement asks
-        # for one. Final scoring rides bucket 5's measured odds times
-        # `scoring_final`, the knob's meaning kept: what the end-of-game
+        # mass is its occurrence, unshaped: no holder shaping since
+        # `scoring_rival` was deleted (2026-09-26), and no residual
+        # discount yet -- 1.0 is the documented baseline until a
+        # measurement asks for one. Final scoring rides bucket 5's
+        # measured odds times `scoring_final`, the knob's meaning kept: what the end-of-game
         # scoring is worth, times the odds the game gets there.
         w = self.weights
         total = 0.
         for card in scoring_cards_for(self.board.countries[cid]):
             for opp in sch.opportunities(obs, card):
                 mass = opp.occurrence
-                if opp.bucket in (1, 2):
-                    if card not in obs.hand and w.scoring_rival:
-                        mass *= 1. + w.scoring_rival * pc.p_opponent_holds(obs, card)
-                elif opp.bucket == 5:
+                if opp.bucket == 5:
                     mass *= w.scoring_final
                 total += mass
         return total
