@@ -1,5 +1,6 @@
 """The fitted per-country weights (`StrategicWeights.country_vp_scale`) and
-the Europe Control price (`europe_control_vp`).
+the Europe Control price (`stakes.EUROPE_CONTROL_VP`; a weight,
+`europe_control_vp`, until 2026-09-27).
 
 See docs/notes/claude/2026-09-18-fitted-country-weights.md. Shipped ON
 since 2026-09-21, when the guessed `battleground`/`control` tiers and
@@ -121,19 +122,18 @@ def test_country_value_is_linear_in_the_scale_so_it_is_a_level_knob():
                 2.0 * ev.country_value(t, pos, i, side, one, urgency), abs=1e-9), t.ids[i]
 
 
-@pytest.mark.parametrize('price', [20.0, 40.0, 60.0])
-def test_europe_control_is_priced_at_the_weight(price):
+def test_europe_control_is_priced_at_the_whole_swing():
     engine = bare_engine()
     t = ev.terrain()
     for c in (t.ids[i] for i in t.members[Region.EUROPE] if t.battleground[i]):
         engine.board.influence[c]['US'] = 5
     engine.board.influence['Finland']['US'] = 5
     pos = ev.Position(t).sync(engine.board)
-    assert ev.region_vp(t, pos, Region.EUROPE, europe_control_vp=price) == price
-    assert ev.region_vp(t, pos, Region.EUROPE) == 40.0
-    assert StrategicWeights().europe_control_vp == 40.0
+    assert ev.region_vp(t, pos, Region.EUROPE) == ev.EUROPE_CONTROL_VP == 40.0
+    # Folded into the constant on 2026-09-27 (rules-exact; 20 and 60 both
+    # measured worse), so it is no longer a weight to be perturbed.
     fields = {f.name for f in dataclasses.fields(StrategicWeights)}
-    assert {'country_vp_scale', 'europe_control_vp'} <= fields
+    assert 'country_vp_scale' in fields and 'europe_control_vp' not in fields
 
 
 def test_the_guessed_tiers_are_gone_and_cannot_come_back():

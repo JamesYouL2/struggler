@@ -71,17 +71,6 @@
       "context": "Simplification. The look-ahead shipped on a dead heat (0.497 +/-0.032) for its behaviour (poke rate 6.27 -> 0.08 a seat), never for strength. Its legality fix (#154) and Coup answers (#167) are in the interval. test_poke_rate will fail with it off; this measures strength only."
     },
     {
-      "slug": "rival-off-vs-07d553a",
-      "weights": {
-        "scoring_rival": 0.0
-      },
-      "anchor": "07d553a",
-      "seeds": "20000-21023",
-      "compare_to": "base-vs-07d553a",
-      "title": "ablate deck-tracking rival urgency (#183) against the old bot",
-      "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
-    },
-    {
       "slug": "access-off-vs-07d553a",
       "weights": {
         "access": 0.0
@@ -174,28 +163,6 @@
       "seeds": "32000-33023",
       "title": "fitted weights with the old region term off",
       "context": "The fitted weights already carry each country's tier change; the region term (current tier VP x urgency x 1.3) may count it twice. Read against fitted-matched. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
-      "compare_to": "fitted-matched"
-    },
-    {
-      "slug": "fitted-eu20",
-      "weights": {
-        "country_vp_scale": 2.795,
-        "europe_control_vp": 20.0
-      },
-      "seeds": "32000-33023",
-      "title": "fitted weights, Europe Control priced at 20 VP",
-      "context": "The maintainer's ruling is a fixed 40 VP (the whole track); this and eu60 bracket it in the region term. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
-      "compare_to": "fitted-matched"
-    },
-    {
-      "slug": "fitted-eu60",
-      "weights": {
-        "country_vp_scale": 2.795,
-        "europe_control_vp": 60.0
-      },
-      "seeds": "32000-33023",
-      "title": "fitted weights, Europe Control priced at 60 VP",
-      "context": "The other side of the 40 VP bracket. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
       "compare_to": "fitted-matched"
     },
     {
@@ -564,26 +531,6 @@
       "title": "hold option value: the term OFF vs bc5ef93, 1024 seeds",
       "context": "Step 1 of docs/notes/claude/2026-09-20-the-whole-hand-planner.md, ruling 3: a hold deserves option value for the flexibility of keeping it, and no measurement here says what it should be -- so `hold_option` ships at 0 and the hold-option-* arms price it over a small grid, the same shape as `vp_swing`, which is how that one was finally settled. The term is stated once in `hold_value`, so every live hold pricing reads it (Ask Not, the hand attacks, the Missile Envy and Aldrich picks); `value_as_held`, the planner's hold-slot price, delegates there and is what step 3 will read. The base half: the shipped bot, no premium, vs bc5ef93 -- the reference the three grid arms are paired against on identical machinery."
     },
-    {
-        "slug": "hand-assignment-base",
-        "anchor": "bc5ef93",
-        "seeds": "78000-79023",
-        "held": "89000-89127",
-        "title": "the assignment planner OFF vs bc5ef93 -- the base half of hand-assignment-on",
-        "context": "Step 3 of the hand planner (docs/notes/pi/2026-09-22-assignment-planner-design.md), the base half: the shipped per-card pricing (hand_assignment 0 -- the allocation is not computed at all) against bc5ef93 on identical machinery. The reference hand-assignment-on is paired against."
-      },
-      {
-        "slug": "hand-assignment-on",
-        "weights": {
-          "hand_assignment": 1.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "78000-79023",
-        "held": "89000-89127",
-        "compare_to": "hand-assignment-base",
-        "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
-        "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
-      },
       {
         "slug": "ablate-base",
         "anchor": "bc5ef93",
@@ -627,18 +574,6 @@
         "compare_to": "ablate-base",
         "title": "ablate progress: the partial-control credit off (2.8 -> 0)",
         "context": "progress scales credit toward a first controlled country where a side has none (presence races), ships at an uncalibrated 2.8 (provenance: guess). progress-half (1.4) split its halves violently (0.547 / 0.434) at 128+64 -- no conclusion. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot see the early presence fights the credit is for except as they occur in the sample."
-      },
-      {
-        "slug": "ablate-scoring-rival",
-        "weights": {
-          "scoring_rival": 0.0
-        },
-        "anchor": "bc5ef93",
-        "seeds": "92000-93023",
-        "held": "94000-94127",
-        "compare_to": "ablate-base",
-        "title": "ablate scoring_rival: deck-tracking rival urgency off (1.0 -> 0)",
-        "context": "scoring_rival multiplies this cycle's buckets by (1 + r x P(the opponent holds the scoring card)), shipped at 1.0 on symmetry with the holding bonus (provenance: guess). Prior evidence is three weak reads: 0.5 and 0.25 leans and one wide anchored off arm; the 2026-09-15 note calls the half an inconclusive lean. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot price p_opponent_holds itself, only this weight on it."
       },
       {
         "slug": "ablate-scoring-final",
@@ -1328,6 +1263,71 @@
         "title": "delete coup_discount: coups and realignments undiscounted (0.9 -> 1.0), exact deletion",
         "context": "Rule frozen in the note: delete if the paired interval covers 0 or better and the nuclear veto holds; keep if the upper bound is below 0. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
       },
+      {
+        "slug": "rival-off-vs-07d553a",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "07d553a",
+        "seeds": "20000-21023",
+        "compare_to": "base-vs-07d553a",
+        "title": "ablate deck-tracking rival urgency (#183) against the old bot",
+        "context": "Against HEAD, 0.25/0.5 read level (0.466, 0.497 at 128). This is the same knob against a bot outside the lineage."
+      },
+      {
+        "slug": "ablate-scoring-rival",
+        "weights": {
+          "scoring_rival": 0.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "92000-93023",
+        "held": "94000-94127",
+        "compare_to": "ablate-base",
+        "title": "ablate scoring_rival: deck-tracking rival urgency off (1.0 -> 0)",
+        "context": "scoring_rival multiplies this cycle's buckets by (1 + r x P(the opponent holds the scoring card)), shipped at 1.0 on symmetry with the holding bonus (provenance: guess). Prior evidence is three weak reads: 0.5 and 0.25 leans and one wide anchored off arm; the 2026-09-15 note calls the half an inconclusive lean. THE RULE, written before the number and not moved after it: lower bound above 0 -> removal helps and the default faces a change gate; upper bound below 0 -> USEFUL, keep, phase 2 grids it; covers 0 -> deletion candidate by the region-margin precedent, phase 2 cancelled. Cannot price p_opponent_holds itself, only this weight on it."
+      },
+      {
+        "slug": "hand-assignment-base",
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "title": "the assignment planner OFF vs bc5ef93 -- the base half of hand-assignment-on",
+        "context": "Step 3 of the hand planner (docs/notes/pi/2026-09-22-assignment-planner-design.md), the base half: the shipped per-card pricing (hand_assignment 0 -- the allocation is not computed at all) against bc5ef93 on identical machinery. The reference hand-assignment-on is paired against."
+      },
+      {
+        "slug": "hand-assignment-on",
+        "weights": {
+          "hand_assignment": 1.0
+        },
+        "anchor": "bc5ef93",
+        "seeds": "78000-79023",
+        "held": "89000-89127",
+        "compare_to": "hand-assignment-base",
+        "title": "the assignment planner ON (hand_assignment 1.0) vs bc5ef93",
+        "context": "PRE-REGISTERED, read paired against hand-assignment-base on one block: each turn's cards allocated by the solver -- one headline, R round units, the UN unit, ruling 4's space picks, holds as the remainder, a scoring card never held -- with ruling 1's two-solve space mix and ruling 5's scoring timing from the plan instead of +2 x action_round, and the survival DP untouched (ruling 2: subsumption is a later measured step). hand_assignment is a GATE, not a dial: any positive value is this bot. Paired lower bound above 0 means the allocation beats per-card pricing and the planner ships (gate first, then the default flips and step 4 asks about the DP); at or below 0 means it does not, at a sample size that can say so, and the gate stays shut. The honest prior, stated before the number: the last three measured wins here were +0.039 (a turn curve), +0.031 (a deleted term) and +0.043 (safety fixes), and none was a search. Watch scripts/measure_last_exit.py's tail mass at 0.25 before and after -- a third of USSR seat-games touch 0.25 whole-hand risk without closing out, and that is where a better allocation of the same cards should show -- not the corner count. Cannot separate the solver from ruling 5's timing removal or ruling 1's mix: they ship together or not at all."
+      },
+    {
+      "slug": "fitted-eu20",
+      "weights": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 20.0
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights, Europe Control priced at 20 VP",
+      "context": "The maintainer's ruling is a fixed 40 VP (the whole track); this and eu60 bracket it in the region term. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
+    {
+      "slug": "fitted-eu60",
+      "weights": {
+        "country_vp_scale": 2.795,
+        "europe_control_vp": 60.0
+      },
+      "seeds": "32000-33023",
+      "title": "fitted weights, Europe Control priced at 60 VP",
+      "context": "The other side of the 40 VP bracket. Seeds 32000-33023 (fresh); opponent is this branch with the fit off, i.e. the hand-safety code. docs/notes/claude/2026-09-18-fitted-country-weights.md.",
+      "compare_to": "fitted-matched"
+    },
       {
         "slug": "mcts-h1-ar1",
         "search": {

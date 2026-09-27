@@ -1,6 +1,6 @@
 """The Factor 1 one-region prototype: forecast accounting, not rankings.
 
-`bots/strategic/forecast.py` prices a region's scoring as an expected VP
+`fitting/forecast.py` prices a region's scoring as an expected VP
 payout with the country-bonus and tier parts kept separate. These tests pin
 the accounting contract from the rebuild README: immediate scoring agrees
 with the engine, deterministic forecasts reproduce the exact board payout,
@@ -15,7 +15,7 @@ from conftest import bare_engine
 
 from struggler.engine import Engine, Region, Side
 from struggler.bots.strategic import evaluator as ev
-from struggler.bots.strategic import forecast as fcst
+from struggler.fitting import forecast as fcst
 from struggler.bots.strategic import StrategicPlayer
 
 
@@ -309,7 +309,7 @@ def test_incremental_tier_e_matches_the_full_dp_per_member():
     lets the ranking path use it instead of the DP."""
     import random
 
-    from struggler.bots.strategic.forecast import (_tier_distribution,
+    from struggler.fitting.forecast import (_tier_distribution,
                                                    tier_e_minus, tier_e_from_minus)
     engine = bare_engine()
     t = ev.terrain()
@@ -399,7 +399,7 @@ def test_tier_weights_are_the_exact_linear_weights_of_every_member(region, horiz
     has them (a Formosan promotion and a Shuttle-ignored member)."""
     import random
 
-    from struggler.bots.strategic.forecast import (_tier_distribution, tier_e_minus,
+    from struggler.fitting.forecast import (_tier_distribution, tier_e_minus,
                                                    tier_e_from_minus, tier_weights)
     engine = Engine.new_game(seed=4000, setup_bonus=True)
     t, pos = _synced(engine.board)
@@ -482,7 +482,7 @@ def test_the_memoised_row_is_the_documented_row():
     read, which is bug shape 1 with the cache looking innocent.
     """
     from struggler.bots.strategic import evaluator as ev
-    from struggler.bots.strategic import forecast as fcst
+    from struggler.fitting import forecast as fcst
     from struggler.engine import Side
 
     player = StrategicPlayer()

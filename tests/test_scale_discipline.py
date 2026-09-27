@@ -23,6 +23,10 @@ import ast
 import pathlib
 
 STRATEGIC = pathlib.Path(__file__).parent.parent / 'src' / 'struggler' / 'bots' / 'strategic'
+# The offline fitting modules (`forecast`, `valuation`) moved out of the bot
+# package on 2026-09-27; their arithmetic is still on the VP scale the fitted
+# weights inherit, so the scan still covers them.
+FITTING = pathlib.Path(__file__).parent.parent / 'src' / 'struggler' / 'fitting'
 
 # Local names that hold a board-scale quantity.
 BOARD = {'value', 'score', 'v', 'total', 'loss', 'gain', 'worth', 'best', 'harm',
@@ -56,12 +60,6 @@ KNOWN = {
     ('policy.py', 'value -= CHINA_HOLD_RAW'),
     ('policy.py', 'value -= max(0, len(obs.hand)-3)'),
     ('policy.py', 'total += mass'),
-    # hand_planner's DP sums the per-slot PRICES the caller built -- a
-    # card's hold price among them, which `value_as_held` already put on
-    # the board scale. The module is pure price arithmetic by contract
-    # (like evaluator.py: no pricing functions of its own to call), so
-    # there is nothing here for the scanner to recognise.
-    ('hand_planner.py', 'value += card.hold'),
     # `_potential_total`'s two `total += sum(mass * ...)` lines were here
     # until 2026-09-17. It now sums `_region_term` and `_sea_term` instead of
     # repeating their bodies -- the repeat is how the Southeast Asia half went
@@ -105,7 +103,7 @@ def _carries_scale(node: ast.AST) -> bool:
 
 def _unscaled_sites() -> set[tuple[str, str, int]]:
     found = set()
-    for path in sorted(STRATEGIC.glob('*.py')):
+    for path in sorted([*STRATEGIC.glob('*.py'), *FITTING.glob('*.py')]):
         source = path.read_text()
         lines = source.splitlines()
         for node in ast.walk(ast.parse(source)):

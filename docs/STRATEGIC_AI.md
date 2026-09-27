@@ -36,12 +36,15 @@ action = bot.choose_action(observation, history)
   card now) or 1.0 when we hold it, bucket 2 the pile share times the
   cycle-deal walk, bucket 3 the post-reshuffle walk times the share that
   recycles, bucket 5 the measured final-scoring odds times `scoring_final`.
-  A card we hold is unshaped; one we do not is raised by
-  `scoring_rival * P(the opponent holds it)` (shipped 1.0, up to 2x for a
-  card they certainly hold): they score at *their* best moment, so control
-  banked before they do is worth more. (A hand premium, `scoring_hand`,
-  multiplied the held case and sat at its neutral 1.0 after 1.2 read a dead
-  heat against it; it was deleted on 2026-09-26.)
+  No holder shaping: a scoring card's mass is its occurrence whoever holds
+  it. (A hand premium, `scoring_hand`, multiplied the held case and sat at
+  its neutral 1.0 after 1.2 read a dead heat against it; a rival premium,
+  `scoring_rival`, raised an unheld card by
+  `1 + scoring_rival * P(the opponent holds it)` on the argument that they
+  score at *their* best moment, shipped at 1.0 as a guess and read
+  +0.006 [-0.014, +0.026] on the pi weights scorecard. Both were deleted on
+  2026-09-26; `scoring_rival`'s deletion is measured by the `rival-off`
+  arms, docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md.)
 
   Two things this sum no longer reads, both replaced by the factor-2
   masses: `evaluator.retention_p` (the CONTROL drift between now and a
@@ -322,8 +325,13 @@ action = bot.choose_action(observation, history)
   over the `hold-option-*` grid (run 35753235236, 1024 paired seeds) and a
   measurable loss at 1.0
   ([the grid reading](notes/pi/2026-09-22-the-hold-option-grid.md)), and was
-  deleted on 2026-09-26. `value_as_held` (the planner's hold-slot price)
-  and every live hold pricing read `hold_value`. Ask Not is the sum of the chosen
+  deleted on 2026-09-26. Every live hold pricing reads `hold_value`. (The
+  turn-assignment hand planner -- `hand_planner.py`, gated by
+  `hand_assignment` and off since it was measured six ways -- was deleted
+  on 2026-09-27 with its hooks: `hand_plan`, `hand_prices`, `_plan_pref`,
+  `space_picks` and `value_as_held`, its hold-slot price.
+  [Why it stayed off](notes/claude/2026-09-26-the-hand-planner-stays-off.md);
+  PR #57's branch `exp/planner-near-tie` keeps the fixed version.) Ask Not is the sum of the chosen
   upgrades over our hand, capped at the Action Rounds left
   (`_hand_upgrade_value`); Five Year
   Plan and Terrorism are a random hold lost, Aldrich Ames Remix the largest,
@@ -470,8 +478,10 @@ neighbour left it stale, and the same position scored differently depending
 on what had been evaluated first: 39 of 598 corpus rankings changed when the
 memo was bypassed. A function that owns no state cannot do that.
 
-**Factor 1 prototype.** `bots/strategic/forecast.py` is the rebuild's first
-deliverable and is not wired into any ranking: one region's expected scoring
+**Factor 1 prototype.** `fitting/forecast.py` is the rebuild's first
+deliverable and is not wired into any ranking (with `fitting/valuation.py`
+it moved out of `bots/strategic/` on 2026-09-27: offline fitting tooling
+the bot never imports, gated by `tests/test_fitting_boundary.py`): one region's expected scoring
 payout (Africa first) as country bonuses plus a tier term computed once per
 region, with per-country values derived as potential differences. Its
 docstring answers the rebuild README's five questions; `tests/test_forecast.py`
@@ -538,7 +548,7 @@ python -m struggler.bots.train evaluate --opponent strategic --pairs 20 --seed 1
 
 python -m struggler.bots.train train --seed 200 --pairs 8 \
   --generations 4 --population 4 --workers 8 \
-  --fields scoring_rival,scoring_final --output my-model.json
+  --fields region,scoring_final --output my-model.json
 python -m struggler.bots.train evaluate --opponent strategic --pairs 16 \
   --seed 4000 --model my-model.json --workers 8
 ```
@@ -619,8 +629,11 @@ The shipped scale is **2.795, not the file's `matched_scale`**
 (2.7949857573867254): 2.795 is the truncation every arm was dispatched
 with, and rankings are decided by strict comparison.
 
-`europe_control_vp` (40, the whole track) is Europe Control's price in the
-region term. The board fact `Terrain.battleground` is a rule and is
+`stakes.EUROPE_CONTROL_VP` (40, the whole track) is Europe Control's price
+in the region term. It was also a weight, `europe_control_vp`, until
+2026-09-27, when it was folded into the constant: rules-exact, and 20 and 60
+both measured worse. (`space_ability`, the 1 VP price of a Space Race ability
+box, was folded into `_space_expected_vp` the same day.) The board fact `Terrain.battleground` is a rule and is
 untouched by any of this. See
 `docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md` and
 `docs/notes/claude/2026-09-18-fitted-country-weights.md`.
