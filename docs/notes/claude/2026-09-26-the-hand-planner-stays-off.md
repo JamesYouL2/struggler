@@ -72,11 +72,24 @@ The maintainer's answer (EXPERT_ASKS, holding) gives two reasons to hold:
 For both, `vp_swing` measures the per-turn decline. Until that price
 exists, the planner has nothing to allocate.
 
-## A side finding: two seeds stall on the shipped bot
+## A side finding: the stalls are the anchor's, not the shipped bot's
 
-Seeds 132008 (the bot as USSR) and 132709 never finished within the
-1200 s stall floor, and the slowest finished game took 219 s. It happened
-in the base arm as well as the tie arm, so this is the shipped bot and
-not the planner. The spare shards absorbed it, but a game that does not
-end is a defect in its own right. Worth a trace:
-`benchmark --seeds 132008-132008` with logs on.
+Seeds 132008 and 132709 never finished, in the base arm as well as the
+tie arm. The same happened to 140565, 140591 and 141179 in the access
+deletion's base arm (run 36253272931). **Traced 2026-09-26: the hang is in
+the OPPONENT, the `bc5ef93` anchor.** Replaying 132008 locally, the stack
+after four minutes sits entirely in the anchor snapshot. It cycles
+`event_value -> _hand_attack_value -> hold_value -> event_value ->
+_resolve_sandbox -> helper.choose_action -> _score_event_choice ->
+hold_value`, with Blockade and Latin American Debt Crisis ending in
+`RecursionError`. This is the sandbox helper chain that `48007da` fixed
+on 2026-09-13 (`tests/test_sandbox_helper_chain.py`; the note is
+2026-09-12-the-blockade-recursion-is-a-chain-of-fresh-helpers). The
+anchor, `bc5ef93`, is from 2026-09-12 and predates the fix. The shipped
+bot has it.
+
+What it costs a reading: the anchor hangs on a game path, not on a seed,
+so a hung game drops that seed from BOTH compared arms, and the spare
+shards backfill it. That is paired attrition, recorded in `pooled.json`'s
+`dropped`. It is not a defect in the bot under test. Any arm anchored on
+`bc5ef93` will keep losing about one seed in 700 this way.

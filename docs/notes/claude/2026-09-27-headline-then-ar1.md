@@ -1,5 +1,14 @@
 # Headline, then AR1: the USSR's two moves in a row
 
+> **Correction (2026-09-27, Astra's audit):** the USSR headline and USSR
+> AR1 are NOT always consecutive. Headlines resolve higher Ops first, ties
+> US first, so a higher-Ops USSR headline resolves, THEN the US headline,
+> THEN USSR AR1. The next move after both headlines is still always the
+> USSR's, but only a USSR headline that resolves second is immediately
+> followed by its own AR1. A `headline_combo` must model the intervening
+> US headline in the other case, without reading the hidden US hand.
+> docs/notes/codex/2026-09-27-correctness-rust-readiness.md.
+
 The maintainer's last question before MCTS (2026-09-27): **is there a
 headline plus AR1 combo for the USSR, where the US does not get to see or
 place Ops before the USSR's action round 1?**
