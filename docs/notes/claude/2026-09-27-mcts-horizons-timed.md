@@ -143,3 +143,60 @@ the suspect):
    bypasses).
 3. **Re-run the same arm.** The strategic side's games reproduce exactly,
    so the comparison is clean.
+
+## Tracing the nuclear losses, and the second experiment (2026-09-27)
+
+The maintainer: "try experimenting with search after DEFCON result in
+MCTS." Traced first, on seed 151001 as the USSR, one of the ten turn-2
+MCTS-side DEFCON-1 losses:
+
+- **The two overrides were NOISE.** At T2 AR1 the search chose Indo-Pakistani
+  War at 0.8829 over the policy's East European Unrest at 0.8825, 33 visits
+  each. At T1, Socialist Governments -0.413 against Nuclear Test Ban
+  -0.442. A 1-round search at 96 simulations cannot tell those apart, and
+  the root took the higher mean anyway. The search was effectively
+  randomising among the policy's top three.
+- **The loss itself came later.** The strategic policy played AR2-6 and
+  held CIA Created to AR6 at DEFCON 2. That was harmless in the plain
+  game, where the same card was the last one left. Here, a US
+  Decolonization on AR5 (firing the USSR event) had put a USSR point in
+  Nigeria, giving the US a coupable battleground once CIA Created fired.
+  The overrides changed the path; the hazard was in the policy's later
+  play.
+- **The leaf compresses differences:** `tanh(value / 100)` saturates near
+  +/-0.88 on these boards (values of 100 and up), which makes noise
+  relatively larger.
+
+Three options added, each off by default:
+
+- `safe_root`: survival first. A root card must be no riskier than the
+  policy's pick, and not cornered unless it is. This is the maintainer's
+  "search after the DEFCON result".
+- `leaf_risk`: a leaf is charged the survival planner's whole-hand
+  turn-loss risk, `(1 - r) * value - r`.
+- `confidence` z: the root plays the searched best only if it beats the
+  policy's own card by z standard errors of the difference; otherwise the
+  policy's card.
+
+On seed 151001, `safe_root` and `leaf_risk` changed nothing: both overrides
+still happened, because at AR1 no card was risky yet. `confidence` 2 made 0
+overrides, and the game survived as the plain one does. One game; it shows
+the mechanism, not the rate.
+
+Arms against HEAD's strategic bot on the SAME seeds as `mcts-h1-ar1`
+(151000-151255, reserve 151300-151363, 32-seed shards), each horizon 1, 96
+simulations, AR1 only:
+
+- `mcts-h1-conf2`: confidence 2;
+- `mcts-h1-conf1`: confidence 1;
+- `mcts-h1-guarded`: safe_root + leaf_risk + confidence 2.
+
+THE RULE, not moved after the number, per arm:
+
+1. **Veto first:** MCTS-side DEFCON-1 losses more than 1.5x the strategic
+   side's is a failure.
+2. **Lower bound above 0.5:** searching AR1 buys strength; 1024 seeds next.
+3. **Covers 0.5, veto clear:** safe but not measured to help. The override
+   rate says why: near 0 means the gate leaves search nothing to do at 96
+   simulations, and the next lever is more simulations, not a looser gate.
+4. **Upper bound below 0.5:** costs.

@@ -20,6 +20,56 @@
   "_burst": "The local queue existed because one machine runs one thing at a time; a runner per arm removes that. Prefer MORE ARMS AT FULL SIZE over fewer underpowered ones -- several 2026-09-12 experiments read +/-0.06 to +/-0.075 and could not settle what they were asked, purely because the box was the constraint.",
   "experiments": [
     {
+      "slug": "mcts-h1-conf2",
+      "search": {
+        "simulations": 96,
+        "horizon": 1,
+        "rounds": [
+          1
+        ],
+        "confidence": 2.0
+      },
+      "seeds": "151000-151255",
+      "reserve": "151300-151363",
+      "shard": 32,
+      "title": "MCTS h1 AR1, confidence 2, vs HEAD's strategic bot",
+      "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+    },
+    {
+      "slug": "mcts-h1-conf1",
+      "search": {
+        "simulations": 96,
+        "horizon": 1,
+        "rounds": [
+          1
+        ],
+        "confidence": 1.0
+      },
+      "seeds": "151000-151255",
+      "reserve": "151300-151363",
+      "shard": 32,
+      "title": "MCTS h1 AR1, confidence 1, vs HEAD's strategic bot",
+      "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+    },
+    {
+      "slug": "mcts-h1-guarded",
+      "search": {
+        "simulations": 96,
+        "horizon": 1,
+        "rounds": [
+          1
+        ],
+        "safe_root": true,
+        "leaf_risk": true,
+        "confidence": 2.0
+      },
+      "seeds": "151000-151255",
+      "reserve": "151300-151363",
+      "shard": 32,
+      "title": "MCTS h1 AR1, safe root + leaf risk + confidence 2, vs HEAD's strategic bot",
+      "context": "Search after the DEFCON result (maintainer, 2026-09-27). Rule frozen in the note. docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+    },
+    {
       "slug": "base-vs-07d553a",
       "anchor": "07d553a",
       "seeds": "20000-21023",

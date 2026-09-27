@@ -291,7 +291,11 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None,
         return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options,
                           search_all=os.environ.get('STRUGGLER_MCTS_SEARCH_ALL') == '1',
                           horizon=int(horizon) if horizon else None,
-                          rounds=tuple(int(r) for r in rounds.split(',')) if rounds else None)
+                          rounds=tuple(int(r) for r in rounds.split(',')) if rounds else None,
+                          safe_root=os.environ.get('STRUGGLER_MCTS_SAFE_ROOT') == '1',
+                          leaf_risk=os.environ.get('STRUGGLER_MCTS_LEAF_RISK') == '1',
+                          confidence=float(os.environ['STRUGGLER_MCTS_CONFIDENCE'])
+                          if os.environ.get('STRUGGLER_MCTS_CONFIDENCE') else None)
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()

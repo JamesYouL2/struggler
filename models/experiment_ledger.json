@@ -2766,6 +2766,83 @@
       "notes": [
         "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
       ]
+    },
+    {
+      "id": "mcts-h1-conf2",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 2.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
+    },
+    {
+      "id": "mcts-h1-conf1",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 1.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
+    },
+    {
+      "id": "mcts-h1-guarded",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
     }
   ]
 }
