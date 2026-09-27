@@ -2912,10 +2912,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "0.512 [0.499, 0.525] over 1024 vs v0.6.0; reproduced ed-base in 2304 of 2304 games",
+      "verdict": "base, and the determinism check (passed)",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2931,10 +2931,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.020 [-0.041, +0.001]; vs ed-05-d04 -0.025 [-0.047, -0.003]",
+      "verdict": "this turn loses to decay 0.4",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2950,10 +2950,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.099 [-0.120, -0.078]",
+      "verdict": "costs",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2969,10 +2969,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.007 [-0.028, +0.013]; vs ed-05-d04 -0.012 [-0.033, +0.008]",
+      "verdict": "ties decay 0.4; decay keeps its place",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2988,10 +2988,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.128 [-0.148, -0.107]",
+      "verdict": "costs",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -3008,10 +3008,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.006 [-0.026, +0.015]; vs ed-05-d04 -0.011 [-0.033, +0.011]",
+      "verdict": "scope does not matter at this size",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -3028,10 +3028,10 @@
       "anchor": "v0.6.0",
       "seeds": "149000-150023",
       "compare_to": "ew-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36296498246,
+      "reading": "paired -0.072 [-0.093, -0.051]",
+      "verdict": "costs",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]

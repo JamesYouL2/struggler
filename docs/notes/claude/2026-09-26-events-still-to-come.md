@@ -315,3 +315,38 @@ THE RULE, not moved after the number:
 4. **Determinism:** `ew-base` must match `ed-base` game for game. If it
    does not, the run is not comparable across runs, rules 2-3 are read
    in-run only, and the non-determinism is itself the finding.
+
+## Near windows and investment scope: the reading (run 36296498246, 2026-09-27)
+
+All seven arms are complete at 1024 seeds against `v0.6.0`, with no stall.
+
+**Rule 4, determinism: `ew-base` reproduced `ed-base` in 2304 of 2304
+games**, on the same seeds a run apart. The cross-run seed-level pairings
+below are therefore exact, not approximations.
+
+| arm | paired vs `ew-base` | seed by seed vs `ed-05-d04` | bot DEFCON-1 losses |
+| --- | ---: | ---: | ---: |
+| `ew-base` (off) | 0.512 vs v0.6.0 | -- | 67 |
+| `ew1-05` (this turn, 0.5) | -0.020 [-0.041, +0.001] | **-0.025 [-0.047, -0.003]** | 75 |
+| `ew2-05` (this or next turn, 0.5) | -0.007 [-0.028, +0.013] | -0.012 [-0.033, +0.008] | 52 |
+| `ei-05` (investment scope, d0.4, 0.5) | -0.006 [-0.026, +0.015] | -0.011 [-0.033, +0.011] | 54 |
+| `ew1-10` (this turn, 1.0) | **-0.099 [-0.120, -0.078]** | -0.104 | 45 |
+| `ew2-10` (this or next turn, 1.0) | **-0.128 [-0.148, -0.107]** | -0.133 | 62 |
+| `ei-10` (investment scope, 1.0) | **-0.072 [-0.093, -0.051]** | -0.077 | 48 |
+
+**By the rule:**
+
+- **Rule 1: no nomination.**
+- **Rule 2: decay 0.4 keeps its place.** The this-turn window measurably
+  loses to it; the this-or-next-turn window ties.
+- **Rule 3: scope does not matter at this size.** Investment scope ties
+  board scope at the same weight and decay, so hypothesis 1 is neither
+  supported nor refuted. It still keeps our own events' value whole.
+- **At weight 1.0 every variant costs 7-13 points.** A full-strength
+  discount is wrong in any window and at any scope.
+
+**Where the family stands:** at 0.5, the three best forms (decay 0.4,
+this-or-next-turn, investment scope) are all level with no discount, and
+all agree with the maintainer on 4 of 6 positions against 2 of 6 off.
+None is measured to help. (0.5, decay 0.4) remains the maintainer's call,
+and nothing in this run argues for a different candidate.
