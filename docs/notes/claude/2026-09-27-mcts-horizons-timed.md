@@ -200,3 +200,45 @@ THE RULE, not moved after the number, per arm:
    rate says why: near 0 means the gate leaves search nothing to do at 96
    simulations, and the next lever is more simulations, not a looser gate.
 4. **Upper bound below 0.5:** costs.
+
+## The second experiment: the reading (run 36310237025, 2026-09-27)
+
+All three arms are complete at 256 seeds. On the 256 core seeds, with
+the first run alongside:
+
+| arm | vs HEAD strategic | DEFCON-1 losses, MCTS / strategic | overrides | rule |
+| --- | --- | ---: | ---: | --- |
+| `mcts-h1-ar1` (no gate, run 36301443382) | 0.479 [0.448, 0.510] | 31 / 8 (3.9x) | 36.7% | veto |
+| `mcts-h1-conf1` | **0.465 [0.437, 0.493]** | 32 / 9 (3.6x) | 20.5% | veto; costs |
+| `mcts-h1-conf2` | 0.486 [0.461, 0.511] | 25 / 10 (2.5x) | 11.0% | veto |
+| `mcts-h1-guarded` (safe_root + leaf_risk + conf 2) | **0.509 [0.484, 0.534]** | **17 / 12 (1.4x)** | 10.3% | **veto clear; covers 0.5** |
+
+A search costs 35-38 s on a runner, and a game about 300 s.
+
+**By the rule:** `mcts-h1-guarded` is the first MCTS variant to clear the
+veto. It covers 0.5 (rule 3): safe, not measured to help. Its override
+rate is 10.3%, not near 0, so the gate does leave the search room to act,
+and at 256 seeds (+/-0.025) what it does is not distinguishable from the
+policy. The other two fail the veto, and confidence 1 also costs.
+
+**What the arms say together:**
+
+- **Overrides trade survival for nothing.** More overrides meant more
+  DEFCON-1 losses and a lower score, at every setting.
+- **The confidence gate alone is not enough.** At z = 2, the 11% of
+  overrides that clear it still lost 2.5x as often. Confident on value is
+  not safe on survival.
+- **The survival guards do the work the gate cannot.** At the same z = 2
+  and nearly the same override rate, adding `safe_root` and `leaf_risk`
+  cut MCTS-side losses from 25 to 17 and moved the score from 0.486 to
+  0.509. The seed-151001 trace said neither guard would matter for that one
+  game (no card was risky at AR1); across 256 games they do.
+
+**Next, if MCTS is pursued:** the guarded settings are the base to build
+on. Two ways to find out whether its 10% of overrides are worth anything:
+
+1. **More seeds:** 1024 seeds at +/-0.012 would resolve a 2-point gain.
+   At about 300 s a game that is roughly 170 runner-hours.
+2. **Better overrides:** more simulations (192) per search. Rule 3's lever
+   was for a near-zero override rate, which this is not, but deeper
+   evidence per override is the other way to make the 10% count.
