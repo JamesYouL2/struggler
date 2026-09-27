@@ -28,11 +28,15 @@ itself.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
+import logging
 import json
 import sys
 import time
 
+from struggler.bots.rules_math import effective_ops_estimate
 from struggler.bots.strategic import StrategicPlayer
+from struggler.bots.strategic.public_cards import CARDS
 from struggler.engine import Engine, Side
 
 
@@ -48,6 +52,7 @@ def parse_seeds(spec: str) -> list[int]:
 
 
 def play(seed: int) -> list[dict]:
+    logging.disable(logging.CRITICAL)
     engine = Engine.new_game(seed=seed, setup_bonus=True)
     bots = {Side.US: StrategicPlayer(), Side.USSR: StrategicPlayer()}
     rows: list[dict] = []
@@ -68,7 +73,8 @@ def play(seed: int) -> list[dict]:
                 vp_price = bot.vp_value(obs) or 1.0
                 # The board expressed in VP, from this seat: what the
                 # position is worth beyond what is already banked.
-                board_vp = bot.evaluate(obs) / vp_price
+                board_value = bot.evaluate(obs)
+                board_vp = board_value / vp_price
             except Exception:            # a probe must never change the game
                 continue
             signed = engine.vp if side is Side.US else -engine.vp
@@ -80,15 +86,33 @@ def play(seed: int) -> list[dict]:
                 'defcon': engine.defcon,
                 'milops': engine.military_ops[side.value],
                 'space': engine.space_race[side.value],
+                # What the MCTS leaf would score this position at, exactly as
+                # `MCTSPlayer.leaf_return` computes it: the evaluator plus
+                # banked VP at this turn's price, before its tanh.
+                'vp_price': vp_price,
+                'leaf_raw': board_value + vp_price * signed,
+                'opp_space': engine.space_race[side.opponent.value],
+                'opp_milops': engine.military_ops[side.opponent.value],
+                'china': int(engine.china_card_owner == side.value),
+                'hand_scoring': sum(1 for c in obs.hand if 'Scoring' in c),
+                'hand_ops': sum(effective_ops_estimate(CARDS[c], obs, side) for c in obs.hand),
+                'opp_hand': obs.opponent_hand_size,
             })
         engine.step(bots[side].choose_action(engine.observe(side), list(decision.options)))
-    # Label every row with the result from its own seat.
+    # Label every row with the result from its own seat: the ENGINE'S winner,
+    # not the sign of the final VP. That was the label until 2026-09-27, and
+    # it mislabels every game decided by DEFCON 1, Europe Control, Wargames
+    # or a mid-game 20 VP. A draw scores 0.5; an unfinished game is dropped.
+    if not engine.is_terminal:
+        return []
     final = engine.vp
     for row in rows:
         seat_vp = final if row['side'] == 'US' else -final
-        row['won'] = int(seat_vp > 0)
+        row['score'] = 0.5 if engine.winner is None else float(engine.winner.value == row['side'])
+        row['won'] = int(row['score'] == 1.0)
         row['final_vp'] = seat_vp
         row['end_turn'] = engine.turn
+        row['reason'] = engine.game_over_reason
     return rows
 
 
@@ -97,12 +121,15 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--seeds', default='4000-4039')
     ap.add_argument('--out', default='models/winprob-samples.json')
+    ap.add_argument('--workers', type=int, default=4)
     args = ap.parse_args(argv)
     start = time.time()
     rows: list[dict] = []
-    for seed in parse_seeds(args.seeds):
-        rows.extend(play(seed))
-        print(f'seed {seed}: {len(rows)} rows so far', file=sys.stderr, flush=True)
+    seeds = parse_seeds(args.seeds)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.workers) as pool:
+        for seed, got in zip(seeds, pool.map(play, seeds)):
+            rows.extend(got)
+            print(f'seed {seed}: {len(rows)} rows so far', file=sys.stderr, flush=True)
     with open(args.out, 'w') as handle:
         json.dump({'version': 1, 'rows': rows}, handle)
     print(f'{len(rows)} rows -> {args.out} in {time.time()-start:.0f}s')

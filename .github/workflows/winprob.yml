@@ -1,0 +1,122 @@
+# Win-probability fit: collect labelled positions from self-play, fit on
+# some games, score on games the fit never saw. No MCTS, no tournament.
+#
+# The question (maintainer, 2026-09-27): does a logistic fit predict game
+# outcomes better than the current bot's own value, and what does clipping
+# at [0.05, 0.95] or [0.10, 0.90] do to it? That is offline prediction, and
+# this workflow is the whole of it:
+#
+#   collect  one job per block of seeds, scripts/collect_winprob.py: one row
+#            per turn start per seat, labelled with the engine's winner
+#   fit      merges every block's rows and runs scripts/fit_winprob.py --
+#            split by seed (train / validation / test), every number on the
+#            held-out test games, the report in the job summary
+#
+# What a hosted runner adds: the collection is embarrassingly parallel, and
+# a local box running it ties up every core for most of an hour. Nothing
+# here is a timing, so the runners' clocks do not matter.
+#
+# Nothing lands in git: the rows, the report and the summary are artifacts.
+# Copy the numbers into a note to keep them.
+name: winprob
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: 'Seed range to play, lo-hi (one game per seed; both seats give rows)'
+        default: '160000-161499'
+      block:
+        description: 'Games per collection job'
+        default: '50'
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      blocks: ${{ steps.cut.outputs.blocks }}
+    steps:
+      - id: cut
+        env:
+          SEEDS: ${{ inputs.seeds }}
+          BLOCK: ${{ inputs.block }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          lo, _, hi = os.environ['SEEDS'].partition('-')
+          lo, hi, size = int(lo), int(hi or lo), int(os.environ['BLOCK'])
+          blocks = [f'{s}-{min(hi, s + size - 1)}' for s in range(lo, hi + 1, size)]
+          print('blocks=' + json.dumps(blocks))
+          PY
+
+  collect:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        seeds: ${{ fromJSON(needs.plan.outputs.blocks) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - name: collect ${{ matrix.seeds }}
+        env:
+          SEEDS: ${{ matrix.seeds }}
+        run: uv run python scripts/collect_winprob.py --seeds "$SEEDS" --workers 4 --out rows.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winprob-rows-${{ matrix.seeds }}
+          path: rows.json
+
+  fit:
+    needs: [plan, collect]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: winprob-rows-*
+          path: blocks
+      # A block whose job failed has no artifact; say how many are missing
+      # rather than fit on fewer games without saying so.
+      - name: merge
+        env:
+          BLOCKS: ${{ needs.plan.outputs.blocks }}
+        run: |
+          python3 - <<'PY'
+          import glob, json, os
+          expected = json.loads(os.environ['BLOCKS'])
+          found = sorted(glob.glob('blocks/*/rows.json'))
+          rows = [r for f in found for r in json.load(open(f))['rows']]
+          json.dump({'version': 1, 'rows': rows}, open('samples.json', 'w'))
+          games = len({r['seed'] for r in rows})
+          line = f'{len(found)} of {len(expected)} blocks collected: {len(rows)} rows from {games} games'
+          print(line)
+          open(os.environ['GITHUB_STEP_SUMMARY'], 'a').write(line + '\n\n')
+          PY
+      - name: fit
+        run: |
+          uv run python scripts/fit_winprob.py samples.json --out report.json | tee fit.txt
+          { echo '```'; cat fit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: winprob-fit
+          path: |
+            samples.json
+            report.json
+            fit.txt
