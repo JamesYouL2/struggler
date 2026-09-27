@@ -363,11 +363,12 @@ class StrategicWeights:
     # importance's overall level where the tiers had it.
     # docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md
     country_vp_scale: float = 2.795
-    # What controlling all of Europe is worth in the region term, in VP. It
-    # ends the game, so it is the whole 40 VP swing (stakes.GAME_SWING_VP);
-    # a weight only so experiments can price it otherwise. The fitted
-    # weights were fitted at 40 and do not read this.
-    europe_control_vp: float = 40.0
+    # (`europe_control_vp`, Europe Control's price in the region term, stood
+    # here at 40 until 2026-09-27: rules-exact -- it ends the game, so it is
+    # the whole swing -- and a weight only so experiments could price it
+    # otherwise. 20 and 60 both measured worse (run 35367356155), so it was
+    # folded into the constant it always equalled, `stakes.EUROPE_CONTROL_VP`,
+    # which `evaluator.region_vp` reads directly.)
     # (`europe_curve`, Europe as one continuous `20 * tanh(net VP / k)` in
     # place of the tiers' step, stood here at 0 until 2026-09-26. Its arm,
     # k=10, leaned worse and was not shipped: 0.486 [0.471, 0.501]. Deleted
@@ -581,23 +582,11 @@ class StrategicWeights:
     # the old behaviour, which priced the last turns as if the game ran for
     # ever and then stopped without scoring.
     scoring_final: float = 1.0
-    # The Space Race ability boxes award no VP: boxes 2, 4, 6 and 8 are
-    # worth 0 to both first and second in the rules, so
-    # `space_race_expected_vp` returns exactly 0.0 there and `space_value`
-    # reads the attempt as a pure cost -- a zero-VP wall in front of every
-    # reward box (3: 2 VP, 5: 3, 7: 4). This prices the abilities instead:
-    # ONE variable, 1.0 VP each, since 2026-09-24. It was four fields (2/4/8
-    # at 1.0, 6 at 1.5) until the maintainer folded them: the space-race
-    # knob experiment (run 36057974080, 1152 paired games a level) read
-    # 0/1/2 VP at -0.008 / -0.000 / +0.002 against the shipped mix -- the
-    # family bounded at +/-0.016 and the box-6 premium a dead heat -- so
-    # nothing about the four-way split was worth its four variables. The
-    # older per-box reasoning (6's discard dominates 8's extra action
-    # round; 8 fires in ~1% of games) lives in the provenance ledger. The
-    # price applies only when we would be *first*:
-    # `Engine._grant_space_ability` pops the effect when the opponent
-    # draws level, so a box they have already reached grants nothing.
-    space_ability: float = 1.0
+    # (`space_ability`, the VP price of each Space Race ability box, stood
+    # here at 1.0 until 2026-09-27. Folded from four per-box fields on
+    # 2026-09-24 (run 36057974080: 0/1/2 VP all within +/-0.016 of the
+    # shipped mix), then folded again into `_space_expected_vp` as the
+    # 1 VP it always was -- a knob nothing moved, and a multiply by one.)
     # A coup or realignment is priced on the same board change as placing
     # influence, then discounted: it is the less Ops-efficient route to the
     # same result (a coup on a 2-stability country loses a point of margin
@@ -607,15 +596,16 @@ class StrategicWeights:
     # answer a placement plan at all, and how their answer's budget is
     # chosen. See `_survives_reply` -- a break that does not take control
     # loses the exchange 2:1, and that is invisible until one ply later.
-    # `reply_model` is the selector, since weights must be nonnegative and
-    # a sentinel cannot be: 0 off, 3 a weighted average over budgets 0-4.
-    # Model 1 (a constant `reply_ops` budget) and the `reply_ops` field
-    # were deleted on 2026-09-24: dead at model 3, the constant was test
+    # `reply_model` is an on/off switch: 0 off, anything else on, and on
+    # means model 3, the only one left -- a weighted average over budgets
+    # 0-4 (`_reply_budgets`). The value 3 is kept as the shipped default so
+    # every recorded arm and corpus record still reads as it did. Model 1
+    # (a constant `reply_ops` budget) and the `reply_ops` field were
+    # deleted on 2026-09-24: dead at model 3, the constant was test
     # scaffolding posing as a price -- the reply-lookahead tests pin a
     # budget by overriding `_reply_budgets` now. Model 2, the median of
     # the opponent's likely holdings, was deleted on 2026-09-19: nothing
-    # called it, and it is model 3 with the distribution thrown away. A 1
-    # falls through to model 3 today, as a 2 did then.
+    # called it, and it is model 3 with the distribution thrown away.
     #
     # On, at 3, since `9bec0a0` made it work: the gate at `01de83f` is a
     # dead heat on strength (pooled 0.497 +/- 0.032 over 96 seeds, which
@@ -1281,11 +1271,10 @@ class StrategicPlayer:
     def region_score(self, board: Board, region: Region, side: Side,
                      snapshot: ev.Position | None = None) -> float:
         """Net VP from scoring `region` now. Europe's control tier has no
-        scoring value, so it stands in as +/-`europe_control_vp` (see
+        scoring value, so it stands in as +/-`EUROPE_CONTROL_VP` (see
         `evaluator.region_vp`)."""
         pos = self._position_for(board, snapshot)
-        net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos),
-                           self.weights.europe_control_vp)
+        net = ev.region_vp(self._terrain, pos, region, *self._overrides_for(region, pos))
         return net if side is Side.US else -net
 
     def country_value(self, board: Board, cid: str, side: Side,
@@ -1480,7 +1469,7 @@ class StrategicPlayer:
         # trial change below can move, so they are derived on both sides of it.
         overrides = self._overrides_for(region, pos)
         if net_before is None:
-            net_before = ev.region_vp(t, pos, region, *overrides, w.europe_control_vp)
+            net_before = ev.region_vp(t, pos, region, *overrides)
             if base is not None:
                 base[region] = net_before
         region_before = sign * net_before
@@ -1535,8 +1524,7 @@ class StrategicPlayer:
             # change to the overrides, which read control too.
             region_after = (region_before if pos.control[i] == controller
                             else sign * ev.region_vp(
-                                t, pos, region, *self._overrides_for(region, pos),
-                                w.europe_control_vp))
+                                t, pos, region, *self._overrides_for(region, pos)))
             change = (ev.country_value(t, pos, i, s, w, vector)
                       + ev.region_potential(t, w, vector, ((region, region_after),))
                       - before)
@@ -1947,7 +1935,7 @@ class StrategicPlayer:
         (budget, weight) pairs summing to 1.
 
         The budget distribution behind `weights.reply_model` (0 short-
-        circuits at the caller):
+        circuits at the caller; any other value is this one model):
 
         - **3, a weighted average over every budget 0-4**, weighted by
           how often the opponent holds a card of each size. Their hand is
@@ -2293,8 +2281,7 @@ class StrategicPlayer:
         after = sum(ev.country_value(t, position, t.index[c], side, w, vector)
                     if c in affected else v for c, v in countries.items())
         after += ev.region_potential(t, w, vector, (
-            (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags),
-                                    w.europe_control_vp)
+            (r, sign * ev.region_vp(t, position, r, *self._overrides_for(r, position, flags))
              if r in changed_regions else v) for r, v in regions.items()))
         result = after - before
         result += self.vp_value(obs) * (engine.vp-obs.vp) * (1 if obs.side is Side.US else -1)
@@ -2937,17 +2924,26 @@ class StrategicPlayer:
         too, and `benchmark.py` runs GreedyPlayer as a baseline, so changing
         it there would move a comparison silently. What an ability is *worth*
         is strategy, so the premium lives here.
+
+        The ability boxes (2, 4, 6, 8) are exactly the ones the rules pay
+        0 VP for, so `space_race_expected_vp` reads 0.0 there and the
+        attempt would look like a pure cost: a zero-VP wall in front of
+        every reward box (3: 2 VP, 5: 3, 7: 4). Each ability is priced at
+        1 VP instead, the maintainer's price at par; 0 and 2 measured
+        within noise of it (run 36057974080, 1152 paired games a level).
+        It was the weight `space_ability` until 2026-09-27. The price
+        applies only when we would be *first*:
+        `Engine._grant_space_ability` pops the effect when the opponent
+        draws level, so a box they have already reached grants nothing.
         """
         raw = space_race_expected_vp(obs, obs.side)
         box = obs.space_race.get(obs.side.value, 0) + 1
-        # The ability boxes are exactly the ones the rules pay 0 VP for.
-        premium = self.weights.space_ability if box in (2, 4, 6, 8) else 0.0
-        if not premium:
+        if box not in (2, 4, 6, 8):
             return raw
         if obs.space_race.get(obs.side.opponent.value, 0) >= box:
             return raw          # they hold it; reaching the box grants nothing
         chance = RULES['space_race_boxes'][str(box)]['roll_max'] / 6.0
-        return raw + chance * premium
+        return raw + chance     # the chance of reaching it, times 1 VP
 
     def space_value(self, obs: Observation, ops: int) -> float:
         """The attempt, net of a flat 0.4 charge for the Ops it gives up.

@@ -629,8 +629,11 @@ The shipped scale is **2.795, not the file's `matched_scale`**
 (2.7949857573867254): 2.795 is the truncation every arm was dispatched
 with, and rankings are decided by strict comparison.
 
-`europe_control_vp` (40, the whole track) is Europe Control's price in the
-region term. The board fact `Terrain.battleground` is a rule and is
+`stakes.EUROPE_CONTROL_VP` (40, the whole track) is Europe Control's price
+in the region term. It was also a weight, `europe_control_vp`, until
+2026-09-27, when it was folded into the constant: rules-exact, and 20 and 60
+both measured worse. (`space_ability`, the 1 VP price of a Space Race ability
+box, was folded into `_space_expected_vp` the same day.) The board fact `Terrain.battleground` is a rule and is
 untouched by any of this. See
 `docs/notes/claude/2026-09-21-the-fresh-block-answers-the-fit.md` and
 `docs/notes/claude/2026-09-18-fitted-country-weights.md`.
