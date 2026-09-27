@@ -3286,11 +3286,16 @@ class StrategicPlayer:
         fall-through did.
         """
         cid = p['country']
-        penalty = sum(self.board.control(n) is obs.side.opponent for n in self.board.neighbors(cid))
-        penalty += int(ctx.get('count_target_control', True) and self.board.control(cid) is obs.side.opponent)
-        probability = max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
+        probability = self._war_win_probability(obs, cid, ctx)
         enemy = self.board.influence[cid][obs.side.opp_key]
         return probability * (self.delta(obs, cid, own=enemy, opp=-enemy) + self.vp_value(obs) * ctx['vp'])
+
+    def _war_win_probability(self, obs: Observation, cid: str, ctx) -> float:
+        """P(a war on `cid` succeeds): the faces of one die that clear the
+        card's `win_from` after `Board.war_penalty` -- the engine's own
+        penalty, so the estimate cannot drift from the roll it predicts."""
+        penalty = self.board.war_penalty(cid, obs.side.opponent, ctx['count_target_control'])
+        return max(0, min(6, 7 - ctx['win_from'] - penalty)) / 6
 
     def _chernobyl_denial(self, obs: Observation, region: str) -> float:
         """What blocking `region` denies the USSR: the most board value one

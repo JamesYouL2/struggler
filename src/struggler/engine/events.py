@@ -671,6 +671,7 @@ def _indo_pakistani_war(engine: "Engine", side: Side) -> None:
     engine.push_war_target_choice(
         card_id="Indo_Pakistani_War", attacker=side,
         candidates=["India", "Pakistan"], win_from=4, vp=2, military_ops=2,
+        count_target_control=False,  # adjacent countries only
     )
 
 
@@ -679,6 +680,7 @@ def _iran_iraq_war(engine: "Engine", side: Side) -> None:
     engine.push_war_target_choice(
         card_id="Iran_Iraq_War", attacker=side,
         candidates=["Iran", "Iraq"], win_from=4, vp=2, military_ops=2,
+        count_target_control=False,  # adjacent countries only
     )
 
 
@@ -695,6 +697,7 @@ def _brush_war(engine: "Engine", side: Side) -> None:
     engine.push_war_target_choice(
         card_id="Brush_War", attacker=side, candidates=candidates,
         win_from=3, vp=1, military_ops=3,
+        count_target_control=False,  # adjacent countries only
     )
 
 

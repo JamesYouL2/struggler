@@ -849,6 +849,13 @@ class Engine:
             if self.is_terminal:  # Control of Europe, and nothing else
                 return
             self._change_vp_by(net, auto_victory=False)
+        # The China Card: "The player who holds this card at the end of Turn
+        # 10 receives 1 VP" -- face up or face down, it is held. Part of final
+        # scoring, so no automatic victory mid-count (10.3.2), and after
+        # Europe's Control check, which ends the game before any of this.
+        # It was missing entirely (Astra's audit, 2026-09-27, F2): a tied
+        # board was a draw that the holder wins.
+        self._change_vp_by(1 if self.china_card_owner == Side.US.value else -1, auto_victory=False)
         if self.vp > 0:
             self._win(Side.US, "final_vp")
         elif self.vp < 0:
@@ -2166,10 +2173,15 @@ class Engine:
         win_from: int,
         vp: int,
         military_ops: int,
-        count_target_control: bool = True,
+        count_target_control: bool,
     ) -> None:
         """A war whose attacker chooses the target (Brush War, Indo-Pakistani
-        War, Iran-Iraq War). Resolves to begin_war once the target is picked."""
+        War, Iran-Iraq War). Resolves to begin_war once the target is picked.
+
+        `count_target_control` is REQUIRED: it defaulted to True, and all
+        three of these wars inherited a -1 for the defender controlling the
+        target that only Arab-Israeli War's card has -- their penalty is the
+        ADJACENT countries (Astra's audit, 2026-09-27, F1)."""
         options = tuple(
             Action(DecisionKind.WAR_TARGET, {"country": c}) for c in candidates
         )
@@ -2230,24 +2242,12 @@ class Engine:
         target = ctx["target"]
         roll = action.payload["value"]
 
-        # -1 per defender-controlled country adjacent to the target, plus the
-        # target itself when the war counts it (e.g. Arab-Israeli War).
-        #
-        # 2.1.5: the two superpower spaces "provide the same benefits as
-        # 'adjacent controlled countries' for the purposes of events, and
-        # realignments". They are nodes in the adjacency graph but `control`
-        # returns None for them, so they have to be asked for separately --
-        # exactly as `_realignment_bonus` already does. The FAQ calls this
-        # out under Brush War as a reversal of an earlier ruling: a US Brush
-        # War on Afghanistan, or a USSR one on Mexico, is -1 for the
-        # superpower next door.
-        penalty = sum(
-            1 for n in self.board.neighbors(target) if self.board.control(n) is defender
-        )
-        if self.board.is_adjacent(defender.value, target):
-            penalty += 1
-        if ctx["count_target_control"] and self.board.control(target) is defender:
-            penalty += 1
+        # `Board.war_penalty`: -1 per defender-controlled neighbour, -1 for
+        # the defender's superpower next door (2.1.5; the FAQ reverses an
+        # earlier ruling under Brush War: a US Brush War on Afghanistan, or a
+        # USSR one on Mexico, is -1 for the superpower), and the target itself
+        # only when the card counts it. Shared with the bot's estimate.
+        penalty = self.board.war_penalty(target, defender, ctx["count_target_control"])
 
         if roll - penalty >= ctx["win_from"]:
             self._award_vp(attacker, ctx["vp"])
