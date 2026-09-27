@@ -43,7 +43,8 @@ class Edge:
 
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
-                 time_limit=None, opponent_model=None, rollout_options=None, search_all=False):
+                 time_limit=None, opponent_model=None, rollout_options=None, search_all=False,
+                 horizon=None):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
@@ -58,6 +59,15 @@ class MCTSPlayer:
         # Search every action-round play, not only turns with a scoring card
         # in hand (an experiment: strength versus time on plain turns).
         self.search_all = search_all
+        # How far a simulation looks, in action-round card plays after the
+        # root, counting both sides: 1 is our play and their reply, 2 is two
+        # of each. None is the original horizon, the end of the turn. A
+        # simulation stopped at the horizon is scored by `leaf_return`, the
+        # strategic value function, mid-turn.
+        if horizon is not None and horizon < 1:
+            raise ValueError('horizon must be a positive number of action rounds')
+        self.horizon = horizon
+        self._root_half = None
         self.intent = None
         self.last_search = None
 
@@ -160,6 +170,21 @@ class MCTSPlayer:
         margin = inf[side.value] - inf[side.opponent.value]
         return margin >= info.stability
 
+    @staticmethod
+    def _half_round(engine) -> int:
+        """Which card play of the turn is pending: USSR's AR1 is 0, US's AR1
+        1, USSR's AR2 2, and so on."""
+        return 2 * (engine.action_round - 1) + (0 if engine.pending_decision.actor is Side.USSR else 1)
+
+    def _past_horizon(self, engine) -> bool:
+        """True at the first card play past `horizon` rounds from the root."""
+        root = self._root_half
+        if self.horizon is None or root is None or engine.is_terminal:
+            return False
+        d = engine.pending_decision
+        return (d is not None and d.kind is K.ACTION_ROUND_PLAY
+                and self._half_round(engine) - root >= 2 * self.horizon)
+
     def advance_move(self, engine, move, side, turn, remaining):
         move_round = engine.action_round
         action = next(a for a in engine.legal_actions() if a.payload.get('card') == move.card)
@@ -168,7 +193,7 @@ class MCTSPlayer:
         # Opponent decisions never receive our target or our sampled hand.
         while not engine.is_terminal and engine.turn == turn and steps < remaining:
             d = engine.pending_decision
-            if d.actor is side and d.kind is K.ACTION_ROUND_PLAY:
+            if (d.actor is side and d.kind is K.ACTION_ROUND_PLAY) or self._past_horizon(engine):
                 break
             if d.actor is Side.CHANCE:
                 action = d.options[0]  # outcome drawn by the sandbox's independent RNG
@@ -182,7 +207,7 @@ class MCTSPlayer:
 
     def rollout(self, engine, turn, remaining):
         for _ in range(remaining):
-            if engine.is_terminal or engine.turn != turn:
+            if engine.is_terminal or engine.turn != turn or self._past_horizon(engine):
                 break
             d = engine.pending_decision
             action = d.options[0] if d.actor is Side.CHANCE else self.continuation(engine.observe(d.actor))
@@ -222,6 +247,7 @@ class MCTSPlayer:
         tree = {}
         self.rollout_policy.reset()
         root_key = information_key(obs)
+        self._root_half = 2 * (obs.action_round - 1) + (0 if obs.side is Side.USSR else 1)
         completed = 0
         truncated = 0
         for simulation in range(self.simulations):
@@ -230,7 +256,8 @@ class MCTSPlayer:
             engine = first if simulation == 0 else self.sample_engine(obs, rng)
             path = []
             steps = 0
-            while not engine.is_terminal and engine.turn == obs.turn and steps < self.max_steps:
+            while (not engine.is_terminal and engine.turn == obs.turn and steps < self.max_steps
+                   and not self._past_horizon(engine)):
                 current = engine.observe(obs.side)
                 key = information_key(current)
                 if key not in tree:
@@ -256,6 +283,7 @@ class MCTSPlayer:
         chosen = max((m for m in edges if edges[m].visits), key=lambda m: edges[m].mean)
         self.intent = (obs.turn, obs.action_round, chosen.target)
         self.last_search = {'simulations': completed, 'nodes': len(tree), 'truncated': truncated,
+                            'horizon': self.horizon,
                             'seconds': time.monotonic()-start,
                             'moves': [{'card': m.card, 'target': m.target, 'visits': e.visits, 'value': e.mean}
                                       for m, e in edges.items()]}
