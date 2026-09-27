@@ -34,6 +34,7 @@ standardised features.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 import random
@@ -172,7 +173,7 @@ def clip(ps, lo, hi):
 
 def calibration(ps, ys, edges=(0, .05, .1, .2, .3, .4, .5, .6, .7, .8, .9, .95, 1.0001)):
     out = []
-    for lo, hi in zip(edges, edges[1:]):
+    for lo, hi in itertools.pairwise(edges):
         idx = [i for i, p in enumerate(ps) if lo <= p < hi]
         if idx:
             out.append((f'{lo:.2f}-{min(hi, 1):.2f}', len(idx), sum(ps[i] for i in idx) / len(idx),
@@ -202,10 +203,16 @@ def main(argv=None) -> int:
     ap.add_argument('samples')
     ap.add_argument('--out')
     args = ap.parse_args(argv)
-    data = json.load(open(args.samples))
+    with open(args.samples) as handle:
+        data = json.load(handle)
     rows = data['rows'] if isinstance(data, dict) and 'rows' in data else data
     rows = [r for r in rows if 'score' in r and 'leaf_raw' in r]
     parts = split(rows)
+    empty = [k for k, v in parts.items() if not v]
+    if empty:
+        print(f"no games in the {', '.join(empty)} split: seed % 5 decides it, so play a wider seed range",
+              file=sys.stderr)
+        return 2
     test = parts['test']
     ys = [r['score'] for r in test]
     print(f"{len(rows)} rows from {len({r['seed'] for r in rows})} games; "
@@ -233,7 +240,8 @@ def main(argv=None) -> int:
             print(f"  {b:>10} {n:5d}  {mp:.3f}  {ob:.3f}")
         report['models'][name]['calibration'] = calibration(preds[name], ys)
     if args.out:
-        json.dump(report, open(args.out, 'w'), indent=1)
+        with open(args.out, 'w') as handle:
+            json.dump(report, handle, indent=1)
     return 0
 
 
