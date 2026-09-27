@@ -3171,6 +3171,24 @@
       "notes": [
         "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
       ]
+    },
+    {
+      "id": "winprob-fit-heldout",
+      "kind": "fit",
+      "knobs": {
+        "model": "logistic vs leaf as-is / calibrated; clip .05/.10"
+      },
+      "ref": "6e47bfd",
+      "anchor": null,
+      "seeds": "160000-161499",
+      "compare_to": "leaf calibrated x turn",
+      "run": 36344337350,
+      "reading": "test log loss diff -0.0546 [-0.0710, -0.0380]; leaf as-is 1.038 vs constant 0.693",
+      "verdict": "logistic predicts better; leaf is ~5x too steep (tanh(x/500) fits)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
+      ]
     }
   ]
 }

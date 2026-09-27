@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Win probability on held-out games: the logistic beats the bot, and the MCTS leaf is five times too steep](2026-09-27-win-probability-fit-held-out.md) — 2026-09-27
 - [MCTS with a 1- or 2-action-round horizon, timed](2026-09-27-mcts-horizons-timed.md) — 2026-09-27
 - [Handoff: cleanup and routine experiments for a weaker model](2026-09-27-handoff-for-a-weaker-model.md) — 2026-09-27
 - [A fresh profile, and the placement memo (-19% a game, exact)](2026-09-27-fresh-profile-and-the-placement-memo.md) — 2026-09-27
