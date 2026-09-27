@@ -800,7 +800,11 @@ class StrategicPlayer:
         # Keyed on the position's digest, so it cannot go stale however far
         # `delta` reads or however the trial loops move the board -- and it is
         # equal again after an undo, which a generation counter would miss.
-        self._delta_cache = {}
+        # ONLY while the digest is maintained: `STRUGGLER_CHECK_SNAPSHOT=0`
+        # leaves every digest at 0, every board then shares a key, and a
+        # placement ranking changed (Astra's audit, 2026-09-27, F3). With the
+        # digest off there is no memo, and `delta` computes every call.
+        self._delta_cache = {} if ev.DIGEST else None
         # What the board looked like when these were established. `delta`
         # prices against them, so calling it with the board moved reads a
         # base for a position that is not there -- which inverted the
@@ -2001,9 +2005,13 @@ class StrategicPlayer:
         # 45% of these calls repeated an input already computed that game,
         # 41% of the function's time. Keyed on EVERYTHING the search reads
         # (bug shape 1): the observation it is asked about and the one this
-        # player is prepared on (both minus the pending decision, which
-        # nothing on this path reads), the board as it stands now, the Ops
-        # and the weights.
+        # player is prepared on, the board as it stands now, the Ops and the
+        # weights. The observations are keyed minus their pending decision
+        # EXCEPT its phasing player: `_after_reply` asks `rules_math.next_move`
+        # whether the opponent still has a play, and that reads the decision's
+        # `phasing_player`. Leaving it out priced a turn-10 AR7 placement the
+        # same during the USSR's own card and during the US's last one --
+        # 19.22 reused against 25.26 fresh (Astra's audit, 2026-09-27, F5).
         memo = self.__dict__.get('_placement_memo') if self.PLACEMENT_MEMO else None
         key = None
         if memo is not None:
@@ -2059,15 +2067,17 @@ class StrategicPlayer:
         return total
 
     def _obs_context(self, obs: Observation | None):
-        """`obs` minus its pending decision, as a hashable key, computed once
-        per observation object. None for no observation."""
+        """`obs` minus its pending decision -- but with the decision's phasing
+        player, the one part of it the placement path reads
+        (`rules_math.next_move`) -- as a hashable key, computed once per
+        observation object. None for no observation."""
         if obs is None:
             return None
         memo = self.__dict__.get('_context_memo')
         if memo is not None and memo[0] is obs:
             return memo[1]
         key = tuple((f.name, repr(getattr(obs, f.name))) for f in fields(obs)
-                    if f.name != 'pending_decision')
+                    if f.name != 'pending_decision') + (('phasing', phasing_side(obs)),)
         self._context_memo = (obs, key)
         return key
 

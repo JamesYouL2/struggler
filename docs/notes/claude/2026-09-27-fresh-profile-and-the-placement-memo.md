@@ -1,5 +1,17 @@
 # A fresh profile, and the placement memo (-19% a game, exact)
 
+> **Correction (2026-09-27, Astra's audit F5):** the memo as merged in
+> #79 was NOT exact. Its key dropped the whole pending decision on the
+> claim that nothing on the placement path reads it. But `_after_reply` ->
+> `rules_math.next_move` -> `phasing_side` reads the decision's
+> `phasing_player`. Astra's constructed turn-10 AR7 pair reused 19.22
+> where a fresh player computes 25.26. My check had grepped `policy.py`
+> only, and the read was in `rules_math.py`. The six matching games never
+> reached that late-game case. Fixed in `fix/astra-caches-f3-f5`: the key
+> now carries the phasing player, and a full game through turn 10 and
+> Astra's pair are both tests. Re-measured on the fixed memo: identical
+> moves in the same six games, 108.5 s -> 85.0 s (-21.7%).
+
 The maintainer (2026-09-27): "do a fresh profile and see what we can do
 about removing redundant work in the sandbox" -- step 1's baseline for the
 Rust port plan (docs/RUST_PORT_PLAN.md) was from 2026-09-25, before

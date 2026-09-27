@@ -57,3 +57,11 @@ def test_the_memo_actually_hits(monkeypatch):
     _play(4100, True, stop_turn=2)
     _play(4100, False, stop_turn=2)
     assert counts[True] < 0.8 * counts[False], counts
+
+
+def test_the_memo_changes_no_move_through_turn_10():
+    """The short games above never reach the late game, where borrowed Ops
+    and the last action rounds change who can still reply: the memo's
+    phasing-player dependency (Astra's audit, 2026-09-27, F5) only bites
+    there. One whole game, memo on and off."""
+    assert _play(4102, True, stop_turn=10) == _play(4102, False, stop_turn=10)
