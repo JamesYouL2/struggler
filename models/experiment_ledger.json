@@ -3210,10 +3210,10 @@
       "anchor": null,
       "seeds": "152000-152511",
       "compare_to": null,
-      "run": null,
+      "run": 36346001240,
       "reading": null,
       "verdict": null,
-      "status": "planned",
+      "status": "in_flight",
       "notes": [
         "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
       ]
@@ -3238,10 +3238,10 @@
       "anchor": null,
       "seeds": "152000-152511",
       "compare_to": "mcts-leaf100",
-      "run": null,
+      "run": 36346001240,
       "reading": null,
       "verdict": null,
-      "status": "planned",
+      "status": "in_flight",
       "notes": [
         "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
       ]
