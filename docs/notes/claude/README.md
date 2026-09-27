@@ -13,6 +13,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [Handoff: cleanup and routine experiments for a weaker model](2026-09-27-handoff-for-a-weaker-model.md) — 2026-09-27
 - [Headline, then AR1: the USSR's two moves in a row](2026-09-27-headline-then-ar1.md) — 2026-09-27
 - [Deleting `scoring_rival` and `coup_discount`: one goes, one stays](2026-09-26-deleting-scoring-rival-and-coup-discount.md) — 2026-09-26
 - [Why access moved from -0.011 to -0.055](2026-09-26-why-access-moved.md) — 2026-09-26
