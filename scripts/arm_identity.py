@@ -64,7 +64,7 @@ def canonical_weights(weights: dict | None) -> str:
 
 def cache_key(*, src_tree: str, seeds: str, weights: dict | None = None,
               bot_ref_sha: str = '', anchor_sha: str = '', openings: str = '',
-              runtime: str = '', version: str = VERSION) -> str:
+              runtime: str = '', version: str = VERSION, search: dict | None = None) -> str:
     """A stable digest of everything that decides a shard's report."""
     if not src_tree:
         raise ValueError('src_tree is required: without it the key cannot see a code change')
@@ -74,6 +74,11 @@ def cache_key(*, src_tree: str, seeds: str, weights: dict | None = None,
         version, src_tree, bot_ref_sha, anchor_sha,
         canonical_weights(weights), seeds, openings, runtime,
     ))
+    if search:
+        # An MCTS arm (`search`: simulations, horizon, rounds) plays a
+        # different bot. Appended only when set, so every strategic arm's
+        # key -- and its cached shard -- is unchanged.
+        material += '|search=' + json.dumps(search, separators=(',', ':'), sort_keys=True)
     return 'exp-' + hashlib.sha256(material.encode()).hexdigest()[:32]
 
 
@@ -95,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         anchor_sha=args.anchor_sha,
         openings=shard.get('openings', ''),
         runtime=args.runtime,
+        search=shard.get('search'),
     ))
     return 0
 

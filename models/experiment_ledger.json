@@ -3070,6 +3070,107 @@
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
+    },
+    {
+      "id": "mcts-h1-ar1",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ]
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": 36301443382,
+      "reading": "0.479 [0.448, 0.510] over 256 vs HEAD strategic; MCTS side DEFCON-1 losses 31 vs 8 (38 vs 9 over all 640 games); 36.7% overrides; 39.9 s a search",
+      "verdict": "rule 4 veto fires (3.9x nuclear losses) -- a failure; hypothesis: the 1-round leaf does not price whole-hand survival",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
+    },
+    {
+      "id": "mcts-h1-conf2",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 2.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": 36310237025,
+      "reading": "0.486 [0.461, 0.511] over 256; DEFCON-1 MCTS 25 / strategic 10 (2.5x); 11.0% overrides",
+      "verdict": "veto: confident on value is not safe on survival",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
+    },
+    {
+      "id": "mcts-h1-conf1",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "confidence": 1.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": 36310237025,
+      "reading": "0.465 [0.437, 0.493] over 256; DEFCON-1 32 / 9 (3.6x); 20.5% overrides",
+      "verdict": "veto, and costs",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
+    },
+    {
+      "id": "mcts-h1-guarded",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": 36310237025,
+      "reading": "0.509 [0.484, 0.534] over 256; DEFCON-1 17 / 12 (1.4x); 10.3% overrides",
+      "verdict": "rule 3: veto clear, covers 0.5 -- safe, not measured to help; the base for any further MCTS",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
     }
   ]
 }

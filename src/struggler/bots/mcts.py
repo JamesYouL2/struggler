@@ -35,15 +35,26 @@ class Move:
 class Edge:
     visits: int = 0
     total: float = 0.
+    squares: float = 0.
 
     @property
     def mean(self):
         return self.total / self.visits if self.visits else 0.
 
+    @property
+    def variance_of_mean(self):
+        """The sample variance of the returns over the visits: the squared
+        standard error of `mean`. Infinite below two visits."""
+        if self.visits < 2:
+            return math.inf
+        var = (self.squares - self.total * self.total / self.visits) / (self.visits - 1)
+        return max(var, 0.0) / self.visits
+
 
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
-                 time_limit=None, opponent_model=None, rollout_options=None, search_all=False):
+                 time_limit=None, opponent_model=None, rollout_options=None, search_all=False,
+                 horizon=None, rounds=None, safe_root=False, leaf_risk=False, confidence=None):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
@@ -58,13 +69,58 @@ class MCTSPlayer:
         # Search every action-round play, not only turns with a scoring card
         # in hand (an experiment: strength versus time on plain turns).
         self.search_all = search_all
+        # How far a simulation looks, in action-round card plays after the
+        # root, counting both sides: 1 is our play and their reply, 2 is two
+        # of each. None is the original horizon, the end of the turn. A
+        # simulation stopped at the horizon is scored by `leaf_return`, the
+        # strategic value function, mid-turn.
+        if horizon is not None and horizon < 1:
+            raise ValueError('horizon must be a positive number of action rounds')
+        self.horizon = horizon
+        # Which action rounds to search, e.g. (1,): every card play in those
+        # rounds is searched and every other falls back to the strategic
+        # policy. None keeps the original rule (search_all, or turns with a
+        # scoring card in hand).
+        self.rounds = None if rounds is None else frozenset(rounds)
+        # Survival first, then search (maintainer, 2026-09-27). A card play's
+        # DEFCON risk is folded into its blended score, so the root filter in
+        # `ranked` -- the first two key elements -- only drops certain losses,
+        # and a card that leaves the hand cornered can still be searched and
+        # chosen. With `safe_root` a card enters the root only if its
+        # turn-loss risk is no higher than the policy's own pick's, and it is
+        # not cornered unless the pick is: search decides among plays at
+        # least as safe as the policy's. The first h1 run lost to DEFCON 1
+        # 38 times against the strategic side's 9 without it.
+        self.safe_root = safe_root
+        # Charge each leaf the survival planner's whole-hand turn-loss risk
+        # for the hand left: (1 - r) * value - r, the same blend the
+        # policy's ranking prices risk with. Traced 2026-09-27 (seed 151001):
+        # a 1-round leaf scores a position without asking whether the rest
+        # of the hand can still be played safely, and the hazard that lost
+        # the game (CIA Created held to AR6 at DEFCON 2) was invisible to a
+        # per-card check at AR1.
+        self.leaf_risk = leaf_risk
+        # Defer to the policy unless the search is sure. With `confidence`
+        # z, the root plays the searched best only when its mean beats the
+        # policy's own card by z standard errors of the difference; otherwise
+        # the policy's card. Traced 2026-09-27 (seed 151001): an override was
+        # decided by 0.8829 against 0.8825 over 33 visits each, noise.
+        self.confidence = confidence
+        self._root_half = None
         self.intent = None
         self.last_search = None
 
     def ranked(self, obs):
         ranked = self.policy.rank_actions(obs)
         safety = ranked[0][0][:2]
-        return [a for key, a in ranked if key[:2] == safety]
+        safe = [a for key, a in ranked if key[:2] == safety]
+        if not self.safe_root:
+            return safe
+        risks = self.policy._risks
+        _, top_risk, top_cornered = risks.get(id(safe[0]), (0.0, 0.0, False))
+        return [a for a in safe
+                if risks.get(id(a), (0.0, 0.0, False))[1] <= top_risk + 1e-12
+                and (top_cornered or not risks.get(id(a), (0.0, 0.0, False))[2])]
 
     def sample_engine(self, obs, rng):
         """Reconstruct ONLY at a plain action-round card boundary.
@@ -160,6 +216,21 @@ class MCTSPlayer:
         margin = inf[side.value] - inf[side.opponent.value]
         return margin >= info.stability
 
+    @staticmethod
+    def _half_round(engine) -> int:
+        """Which card play of the turn is pending: USSR's AR1 is 0, US's AR1
+        1, USSR's AR2 2, and so on."""
+        return 2 * (engine.action_round - 1) + (0 if engine.pending_decision.actor is Side.USSR else 1)
+
+    def _past_horizon(self, engine) -> bool:
+        """True at the first card play past `horizon` rounds from the root."""
+        root = self._root_half
+        if self.horizon is None or root is None or engine.is_terminal:
+            return False
+        d = engine.pending_decision
+        return (d is not None and d.kind is K.ACTION_ROUND_PLAY
+                and self._half_round(engine) - root >= 2 * self.horizon)
+
     def advance_move(self, engine, move, side, turn, remaining):
         move_round = engine.action_round
         action = next(a for a in engine.legal_actions() if a.payload.get('card') == move.card)
@@ -168,7 +239,7 @@ class MCTSPlayer:
         # Opponent decisions never receive our target or our sampled hand.
         while not engine.is_terminal and engine.turn == turn and steps < remaining:
             d = engine.pending_decision
-            if d.actor is side and d.kind is K.ACTION_ROUND_PLAY:
+            if (d.actor is side and d.kind is K.ACTION_ROUND_PLAY) or self._past_horizon(engine):
                 break
             if d.actor is Side.CHANCE:
                 action = d.options[0]  # outcome drawn by the sandbox's independent RNG
@@ -182,7 +253,7 @@ class MCTSPlayer:
 
     def rollout(self, engine, turn, remaining):
         for _ in range(remaining):
-            if engine.is_terminal or engine.turn != turn:
+            if engine.is_terminal or engine.turn != turn or self._past_horizon(engine):
                 break
             d = engine.pending_decision
             action = d.options[0] if d.actor is Side.CHANCE else self.continuation(engine.observe(d.actor))
@@ -199,7 +270,11 @@ class MCTSPlayer:
         value = self.policy.evaluate(obs)
         value += self.policy.vp_value(obs) * sign * engine.vp
         # Bounded heuristic leaves remain strictly below a certain win/loss.
-        return max(-.99, min(.99, math.tanh(value / 100.)))
+        leaf = max(-.99, min(.99, math.tanh(value / 100.)))
+        if self.leaf_risk and obs.hand:
+            risk = max(0.0, min(1.0, self.policy.planner_for(obs).risk()))
+            leaf = (1.0 - risk) * leaf - risk
+        return leaf
 
     def choose_action(self, obs, history):
         d = obs.pending_decision
@@ -210,7 +285,10 @@ class MCTSPlayer:
             return self.continuation(obs, target)
         self.intent = None
         self.last_search = None
-        if not self.search_all and not any(CARDS[c].scoring for c in obs.hand):
+        if self.rounds is not None:
+            if obs.action_round not in self.rounds:
+                return self.policy.choose_action(obs, history)
+        elif not self.search_all and not any(CARDS[c].scoring for c in obs.hand):
             return self.policy.choose_action(obs, history)
         start = time.monotonic()
         rng = random.Random(f'{self.seed}:{obs.side.value}:{obs.turn}:{obs.action_round}:{d.id}')
@@ -222,6 +300,7 @@ class MCTSPlayer:
         tree = {}
         self.rollout_policy.reset()
         root_key = information_key(obs)
+        self._root_half = 2 * (obs.action_round - 1) + (0 if obs.side is Side.USSR else 1)
         completed = 0
         truncated = 0
         for simulation in range(self.simulations):
@@ -230,7 +309,8 @@ class MCTSPlayer:
             engine = first if simulation == 0 else self.sample_engine(obs, rng)
             path = []
             steps = 0
-            while not engine.is_terminal and engine.turn == obs.turn and steps < self.max_steps:
+            while (not engine.is_terminal and engine.turn == obs.turn and steps < self.max_steps
+                   and not self._past_horizon(engine)):
                 current = engine.observe(obs.side)
                 key = information_key(current)
                 if key not in tree:
@@ -251,11 +331,21 @@ class MCTSPlayer:
             for edge in path:
                 edge.visits += 1
                 edge.total += reward
+                edge.squares += reward * reward
             completed += 1
         edges = tree[root_key]
         chosen = max((m for m in edges if edges[m].visits), key=lambda m: edges[m].mean)
+        policy_card = self.ranked(obs)[0].payload['card']
+        if self.confidence is not None:
+            policy_move = Move(policy_card)
+            if policy_move in edges and chosen != policy_move:
+                best, mine = edges[chosen], edges[policy_move]
+                se = math.sqrt(best.variance_of_mean + mine.variance_of_mean)
+                if not best.mean - mine.mean > self.confidence * se:
+                    chosen = policy_move
         self.intent = (obs.turn, obs.action_round, chosen.target)
         self.last_search = {'simulations': completed, 'nodes': len(tree), 'truncated': truncated,
+                            'horizon': self.horizon, 'chosen': chosen.card, 'policy_card': policy_card,
                             'seconds': time.monotonic()-start,
                             'moves': [{'card': m.card, 'target': m.target, 'visits': e.visits, 'value': e.mean}
                                       for m, e in edges.items()]}
