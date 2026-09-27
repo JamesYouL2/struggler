@@ -377,3 +377,19 @@ THE RULE, not moved after the number:
    stays the candidate.
 3. **Upper bound below 0 against the base:** 0.2 costs, and the curve has
    turned back.
+
+## Decay 0.2: the reading (run 36310899456, 2026-09-27)
+
+Both arms are complete at 1024 seeds. `ed2-base` reproduced `ed-base` on
+all 1152 seeds, the spares included.
+
+- `ed-05-d02` against `ed2-base`: **-0.001 [-0.022, +0.020]**, bot DEFCON-1
+  losses 53 against 67.
+- Seed by seed against `ed-05-d04`: **-0.006 [-0.025, +0.014]**.
+
+**By the rule: no nomination, and rule 2's tie.** The curve went -0.043
+(undecayed), -0.021 (0.7), +0.005 (0.4), -0.001 (0.2): it rises to level
+by 0.4 and stays there. **Decay 0.4 remains the candidate**, level with no
+discount and agreeing with the maintainer on 4 of 6 positions. Whether to
+ship it is the maintainer's call. Nothing further down the decay axis is
+worth a run.
