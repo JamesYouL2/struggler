@@ -113,3 +113,10 @@ def test_identical_blocks_share_and_that_is_not_a_collision():
         {'seeds': '92000-93023', 'reserve': '94000-94017'},
         {'seeds': '92000-93023', 'reserve': '94000-94017'},
     ])
+
+
+def test_the_search_setting_rides_on_every_shard():
+    search = {'simulations': 96, 'horizon': 1, 'rounds': [1]}
+    shards = build([{'slug': 'm', 'seeds': '1-64', 'search': search},
+                               {'slug': 's', 'seeds': '1-64'}])
+    assert {s['slug']: s['search'] for s in shards} == {'m': search, 's': {}}

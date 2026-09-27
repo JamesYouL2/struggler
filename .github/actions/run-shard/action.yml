@@ -125,6 +125,27 @@ runs:
           snapshot "$BOT_REF" snap-bot
           BOT="strategic@$PWD/snap-bot/strategic/policy.py"
         fi
+        # `search` (e.g. {"simulations": 96, "horizon": 1, "rounds": [1]})
+        # makes the challenger HEAD's MCTS player: the strategic policy
+        # everywhere it does not search. It cannot be a snapshot, so it
+        # does not combine with bot_ref.
+        SEARCH_ENV=$(python3 -c '
+        import json, shlex, sys
+        s = json.loads(sys.argv[1]).get("search") or {}
+        if s:
+            print("SEARCH=1; SIMS=%d" % int(s.get("simulations", 24)))
+            if s.get("horizon"): print("export STRUGGLER_MCTS_HORIZON=%d" % int(s["horizon"]))
+            if s.get("rounds"): print("export STRUGGLER_MCTS_ROUNDS=" + shlex.quote(",".join(str(int(r)) for r in s["rounds"])))
+        ' "$SHARD")
+        eval "$SEARCH_ENV"
+        if [ "${SEARCH:-}" = 1 ]; then
+          if [ -n "$BOT_REF" ]; then
+            echo "FAILED: a search arm plays HEAD's MCTS player; it cannot take a bot_ref"
+            exit 1
+          fi
+          BOT=mcts
+          ARGS+=(--simulations "$SIMS")
+        fi
         if [ -n "$ANCHOR" ]; then
           snapshot "$ANCHOR" snap-opp
           OPP="strategic@$PWD/snap-opp/strategic/policy.py"

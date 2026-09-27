@@ -99,6 +99,7 @@ def build(arms: list[dict]) -> list[dict]:
                 'anchor': a.get('anchor', ''), 'bot_ref': a.get('bot_ref', ''),
                 'openings': openings, 'compare_to': a.get('compare_to', ''),
                 'logs': bool(a.get('logs')),
+                'search': a.get('search') or {},
             })
     return shards
 

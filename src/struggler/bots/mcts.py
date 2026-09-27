@@ -44,7 +44,7 @@ class Edge:
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
                  time_limit=None, opponent_model=None, rollout_options=None, search_all=False,
-                 horizon=None):
+                 horizon=None, rounds=None):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
@@ -67,6 +67,11 @@ class MCTSPlayer:
         if horizon is not None and horizon < 1:
             raise ValueError('horizon must be a positive number of action rounds')
         self.horizon = horizon
+        # Which action rounds to search, e.g. (1,): every card play in those
+        # rounds is searched and every other falls back to the strategic
+        # policy. None keeps the original rule (search_all, or turns with a
+        # scoring card in hand).
+        self.rounds = None if rounds is None else frozenset(rounds)
         self._root_half = None
         self.intent = None
         self.last_search = None
@@ -235,7 +240,10 @@ class MCTSPlayer:
             return self.continuation(obs, target)
         self.intent = None
         self.last_search = None
-        if not self.search_all and not any(CARDS[c].scoring for c in obs.hand):
+        if self.rounds is not None:
+            if obs.action_round not in self.rounds:
+                return self.policy.choose_action(obs, history)
+        elif not self.search_all and not any(CARDS[c].scoring for c in obs.hand):
             return self.policy.choose_action(obs, history)
         start = time.monotonic()
         rng = random.Random(f'{self.seed}:{obs.side.value}:{obs.turn}:{obs.action_round}:{d.id}')
@@ -282,8 +290,9 @@ class MCTSPlayer:
         edges = tree[root_key]
         chosen = max((m for m in edges if edges[m].visits), key=lambda m: edges[m].mean)
         self.intent = (obs.turn, obs.action_round, chosen.target)
+        policy_card = self.ranked(obs)[0].payload['card']
         self.last_search = {'simulations': completed, 'nodes': len(tree), 'truncated': truncated,
-                            'horizon': self.horizon,
+                            'horizon': self.horizon, 'chosen': chosen.card, 'policy_card': policy_card,
                             'seconds': time.monotonic()-start,
                             'moves': [{'card': m.card, 'target': m.target, 'visits': e.visits, 'value': e.mean}
                                       for m, e in edges.items()]}

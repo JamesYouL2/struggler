@@ -2742,6 +2742,30 @@
       "notes": [
         "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
       ]
+    },
+    {
+      "id": "mcts-h1-ar1",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ]
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "151000-151255",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": "planned: rule frozen in the note before dispatch",
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
+      ]
     }
   ]
 }

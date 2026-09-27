@@ -123,3 +123,15 @@ def test_logs_are_outside_the_key_which_is_a_hole_the_workflow_has_to_close():
         return ARM.cache_key(src_tree='t', seeds=shard['seeds'],
                              weights=shard['weights'], openings=shard['openings'])
     assert key_for(True) == key_for(False)
+
+
+def test_a_search_arm_is_a_different_bot_and_no_search_changes_nothing():
+    """`search` makes the challenger the MCTS player, so it must move the
+    key; absent or empty, it must not, or every cached strategic shard
+    would be thrown away the day the field was added."""
+    plain = key()
+    assert key(search={}) == key(search=None) == plain
+    mcts = key(search={'simulations': 96, 'horizon': 1, 'rounds': [1]})
+    assert mcts != plain
+    assert mcts != key(search={'simulations': 96, 'horizon': 2, 'rounds': [1]})
+    assert mcts == key(search={'rounds': [1], 'horizon': 1, 'simulations': 96})

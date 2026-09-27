@@ -62,3 +62,37 @@ headline plus AR1 are two moves in a row). It would run against the
 strategic bot at a few hundred seeds first, to see whether the search
 separates from the policy at all, before any 1024-seed arm. Nothing is
 dispatched yet.
+
+## The first experiment: the rule, before the number (2026-09-27)
+
+The maintainer: "start the horizon 1 MCTS and see what it buys." To run
+it on CI, an arm can now carry `search` (`{"simulations": 96, "horizon": 1,
+"rounds": [1]}`): the shard's challenger is HEAD's `MCTSPlayer`, searching
+only the named action rounds and falling back to the strategic policy
+everywhere else (`MCTSPlayer(rounds=...)`, `STRUGGLER_MCTS_ROUNDS`).
+`search` joins the shard's cache key only when set, so no strategic arm's
+cached shard moves. The benchmark now counts `search_overrides` (searches
+that played a card the strategic policy would not have), and the pool
+summary reports `search_override_rate`.
+
+A local smoke (seed 151000, both seats, two workers) ran clean: 16
+searches at 17.5 s each, 6 of them overrides (37.5%), scoring 0.5.
+
+**Arm `mcts-h1-ar1`:** 96 simulations, horizon 1, AR1 only, against
+HEAD's strategic bot, the same policy MCTS falls back to. It plays **256
+seeds** (151000-151255, 32-seed shards, reserve 151300-151363) with waves
+off. With paired seats, the mirror is 0.5 in expectation, so the score
+minus 0.5 is what searching AR1 buys.
+
+THE RULE, not moved after the number:
+
+1. **Lower bound above 0.5:** search at AR1 buys strength. Next come 1024
+   seeds, then wider search (more rounds, or horizon 2).
+2. **Covers 0.5:** not measurable at 256 seeds (about +/-0.035). The
+   override rate and per-search cost are the reading, and the next step is
+   the maintainer's (more simulations, horizon 2, or more seeds).
+3. **Upper bound below 0.5:** searching AR1 costs. The likeliest culprit is
+   the mid-turn leaf (the value function scoring a position one round
+   ahead), and it is looked at before anything wider is tried.
+4. **Veto:** DEFCON-1 losses by the MCTS side more than 1.5x the strategic
+   side's is a failure, whatever the score.
