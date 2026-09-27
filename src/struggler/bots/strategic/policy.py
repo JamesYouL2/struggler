@@ -684,6 +684,11 @@ TUNABLE_WEIGHTS = tuple(f.name for f in fields(StrategicWeights)
 
 
 class StrategicPlayer:
+    # The cross-decision placement-search memo (`_placement_ops_value`); a
+    # class switch so a test can play the same games with it off.
+    PLACEMENT_MEMO = True
+    PLACEMENT_MEMO_SIZE = 50_000
+
     def __init__(self, weights: StrategicWeights | None = None, *, survival_prior: SurvivalPrior | None = None,
                  opponent_model=None, openings: dict[str, str] | None = None):
         self.weights = weights or StrategicWeights()
@@ -743,6 +748,7 @@ class StrategicPlayer:
         self._obs = None
         # Per-country scoring weight for `self._obs`, in terrain order, or
         # None for a bare evaluation with no observation behind it.
+        self._placement_memo = {}  # see PLACEMENT_MEMO
         self._urgency = None
         self._shuttle_pick = None   # a function of `_urgency`, cached with it
         self._delta_cache = None
@@ -1989,6 +1995,26 @@ class StrategicPlayer:
         cache = self.__dict__.get('_placement_values')
         if cache is not None and ops in cache:
             return cache[ops]
+        # ACROSS decisions too: a card play is a chain of decisions (card,
+        # mode, Ops type, each point), every one of them a fresh ranking that
+        # asked for the same search on the same board. Measured 2026-09-27:
+        # 45% of these calls repeated an input already computed that game,
+        # 41% of the function's time. Keyed on EVERYTHING the search reads
+        # (bug shape 1): the observation it is asked about and the one this
+        # player is prepared on (both minus the pending decision, which
+        # nothing on this path reads), the board as it stands now, the Ops
+        # and the weights.
+        memo = self.__dict__.get('_placement_memo') if self.PLACEMENT_MEMO else None
+        key = None
+        if memo is not None:
+            pos = self._position
+            key = (self._obs_context(obs), self._obs_context(self._obs), tuple(pos.inf[0]),
+                   tuple(pos.inf[1]), ops, self.weights)
+            hit = memo.get(key)
+            if hit is not None:
+                if cache is not None:
+                    cache[ops] = hit
+                return hit
         side, board = obs.side, self.board
         reachable = [c for c in board.countries if board.is_reachable(side, c)
                      and not chernobyl_blocks(side, board.countries[c].region, obs.turn_effects)]
@@ -2026,7 +2052,24 @@ class StrategicPlayer:
             self._invalidate_base()
         if cache is not None:
             cache[ops] = total
+        if memo is not None:
+            if len(memo) >= self.PLACEMENT_MEMO_SIZE:
+                memo.clear()
+            memo[key] = total
         return total
+
+    def _obs_context(self, obs: Observation | None):
+        """`obs` minus its pending decision, as a hashable key, computed once
+        per observation object. None for no observation."""
+        if obs is None:
+            return None
+        memo = self.__dict__.get('_context_memo')
+        if memo is not None and memo[0] is obs:
+            return memo[1]
+        key = tuple((f.name, repr(getattr(obs, f.name))) for f in fields(obs)
+                    if f.name != 'pending_decision')
+        self._context_memo = (obs, key)
+        return key
 
     def _investment(self, obs: Observation, cid: str, ops: int) -> tuple[float, int]:
         """Best value per Op of investing in `cid`, and the points that earn it."""

@@ -2744,6 +2744,334 @@
       ]
     },
     {
+      "id": "ee-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": null,
+      "run": 36270091127,
+      "reading": "0.571 [0.554, 0.588] over 1024 (vs bc5ef93); bot nuked 48",
+      "verdict": "base: event_exposure 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-01",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.1
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": 36270091127,
+      "reading": "paired -0.005 [-0.026, +0.017] over 1024; bot nuked 41",
+      "verdict": "rule 3: covers 0 -- strength does not see it; the position suite does (3 of 6 flip to the maintainer's move); the maintainer's call",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-025",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.25
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": 36270091127,
+      "reading": "paired -0.021 [-0.044, +0.001] over 1024; bot nuked 38",
+      "verdict": "rule 3: covers 0 at its edge, leaning worse",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ee-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "147000-148023",
+      "compare_to": "ee-base",
+      "run": 36270091127,
+      "reading": "paired -0.058 [-0.082, -0.035] over 1024; bot nuked 32",
+      "verdict": "rule 4: upper bound below 0 -- the discount costs at 0.5 and above",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": null,
+      "run": 36289814099,
+      "reading": "0.512 [0.499, 0.525] over 1024 vs v0.6.0; bot nuked 67",
+      "verdict": "base: event_exposure 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": 36289814099,
+      "reading": "paired -0.043 [-0.064, -0.022]; bot nuked 46",
+      "verdict": "the undecayed cost, replicated on v0.6.0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d07",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.7
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": 36289814099,
+      "reading": "paired -0.021 [-0.042, -0.001]; vs undecayed +0.022 [-0.002, +0.045]; bot nuked 56",
+      "verdict": "still costs at decay 0.7",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d04",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.4
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": 36289814099,
+      "reading": "paired +0.005 [-0.016, +0.025]; vs undecayed +0.048 [+0.025, +0.070]; bot nuked 62",
+      "verdict": "rule 2: distance is the cost; rule 3: recovered -- safe at (0.5, 0.4), the maintainer's call",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-025-d07",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.25,
+        "event_decay": 0.7
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed-base",
+      "run": 36289814099,
+      "reading": "paired -0.008 [-0.029, +0.014]; bot nuked 43",
+      "verdict": "covers 0",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": null,
+      "run": 36296498246,
+      "reading": "0.512 [0.499, 0.525] over 1024 vs v0.6.0; reproduced ed-base in 2304 of 2304 games",
+      "verdict": "base, and the determinism check (passed)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew1-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_window": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.020 [-0.041, +0.001]; vs ed-05-d04 -0.025 [-0.047, -0.003]",
+      "verdict": "this turn loses to decay 0.4",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew1-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_window": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.099 [-0.120, -0.078]",
+      "verdict": "costs",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew2-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_window": 2
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.007 [-0.028, +0.013]; vs ed-05-d04 -0.012 [-0.033, +0.008]",
+      "verdict": "ties decay 0.4; decay keeps its place",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ew2-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_window": 2
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.128 [-0.148, -0.107]",
+      "verdict": "costs",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ei-05",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.4,
+        "event_scope": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.006 [-0.026, +0.015]; vs ed-05-d04 -0.011 [-0.033, +0.011]",
+      "verdict": "scope does not matter at this size",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ei-10",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 1.0,
+        "event_decay": 0.4,
+        "event_scope": 1
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ew-base",
+      "run": 36296498246,
+      "reading": "paired -0.072 [-0.093, -0.051]",
+      "verdict": "costs",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed2-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": null,
+      "run": 36310899456,
+      "reading": "0.512 [0.499, 0.525] over 1024 vs v0.6.0; reproduced ed-base on all 1152 seeds",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
+      "id": "ed-05-d02",
+      "kind": "grid-point",
+      "knobs": {
+        "event_exposure": 0.5,
+        "event_decay": 0.2
+      },
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "149000-150023",
+      "compare_to": "ed2-base",
+      "run": 36310899456,
+      "reading": "paired -0.001 [-0.022, +0.020]; vs ed-05-d04 -0.006 [-0.025, +0.014]; bot nuked 53",
+      "verdict": "flat: decay 0.4 stays the candidate",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      ]
+    },
+    {
       "id": "mcts-h1-ar1",
       "kind": "ablation",
       "knobs": {

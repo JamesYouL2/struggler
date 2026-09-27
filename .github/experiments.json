@@ -1329,6 +1329,218 @@
       "compare_to": "fitted-matched"
     },
       {
+        "slug": "ee-base",
+        "anchor": "bc5ef93",
+        "seeds": "147000-148023",
+        "reserve": "148100-148227",
+        "title": "events still to come: the shipped bot (event_exposure 0) vs bc5ef93",
+        "context": "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ee-01",
+        "weights": {
+          "event_exposure": 0.1
+        },
+        "anchor": "bc5ef93",
+        "seeds": "147000-148023",
+        "reserve": "148100-148227",
+        "compare_to": "ee-base",
+        "title": "events still to come: event_exposure 0.1 vs bc5ef93",
+        "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ee-025",
+        "weights": {
+          "event_exposure": 0.25
+        },
+        "anchor": "bc5ef93",
+        "seeds": "147000-148023",
+        "reserve": "148100-148227",
+        "compare_to": "ee-base",
+        "title": "events still to come: event_exposure 0.25 vs bc5ef93",
+        "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ee-05",
+        "weights": {
+          "event_exposure": 0.5
+        },
+        "anchor": "bc5ef93",
+        "seeds": "147000-148023",
+        "reserve": "148100-148227",
+        "compare_to": "ee-base",
+        "title": "events still to come: event_exposure 0.5 vs bc5ef93",
+        "context": "Rule frozen in the note: LB above 0 vs ee-base nominates (highest estimate wins); nuclear veto at +50%; all cover 0 goes to the maintainer with the position-suite evidence; UB below 0 costs. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ed-base",
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, decayed: off vs v0.6.0",
+        "context": "Rule frozen in the note (weighing distant events less): nomination vs ed-base; hypothesis read seed by seed vs ed-05-d10. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ed-05-d10",
+        "weights": {
+          "event_exposure": 0.5
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, decayed: {'event_exposure': 0.5} vs v0.6.0",
+        "context": "Rule frozen in the note (weighing distant events less): nomination vs ed-base; hypothesis read seed by seed vs ed-05-d10. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ed-base"
+      },
+      {
+        "slug": "ed-05-d07",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_decay": 0.7
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, decayed: {'event_exposure': 0.5, 'event_decay': 0.7} vs v0.6.0",
+        "context": "Rule frozen in the note (weighing distant events less): nomination vs ed-base; hypothesis read seed by seed vs ed-05-d10. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ed-base"
+      },
+      {
+        "slug": "ed-05-d04",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_decay": 0.4
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, decayed: {'event_exposure': 0.5, 'event_decay': 0.4} vs v0.6.0",
+        "context": "Rule frozen in the note (weighing distant events less): nomination vs ed-base; hypothesis read seed by seed vs ed-05-d10. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ed-base"
+      },
+      {
+        "slug": "ed-025-d07",
+        "weights": {
+          "event_exposure": 0.25,
+          "event_decay": 0.7
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, decayed: {'event_exposure': 0.25, 'event_decay': 0.7} vs v0.6.0",
+        "context": "Rule frozen in the note (weighing distant events less): nomination vs ed-base; hypothesis read seed by seed vs ed-05-d10. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ed-base"
+      },
+      {
+        "slug": "ew-base",
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: off vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ew1-05",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_window": 1
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 0.5, 'event_window': 1} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ew1-10",
+        "weights": {
+          "event_exposure": 1.0,
+          "event_window": 1
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 1.0, 'event_window': 1} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ew2-05",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_window": 2
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 0.5, 'event_window': 2} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ew2-10",
+        "weights": {
+          "event_exposure": 1.0,
+          "event_window": 2
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 1.0, 'event_window': 2} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ei-05",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_decay": 0.4,
+          "event_scope": 1
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 0.5, 'event_decay': 0.4, 'event_scope': 1} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ei-10",
+        "weights": {
+          "event_exposure": 1.0,
+          "event_decay": 0.4,
+          "event_scope": 1
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come, window/scope: {'event_exposure': 1.0, 'event_decay': 0.4, 'event_scope': 1} vs v0.6.0",
+        "context": "Rule frozen in the note (near windows and investment scope): nomination vs ew-base; window and scope read seed by seed vs run 36289814099's ed-05-d04; ew-base must reproduce ed-base. docs/notes/claude/2026-09-26-events-still-to-come.md",
+        "compare_to": "ew-base"
+      },
+      {
+        "slug": "ed2-base",
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "title": "events still to come: off vs v0.6.0 (decay 0.2 run base; restores ew-base shards from cache)",
+        "context": "docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
+        "slug": "ed-05-d02",
+        "weights": {
+          "event_exposure": 0.5,
+          "event_decay": 0.2
+        },
+        "anchor": "v0.6.0",
+        "seeds": "149000-150023",
+        "reserve": "150100-150227",
+        "compare_to": "ed2-base",
+        "title": "events still to come: event_exposure 0.5, decay 0.2 vs v0.6.0",
+        "context": "Rule frozen in the note (decay 0.2): LB>0 vs base nominates; seed by seed vs ed-05-d04 decides 0.2 vs 0.4. docs/notes/claude/2026-09-26-events-still-to-come.md"
+      },
+      {
         "slug": "mcts-h1-ar1",
         "search": {
           "simulations": 96,
