@@ -2621,6 +2621,129 @@
       ]
     },
     {
+      "id": "v0.6.0-vs-bc5ef93",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": "v0.6.0",
+      "anchor": "bc5ef93",
+      "seeds": "143000-144023",
+      "compare_to": null,
+      "run": 36261552485,
+      "reading": "0.556 [0.539, 0.573] over 1024 (complete; 3 bc5ef93-hang seeds backfilled); bc5ef93 nuked 216 times as opponent",
+      "verdict": "v0.6.0 is stronger than bc5ef93: switch criterion 1 met",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-a-newer-anchor.md"
+      ]
+    },
+    {
+      "id": "main-vs-v0.6.0",
+      "kind": "anchor",
+      "knobs": {},
+      "ref": null,
+      "anchor": "v0.6.0",
+      "seeds": "143000-144023",
+      "compare_to": null,
+      "run": 36261552485,
+      "reading": "0.509 [0.497, 0.521] over 1024 (complete, no stalled game)",
+      "verdict": "main level with v0.6.0, and v0.6.0 runs clean as a baseline: switch criterion 2 met; v0.6.0 is the anchor for new arms",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-a-newer-anchor.md"
+      ]
+    },
+    {
+      "id": "oldw-base",
+      "kind": "ablation",
+      "knobs": {
+        "region": 1.3,
+        "military": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": null,
+      "run": 36263138793,
+      "reading": "0.555 [0.543, 0.567] over 2048 (sweep-era weights region 1.3 / military 1.0, access on)",
+      "verdict": "base for the old-weights access effect",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-why-access-moved.md"
+      ]
+    },
+    {
+      "id": "oldw-access-off",
+      "kind": "ablation",
+      "knobs": {
+        "region": 1.3,
+        "military": 1.0,
+        "access": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "140000-142047",
+      "compare_to": "oldw-base",
+      "run": 36263138793,
+      "reading": "paired -0.027 [-0.044, -0.011] over 2048; seed-level interaction with the deletion run -0.027 [-0.049, -0.006]",
+      "verdict": "access matters at the old weights and twice as much at the new: the region/military re-weighting pays only through access (+0.026 with it, -0.002 without)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-why-access-moved.md"
+      ]
+    },
+    {
+      "id": "rc-base",
+      "kind": "ablation",
+      "knobs": {},
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": null,
+      "run": 36263308113,
+      "reading": "0.558 [0.541, 0.575] over 1024; bot nuked 46",
+      "verdict": "base",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "rival-off",
+      "kind": "ablation",
+      "knobs": {
+        "scoring_rival": 0.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": 36263308113,
+      "reading": "paired +0.007 [-0.014, +0.028] over 1024; bot nuked 53 vs 46",
+      "verdict": "rule 1: covers 0, veto clear -- scoring_rival is DELETED (chore/delete-scoring-rival through its gate)",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
+      "id": "coup-flat",
+      "kind": "ablation",
+      "knobs": {
+        "coup_discount": 1.0
+      },
+      "ref": null,
+      "anchor": "bc5ef93",
+      "seeds": "145000-146023",
+      "compare_to": "rc-base",
+      "run": 36263308113,
+      "reading": "paired -0.028 [-0.048, -0.008] over 1024",
+      "verdict": "rule 2: upper bound below 0 -- coup_discount is KEPT; the sweep's -0.005 [-0.025, +0.015] missed it",
+      "status": "answered",
+      "notes": [
+        "docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
+      ]
+    },
+    {
       "id": "ee-base",
       "kind": "ablation",
       "knobs": {},
@@ -2628,10 +2751,10 @@
       "anchor": "bc5ef93",
       "seeds": "147000-148023",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36270091127,
+      "reading": "0.571 [0.554, 0.588] over 1024 (vs bc5ef93); bot nuked 48",
+      "verdict": "base: event_exposure 0",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2646,10 +2769,10 @@
       "anchor": "bc5ef93",
       "seeds": "147000-148023",
       "compare_to": "ee-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36270091127,
+      "reading": "paired -0.005 [-0.026, +0.017] over 1024; bot nuked 41",
+      "verdict": "rule 3: covers 0 -- strength does not see it; the position suite does (3 of 6 flip to the maintainer's move); the maintainer's call",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2664,10 +2787,10 @@
       "anchor": "bc5ef93",
       "seeds": "147000-148023",
       "compare_to": "ee-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36270091127,
+      "reading": "paired -0.021 [-0.044, +0.001] over 1024; bot nuked 38",
+      "verdict": "rule 3: covers 0 at its edge, leaning worse",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]
@@ -2682,10 +2805,10 @@
       "anchor": "bc5ef93",
       "seeds": "147000-148023",
       "compare_to": "ee-base",
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36270091127,
+      "reading": "paired -0.058 [-0.082, -0.035] over 1024; bot nuked 32",
+      "verdict": "rule 4: upper bound below 0 -- the discount costs at 0.5 and above",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-26-events-still-to-come.md"
       ]

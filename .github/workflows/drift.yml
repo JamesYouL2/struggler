@@ -105,7 +105,7 @@ jobs:
           fetch-depth: 0
       - id: arms
         env:
-          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.1", "bc5ef93", "07d553a", "v0.3.4"]' }}
+          ANCHORS: ${{ inputs.anchors || '["v0.1.0", "v0.2.1", "bc5ef93", "07d553a", "v0.3.4", "v0.6.0"]' }}
           SEEDS: ${{ inputs.seeds || '6000-7023' }}
           DRIFT_BOOKS: ${{ inputs.books }}
         run: |

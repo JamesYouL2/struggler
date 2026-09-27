@@ -36,9 +36,9 @@
     },
     "event_exposure": {
       "value": 0.0,
-      "source": "expert",
-      "determination": "inert",
-      "note": "OFF as shipped, 2026-09-26. The maintainer's rule: a country an event still to come is aimed at is worth less (Vietnam < Laos while Vietnam Revolts is live, South Korea < North Korea, Egypt < Libya), Mid and Late War cards counted before they enter. The shares are derived from the engine's own events (scripts/probe_event_exposure.py -> event_exposure.json); the weight is unmeasured until its arm."
+      "source": "gate",
+      "determination": "bounded",
+      "note": "OFF as shipped, 2026-09-26. The maintainer's rule: a country an event still to come is aimed at is worth less (Vietnam < Laos while Vietnam Revolts is live, South Korea < North Korea, Egypt < Libya), Mid and Late War cards counted before they enter. The shares are derived from the engine's own events (scripts/probe_event_exposure.py -> event_exposure.json); the weight is unmeasured until its arm. Measured 2026-09-26 (run 36270091127, 1024 seeds vs bc5ef93): 0.1 -0.005 [-0.026, +0.017], 0.25 -0.021 [-0.044, +0.001], 0.5 -0.058 [-0.082, -0.035] -- monotone worse with weight; stays 0 unless the maintainer takes 0.1 on the position-suite evidence."
     },
     "region": {
       "value": 2.6,
@@ -72,8 +72,9 @@
     },
     "coup_discount": {
       "value": 0.9,
-      "source": "guess",
-      "determination": "underdetermined"
+      "source": "gate",
+      "determination": "bounded",
+      "note": "Setting it to 1.0 (deleting the discount) measured -0.028 [-0.048, -0.008] paired over 1024 seeds (run 36263308113, vs bc5ef93): the discount is load-bearing. The 2026-09-24 sweep's -0.005 [-0.025, +0.015] had it as a deletion candidate. 0.9 itself is not pinned, only 'below 1'. docs/notes/claude/2026-09-26-deleting-scoring-rival-and-coup-discount.md"
     },
     "reply_model": {
       "value": 3.0,
@@ -275,16 +276,16 @@
   },
   "_summary": {
     "counts_by_source": {
-      "guess": 14,
-      "gate": 10,
+      "guess": 13,
+      "gate": 12,
       "measured": 9,
       "derived": 3,
-      "expert": 5
+      "expert": 4
     },
     "counts_by_determination": {
-      "underdetermined": 6,
-      "bounded": 17,
-      "inert": 4,
+      "underdetermined": 5,
+      "bounded": 19,
+      "inert": 3,
       "overdetermined": 2,
       "determined": 11,
       "known-wrong": 1

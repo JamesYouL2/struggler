@@ -1,4 +1,4 @@
-# Events still to come: discount the country an event is aimed at
+# Events still to come: discount the country an event is aimed at -- measured, off
 
 The maintainer's rule (2026-09-26): "Vietnam is less valuable than Laos due
 to Vietnam Revolts. South Korea less valuable than North Korea, Egypt less
@@ -131,6 +131,55 @@ off. `ee-base` is the shipped bot; `ee-01`, `ee-025` and `ee-05` set
 4. **Any arm with an upper bound below 0:** that weight costs. The term
    stays at 0 at that weight or above, and the note says why.
 
-## The readings
+## The readings (run 36270091127, 2026-09-26)
 
-(Filled in at read time.)
+All four arms are complete at 1024 seeds. Five seeds were lost to the
+`bc5ef93` anchor's helper-chain hang and backfilled from the spares.
+The run was dispatched before #67 moved AWACS to the Late War, so both
+sides of every pair play that one-card-off deck; a paired difference is
+unaffected.
+
+| arm | vs bc5ef93 | paired vs `ee-base` | bot DEFCON-1 losses |
+| --- | ---: | ---: | ---: |
+| `ee-base` (0) | 0.571 [0.554, 0.588] | -- | 48 |
+| `ee-01` (0.1) | 0.566 | -0.005 [-0.026, +0.017] | 41 |
+| `ee-025` (0.25) | 0.550 | -0.021 [-0.044, +0.001] | 38 |
+| `ee-05` (0.5) | 0.514 | **-0.058 [-0.082, -0.035]** | 32 |
+
+**By the rule:**
+
+- **Rule 1: nothing is nominated.** No lower bound is above 0.
+- **Rule 4: 0.5 costs.** Its upper bound is below 0, so the term does not
+  ship at 0.5 or above.
+- **Rule 3: 0.1 and 0.25 cover 0.** 0.25 does so only at its edge. At
+  1024 seeds strength does not see them, while the position suite does:
+  three of six positions flip to the maintainer's move at any weight from
+  0.1. **So this is the maintainer's decision.** `event_exposure` stays 0
+  unless they take 0.1, and taking it goes through a change gate.
+
+The shape is monotone: more discount, more loss. The bot's own DEFCON-1
+losses fall with the weight, from 48 to 32. That fall is a real change in
+play, not noise at this size, and it does not buy strength.
+
+## Why it might cost (hypotheses, not yet tested)
+
+1. **It discounts holding, not just investing.** The maintainer's rule is
+   about where to put influence. The implementation discounts a
+   country's importance in the whole board value, so an exposed
+   battleground the bot already controls counts for less at the next
+   scoring, though it scores in full until the event lands. Applied only
+   to the placement decision (the `delta` of a trial), with the board value
+   left alone, the rule would say what the maintainer said and no more.
+2. **Future cards count as certain from turn 1.** `p_event_fires` gives a
+   Mid or Late War card 1.0 as soon as it enters before the game ends: the
+   scoring schedule's flat convention. That discounts Iran, Poland and
+   Nicaragua for the whole Early War, when their events are years off. A
+   time discount would weigh a Late War event less on turn 1.
+3. **Both sides are discounted alike.** For the side the event helps,
+   the country comes free later, but holding it now still counts. The
+   symmetric discount charges the beneficiary for a threat that is not
+   theirs.
+
+(1) and (2) are each a small code change, and each can be tested on the
+annotated positions first, which cost seconds, before an arm. The suite
+now reads 4 of 6 with the term on; any variant must keep that.
