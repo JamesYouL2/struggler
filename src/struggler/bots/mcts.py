@@ -54,7 +54,8 @@ class Edge:
 class MCTSPlayer:
     def __init__(self, weights=None, *, seed=0, simulations=24, max_steps=256,
                  time_limit=None, opponent_model=None, rollout_options=None, search_all=False,
-                 horizon=None, rounds=None, safe_root=False, leaf_risk=False, confidence=None):
+                 horizon=None, rounds=None, safe_root=False, leaf_risk=False, confidence=None,
+                 leaf_scale=100.):
         if simulations < 1 or max_steps < 1:
             raise ValueError('simulations and max_steps must be positive')
         if time_limit is not None and (not math.isfinite(time_limit) or time_limit <= 0):
@@ -106,6 +107,14 @@ class MCTSPlayer:
         # the policy's card. Traced 2026-09-27 (seed 151001): an override was
         # decided by 0.8829 against 0.8825 over 33 visits each, noise.
         self.confidence = confidence
+        # The leaf's temperature: tanh(value / leaf_scale). 100 is the
+        # prototype's guess. Fitted to 1500 self-play games' outcomes it is
+        # about 500 -- at 100, 54.5% of held-out leaves read beyond
+        # [.05, .95] and a leaf of 0.99 won 79%
+        # (docs/notes/claude/2026-09-27-win-probability-fit-held-out.md).
+        if not leaf_scale > 0:
+            raise ValueError('leaf_scale must be positive')
+        self.leaf_scale = float(leaf_scale)
         self._root_half = None
         self.intent = None
         self.last_search = None
@@ -270,7 +279,7 @@ class MCTSPlayer:
         value = self.policy.evaluate(obs)
         value += self.policy.vp_value(obs) * sign * engine.vp
         # Bounded heuristic leaves remain strictly below a certain win/loss.
-        leaf = max(-.99, min(.99, math.tanh(value / 100.)))
+        leaf = max(-.99, min(.99, math.tanh(value / self.leaf_scale)))
         if self.leaf_risk and obs.hand:
             risk = max(0.0, min(1.0, self.policy.planner_for(obs).risk()))
             leaf = (1.0 - risk) * leaf - risk

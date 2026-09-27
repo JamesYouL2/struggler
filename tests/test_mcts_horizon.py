@@ -78,3 +78,18 @@ def test_an_unconfident_search_plays_the_policys_card():
     player = MCTSPlayer(seed=1, simulations=8, search_all=True, horizon=1, confidence=1e9)
     action = player.choose_action(obs, [])
     assert action.payload['card'] == player.last_search['policy_card'] == player.last_search['chosen']
+
+
+def test_the_leaf_scale_is_the_leafs_temperature():
+    """`leaf_scale` divides the value inside the leaf's tanh: a larger scale
+    is a less confident leaf, never a different sign. Fitted on 2026-09-27
+    at about 500 against the prototype's 100."""
+    recs = json.loads(gzip.open(ROOT / 'tests' / 'corpus' / 'positions.json.gz').read())['records']
+    engine = Engine.deserialize(recs[0]['engine'])
+    with pytest.raises(ValueError):
+        MCTSPlayer(leaf_scale=0)
+    hot, cool = MCTSPlayer(), MCTSPlayer(leaf_scale=500)
+    for side in (Side.US, Side.USSR):
+        a, b = hot.leaf_return(engine, side), cool.leaf_return(engine, side)
+        assert abs(b) <= abs(a)
+        assert a * b >= 0

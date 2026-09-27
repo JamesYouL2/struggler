@@ -77,3 +77,20 @@ free as a safety margin.
 
 The rows, report and table are artifacts of run 36344337350 (they expire
 after 30 days). Local copies are in `logs/winprob/ci-36344337350/`.
+
+## The search arm (dispatched 2026-09-27)
+
+`mcts-leaf500` against `mcts-leaf100`. Both are the guarded h1 AR1 search
+(96 simulations, safe root, leaf risk, confidence 2), and they differ only
+in `leaf_scale` (`MCTSPlayer(leaf_scale=...)`,
+`STRUGGLER_MCTS_LEAF_SCALE`). Both play HEAD's strategic bot on the fresh
+block 152000-152511 and are paired by seed. The rule, written before the
+number, is in `.github/experiments.json`. Read the paired difference with
+a one-sided 95% interval:
+
+- lower bound above 0: 500 becomes the MCTS default;
+- upper bound below 0: the fit's calibration does not transfer to search;
+- the interval covers 0: no measured effect at 512 games.
+
+Either way, the arm is vetoed if the searching side's DEFCON-1 losses are
+more than 1.5 times `mcts-leaf100`'s.

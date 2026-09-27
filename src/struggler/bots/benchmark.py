@@ -286,6 +286,7 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None,
         options = json.loads(os.environ.get('STRUGGLER_ROLLOUT_OPTIONS', '{}'))
         # STRUGGLER_MCTS_HORIZON=<n> stops each simulation n action rounds past the root.
         # STRUGGLER_MCTS_ROUNDS=1,2 searches only those action rounds.
+        # STRUGGLER_MCTS_LEAF_SCALE=<x> scores a leaf as tanh(value / x).
         horizon = os.environ.get('STRUGGLER_MCTS_HORIZON')
         rounds = os.environ.get('STRUGGLER_MCTS_ROUNDS')
         return MCTSPlayer(weights, seed=seed, simulations=simulations, rollout_options=options,
@@ -295,7 +296,8 @@ def build(kind: str, seed: int, simulations: int, model: str | None = None,
                           safe_root=os.environ.get('STRUGGLER_MCTS_SAFE_ROOT') == '1',
                           leaf_risk=os.environ.get('STRUGGLER_MCTS_LEAF_RISK') == '1',
                           confidence=float(os.environ['STRUGGLER_MCTS_CONFIDENCE'])
-                          if os.environ.get('STRUGGLER_MCTS_CONFIDENCE') else None)
+                          if os.environ.get('STRUGGLER_MCTS_CONFIDENCE') else None,
+                          leaf_scale=float(os.environ.get('STRUGGLER_MCTS_LEAF_SCALE') or 100.))
     if kind == 'greedy':
         from struggler.bots.greedy import GreedyPlayer
         return GreedyPlayer()

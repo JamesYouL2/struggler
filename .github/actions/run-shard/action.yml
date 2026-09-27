@@ -139,6 +139,7 @@ runs:
             if s.get("safe_root"): print("export STRUGGLER_MCTS_SAFE_ROOT=1")
             if s.get("leaf_risk"): print("export STRUGGLER_MCTS_LEAF_RISK=1")
             if s.get("confidence") is not None: print("export STRUGGLER_MCTS_CONFIDENCE=%s" % float(s["confidence"]))
+            if s.get("leaf_scale") is not None: print("export STRUGGLER_MCTS_LEAF_SCALE=%s" % float(s["leaf_scale"]))
         ' "$SHARD")
         eval "$SEARCH_ENV"
         if [ "${SEARCH:-}" = 1 ]; then

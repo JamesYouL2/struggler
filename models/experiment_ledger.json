@@ -3189,6 +3189,62 @@
       "notes": [
         "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
       ]
+    },
+    {
+      "id": "mcts-leaf100",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0,
+          "leaf_scale": 100.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "152000-152511",
+      "compare_to": null,
+      "run": null,
+      "reading": null,
+      "verdict": null,
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
+      ]
+    },
+    {
+      "id": "mcts-leaf500",
+      "kind": "ablation",
+      "knobs": {
+        "search": {
+          "simulations": 96,
+          "horizon": 1,
+          "rounds": [
+            1
+          ],
+          "safe_root": true,
+          "leaf_risk": true,
+          "confidence": 2.0,
+          "leaf_scale": 500.0
+        }
+      },
+      "ref": null,
+      "anchor": null,
+      "seeds": "152000-152511",
+      "compare_to": "mcts-leaf100",
+      "run": null,
+      "reading": null,
+      "verdict": null,
+      "status": "planned",
+      "notes": [
+        "docs/notes/claude/2026-09-27-win-probability-fit-held-out.md"
+      ]
     }
   ]
 }
