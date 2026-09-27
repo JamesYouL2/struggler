@@ -140,6 +140,26 @@ class Board:
 
     # -- control --------------------------------------------------------------
 
+    def war_penalty(self, target: str, defender: Side, count_target_control: bool) -> int:
+        """The die penalty a war on `target` suffers: -1 per country adjacent
+        to it that `defender` controls, -1 if `defender`'s superpower space is
+        adjacent (2.1.5: the superpowers "provide the same benefits as
+        'adjacent controlled countries' for the purposes of events"), and -1
+        for `target` itself only for the war whose card says so
+        (`count_target_control`: Arab-Israeli War counts Israel; Korean War,
+        Indo-Pakistani War, Iran-Iraq War and Brush War do not).
+
+        ONE function for the engine's roll and the bot's estimate of it: the
+        scorer once re-derived this without the superpower term and priced a
+        USSR Brush War on Mexico at 1/2 against the engine's 1/3 (Astra's
+        audit, 2026-09-27, F4)."""
+        penalty = sum(1 for n in self.neighbors(target) if self.control(n) is defender)
+        if self.is_adjacent(defender.value, target):
+            penalty += 1
+        if count_target_control and self.control(target) is defender:
+            penalty += 1
+        return penalty
+
     def control(self, country_id: str) -> Side | None:
         """A side controls a country when its influence exceeds the
         opponent's by at least the country's stability number.

@@ -98,7 +98,9 @@ def test_final_scoring_scores_every_region_before_deciding_on_vp():
     engine._finish_game()
     assert engine.winner is Side.USSR, "every region counts before the winner is decided"
     assert engine.game_over_reason == "final_vp"
-    assert engine.vp == -37
+    # -37 from the regions, then -1 for the China Card: the USSR holds it
+    # at the start and nothing here moves it (Astra's audit, 2026-09-27, F2).
+    assert engine.vp == -38
     assert engine.final_scoring_ran
 
 
@@ -124,6 +126,7 @@ def test_final_scoring_is_recorded_even_when_it_ends_on_another_reason():
     # A draw ends with no reason at all, and still reached Final Scoring.
     drawn = Engine(seed=1)
     drawn.turn = 10
+    drawn.vp = 1  # the USSR's China Card point levels it (F2, 2026-09-27)
     drawn._finish_game()
     assert drawn.is_terminal and drawn.winner is None and drawn.game_over_reason is None
     assert drawn.final_scoring_ran
