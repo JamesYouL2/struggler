@@ -2759,10 +2759,10 @@
       "anchor": null,
       "seeds": "151000-151255",
       "compare_to": null,
-      "run": null,
-      "reading": null,
-      "verdict": "planned: rule frozen in the note before dispatch",
-      "status": "planned",
+      "run": 36301443382,
+      "reading": "0.479 [0.448, 0.510] over 256 vs HEAD strategic; MCTS side DEFCON-1 losses 31 vs 8 (38 vs 9 over all 640 games); 36.7% overrides; 39.9 s a search",
+      "verdict": "rule 4 veto fires (3.9x nuclear losses) -- a failure; hypothesis: the 1-round leaf does not price whole-hand survival",
+      "status": "answered",
       "notes": [
         "docs/notes/claude/2026-09-27-mcts-horizons-timed.md"
       ]

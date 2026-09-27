@@ -96,3 +96,50 @@ THE RULE, not moved after the number:
    ahead), and it is looked at before anything wider is tried.
 4. **Veto:** DEFCON-1 losses by the MCTS side more than 1.5x the strategic
    side's is a failure, whatever the score.
+
+## The first experiment: the reading (run 36301443382, 2026-09-27)
+
+The run is complete: 256 seeds (512 games) plus two spare shards, no stall.
+
+| | |
+| --- | ---: |
+| score vs HEAD's strategic bot | **0.479 [0.448, 0.510]** (US 0.553, USSR 0.406) |
+| DEFCON-1 losses, MCTS side / strategic side | **38 / 9** over all 640 games (31 / 8 in the counted 512) |
+| searches | 5010, at 39.9 s each on a runner (17.5 s locally) |
+| searched plays that overrode the strategic pick | **36.7%** |
+| mean game | 342 s |
+
+**By the rule: rule 4's veto fires** (MCTS nuclear losses are 3.9x the
+strategic side's; the line was 1.5x), so this is a failure whatever the
+score. The score itself covers 0.5 and leans worse, which is rule 2's
+"not measurable", with the USSR seat worst.
+
+**Where the losses are:** 27 of 38 came as the USSR, on turn 2 (10) and
+turns 8-9 (16). The override rate is barely higher in the games MCTS lost
+to DEFCON 1 (39.9%) than elsewhere (36.6%), so the search is not reckless
+in general. It is losing specific games.
+
+**The likeliest cause (a hypothesis, not yet traced).** The strategic
+ranking prices whole-hand survival (`safety_key`: the survival planner's
+risk that the cards left can all be played safely before the turn ends).
+A 1-round search scores the position one round ahead with `leaf_return`
+(value function + banked VP), which does not see a hand that has become
+unplayable later in the turn. The rollouts below the root use
+`RolloutPolicy`'s immediate-only survival guard. So the search can prefer
+an AR1 card that scores better one round out and leaves the hand
+cornered, which is exactly the turn-8/9 shape, and turn 2 is the first
+turn with DEFCON low enough to bite.
+
+**Next, before any wider search** (rule 3's instruction, since the leaf is
+the suspect):
+
+1. **Trace it:** replay three or four MCTS-side DEFCON-1 games with logs on,
+   and check that the AR1 override left a cornered hand.
+2. **Fix it in the leaf:** charge the leaf the survival planner's residual
+   risk for the hand left, priced against the game as `safety_key`
+   already does. Or, more simply, restrict the root to moves whose
+   safety risk ties the policy's best (the prototype's original "tie
+   the best strategic survival ranking" rule, which the horizon leaf now
+   bypasses).
+3. **Re-run the same arm.** The strategic side's games reproduce exactly,
+   so the comparison is clean.
