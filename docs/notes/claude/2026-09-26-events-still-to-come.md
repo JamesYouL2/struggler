@@ -350,3 +350,30 @@ this-or-next-turn, investment scope) are all level with no discount, and
 all agree with the maintainer on 4 of 6 positions against 2 of 6 off.
 None is measured to help. (0.5, decay 0.4) remains the maintainer's call,
 and nothing in this run argues for a different candidate.
+
+## Decay 0.2: the rule, before the number (2026-09-27)
+
+The maintainer asked for one more point below 0.4. Decay 1.0, 0.7 and 0.4
+at weight 0.5 read -0.043, -0.021 and +0.005: improving, and levelling at
+0.4. The "this or next turn" window, which is near-only by construction,
+tied 0.4 (-0.012). The expectation is that 0.2 also lands level, but the
+point is cheap.
+
+Arms, on the same seeds and anchor as runs 36289814099 / 36296498246
+(149000-150023, reserve 150100-150227, `v0.6.0`, waves off):
+
+- `ed2-base`: off. Its shards restore from cache: the src tree is
+  unchanged since `ew-base`, and the cache key ignores the slug;
+- `ed-05-d02`: `event_exposure` 0.5, `event_decay` 0.2, compared to
+  `ed2-base`.
+
+THE RULE, not moved after the number:
+
+1. **Lower bound above 0 against the base:** nominated for a change gate
+   (veto at +50% bot DEFCON-1 losses).
+2. **Seed by seed against `ed-05-d04`** (exact across runs:
+   determinism held in 2304 of 2304 games). Above 0 means 0.2 replaces 0.4
+   as the candidate. Covering 0 means the curve has flattened, and 0.4
+   stays the candidate.
+3. **Upper bound below 0 against the base:** 0.2 costs, and the curve has
+   turned back.
