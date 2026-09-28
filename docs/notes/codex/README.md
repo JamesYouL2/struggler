@@ -8,6 +8,7 @@ One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
 
+- [2026-09-28 — DeepStruggle comparison](2026-09-28-deepstruggle-comparison.md) — human-game diagnostics, native-port patterns, and what not to transplant
 - [2026-09-27 — Linear value learning before MCTS self-training](2026-09-27-linear-value-learning.md) — linear model first, outcome labels, information boundaries, and staged validation
 - [2026-09-27 — Correctness and Rust-port readiness](2026-09-27-correctness-rust-readiness.md) — five reproduced defects, merged placement-memo issue, native-port prerequisites, and prioritized experiments
 - [2026-09-25 — Correctness, next steps, and speed](2026-09-25-correctness-next-steps-speed.md) — experiment completeness, live measurement defects, active branches, and measured priorities
