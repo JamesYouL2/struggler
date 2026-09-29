@@ -4,6 +4,8 @@
 
 ## Contents
 
+- [2026-09-28 — Correctness, freeze readiness, and remaining strength ideas](2026-09-28-correctness-freeze-and-strength.md) — reproduced stale MCTS leaf pricing, live continuation confound, offline measurement mismatch, and a bounded freeze plan
+
 One file per topic. Recent entries sit here; older ones are in
 `archive/`. `bug-shapes.md` is the defect registry and has a stable
 path because `tests/test_recurring_defects.py` parses it.
